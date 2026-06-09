@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0c2e2b">
+<title>عدّاد الركعات</title>
+<style>
+  :root{
+    --bg:#0c2e2b; --bg2:#0f3a35; --surface:rgba(255,255,255,.06); --surface2:rgba(255,255,255,.1);
+    --line:rgba(255,255,255,.12);
+    --text:#eaf3ee; --muted:#8fb3a8; --gold:#d8b56e; --gold2:#c39a4f; --green:#3fae8e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro","Segoe UI","Noto Sans Arabic","Tahoma",sans-serif;
+    background:radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+    color:var(--text); min-height:100%; display:flex; flex-direction:column;
+    padding:env(safe-area-inset-top) 18px calc(env(safe-area-inset-bottom) + 18px);
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  header{text-align:center;padding:22px 0 6px;}
+  header h1{font-size:20px;font-weight:600;letter-spacing:.01em;}
+  header p{color:var(--muted);font-size:13px;margin-top:4px;}
+
+  .pills{display:flex;gap:8px;overflow-x:auto;padding:18px 2px 4px;scrollbar-width:none;justify-content:center;flex-wrap:wrap;}
+  .pills::-webkit-scrollbar{display:none;}
+  .pill{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    font:inherit;font-size:14px;font-weight:600;padding:9px 15px;border-radius:999px;cursor:pointer;transition:.18s;white-space:nowrap;}
+  .pill .n{color:var(--gold);font-weight:700;margin-inline-start:5px;}
+  .pill.on{background:var(--gold);color:#23231a;border-color:var(--gold);}
+  .pill.on .n{color:#23231a;}
+
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:10px 0;}
+  .ring{position:relative;width:248px;height:248px;display:flex;align-items:center;justify-content:center;}
+  .ring svg{position:absolute;inset:0;transform:rotate(-90deg);} 
+  .ring .track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:10;}
+  .ring .prog{fill:none;stroke:var(--gold);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1);}
+  .center{display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1;}
+  .center .num{font-size:78px;font-weight:300;line-height:1;letter-spacing:-.02em;}
+  .center .of{color:var(--muted);font-size:14px;font-weight:600;}
+  .center .lbl{color:var(--muted);font-size:13px;margin-top:6px;}
+  .ring.pulse{animation:pulse .5s ease;}
+  @keyframes pulse{0%{transform:scale(1);}40%{transform:scale(1.04);}100%{transform:scale(1);}}
+  .ring.done .prog{stroke:var(--green);}
+  .ring.done{animation:glow 1.6s ease infinite;}
+  @keyframes glow{0%,100%{filter:drop-shadow(0 0 0 rgba(63,174,142,0));}50%{filter:drop-shadow(0 0 18px rgba(63,174,142,.45));}}
+
+  .steps{display:flex;gap:10px;align-items:center;}
+  .step{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--muted);font-size:11px;}
+  .step .d{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--line);background:transparent;transition:.2s;}
+  .step.on .d{background:var(--gold);border-color:var(--gold);}
+  .step.on{color:var(--text);}
+
+  .status{min-height:22px;text-align:center;color:var(--muted);font-size:14px;font-weight:500;padding:0 10px;}
+  .status.live{color:var(--green);}
+  .status.done{color:var(--gold);font-weight:700;font-size:16px;}
+
+  .tilt{width:100%;max-width:320px;}
+  .tilt .bar{height:6px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;}
+  .tilt .fill{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:999px;transition:width .08s linear;}
+  .tilt .cap{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px;}
+
+  .controls{display:flex;flex-direction:column;gap:12px;width:100%;max-width:360px;margin:6px auto 0;}
+  .btn{border:0;cursor:pointer;font:inherit;font-weight:700;font-size:17px;padding:17px;border-radius:16px;
+    background:var(--gold);color:#23231a;transition:.2s;}
+  .btn:active{transform:scale(.985);}
+  .btn.stop{background:#c0584e;color:#fff;}
+  .btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--line);font-size:15px;}
+  .row{display:flex;gap:10px;}
+  .row .btn{flex:1;}
+  .mini{display:flex;gap:10px;justify-content:center;}
+  .mini button{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);font:inherit;font-weight:600;
+    font-size:15px;padding:13px;border-radius:13px;cursor:pointer;}
+  .mini button:active{transform:scale(.98);}
+
+  details{width:100%;max-width:360px;margin:4px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 16px;}
+  details summary{padding:14px 0;cursor:pointer;font-size:14px;font-weight:600;list-style:none;}
+  details summary::-webkit-details-marker{display:none;}
+  details .body{padding:0 0 16px;color:var(--muted);font-size:13px;line-height:1.7;}
+  .sens{display:flex;align-items:center;gap:12px;margin-top:10px;}
+  .sens input{flex:1;accent-color:var(--gold);}
+  .note{max-width:360px;margin:14px auto 0;color:var(--muted);font-size:12px;line-height:1.7;text-align:center;}
+  .hint{max-width:360px;margin:0 auto;color:var(--muted);font-size:13px;line-height:1.7;text-align:center;}
+  b{color:var(--text);}
+</style>
+</head>
+<body>
+<header>
+  <h1>عدّاد الركعات</h1>
+  <p>يعدّ ركعاتك تلقائياً بحركة الجسم</p>
+</header>
+
+<div class="pills" id="pills"></div>
+
+<div class="stage">
+  <div class="ring" id="ring">
+    <svg viewBox="0 0 248 248">
+      <circle class="track" cx="124" cy="124" r="112"></circle>
+      <circle class="prog" id="prog" cx="124" cy="124" r="112"></circle>
+    </svg>
+    <div class="center">
+      <div class="num" id="num">0</div>
+      <div class="of">من <span id="target">2</span> ركعات</div>
+      <div class="lbl" id="lbl">جاهز</div>
+    </div>
+  </div>
+
+  <div class="steps" id="steps">
+    <div class="step" data-i="0"><span class="d"></span>ركوع</div>
+    <div class="step" data-i="1"><span class="d"></span>سجود</div>
+    <div class="step" data-i="2"><span class="d"></span>سجود</div>
+  </div>
+
+  <div class="status" id="status">اختر الصلاة واضغط ابدأ</div>
+
+  <div class="tilt">
+    <div class="bar"><div class="fill" id="tiltfill"></div></div>
+    <div class="cap"><span>الحسّاس</span><span id="tiltval">—</span></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="startBtn">ابدأ التتبّع</button>
+  <div class="mini">
+    <button id="minus">− ركعة</button>
+    <button id="plus">+ ركعة</button>
+    <button id="reset">إعادة ضبط</button>
+  </div>
+
+  <details>
+    <summary>كيف يعمل + الإعدادات</summary>
+    <div class="body">
+      <b>الطريقة:</b> ضع الهاتف في <b>جيب صدرك</b> وأنت واقف، ثم اضغط ابدأ. مع كل ركوع وسجود ينحني صدرك للأمام، فيلتقط الحسّاس الحركة ويحسب الركعات (ركوع + سجدتان = ركعة).
+      <div class="sens">
+        <span style="font-size:12px">الحساسية</span>
+        <input type="range" id="sens" min="30" max="65" value="45">
+        <span id="sensval" style="font-size:12px;color:var(--gold)">45°</span>
+      </div>
+      <div style="margin-top:8px;font-size:12px">لو يعدّ كثير: ارفع الرقم. لو ما يعدّ: نزّله.</div>
+    </div>
+  </details>
+</div>
+
+<p class="note">
+  هذا أداة مساعِدة وقد لا تكون دقيقة 100% — صحّح يدوياً بـ (+/−) عند الحاجة. وإن شككت في صلاتك فابنِ على المتيقّن واسجد سجدتي السهو، وراجع أهل العلم.
+</p>
+
+<script>
+(function(){
+  var PRAYERS=[
+    {ar:"الفجر",n:2},{ar:"الظهر",n:4},{ar:"العصر",n:4},
+    {ar:"المغرب",n:3},{ar:"العشاء",n:4},{ar:"سنة/نفل",n:2}
+  ];
+  var target=2, bends=0, tracking=false, baseline=null, inBend=false, bendStart=0, lastBend=0, thr=45, raf=0;
+  var C=2*Math.PI*112;
+
+  var prog=document.getElementById('prog');
+  prog.style.strokeDasharray=C; prog.style.strokeDashoffset=C;
+  var ring=document.getElementById('ring'), num=document.getElementById('num'),
+      targetEl=document.getElementById('target'), lbl=document.getElementById('lbl'),
+      status=document.getElementById('status'), steps=document.getElementById('steps').children,
+      tiltfill=document.getElementById('tiltfill'), tiltval=document.getElementById('tiltval'),
+      startBtn=document.getElementById('startBtn');
+
+  // build prayer pills
+  var pills=document.getElementById('pills');
+  PRAYERS.forEach(function(p,i){
+    var b=document.createElement('button');
+    b.className='pill'+(p.n===target&&i===0?' on':'');
+    b.innerHTML=p.ar+'<span class="n">'+p.n+'</span>';
+    b.onclick=function(){
+      [].forEach.call(pills.children,function(x){x.classList.remove('on');});
+      b.classList.add('on'); target=p.n; targetEl.textContent=target; doReset(); 
+    };
+    pills.appendChild(b);
+  });
+
+  function rakats(){return Math.floor(bends/3);}
+  function render(){
+    var r=Math.min(rakats(),target);
+    num.textContent=r;
+    var pct=target?Math.min(r/target,1):0;
+    prog.style.strokeDashoffset=C*(1-pct);
+    var sub=bends%3;
+    for(var i=0;i<3;i++) steps[i].classList.toggle('on', i<sub && r<target);
+    var done=r>=target && target>0;
+    ring.classList.toggle('done',done);
+    if(done){ lbl.textContent='اكتملت ✓'; status.textContent='تقبّل الله — اكتملت الصلاة'; status.className='status done'; if(tracking) buzz([60,40,60,40,120]); if(tracking) stop(true); }
+    else { lbl.textContent= tracking?'يتتبّع…':'جاهز'; }
+  }
+  function onBend(){
+    ring.classList.remove('pulse'); void ring.offsetWidth; ring.classList.add('pulse');
+    buzz(35); render();
+  }
+  function buzz(p){ if(navigator.vibrate){ try{navigator.vibrate(p);}catch(e){} } }
+
+  function angleFromBaseline(g){
+    if(!baseline) return 0;
+    var dot=baseline.x*g.x+baseline.y*g.y+baseline.z*g.z;
+    var ma=Math.hypot(baseline.x,baseline.y,baseline.z), mb=Math.hypot(g.x,g.y,g.z);
+    if(!ma||!mb) return 0;
+    var c=Math.max(-1,Math.min(1,dot/(ma*mb)));
+    return Math.acos(c)*180/Math.PI;
+  }
+  function onMotion(e){
+    var g=e.accelerationIncludingGravity; if(!g||g.x==null) return;
+    var cur={x:g.x,y:g.y,z:g.z};
+    if(!baseline){ baseline=cur; return; }
+    var ang=angleFromBaseline(cur);
+    tiltfill.style.width=Math.min(ang/90*100,100)+'%';
+    tiltval.textContent=Math.round(ang)+'°';
+    var now=Date.now();
+    if(!inBend && ang>thr){ inBend=true; bendStart=now; }
+    else if(inBend && ang<thr*0.55){
+      var dur=now-bendStart;
+      if(dur>350 && now-lastBend>700){ bends++; lastBend=now; onBend(); }
+      inBend=false;
+    }
+  }
+
+  function start(){
+    function go(){
+      tracking=true; baseline=null; inBend=false;
+      window.addEventListener('devicemotion',onMotion);
+      startBtn.textContent='إيقاف'; startBtn.classList.add('stop');
+      status.textContent='ضع الهاتف في جيب صدرك وكبّر'; status.className='status live';
+      lbl.textContent='يتتبّع…';
+    }
+    if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+      DeviceMotionEvent.requestPermission().then(function(s){
+        if(s==='granted') go();
+        else { status.textContent='لازم تسمح بالوصول لحسّاس الحركة'; status.className='status'; }
+      }).catch(function(){ status.textContent='تعذّر تشغيل الحسّاس — جرّب من الموقع (https)'; });
+    } else if(typeof DeviceMotionEvent!=='undefined'){
+      go();
+    } else {
+      status.textContent='جهازك لا يدعم حسّاس الحركة — استخدم +/− يدوياً';
+    }
+  }
+  function stop(silent){
+    tracking=false; window.removeEventListener('devicemotion',onMotion);
+    startBtn.textContent='ابدأ التتبّع'; startBtn.classList.remove('stop');
+    tiltfill.style.width='0'; tiltval.textContent='—';
+    if(!silent){ status.textContent='تم الإيقاف'; status.className='status'; }
+  }
+  function doReset(){ bends=0; if(tracking){baseline=null;} ring.classList.remove('done'); status.className='status'; if(!tracking){status.textContent='اختر الصلاة واضغط ابدأ';} render(); }
+
+  startBtn.onclick=function(){ tracking?stop(false):start(); };
+  document.getElementById('plus').onclick=function(){ bends+=3; render(); };
+  document.getElementById('minus').onclick=function(){ bends=Math.max(0,bends-3); ring.classList.remove('done'); render(); };
+  document.getElementById('reset').onclick=doReset;
+  var sens=document.getElementById('sens'), sensval=document.getElementById('sensval');
+  sens.oninput=function(){ thr=+sens.value; sensval.textContent=thr+'°'; };
+
+  render();
+})();
+</script>
+</body>
+</html>
