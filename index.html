@@ -346,7 +346,12 @@
 .weekly-item:last-child{border:0;}
 .weekly-item .label{color:var(--muted);font-size:14px;}
 .weekly-item .val{font-size:16px;font-weight:600;color:var(--text);}
-.weekly-sheet{background:var(--bg2);border-radius:24px 24px 0 0;padding:24px;position:fixed;bottom:0;left:0;right:0;z-index:200;transform:translateY(100%);transition:transform .35s;}
+.weekly-sheet{background:var(--bg2);border-radius:24px 24px 0 0;padding:18px 20px 28px;
+  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  max-height:82vh;overflow-y:auto;
+  transform:translateY(105%);transition:transform .38s cubic-bezier(.22,.8,.36,1);
+  max-width:520px;margin:0 auto;
+  box-shadow:0 -12px 50px rgba(0,0,0,.5);}
 .weekly-sheet.show{transform:translateY(0);}
 .calc-method-selector{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
 .calc-method-selector button{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;color:var(--text);font-size:14px;text-align:right;cursor:pointer;font-family:inherit;}
@@ -552,15 +557,6 @@ button,a{-webkit-tap-highlight-color:transparent;}
     </div>
     <p class="note" id="trialNote" style="color:var(--gold)"></p>
     <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ١٩</p>
-    <div id="weeklySheet" class="weekly-sheet">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h3 style="color:var(--gold);margin:0">تقرير الأسبوع</h3>
-        <button onclick="closeWeeklySheet()" style="background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
-      </div>
-      <div id="weeklyBody"></div>
-      <button class="btn" onclick="shareWeekly()" style="margin-top:14px">مشاركة</button>
-    </div>
-    <div id="weeklyBk" onclick="closeWeeklySheet()" style="display:none;position:fixed;inset:0;z-index:190;background:rgba(0,0,0,.5)"></div>
     <div style="height:calc(var(--bnav-h) + 10px)"></div>
   </div>
 
@@ -1945,5 +1941,16 @@ if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEven
 })();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
+<!-- Weekly Report Sheet — خارج كل الشاشات لتجنّب stacking context -->
+<div id="weeklyBk" onclick="closeWeeklySheet()" style="display:none;position:fixed;inset:0;z-index:290;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);"></div>
+<div id="weeklySheet" class="weekly-sheet">
+  <div style="width:40px;height:4px;background:rgba(255,255,255,.25);border-radius:2px;margin:0 auto 18px;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <h3 style="color:var(--gold);margin:0;font-size:18px">تقرير الأسبوع</h3>
+    <button onclick="closeWeeklySheet()" style="background:var(--card);border:1px solid var(--line2);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+  </div>
+  <div id="weeklyBody"></div>
+  <button class="btn" onclick="shareWeekly()" style="margin-top:16px">مشاركة التقرير</button>
+</div>
 </body>
 </html>
