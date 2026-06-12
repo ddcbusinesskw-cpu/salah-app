@@ -466,10 +466,61 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .mnum{display:inline-block;min-width:23px;height:23px;line-height:23px;text-align:center;border-radius:50%;border:1px solid #b9912f;color:#7a5a16;font-size:12px;margin:0 5px;font-family:system-ui,sans-serif;background:#f1e6c8;}
 .mnav{display:flex;gap:10px;margin-top:14px;}
 .mnav button{flex:1;background:var(--card);border:none;color:#fff;border-radius:14px;padding:14px;font-size:15px;cursor:pointer;font-family:inherit;}
-.mw{display:inline-block;color:#7f9a93;transition:color .15s;}
-.mw.ok{color:var(--green);}
-.mw.rev{color:var(--gold);}
-.mw.cur{color:var(--gold);border-bottom:2px solid var(--gold);padding-bottom:2px;}
+/* ===== شاشة التسميع — تصميم احترافي ===== */
+.mw{display:inline-block;border-radius:8px;padding:2px 6px;margin:2px 1px;
+  transition:all .25s cubic-bezier(.22,.8,.36,1);font-size:inherit;line-height:inherit;}
+/* الكلمات المستقبلية — بطاقة رمادية */
+.mw:not(.ok):not(.rev):not(.cur){
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  color:transparent;user-select:none;min-width:44px;text-align:center;}
+/* الكلمة الحالية — تنبض بالذهب */
+.mw.cur{background:rgba(234,204,126,.15);border:2px solid rgba(234,204,126,.65);
+  border-radius:12px;padding:3px 18px;min-width:60px;
+  color:transparent;animation:blankPulse 1.8s ease-in-out infinite;}
+/* الكلمات الصحيحة */
+.mw.ok{color:var(--green);background:rgba(78,202,168,.13);
+  border:1px solid rgba(78,202,168,.2);}
+/* الكلمات المكشوفة */
+.mw.rev{color:var(--gold);background:rgba(234,204,126,.1);
+  border:1px solid rgba(234,204,126,.2);font-style:italic;opacity:.85;}
+@keyframes blankPulse{
+  0%,100%{border-color:rgba(234,204,126,.4);box-shadow:none;}
+  50%{border-color:rgba(234,204,126,.9);box-shadow:0 0 12px rgba(234,204,126,.25);}
+}
+/* شريط التقدم */
+.mem-progress{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-bottom:14px;overflow:hidden;}
+.mem-progress-bar{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:2px;transition:width .4s ease;}
+.mem-stats{display:flex;gap:8px;margin-bottom:10px;justify-content:center;}
+.mem-stat{font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;}
+.mem-stat.s-ok{background:rgba(78,202,168,.15);color:var(--green);}
+.mem-stat.s-rev{background:rgba(234,204,126,.12);color:var(--gold);}
+.mem-stat.s-err{background:rgba(224,96,96,.12);color:var(--red);}
+.mem-stat.s-rem{background:rgba(255,255,255,.07);color:var(--muted);}
+/* الـ membar المحسّن */
+.membar{position:fixed;bottom:var(--bnav-h);left:0;right:0;
+  background:rgba(7,15,13,.97);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+  box-shadow:0 -14px 40px rgba(0,0,0,.5);z-index:130;max-width:680px;margin:0 auto;}
+.memhint{display:flex;gap:8px;margin-bottom:10px;}
+/* زر الميكروفون */
+.mem-mic-btn{width:100%;margin:8px 0 0;padding:13px;border-radius:14px;border:0;
+  font:inherit;font-weight:700;font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s;
+  background:rgba(78,202,168,.15);color:var(--green);}
+.mem-mic-btn.listening{background:rgba(224,96,96,.15);color:var(--red);
+  animation:micPulse 1.2s ease-in-out infinite;}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(224,96,96,.3);}60%{box-shadow:0 0 0 8px rgba(224,96,96,0);}}
+/* موجة الصوت */
+.mic-wave{display:flex;align-items:center;gap:2px;height:18px;}
+.mic-wave span{display:inline-block;width:3px;background:currentColor;border-radius:2px;
+  animation:waveBar .8s ease-in-out infinite;}
+.mic-wave span:nth-child(1){height:6px;}
+.mic-wave span:nth-child(2){height:14px;animation-delay:.1s;}
+.mic-wave span:nth-child(3){height:10px;animation-delay:.2s;}
+.mic-wave span:nth-child(4){height:16px;animation-delay:.15s;}
+.mic-wave span:nth-child(5){height:8px;animation-delay:.05s;}
+@keyframes waveBar{0%,100%{transform:scaleY(.4);}50%{transform:scaleY(1);}}
 .mayah{cursor:pointer;border-radius:5px;transition:background .15s;}
 .mayah:active{background:rgba(234,204,126,.18);}
 .mayah-hl{background:rgba(234,204,126,.32)!important;border-radius:5px;}
@@ -625,25 +676,51 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="memorize" class="screen">
     <div class="top"><button class="back" onclick="go('home')">→</button><h2>تسميع الحفظ</h2></div>
     <div class="pad">
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <select id="memSurah" style="flex:1;background:var(--card);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;font-family:inherit;font-size:15px"></select>
-        <button class="btn" style="margin:0;flex:0 0 auto;padding:0 22px" onclick="memStart()">ابدأ</button>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <select id="memSurah" style="flex:1;background:var(--card);color:#fff;border:1px solid var(--line2);border-radius:14px;padding:13px 14px;font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;cursor:pointer"></select>
+        <button class="btn" style="margin:0;flex:0 0 auto;padding:0 24px;border-radius:14px" onclick="memStart()">ابدأ</button>
       </div>
-      <div id="memText" class="ayat" style="font-size:23px;line-height:2.7;min-height:60px"></div>
+      <!-- شريط التقدم -->
+      <div id="memProgressWrap" style="display:none;margin-bottom:12px">
+        <div class="mem-progress"><div class="mem-progress-bar" id="memProgressBar" style="width:0%"></div></div>
+        <div class="mem-stats">
+          <span class="mem-stat s-ok" id="memStatOk">✓ ٠</span>
+          <span class="mem-stat s-rev" id="memStatRev">👁 ٠</span>
+          <span class="mem-stat s-err" id="memStatErr">✗ ٠</span>
+          <span class="mem-stat s-rem" id="memStatRem">٠ متبقية</span>
+        </div>
+      </div>
+      <div id="memText" class="ayat" style="font-size:22px;line-height:3;min-height:60px;letter-spacing:.02em"></div>
       <div id="memScore" style="display:none"></div>
-      <p class="note" id="memNote">اختر سورة وسمّع كتابةً أو صوتيًا. ٣ محاولات لكل كلمة، وبعدها اسمعها أو اكشفها — وبالنهاية تقييم. التسميع الصوتي يعمل على كروم/أندرويد فقط (غير مدعوم على آيفون ومتصفحات التطبيقات).</p>
+      <p class="note" id="memNote" style="margin-top:20px">اختر سورة وسمّع <b style="color:var(--text)">كتابةً</b> (اكتب كل كلمة) أو <b style="color:var(--text)">صوتيًا</b> (اقرأ بصوت عالٍ). ٣ محاولات ثم يظهر خيار السماع أو الكشف.</p>
       <div id="memSpacer"></div>
     </div>
     <div id="memBar" class="membar" style="display:none">
       <div id="memHint" class="memhint" style="display:none">
-        <button class="btn" style="margin:0;flex:1" onclick="memHear()">🔊 اسمع</button>
-        <button class="btn" style="margin:0;flex:1" onclick="memReveal()">👁 اعرض</button>
+        <button class="btn" style="margin:0;flex:1;background:rgba(78,202,168,.18);color:var(--green)" onclick="memHear()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          اسمع الكلمة
+        </button>
+        <button class="btn" style="margin:0;flex:1;background:rgba(234,204,126,.15);color:var(--gold)" onclick="memReveal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          اكشف الكلمة
+        </button>
       </div>
-      <div style="display:flex;gap:8px">
-        <input id="memInput" placeholder="اكتب الكلمة التالية…" onkeydown="if(event.key==='Enter')memCheck()" style="flex:1;background:var(--card);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:12px;padding:13px 14px;font-size:18px;font-family:inherit;outline:none">
-        <button class="btn" style="margin:0;flex:0 0 auto;padding:0 22px" onclick="memCheck()">تحقّق</button>
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <input id="memInput" placeholder="اكتب الكلمة التالية…" autocomplete="off" autocorrect="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')memCheck()"
+          oninput="memInputHint()"
+          style="flex:1;background:var(--card);border:1.5px solid var(--line2);color:var(--text);border-radius:14px;padding:13px 16px;font-size:19px;font-family:inherit;outline:none;transition:border-color .2s;"
+          onfocus="this.style.borderColor='rgba(234,204,126,.5)'" onblur="this.style.borderColor=''">
+        <button class="btn" style="margin:0;flex:0 0 auto;padding:0 22px;border-radius:14px" onclick="memCheck()">تحقّق</button>
       </div>
-      <button id="memMic" class="btn" style="margin:8px 0 0;background:rgba(63,174,142,.22)" onclick="memVoice()">🎤 سمّع صوتيًا</button>
+      <button id="memMic" class="mem-mic-btn" onclick="memVoice()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"/></svg>
+        <span id="memMicLabel">سمّع صوتيًا</span>
+        <div class="mic-wave" id="memWave" style="display:none">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </button>
     </div>
   </div>
 
@@ -926,12 +1003,109 @@ function go(id){var dw=document.getElementById('drawer');if(dw)dw.classList.remo
 var MEM={words:[],idx:0,att:0,ok:0,rev:0,wrong:0,surah:0},memRec=null;
 function initMemorize(){var sel=document.getElementById('memSurah');if(sel&&!sel.options.length&&surahMeta){sel.innerHTML=surahMeta.map(function(s){return '<option value="'+s.number+'">'+ar(s.number)+' · '+s.name+'</option>';}).join('');}}
 function memStart(){var n=+document.getElementById('memSurah').value;var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];if(!arr){toast('المصحف غير متوفر');return;}MEM={words:[],idx:0,att:0,ok:0,rev:0,wrong:0,surah:n};for(var i=0;i<arr.length;i++){var ws=arr[i].split(/\s+/).filter(Boolean);for(var j=0;j<ws.length;j++)MEM.words.push({w:ws[j],n:snorm(ws[j]),ay:i+1});}document.getElementById('memScore').style.display='none';document.getElementById('memBar').style.display='block';document.getElementById('memNote').style.display='none';document.getElementById('memSpacer').style.height='210px';var SR=window.SpeechRecognition||window.webkitSpeechRecognition;var mic=document.getElementById('memMic');if(!SR){mic.textContent='🎤 الصوت غير مدعوم بهذا المتصفح';mic.style.opacity='.55';}else{mic.textContent='🎤 سمّع صوتيًا';mic.style.opacity='1';}var inp=document.getElementById('memInput');inp.value='';memRender();inp.focus();}
-function memRender(){var h=MEM.words.map(function(x,i){if(i<MEM.idx)return '<span class="mw '+(x.st||'ok')+'">'+x.w+'</span>';if(i===MEM.idx)return '<span class="mw cur">______</span>';return '<span class="mw">______</span>';}).join(' ');document.getElementById('memText').innerHTML=h;var done=MEM.idx>=MEM.words.length;document.getElementById('memHint').style.display=(MEM.att>=3&&!done)?'flex':'none';if(done)memFinish();}
-function memCheck(){if(MEM.idx>=MEM.words.length)return;var box=document.getElementById('memInput');var v=snorm(box.value);box.value='';if(!v)return;if(v===MEM.words[MEM.idx].n){MEM.words[MEM.idx].st='ok';MEM.ok++;MEM.idx++;MEM.att=0;memRender();}else{MEM.att++;MEM.wrong++;toast('غير صحيح — محاولة '+ar(MEM.att)+'/٣');if(MEM.att>=3)memRender();}}
+function memRender(){
+  var tot=MEM.words.length,done=MEM.idx>=tot;
+  var h=MEM.words.map(function(x,i){
+    if(i<MEM.idx)return '<span class="mw '+(x.st||'ok')+'">'+x.w+'</span>';
+    if(i===MEM.idx)return '<span class="mw cur" data-len="'+x.w.length+'"></span>';
+    return '<span class="mw">'+('—').repeat(Math.min(Math.max(x.w.length,3),8))+'</span>';
+  }).join(' ');
+  document.getElementById('memText').innerHTML=h;
+  /* شريط التقدم */
+  var pw=document.getElementById('memProgressWrap');
+  if(pw){pw.style.display=tot>0?'block':'none';}
+  var pct=tot>0?Math.round(MEM.idx/tot*100):0;
+  var pb=document.getElementById('memProgressBar');if(pb)pb.style.width=pct+'%';
+  var ok=document.getElementById('memStatOk');if(ok)ok.textContent='✓ '+ar(MEM.ok);
+  var rv=document.getElementById('memStatRev');if(rv)rv.textContent='👁 '+ar(MEM.rev);
+  var er=document.getElementById('memStatErr');if(er)er.textContent='✗ '+ar(MEM.wrong);
+  var rm=document.getElementById('memStatRem');if(rm)rm.textContent=ar(tot-MEM.idx)+' متبقية';
+  document.getElementById('memHint').style.display=(MEM.att>=3&&!done)?'flex':'none';
+  if(done)memFinish();
+}
+function memInputHint(){
+  var inp=document.getElementById('memInput');
+  if(!inp||MEM.idx>=MEM.words.length)return;
+  var v=snorm(inp.value);var target=MEM.words[MEM.idx].n;
+  if(v.length>0&&target.startsWith(v)){inp.style.borderColor='rgba(78,202,168,.5)';}
+  else if(v.length>0){inp.style.borderColor='rgba(224,96,96,.4)';}
+  else{inp.style.borderColor='';}
+}
+function memCheck(){
+  if(MEM.idx>=MEM.words.length)return;
+  var box=document.getElementById('memInput');var v=snorm(box.value);
+  if(!v)return;
+  box.value='';box.style.borderColor='';
+  if(v===MEM.words[MEM.idx].n){
+    MEM.words[MEM.idx].st='ok';MEM.ok++;MEM.idx++;MEM.att=0;
+    box.style.borderColor='rgba(78,202,168,.6)';
+    setTimeout(function(){box.style.borderColor='';},500);
+    memRender();box.focus();
+  }else{
+    MEM.att++;MEM.wrong++;
+    box.style.borderColor='rgba(224,96,96,.7)';
+    box.style.animation='none';
+    setTimeout(function(){box.style.animation='';box.style.borderColor='';},500);
+    toast('غير صحيح — محاولة '+ar(MEM.att)+'/٣');
+    if(MEM.att>=3)memRender();
+    box.focus();
+  }
+}
 function memReveal(){if(MEM.idx>=MEM.words.length)return;MEM.words[MEM.idx].st='rev';MEM.rev++;MEM.idx++;MEM.att=0;memRender();}
 function memHear(){if(MEM.idx>=MEM.words.length)return;var ed=ayEdition(),g=globalAyah(MEM.surah,MEM.words[MEM.idx].ay);var au=document.getElementById('quranAudio');au.src='https://cdn.islamic.network/quran/audio/'+ed[1]+'/'+ed[0]+'/'+g+'.mp3';var p=au.play();if(p&&p.catch)p.catch(function(){toast('تعذّر الصوت — تأكد من الإنترنت');});}
-function memVoice(){var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('التعرّف الصوتي غير مدعوم بمتصفحك');return;}var btn=document.getElementById('memMic');if(memRec){memRec.onend=null;memRec.stop();memRec=null;btn.textContent='🎤 سمّع صوتيًا';btn.style.background='rgba(63,174,142,.22)';return;}memRec=new SR();memRec.lang='ar-SA';memRec.continuous=true;memRec.interimResults=false;memRec.onresult=function(e){for(var i=e.resultIndex;i<e.results.length;i++){e.results[i][0].transcript.trim().split(/\s+/).forEach(function(word){if(MEM.idx>=MEM.words.length)return;if(snorm(word)===MEM.words[MEM.idx].n){MEM.words[MEM.idx].st='ok';MEM.ok++;MEM.idx++;MEM.att=0;}});}memRender();};memRec.onerror=function(){};memRec.onend=function(){if(memRec){try{memRec.start();}catch(e){}}};try{memRec.start();btn.textContent='⏹ إيقاف الاستماع';btn.style.background='rgba(234,204,126,.3)';toast('اقرأ الآن…');}catch(e){}}
-function memFinish(){if(memRec){memRec.onend=null;try{memRec.stop();}catch(e){}memRec=null;document.getElementById('memMic').textContent='🎤 سمّع صوتيًا';}document.getElementById('memBar').style.display='none';document.getElementById('memSpacer').style.height='0';document.getElementById('memNote').style.display='block';var tot=MEM.words.length||1,pct=Math.round(MEM.ok/tot*100);var grade=pct>=90?'ممتاز ما شاء الله 🌟':pct>=70?'جيد جدًا 👏':pct>=50?'جيد — واصِل':'تحتاج مراجعة';var sc=document.getElementById('memScore');sc.style.display='block';sc.innerHTML='<div class="votd" style="cursor:default"><div class="votd-h">النتيجة</div><div style="font-size:44px;color:var(--gold);font-weight:800">'+ar(pct)+'%</div><div style="margin:12px 0;line-height:2.2">صحيح: '+ar(MEM.ok)+' · مكشوف: '+ar(MEM.rev)+' · أخطاء: '+ar(MEM.wrong)+'<br>من أصل '+ar(tot)+' كلمة</div><div style="color:var(--gold);font-size:19px;font-weight:700">'+grade+'</div><button class="btn" style="margin-top:16px" onclick="memStart()">أعِد التسميع</button></div>';}
+function memVoice(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('التعرّف الصوتي غير مدعوم بمتصفحك — جرّب Chrome على أندرويد');return;}
+  var btn=document.getElementById('memMic');
+  var lbl=document.getElementById('memMicLabel');
+  var wave=document.getElementById('memWave');
+  function stopMic(){memRec.onend=null;try{memRec.stop();}catch(e){}memRec=null;
+    btn.classList.remove('listening');if(lbl)lbl.textContent='سمّع صوتيًا';if(wave)wave.style.display='none';}
+  if(memRec){stopMic();return;}
+  memRec=new SR();memRec.lang='ar-SA';memRec.continuous=true;memRec.interimResults=false;
+  memRec.onresult=function(e){
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      e.results[i][0].transcript.trim().split(/\s+/).forEach(function(word){
+        if(MEM.idx>=MEM.words.length)return;
+        if(snorm(word)===MEM.words[MEM.idx].n){MEM.words[MEM.idx].st='ok';MEM.ok++;MEM.idx++;MEM.att=0;}
+      });
+    }memRender();
+  };
+  memRec.onerror=function(){};
+  memRec.onend=function(){if(memRec){try{memRec.start();}catch(e){}}};
+  try{
+    memRec.start();
+    btn.classList.add('listening');
+    if(lbl)lbl.textContent='إيقاف الاستماع';
+    if(wave)wave.style.display='flex';
+    toast('اقرأ الآن بصوت واضح…');
+  }catch(e){stopMic();}
+}
+function memFinish(){
+  if(memRec){memRec.onend=null;try{memRec.stop();}catch(e){}memRec=null;
+    var btn=document.getElementById('memMic');var lbl=document.getElementById('memMicLabel');var wave=document.getElementById('memWave');
+    if(btn)btn.classList.remove('listening');if(lbl)lbl.textContent='سمّع صوتيًا';if(wave)wave.style.display='none';}
+  document.getElementById('memBar').style.display='none';
+  document.getElementById('memSpacer').style.height='0';
+  document.getElementById('memProgressWrap').style.display='none';
+  document.getElementById('memNote').style.display='block';
+  var tot=MEM.words.length||1,pct=Math.round(MEM.ok/tot*100);
+  var stars=pct>=95?'★★★★★':pct>=80?'★★★★☆':pct>=60?'★★★☆☆':pct>=40?'★★☆☆☆':'★☆☆☆☆';
+  var grade=pct>=95?'مثالي — ما شاء الله!':pct>=80?'ممتاز، أحسنت!':pct>=60?'جيد جداً، واصل!':pct>=40?'جيد، تحتاج مراجعة':'راجع السورة مجدداً';
+  var gradeColor=pct>=80?'var(--gold)':pct>=60?'var(--green)':'var(--muted)';
+  var sc=document.getElementById('memScore');sc.style.display='block';
+  sc.innerHTML='<div style="background:var(--card);border:1px solid var(--line2);border-radius:22px;padding:28px 20px;text-align:center;animation:popIn .4s cubic-bezier(.22,.8,.36,1)">'+
+    '<div style="font-size:36px;color:var(--gold);letter-spacing:4px;margin-bottom:8px">'+stars+'</div>'+
+    '<div style="font-size:56px;font-weight:800;color:'+gradeColor+';line-height:1">'+ar(pct)+'<span style="font-size:22px;font-weight:400;color:var(--muted)">%</span></div>'+
+    '<div style="color:'+gradeColor+';font-size:18px;font-weight:700;margin:10px 0 18px">'+grade+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px">'+
+      '<div style="background:rgba(78,202,168,.12);border-radius:14px;padding:12px 4px;"><div style="font-size:22px;font-weight:700;color:var(--green)">'+ar(MEM.ok)+'</div><div style="font-size:11px;color:var(--muted)">صحيح</div></div>'+
+      '<div style="background:rgba(234,204,126,.1);border-radius:14px;padding:12px 4px;"><div style="font-size:22px;font-weight:700;color:var(--gold)">'+ar(MEM.rev)+'</div><div style="font-size:11px;color:var(--muted)">مكشوف</div></div>'+
+      '<div style="background:rgba(224,96,96,.1);border-radius:14px;padding:12px 4px;"><div style="font-size:22px;font-weight:700;color:var(--red)">'+ar(MEM.wrong)+'</div><div style="font-size:11px;color:var(--muted)">خطأ</div></div>'+
+    '</div>'+
+    '<button class="btn" onclick="memStart()">أعِد التسميع</button>'+
+  '</div>';
+}
 var fullBuilt=false;
 function buildFullMushaf(){if(fullBuilt)return;if(!QURAN_EMBED||!QURAN_EMBED.surahs){document.getElementById('mushafFullBody').innerHTML='<div class="loading">المصحف غير متوفر</div>';return;}var bas=(QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'';var parts=[];var opts='';for(var n=1;n<=114;n++){var arr=QURAN_EMBED.surahs[String(n)];if(!arr)continue;opts+='<option value="'+n+'">'+ar(n)+' · '+nameFor(n)+'</option>';var inner=arr.map(function(t,i){return '<span class="mayah" id="fm'+n+'_'+(i+1)+'" onclick="ayahMenu('+n+','+(i+1)+')">'+t+'<span class="mnum">'+ar(i+1)+'</span></span>';}).join(' ');var bismM=(n!==1&&n!==9)?'<div class="mbism">'+bas+'</div>':'';parts.push('<div class="msura" id="ms'+n+'">سُورَةُ '+nameFor(n)+'</div>'+bismM+'<div class="mtext" style="margin-bottom:24px">'+inner+'</div>');}var resume='<button class="btn" style="margin-bottom:12px;background:rgba(234,204,126,.2);color:var(--gold)" onclick="resumeMushaf()">🔖 متابعة من آخر موضع محفوظ</button>';document.getElementById('mushafFullBody').innerHTML=resume+'<div class="mframe">'+parts.join('')+'</div>';var jp=document.getElementById('mushafJump');if(jp)jp.innerHTML=opts;fullBuilt=true;}
 function resumeMushaf(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}if(!l.length){toast('لا يوجد موضع محفوظ — اكبس على آية ثم «حفظ»');return;}var last=l[l.length-1];var el=document.getElementById('fm'+last.s+'_'+last.a);if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع: '+nameFor(last.s)+' · آية '+ar(last.a));}else{var s=document.getElementById('ms'+last.s);if(s)s.scrollIntoView();}}
