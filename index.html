@@ -1468,7 +1468,7 @@ function renderDailyCards(){
   var doneCount=prayers.filter(function(p){return !!s['prayer_'+p];}).length;
   dots.innerHTML=prayers.map(function(p){
     var done=!!s['prayer_'+p];
-    return '<button class="pt-dot'+(done?' done':'')+'" onclick="togglePrayer(''+p+'')" title="'+PRAYER_AR[p]+'">'+'<div class="pd-icon">'+PRAYER_ICONS[p]+'</div>'+'<div class="pd-name">'+PRAYER_AR[p]+'</div>'+'</button>';
+    return '<button class="pt-dot'+(done?' done':'')+'" onclick="togglePrayer(\''+p+'\')" title="'+PRAYER_AR[p]+'">'+'<div class="pd-icon">'+PRAYER_ICONS[p]+'</div>'+'<div class="pd-name">'+PRAYER_AR[p]+'</div>'+'</button>';
   }).join('');
   var ptTitle=document.querySelector('#prayersTrack .pt-title');
   if(ptTitle){if(doneCount===5){ptTitle.textContent='صلواتك اليوم ✓';ptTitle.style.color='var(--green)';}
