@@ -174,20 +174,39 @@
     font-size:14px;cursor:pointer;border:0;font-family:inherit;}
   .dhcard .rep{color:var(--muted);font-size:13px;}
 
-  .ring{position:relative;width:230px;height:230px;display:flex;align-items:center;justify-content:center;margin:14px auto;}
-  .ring svg{position:absolute;inset:0;transform:rotate(-90deg);}
-  .ring .track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:10;}
-  .ring .prog{fill:none;stroke:var(--gold);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1);}
-  .ring.done .prog{stroke:var(--green);}
-  .ring .ctr{display:flex;flex-direction:column;align-items:center;}
-  .ring .ctr .n{font-size:70px;font-weight:300;line-height:1;}
-  .ring .ctr .l{color:var(--muted);font-size:13px;margin-top:4px;}
+  .rak-ring-wrap{position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;margin:16px auto;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;}
+  .rak-svg{position:absolute;inset:0;transform:rotate(-90deg);width:100%;height:100%;}
+  .rak-track-out{fill:none;stroke:rgba(255,255,255,.08);stroke-width:14;}
+  .rak-prog-out{fill:none;stroke:var(--gold);stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .55s cubic-bezier(.2,.8,.2,1);}
+  .rak-ring-wrap.done .rak-prog-out{stroke:var(--green);}
+  .rak-track-in{fill:none;stroke:rgba(255,255,255,.06);stroke-width:9;}
+  .rak-prog-in{fill:none;stroke:var(--green);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .32s cubic-bezier(.2,.8,.2,1);}
+  .rak-ctr{display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;}
+  .rak-step-lbl{font-size:11px;color:var(--green);letter-spacing:.07em;min-height:15px;font-weight:600;}
+  .rak-num{font-size:84px;font-weight:200;line-height:1;transition:transform .18s cubic-bezier(.2,.8,.2,1);}
+  .rak-num.bump{transform:scale(1.2);}
+  .rak-of{color:var(--muted);font-size:14px;margin-top:2px;}
+  .rak-ripple{position:absolute;border-radius:50%;background:rgba(234,204,126,.15);width:0;height:0;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+  @keyframes rakRipple{0%{width:0;height:0;opacity:.7;}100%{width:280px;height:280px;opacity:0;}}
+  .rak-ripple.go{animation:rakRipple .5s cubic-bezier(.2,.8,.2,1);}
+  @keyframes rakDone{0%,100%{transform:scale(1);}40%{transform:scale(1.06);}70%{transform:scale(.97);}}
+  .rak-ring-wrap.done{animation:rakDone .55s cubic-bezier(.2,.8,.2,1);}
+  .rak-mode-row{display:flex;gap:8px;justify-content:center;margin:10px 0 2px;}
+  .rak-mode{background:var(--card);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:14px;padding:8px 26px;border-radius:999px;cursor:pointer;}
+  .rak-mode.on{background:var(--green);color:#051a16;border-color:transparent;}
+  .rak-ctrl-row{display:flex;gap:10px;justify-content:center;margin:10px 0;}
+  .rak-ctrl-btn{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;padding:10px 22px;border-radius:12px;cursor:pointer;}
+  .rak-ctrl-btn.doubt{border-color:var(--gold);color:var(--gold);}
+  .rak-hap-btn{background:none;border:none;font-size:17px;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;margin-inline-start:auto;}
+  .rak-hap-btn.on{color:var(--green);}
   .pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:6px;}
   .pills button{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;font-weight:600;
     padding:8px 13px;border-radius:999px;cursor:pointer;}
   .pills button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
   .pills .nn{color:var(--gold);font-weight:700;margin-inline-start:4px;}
   .pills button.on .nn{color:#1a1300;}
+  @media(prefers-reduced-motion:reduce){.rak-prog-out,.rak-prog-in,.rak-num{transition:none!important;}
+    .rak-ripple.go,.rak-ring-wrap.done{animation:none!important;}}
   .loading{text-align:center;color:var(--muted);padding:30px;font-size:14px;line-height:1.8;}
 
   /* ===== شاشات البداية (Overlays) ===== */
@@ -780,17 +799,42 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="rakaat" class="screen">
-    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>عدّاد الركعات</h2></div>
+    <div class="top">
+      <button class="back" aria-label="رجوع" onclick="go('home')">→</button>
+      <h2>عدّاد الركعات</h2>
+      <button class="rak-hap-btn" id="rakHapBtn" onclick="rakToggleHap()" aria-label="اهتزاز" title="اهتزاز">〜</button>
+    </div>
     <div class="pad">
       <div class="pills" id="prayerPills"></div>
-      <div class="ring" id="ring">
-        <svg viewBox="0 0 230 230"><circle class="track" cx="115" cy="115" r="104"></circle><circle class="prog" id="prog" cx="115" cy="115" r="104"></circle></svg>
-        <div class="ctr"><div class="n" id="rnum">0</div><div class="l"><span id="rof">من ٢</span></div></div>
+      <div class="rak-ring-wrap" id="ring"
+           ontouchstart="rakTouchStart(event)" ontouchend="rakTouchEnd(event)" ontouchcancel="rakTouchCancel()"
+           onclick="rakClick()">
+        <svg class="rak-svg" viewBox="0 0 300 300">
+          <circle class="rak-track-out" cx="150" cy="150" r="130"/>
+          <circle class="rak-prog-out" id="rakProgOut" cx="150" cy="150" r="130"/>
+          <circle class="rak-track-in" cx="150" cy="150" r="98"/>
+          <circle class="rak-prog-in" id="rakProgIn" cx="150" cy="150" r="98"/>
+        </svg>
+        <div class="rak-ctr">
+          <div class="rak-step-lbl" id="rakStepLbl"></div>
+          <div class="rak-num" id="rnum">٠</div>
+          <div class="rak-of" id="rof">من ٢</div>
+        </div>
+        <div class="rak-ripple" id="rakRipple"></div>
       </div>
-      <div id="rstatus" class="muted" style="text-align:center;min-height:20px">ضع الهاتف في جيب صدرك واضغط ابدأ</div>
-      <div style="margin-top:14px"><button class="btn" id="rstart" onclick="rakToggle()">ابدأ التتبّع</button></div>
-      <div class="mini" style="margin-top:10px"><button onclick="rakAdj(-1)">− ركعة</button><button onclick="rakAdj(1)">+ ركعة</button><button onclick="rakReset()">إعادة ضبط</button></div>
-      <p class="note">إن شككت فابنِ على المتيقّن واسجد سجدتي السهو. (+/−) للتصحيح اليدوي.</p>
+      <div class="rak-mode-row">
+        <button class="rak-mode on" id="rakModeLms" onclick="rakSetMode('touch')">لمس</button>
+        <button class="rak-mode" id="rakModeHrk" onclick="rakSetMode('orient')">حركة</button>
+      </div>
+      <div id="rstatus" class="muted" style="text-align:center;min-height:20px;font-size:13px;margin:8px 0">انقر الحلقة لإضافة ركعة</div>
+      <div id="rakStartWrap" style="display:none;margin-top:8px">
+        <button class="btn" id="rstart" onclick="rakOrientToggle()">ابدأ التتبّع</button>
+      </div>
+      <div class="rak-ctrl-row">
+        <button class="rak-ctrl-btn doubt" onclick="rakDoubt()">شككت</button>
+        <button class="rak-ctrl-btn" onclick="rakReset()">إعادة</button>
+      </div>
+      <p class="note">انقر مطوّلاً (٠٫٥ث) للتراجع عن ركعة. إن شككت فابنِ على الأقل.</p>
     </div>
   </div>
 
@@ -1848,16 +1892,28 @@ function tasbihReset(){dCount=0;renderTasbih();}
 
 /* ===== عدّاد الركعات ===== */
 var PR=[{ar:'الفجر',n:2},{ar:'الظهر',n:4},{ar:'العصر',n:4},{ar:'المغرب',n:3},{ar:'العشاء',n:4},{ar:'سنة',n:2}];
-var rTarget=2,rBends=0,rTrack=false,rBase=null,rIn=false,rStart=0,rLast=0,rThr=45,C=2*Math.PI*104;
-function buildPills(){var p=document.getElementById('prayerPills');p.innerHTML='';PR.forEach(function(x,i){var b=document.createElement('button');b.innerHTML=x.ar+'<span class="nn">'+ar(x.n)+'</span>';if(x.n===rTarget&&i===0)b.classList.add('on');b.onclick=function(){[].forEach.call(p.children,function(y){y.classList.remove('on');});b.classList.add('on');rTarget=x.n;rakReset();};p.appendChild(b);});}
-function rakRender(){var r=Math.min(Math.floor(rBends/3),rTarget);document.getElementById('rnum').textContent=ar(r);document.getElementById('rof').textContent='من '+ar(rTarget);var prog=document.getElementById('prog');prog.style.strokeDasharray=C;prog.style.strokeDashoffset=C*(1-(rTarget?r/rTarget:0));var done=r>=rTarget;document.getElementById('ring').classList.toggle('done',done);if(done&&rTrack){document.getElementById('rstatus').textContent='تقبّل الله — اكتملت الصلاة';buzz([60,40,60,40,120]);rakStop(true);}}
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0};
+var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
-function angle(g){if(!rBase)return 0;var dot=rBase.x*g.x+rBase.y*g.y+rBase.z*g.z,ma=Math.hypot(rBase.x,rBase.y,rBase.z),mb=Math.hypot(g.x,g.y,g.z);if(!ma||!mb)return 0;return Math.acos(Math.max(-1,Math.min(1,dot/(ma*mb))))*180/Math.PI;}
-function rakMotion(e){var g=e.accelerationIncludingGravity;if(!g||g.x==null)return;var c={x:g.x,y:g.y,z:g.z};if(!rBase){rBase=c;return;}var a=angle(c),now=Date.now();if(!rIn&&a>rThr){rIn=true;rStart=now;}else if(rIn&&a<rThr*0.55){if(now-rStart>350&&now-rLast>700){rBends++;rLast=now;buzz(35);rakRender();}rIn=false;}}
-function rakToggle(){if(rTrack){rakStop(false);return;}var b=document.getElementById('rstart');function gobk(){rTrack=true;rBase=null;rIn=false;window.addEventListener('devicemotion',rakMotion);b.textContent='إيقاف';document.getElementById('rstatus').textContent='ضع الهاتف في جيب صدرك وكبّر';}if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){DeviceMotionEvent.requestPermission().then(function(s){if(s==='granted')gobk();else document.getElementById('rstatus').textContent='اسمح بالوصول لحسّاس الحركة';}).catch(function(){document.getElementById('rstatus').textContent='جرّب من الموقع (https)';});}else if(typeof DeviceMotionEvent!=='undefined')gobk();else document.getElementById('rstatus').textContent='الجهاز لا يدعم الحسّاس — استخدم +/−';}
-function rakStop(silent){rTrack=false;window.removeEventListener('devicemotion',rakMotion);document.getElementById('rstart').textContent='ابدأ التتبّع';if(!silent)document.getElementById('rstatus').textContent='تم الإيقاف';}
-function rakAdj(d){rBends=Math.max(0,rBends+d*3);document.getElementById('ring').classList.remove('done');rakRender();}
-function rakReset(){rBends=0;if(rTrack)rBase=null;document.getElementById('ring').classList.remove('done');document.getElementById('rstatus').textContent='ضع الهاتف في جيب صدرك واضغط ابدأ';rakRender();}
+function buildPills(){var p=document.getElementById('prayerPills');if(!p)return;p.innerHTML='';PR.forEach(function(x){var b=document.createElement('button');b.innerHTML=x.ar+'<span class="nn">'+ar(x.n)+'</span>';if(x.n===RAK.target)b.classList.add('on');b.onclick=function(){[].forEach.call(p.children,function(y){y.classList.remove('on');});b.classList.add('on');RAK.target=x.n;rakReset();};p.appendChild(b);});}
+function rakRender(){var ring=document.getElementById('ring');var po=document.getElementById('rakProgOut');var pi=document.getElementById('rakProgIn');var ne=document.getElementById('rnum');var oe=document.getElementById('rof');var sl=document.getElementById('rakStepLbl');if(!ring||!po)return;ne.textContent=ar(RAK.count);oe.textContent='من '+ar(RAK.target);po.style.strokeDasharray=CO;po.style.strokeDashoffset=CO*(1-(RAK.target?RAK.count/RAK.target:0));pi.style.strokeDasharray=CI;if(RAK.mode==='orient'){pi.style.strokeDashoffset=CI*(1-RAK.step/3);sl.textContent=RAK.step>0?['خطوة ١','خطوة ٢','خطوة ٣'][RAK.step-1]||'':'';}else{pi.style.strokeDashoffset=CI;sl.textContent='';}var done=RAK.count>=RAK.target&&RAK.target>0;ring.classList.toggle('done',done);}
+function _rakBump(){var el=document.getElementById('rnum');if(!el)return;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');setTimeout(function(){el.classList.remove('bump');},220);}
+function _rakRipple(){var r=document.getElementById('rakRipple');if(!r)return;r.classList.remove('go');void r.offsetWidth;r.classList.add('go');}
+function rakWakeLock(on){if(on){if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(wl){RAK._wl=wl;}).catch(function(){});}else{if(RAK._wl){RAK._wl.release().catch(function(){});RAK._wl=null;}}}
+function rakTap(){if(RAK.mode!=='touch')return;_rakRipple();RAK.count=Math.min(RAK.count+1,RAK.target);_rakBump();if(RAK.hap)buzz(35);if(RAK.count>=RAK.target&&RAK.target>0)rakComplete();else rakRender();}
+function rakTouchStart(e){if(e)e.preventDefault();if(RAK.mode!=='touch')return;RAK._tDown=Date.now();RAK._tTimer=setTimeout(function(){RAK._tTimer=null;RAK.count=Math.max(0,RAK.count-1);if(RAK.hap)buzz([30,20,30]);document.getElementById('ring').classList.remove('done');rakRender();document.getElementById('rstatus').textContent='رُجع عن ركعة';},520);}
+function rakTouchEnd(e){RAK._lastTouch=Date.now();if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;rakTap();}}
+function rakTouchCancel(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}}
+function rakClick(){if(Date.now()-RAK._lastTouch<600)return;if(RAK.mode==='touch')rakTap();}
+function rakComplete(){rakRender();document.getElementById('rstatus').textContent='تقبّل الله — اكتملت الصلاة';if(RAK.hap)buzz([60,40,60,40,120]);if(RAK.mode==='orient')rakOrientToggle();rakWakeLock(false);}
+function rakSetMode(m){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}RAK.mode=m;lsSet('rak_mode',m);var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var sw=document.getElementById('rakStartWrap');var st=document.getElementById('rstatus');if(lms)lms.classList.toggle('on',m==='touch');if(hrk)hrk.classList.toggle('on',m==='orient');if(sw)sw.style.display=m==='orient'?'':'none';if(st)st.textContent=m==='touch'?'انقر الحلقة لإضافة ركعة':'ضع الهاتف في راحة يدك واضغط ابدأ';if(m==='touch'&&RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';rakWakeLock(false);}rakRender();}
+function rakToggleHap(){RAK.hap=!RAK.hap;lsSet('rak_hap',RAK.hap?'1':'0');var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);}
+function rakOrientToggle(){if(RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;RAK.step=0;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';document.getElementById('rstatus').textContent='تم الإيقاف';rakWakeLock(false);rakRender();return;}function startOrient(){rakWakeLock(true);window.addEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;RAK.step=0;var rs=document.getElementById('rstart');if(rs)rs.textContent='إيقاف';document.getElementById('rstatus').textContent='انتظر اكتشاف الوضعية الأولى…';rakRender();}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')startOrient();else document.getElementById('rstatus').textContent='اسمح بالوصول لمستشعر الاتجاه';}).catch(function(){document.getElementById('rstatus').textContent='جرّب من الموقع (https)';});}else{startOrient();}}
+function _rakOrientHandler(e){var beta=e.beta;if(beta==null)return;var now=Date.now();if(Math.abs(beta)<25){if(RAK._inTilt){if(now-RAK._tiltStart>280&&now-RAK._lastStep>550){RAK._lastStep=now;RAK.step++;if(RAK.hap)buzz(35);if(RAK.step>=3){RAK.step=0;RAK.count=Math.min(RAK.count+1,RAK.target);_rakBump();if(RAK.hap)buzz([40,20,65]);if(RAK.count>=RAK.target&&RAK.target>0){rakComplete();return;}}rakRender();}RAK._inTilt=false;}RAK._betaBase=beta;}else if(beta>28){if(!RAK._inTilt){RAK._inTilt=true;RAK._tiltStart=now;}}}
+function rakDoubt(){if(RAK.count>0){RAK.count=Math.max(0,RAK.count-1);RAK.step=0;document.getElementById('ring').classList.remove('done');if(RAK.hap)buzz([20,15,20]);document.getElementById('rstatus').textContent='بُنِيَ على الأقل — ولا تنسَ سجدتَي السهو';rakRender();}}
+function rakReset(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}if(RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';rakWakeLock(false);}RAK.count=0;RAK.step=0;document.getElementById('ring').classList.remove('done');var st=document.getElementById('rstatus');if(st)st.textContent=RAK.mode==='touch'?'انقر الحلقة لإضافة ركعة':'ضع الهاتف في راحة يدك واضغط ابدأ';rakRender();}
+function rakAdj(d){RAK.count=Math.max(0,Math.min(RAK.count+d,RAK.target));document.getElementById('ring').classList.remove('done');rakRender();}
+function rakInit(){RAK.mode=lsGet('rak_mode')||'touch';RAK.hap=(lsGet('rak_hap')||'1')==='1';buildPills();var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);var sw=document.getElementById('rakStartWrap');var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');if(lms)lms.classList.toggle('on',RAK.mode==='touch');if(hrk)hrk.classList.toggle('on',RAK.mode==='orient');if(sw)sw.style.display=RAK.mode==='orient'?'':'none';rakRender();}
 
 /* ===== تسلسل البداية: سبلاش → شروط → دخول → اشتراك → التطبيق ===== */
 var TRIAL_DAYS=12,splashDone=false;
@@ -2381,7 +2437,7 @@ togglePrayer=function(p){
 };
 
 /* ===== INIT ===== */
-buildDhikr();renderTasbih();buildPills();rakRender();
+buildDhikr();renderTasbih();rakInit();
 document.getElementById('locName').textContent=tzCity();
 boot();
 try{renderVotd();}catch(e){}
