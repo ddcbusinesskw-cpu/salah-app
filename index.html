@@ -566,6 +566,25 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-qasr-btn::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.18s;}
 .rak-qasr-btn.on{background:var(--green);}
 .rak-qasr-btn.on::after{left:21px;}
+/* ===== عداد الركعات — منتقي الصلاة ===== */
+.rak-picker-wrap{margin-bottom:10px;}
+.rak-picker-tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.rak-picker-tabs::-webkit-scrollbar{display:none;}
+.rak-ptab{background:var(--card);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:5px 13px;border-radius:999px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.rak-ptab.on{background:var(--green);color:#051a16;border-color:var(--green);}
+.rak-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;}
+.rak-type-btn{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:9px 7px;border-radius:12px;cursor:pointer;text-align:center;line-height:1.3;transition:all .18s;}
+.rak-type-btn .sub{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:2px;}
+.rak-type-btn.on{background:rgba(63,174,142,.18);border-color:var(--green);color:var(--green);}
+.rak-type-btn.on .sub{color:rgba(63,174,142,.65);}
+.rak-type-btn.sp{border-color:rgba(234,204,126,.3);}
+.rak-type-btn.sp.on{background:rgba(234,204,126,.15);border-color:var(--gold);color:var(--gold);}
+.rak-flex-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:2px 0 6px;font-size:13px;color:var(--muted);}
+.rak-flex-stepper{display:flex;align-items:center;gap:10px;}
+.rak-flex-stepper button{background:var(--card);border:1px solid var(--line);color:var(--text);width:30px;height:30px;border-radius:50%;font:inherit;font-size:16px;cursor:pointer;line-height:1;}
+.rak-flex-val{font-size:16px;font-weight:700;min-width:24px;text-align:center;}
+.rak-picker-note{font-size:11px;color:var(--gold);text-align:center;margin:2px 0 6px;padding:6px 8px;background:rgba(234,204,126,.06);border-radius:8px;}
+
 
 
 /* ===== تسميع الحفظ v2 ===== */
@@ -854,8 +873,25 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="rak-hap-btn" id="rakHapBtn" onclick="rakToggleHap()" aria-label="اهتزاز" title="اهتزاز">〜</button>
     </div>
     <div class="pad">
-      <div class="pills" id="prayerPills"></div>
-      <div class="rak-qasr-row" id="rakQasrRow"><button class="rak-qasr-btn" id="rakQasrBtn" onclick="rakToggleQasr()" aria-label="قصر"></button><span>قصر (مسافر)</span></div>
+      <div class="rak-picker-wrap" id="prayerPicker">
+        <div class="rak-picker-tabs" id="rakPickerTabs">
+          <button class="rak-ptab on" onclick="rakTypeTab('fard')">فرائض</button>
+          <button class="rak-ptab" onclick="rakTypeTab('sunnah')">سنن</button>
+          <button class="rak-ptab" onclick="rakTypeTab('flex')">مرنة</button>
+          <button class="rak-ptab" onclick="rakTypeTab('special')">خاصة</button>
+        </div>
+        <div class="rak-type-grid" id="rakTypeGrid"></div>
+        <div class="rak-flex-row" id="rakFlexRow" style="display:none">
+          <span>الركعات:</span>
+          <div class="rak-flex-stepper">
+            <button onclick="rakFlexAdj(-1)">−</button>
+            <span class="rak-flex-val" id="rakFlexVal">٢</span>
+            <button onclick="rakFlexAdj(1)">+</button>
+          </div>
+        </div>
+        <div class="rak-picker-note" id="rakPickerNote" style="display:none"></div>
+        <div class="rak-qasr-row" id="rakQasrRow"><button class="rak-qasr-btn" id="rakQasrBtn" onclick="rakToggleQasr()" aria-label="قصر"></button><span>قصر (مسافر)</span></div>
+      </div>
       <div class="rak-ring-wrap" id="ring"
            ontouchstart="rakTouchStart(event)" ontouchend="rakTouchEnd(event)" ontouchcancel="rakTouchCancel()"
            onclick="rakClick()">
@@ -2098,13 +2134,46 @@ function tap(){dCount++;if(navigator.vibrate)try{navigator.vibrate(dCount%DHIKR[
 function tasbihReset(){dCount=0;renderTasbih();}
 
 /* ===== عدّاد الركعات ===== */
-// ⚠ تركيب الصلوات — بحاجة مراجعة بشرية
-var PR=[{ar:'الفجر',n:2,s:4,t:1,key:'fajr'},{ar:'الظهر',n:4,s:8,t:2,key:'dhuhr'},{ar:'العصر',n:4,s:8,t:2,key:'asr'},{ar:'المغرب',n:3,s:6,t:2,key:'maghrib'},{ar:'العشاء',n:4,s:8,t:2,key:'isha'},{ar:'سنة',n:2,s:4,t:1,key:'sunna'}];
+// ⚠ بحاجة مراجعة بشرية — السنن والوتر والتراويح فيها اختلاف بالروايات
+var PRAYER_TYPES={
+  fard:[
+    {key:'fajr',ar:'الفجر',n:2,s:4,t:1},
+    {key:'dhuhr',ar:'الظهر',n:4,s:8,t:2,qasr:true},
+    {key:'asr',ar:'العصر',n:4,s:8,t:2,qasr:true},
+    {key:'maghrib',ar:'المغرب',n:3,s:6,t:2},
+    {key:'isha',ar:'العشاء',n:4,s:8,t:2,qasr:true},
+    {key:'jumua',ar:'الجمعة',n:2,s:4,t:1},
+    {key:'eid',ar:'العيد',n:2,s:4,t:1},
+    {key:'istisqaa',ar:'الاستسقاء',n:2,s:4,t:1}
+  ],
+  sunnah:[
+    {key:'fajr_s',ar:'سنة الفجر',n:2,s:4,t:1},
+    {key:'dhuhr_b',ar:'قبل الظهر',n:4,s:8,t:2},
+    {key:'dhuhr_a',ar:'بعد الظهر',n:2,s:4,t:1},
+    {key:'mgh_s',ar:'سنة المغرب',n:2,s:4,t:1},
+    {key:'isha_s',ar:'سنة العشاء',n:2,s:4,t:1}
+  ],
+  flex:[
+    {key:'witr',ar:'الوتر',n:3,s:6,t:2,flex:true,minN:1,maxN:11,step:2},
+    {key:'tarawih',ar:'التراويح',n:8,s:16,t:4,flex:true,minN:2,maxN:20,step:2},
+    {key:'nafl',ar:'نافلة',n:2,s:4,t:1,flex:true,minN:2,maxN:12,step:2}
+  ],
+  special:[
+    {key:'janaza',ar:'الجنازة',n:4,s:0,t:0,mode:'takbeer',note:'٤ تكبيرات بلا ركوع ولا سجود'},
+    {key:'kusuf',ar:'الكسوف',n:2,s:4,t:1,note:'ركوعان في كل ركعة (الكشف بالكاميرا يعمل للسجود)'},
+    {key:'sajda_til',ar:'سجدة التلاوة',n:1,s:1,t:0,mode:'sajda'},
+    {key:'sajda_shk',ar:'سجدة الشكر',n:1,s:1,t:0,mode:'sajda'}
+  ]
+};
+// PR kept for legacy compatibility
+var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
+var _rakCurPrayer=null;
+var _rakCurTab='fard';
 var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxSensor:null,_proxHandler:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
-function buildPills(){var p=document.getElementById('prayerPills');if(!p)return;p.innerHTML='';PR.forEach(function(x){var b=document.createElement('button');b.innerHTML=x.ar+'<span class="nn">'+ar(x.n)+'</span>';if(x.n===RAK.target)b.classList.add('on');b.onclick=function(){[].forEach.call(p.children,function(y){y.classList.remove('on');});b.classList.add('on');RAK.target=x.n;rakReset();};p.appendChild(b);});}
-function rakRender(){var ring=document.getElementById('ring');var po=document.getElementById('rakProgOut');var pi=document.getElementById('rakProgIn');var ne=document.getElementById('rnum');var oe=document.getElementById('rof');var sl=document.getElementById('rakStepLbl');if(!ring||!po)return;ne.textContent=ar(RAK.count);oe.textContent='من '+ar(RAK.target);po.style.strokeDasharray=CO;po.style.strokeDashoffset=CO*(1-(RAK.target?RAK.count/RAK.target:0));pi.style.strokeDasharray=CI;if(RAK.mode==='orient'){pi.style.strokeDashoffset=CI*(1-RAK.step/3);sl.textContent=RAK.step>0?['خطوة ١','خطوة ٢','خطوة ٣'][RAK.step-1]||'':'';}else if(RAK.mode==='cam'||RAK.mode==='prox'){pi.style.strokeDashoffset=CI*(1-RAK._sujudInRak/2);sl.textContent=RAK._sujudInRak===1?'سجدة ✓':'';}else{pi.style.strokeDashoffset=CI;sl.textContent='';}var done=RAK.count>=RAK.target&&RAK.target>0;ring.classList.toggle('done',done);}
+function buildPills(){buildPrayerPicker();}
+function rakRender(){var ring=document.getElementById('ring');var po=document.getElementById('rakProgOut');var pi=document.getElementById('rakProgIn');var ne=document.getElementById('rnum');var oe=document.getElementById('rof');var sl=document.getElementById('rakStepLbl');if(!ring||!po)return;ne.textContent=ar(RAK.count);var _pm=_rakCurPrayer?(_rakCurPrayer.mode||''):null;oe.textContent=_pm==='takbeer'?'من '+ar(RAK.target)+' تكبيرات':_pm==='sajda'?'سجدة':'من '+ar(RAK.target);po.style.strokeDasharray=CO;po.style.strokeDashoffset=CO*(1-(RAK.target?RAK.count/RAK.target:0));pi.style.strokeDasharray=CI;if(RAK.mode==='orient'){pi.style.strokeDashoffset=CI*(1-RAK.step/3);sl.textContent=RAK.step>0?['خطوة ١','خطوة ٢','خطوة ٣'][RAK.step-1]||'':'';}else if(RAK.mode==='cam'||RAK.mode==='prox'){pi.style.strokeDashoffset=CI*(1-RAK._sujudInRak/2);sl.textContent=RAK._sujudInRak===1?'سجدة ✓':'';}else{pi.style.strokeDashoffset=CI;sl.textContent='';}var done=RAK.count>=RAK.target&&RAK.target>0;ring.classList.toggle('done',done);}
 function _rakBump(){var el=document.getElementById('rnum');if(!el)return;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');setTimeout(function(){el.classList.remove('bump');},220);}
 function _rakRipple(){var r=document.getElementById('rakRipple');if(!r)return;r.classList.remove('go');void r.offsetWidth;r.classList.add('go');}
 function rakWakeLock(on){if(on){if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(wl){RAK._wl=wl;}).catch(function(){});}else{if(RAK._wl){RAK._wl.release().catch(function(){});RAK._wl=null;}}}
@@ -2121,7 +2190,7 @@ function _rakOrientHandler(e){var beta=e.beta;if(beta==null)return;var now=Date.
 function rakDoubt(){if(RAK.count>0){RAK.count=Math.max(0,RAK.count-1);RAK.step=0;document.getElementById('ring').classList.remove('done');if(RAK.hap)buzz([20,15,20]);document.getElementById('rstatus').textContent='بُنِيَ على الأقل — ولا تنسَ سجدتَي السهو';rakRender();}}
 function rakReset(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}if(RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';rakWakeLock(false);}rakCamStop();rakProxStop();RAK.count=0;RAK.step=0;RAK._sujudInRak=0;RAK._cam.sujudTotal=0;RAK._cam.inSujud=false;document.getElementById('ring').classList.remove('done');var st=document.getElementById('rstatus');if(st)st.textContent=RAK.mode==='touch'?'انقر الحلقة لإضافة ركعة':'ضع الهاتف في راحة يدك واضغط ابدأ';rakRender();}
 function rakAdj(d){RAK.count=Math.max(0,Math.min(RAK.count+d,RAK.target));document.getElementById('ring').classList.remove('done');rakRender();}
-function rakInit(){RAK.mode=lsGet('rak_mode')||'touch';RAK.hap=(lsGet('rak_hap')||'1')==='1';buildPills();var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);var sw=document.getElementById('rakStartWrap');var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var cam2=document.getElementById('rakModeCam');var prx2=document.getElementById('rakModeProx');var cp2=document.getElementById('rakCamPanel');if(lms)lms.classList.toggle('on',RAK.mode==='touch');if(hrk)hrk.classList.toggle('on',RAK.mode==='orient');if(cam2)cam2.classList.toggle('on',RAK.mode==='cam');if(prx2)prx2.classList.toggle('on',RAK.mode==='prox');if(cp2)cp2.classList.toggle('show',RAK.mode==='cam');if(sw)sw.style.display=RAK.mode==='orient'?'':'none';rakRender();}
+function rakInit(){RAK.mode=lsGet('rak_mode')||'touch';RAK.hap=(lsGet('rak_hap')||'1')==='1';if(!_rakCurPrayer)_rakCurPrayer=PRAYER_TYPES.fard[0];buildPills();var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);var sw=document.getElementById('rakStartWrap');var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var cam2=document.getElementById('rakModeCam');var prx2=document.getElementById('rakModeProx');var cp2=document.getElementById('rakCamPanel');if(lms)lms.classList.toggle('on',RAK.mode==='touch');if(hrk)hrk.classList.toggle('on',RAK.mode==='orient');if(cam2)cam2.classList.toggle('on',RAK.mode==='cam');if(prx2)prx2.classList.toggle('on',RAK.mode==='prox');if(cp2)cp2.classList.toggle('show',RAK.mode==='cam');if(sw)sw.style.display=RAK.mode==='orient'?'':'none';rakRender();}
 
 /* ===== تسلسل البداية: سبلاش → شروط → دخول → اشتراك → التطبيق ===== */
 var TRIAL_DAYS=12,splashDone=false;
@@ -2796,20 +2865,58 @@ function rakProxStop(){
   }
   RAK._proxNear=false;
 }
+function rakTypeTab(tab){
+  _rakCurTab=tab;
+  var tabKeys=['fard','sunnah','flex','special'];
+  document.querySelectorAll('#rakPickerTabs .rak-ptab').forEach(function(t,i){t.classList.toggle('on',tabKeys[i]===tab);});
+  buildPrayerPicker();
+}
+function buildPrayerPicker(){
+  var tab=_rakCurTab||'fard';
+  var grid=document.getElementById('rakTypeGrid');
+  if(!grid)return;
+  grid.innerHTML='';
+  var prayers=PRAYER_TYPES[tab]||[];
+  prayers.forEach(function(p){
+    var isSpec=p.mode==='takbeer'||p.mode==='sajda';
+    var subText=p.mode==='takbeer'?'٤ تكبيرات':p.mode==='sajda'?'سجدة واحدة':ar(p.n)+' ركعات · '+ar(p.s)+' سجود';
+    var btn=document.createElement('button');
+    btn.className='rak-type-btn'+(_rakCurPrayer&&_rakCurPrayer.key===p.key?' on':'')+(isSpec?' sp':'');
+    btn.innerHTML=p.ar+'<span class="sub">'+subText+'</span>';
+    btn.onclick=(function(pr){return function(){rakSelectPrayer(pr);};})(p);
+    grid.appendChild(btn);
+  });
+  var fr=document.getElementById('rakFlexRow');
+  var showFlex=_rakCurPrayer&&_rakCurPrayer.flex&&_rakCurPrayer.key&&prayers.some(function(p){return p.key===_rakCurPrayer.key;});
+  if(fr)fr.style.display=showFlex?'':'none';
+  if(showFlex){var fv=document.getElementById('rakFlexVal');if(fv)fv.textContent=ar(RAK.target);}
+  var note=document.getElementById('rakPickerNote');
+  var curNote=_rakCurPrayer&&_rakCurPrayer.note&&prayers.some(function(p){return p.key===(_rakCurPrayer||{}).key;});
+  if(note){note.textContent=curNote?_rakCurPrayer.note:'';note.style.display=curNote?'':'none';}
+}
+function rakSelectPrayer(p){
+  _rakCurPrayer=p;
+  var t=p.n;
+  if(RAK._qasr&&p.qasr)t=Math.ceil(p.n/2);
+  RAK.target=t;
+  buildPrayerPicker();
+  rakReset();
+}
+function rakFlexAdj(d){
+  if(!_rakCurPrayer||!_rakCurPrayer.flex)return;
+  var step=_rakCurPrayer.step||1;
+  var newN=Math.max(_rakCurPrayer.minN,Math.min(_rakCurPrayer.maxN,RAK.target+d*step));
+  RAK.target=newN;
+  var fv=document.getElementById('rakFlexVal');if(fv)fv.textContent=ar(newN);
+  rakReset();
+}
 function rakToggleQasr(){
   RAK._qasr=!RAK._qasr;
   lsSet('rak_qasr',RAK._qasr?'1':'0');
   var btn=document.getElementById('rakQasrBtn');
   if(btn)btn.classList.toggle('on',RAK._qasr);
-  // Adjust target for 4-rakaat prayers
-  if(RAK._qasr&&RAK.target===4)RAK.target=2;
-  else if(!RAK._qasr){
-    var pills=document.querySelectorAll('#prayerPills button');
-    var active=document.querySelector('#prayerPills button.on');
-    if(active){
-      var idx=Array.from(pills).indexOf(active);
-      if(idx>=0&&PR[idx]&&PR[idx].n===4)RAK.target=4;
-    }
+  if(_rakCurPrayer){
+    RAK.target=RAK._qasr&&_rakCurPrayer.qasr?Math.ceil(_rakCurPrayer.n/2):_rakCurPrayer.n;
   }
   rakReset();
 }
