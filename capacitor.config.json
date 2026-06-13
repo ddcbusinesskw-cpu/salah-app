@@ -2,7 +2,6 @@
   "appId": "com.ddcbusiness.noor",
   "appName": "نور",
   "webDir": "www",
-  "bundledWebRuntime": false,
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1800,
