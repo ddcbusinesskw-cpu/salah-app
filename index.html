@@ -667,7 +667,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="mushafFull" class="screen">
-    <div class="top" style="background:#0f3a35"><button class="back" onclick="go('home')">→</button><h2>المصحف كامل</h2>
+    <div class="top" style="background:#0f3a35"><button class="back" onclick="go('home')">→</button><h2 style="flex:1">المصحف كامل<span id="mushafSurahInd" style="display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:1px;min-height:14px"></span></h2>
       <select id="mushafJump" onchange="jumpMushaf(this.value)" style="margin-inline-start:auto;background:var(--card);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:14px"></select>
     </div>
     <div class="pad" id="mushafFullBody" style="padding-top:10px"></div>
@@ -995,7 +995,38 @@ function ar(n){return String(n).replace(/\d/g,function(d){return AR[+d];});}
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
 var BNAV_MAP={home:'bnt-home',quran:'bnt-quran',adhkar:'bnt-adhkar',tasbih:'bnt-tasbih'};
-function go(id){var dw=document.getElementById('drawer');if(dw)dw.classList.remove('on');var db=document.getElementById('drawerBk');if(db)db.classList.remove('on');document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});document.getElementById(id).classList.add('on');window.scrollTo(0,0);if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times')renderTimesScreen();if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='mushafFull')buildFullMushaf();if(id==='memorize')initMemorize();if(id==='home'){renderVotd();renderDailyCards();}
+var _mushafScrollT=null;
+function _onMushafScroll(){
+  clearTimeout(_mushafScrollT);
+  _mushafScrollT=setTimeout(function(){
+    lsSet('mushaf_pos',String(window.scrollY));
+    var mid=window.scrollY+window.innerHeight*0.4,cur=1;
+    document.querySelectorAll('.msura').forEach(function(el){if(el.offsetTop<=mid)cur=+el.id.replace('ms','');});
+    lsSet('mushaf_surah',String(cur));
+    var ind=document.getElementById('mushafSurahInd');
+    if(ind)ind.textContent=nameFor(cur);
+  },250);
+}
+function go(id){
+  var dw=document.getElementById('drawer');if(dw)dw.classList.remove('on');
+  var db=document.getElementById('drawerBk');if(db)db.classList.remove('on');
+  var prev=document.querySelector('.screen.on');
+  if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);}
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
+  document.getElementById(id).classList.add('on');
+  if(id==='mushafFull'){
+    buildFullMushaf();
+    var sp=+(lsGet('mushaf_pos')||0);
+    if(sp>100){setTimeout(function(){window.scrollTo(0,sp);},80);}
+    else{window.scrollTo(0,0);}
+    window.addEventListener('scroll',_onMushafScroll,{passive:true});
+    var si=+(lsGet('mushaf_surah')||1);
+    var ind=document.getElementById('mushafSurahInd');
+    if(ind&&si)ind.textContent=nameFor(si);
+  }else{
+    window.scrollTo(0,0);
+  }
+  if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times')renderTimesScreen();if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='home'){renderVotd();renderDailyCards();}
   // تحديث تبويب شريط التنقّل
   document.querySelectorAll('.bnav-tab').forEach(function(t){t.classList.remove('on');});
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
