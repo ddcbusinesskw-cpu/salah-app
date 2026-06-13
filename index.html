@@ -1259,9 +1259,16 @@ function sunAngleTime(jd,t,angle,lat,ccw){var decl=sunPos(jd+t).decl,noon=midDay
 function asrTime(jd,t,factor,lat){var decl=sunPos(jd+t).decl;return sunAngleTime(jd,t,-darccot(factor+dtan(Math.abs(lat-decl))),lat,false);}
 function computeTimes(date,lat,lng,tz){
   var jd=julian(date.getFullYear(),date.getMonth()+1,date.getDate())-lng/(15*24);
-  var fajr=sunAngleTime(jd,5/24,18,lat,true),sunrise=sunAngleTime(jd,6/24,0.833,lat,true),
-      dhuhr=midDay(jd,12/24),asr=asrTime(jd,13/24,1,lat),
-      sunset=sunAngleTime(jd,18/24,0.833,lat,false),isha=sunAngleTime(jd,18/24,17.5,lat,false);
+  // اقرأ طريقة الحساب المختارة من التخزين المحلي
+  var mId=lsGet('calc_method')||'mwl';
+  var meth=null;for(var i=0;i<CALC_METHODS.length;i++){if(CALC_METHODS[i].id===mId){meth=CALC_METHODS[i];break;}}
+  if(!meth)meth=CALC_METHODS[0];
+  // factor=1 جمهور (شافعي/مالكي/حنبلي) — factor=2 حنفي
+  var factor=+(lsGet('calc_madhhab')||1)===2?2:1;
+  var fajr=sunAngleTime(jd,5/24,meth.fajr,lat,true),sunrise=sunAngleTime(jd,6/24,0.833,lat,true),
+      dhuhr=midDay(jd,12/24),asr=asrTime(jd,13/24,factor,lat),
+      sunset=sunAngleTime(jd,18/24,0.833,lat,false),
+      isha=meth.ishaMin>0?sunset+meth.ishaMin/60:sunAngleTime(jd,18/24,meth.isha,lat,false);
   var adj=tz-lng/15;function c(h){return fixhour(h+adj);}
   return {Fajr:c(fajr),Sunrise:c(sunrise),Dhuhr:c(dhuhr),Asr:c(asr),Maghrib:c(sunset),Isha:c(isha)};
 }
