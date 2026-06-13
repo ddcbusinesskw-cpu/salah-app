@@ -45,5 +45,19 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
+	<!-- Geolocation: prayer times + Qibla direction -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>يستخدم تطبيق نور موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>يستخدم تطبيق نور موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
+
+	<!-- Camera: rakaat counter brightness detection -->
+	<key>NSCameraUsageDescription</key>
+	<string>تستخدم ميزة عدّاد الركعات الكاميرا الأمامية للكشف عن وضع السجود بدون تسجيل أو رفع.</string>
+
+	<!-- Motion: orientation mode in rakaat counter -->
+	<key>NSMotionUsageDescription</key>
+	<string>يستخدم عدّاد الركعات مستشعر الحركة للكشف عن الأوضاع أثناء الصلاة.</string>
 </dict>
 </plist>
