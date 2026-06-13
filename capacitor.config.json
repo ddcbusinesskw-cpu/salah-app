@@ -1,0 +1,35 @@
+{
+  "appId": "com.ddcbusiness.noor",
+  "appName": "نور",
+  "webDir": "www",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1800,
+      "launchAutoHide": true,
+      "backgroundColor": "#051a16",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "iosSpinnerStyle": "large",
+      "spinnerColor": "#3fae8e"
+    },
+    "StatusBar": {
+      "style": "Dark",
+      "backgroundColor": "#051a16"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_noor",
+      "iconColor": "#3fae8e",
+      "sound": "none"
+    }
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#051a16"
+  }
+}

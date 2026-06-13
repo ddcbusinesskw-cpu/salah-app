@@ -1,0 +1,28 @@
+{
+  "name": "noor-salah-app",
+  "version": "1.0.0",
+  "description": "نور — تطبيق مرافق الصلاة",
+  "private": true,
+  "scripts": {
+    "prepare:www": "bash scripts/prepare-www.sh",
+    "cap:sync": "npm run prepare:www && npx cap sync",
+    "cap:android": "npm run prepare:www && npx cap sync android && npx cap open android",
+    "cap:ios": "npm run prepare:www && npx cap sync ios && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/local-notifications": "^6.1.0",
+    "@capacitor/geolocation": "^6.0.2",
+    "@capacitor/haptics": "^6.0.2",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor/motion": "^6.0.2",
+    "@capacitor/splash-screen": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/assets": "^3.0.5"
+  }
+}
