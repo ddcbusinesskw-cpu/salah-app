@@ -1106,10 +1106,56 @@ function memFinish(){
     '<button class="btn" onclick="memStart()">أعِد التسميع</button>'+
   '</div>';
 }
-var fullBuilt=false;
-function buildFullMushaf(){if(fullBuilt)return;if(!QURAN_EMBED||!QURAN_EMBED.surahs){document.getElementById('mushafFullBody').innerHTML='<div class="loading">المصحف غير متوفر</div>';return;}var bas=(QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'';var parts=[];var opts='';for(var n=1;n<=114;n++){var arr=QURAN_EMBED.surahs[String(n)];if(!arr)continue;opts+='<option value="'+n+'">'+ar(n)+' · '+nameFor(n)+'</option>';var inner=arr.map(function(t,i){return '<span class="mayah" id="fm'+n+'_'+(i+1)+'" onclick="ayahMenu('+n+','+(i+1)+')">'+t+'<span class="mnum">'+ar(i+1)+'</span></span>';}).join(' ');var bismM=(n!==1&&n!==9)?'<div class="mbism">'+bas+'</div>':'';parts.push('<div class="msura" id="ms'+n+'">سُورَةُ '+nameFor(n)+'</div>'+bismM+'<div class="mtext" style="margin-bottom:24px">'+inner+'</div>');}var resume='<button class="btn" style="margin-bottom:12px;background:rgba(234,204,126,.2);color:var(--gold)" onclick="resumeMushaf()">🔖 متابعة من آخر موضع محفوظ</button>';document.getElementById('mushafFullBody').innerHTML=resume+'<div class="mframe">'+parts.join('')+'</div>';var jp=document.getElementById('mushafJump');if(jp)jp.innerHTML=opts;fullBuilt=true;}
-function resumeMushaf(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}if(!l.length){toast('لا يوجد موضع محفوظ — اكبس على آية ثم «حفظ»');return;}var last=l[l.length-1];var el=document.getElementById('fm'+last.s+'_'+last.a);if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع: '+nameFor(last.s)+' · آية '+ar(last.a));}else{var s=document.getElementById('ms'+last.s);if(s)s.scrollIntoView();}}
-function jumpMushaf(n){var el=document.getElementById('ms'+n);if(el)el.scrollIntoView();}
+var fullBuilt=false,mushafObs=null;
+function buildFullMushaf(){
+  if(fullBuilt)return;
+  if(!QURAN_EMBED||!QURAN_EMBED.surahs){document.getElementById('mushafFullBody').innerHTML='<div class="loading">المصحف غير متوفر</div>';return;}
+  var opts='',skelParts=[],meta=QURAN_EMBED.meta||[];
+  for(var n=1;n<=114;n++){
+    var m=meta[n-1]||{};
+    var approxH=Math.max(100,(m.numberOfAyahs||30)*82);
+    opts+='<option value="'+n+'">'+ar(n)+' · '+nameFor(n)+'</option>';
+    skelParts.push('<div class="msura" id="ms'+n+'">سُورَةُ '+nameFor(n)+'</div><div class="mlazy" id="mlazy'+n+'" data-n="'+n+'" style="min-height:'+approxH+'px"></div>');
+  }
+  var resume='<button class="btn" style="margin-bottom:12px;background:rgba(234,204,126,.2);color:var(--gold)" onclick="resumeMushaf()">🔖 متابعة من آخر موضع محفوظ</button>';
+  document.getElementById('mushafFullBody').innerHTML=resume+'<div class="mframe">'+skelParts.join('')+'</div>';
+  var jp=document.getElementById('mushafJump');if(jp)jp.innerHTML=opts;
+  fullBuilt=true;
+  if('IntersectionObserver' in window){
+    mushafObs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(!e.isIntersecting||e.target.dataset.built)return;
+        e.target.dataset.built='1';mushafObs.unobserve(e.target);mushafBuildEl(e.target,+e.target.dataset.n);
+      });
+    },{rootMargin:'500px 0px'});
+    document.querySelectorAll('.mlazy').forEach(function(el){mushafObs.observe(el);});
+  }else{
+    document.querySelectorAll('.mlazy').forEach(function(el){mushafBuildEl(el,+el.dataset.n);});
+  }
+}
+function mushafBuildEl(el,n){
+  var arr=QURAN_EMBED.surahs[String(n)];if(!arr){el.outerHTML='';return;}
+  var bas=(QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'';
+  var bismM=(n!==1&&n!==9)?'<div class="mbism">'+bas+'</div>':'';
+  var inner=arr.map(function(t,i){return '<span class="mayah" id="fm'+n+'_'+(i+1)+'" onclick="ayahMenu('+n+','+(i+1)+')">'+t+'<span class="mnum">'+ar(i+1)+'</span></span>';}).join(' ');
+  el.outerHTML=bismM+'<div class="mtext" style="margin-bottom:24px">'+inner+'</div>';
+}
+function mushafEnsure(n,cb){
+  var lazy=document.getElementById('mlazy'+n);
+  if(lazy&&!lazy.dataset.built){lazy.dataset.built='1';if(mushafObs)mushafObs.unobserve(lazy);mushafBuildEl(lazy,n);setTimeout(cb,60);}
+  else cb();
+}
+function resumeMushaf(){
+  var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}
+  if(!l.length){toast('لا يوجد موضع محفوظ — اكبس على آية ثم «حفظ»');return;}
+  var last=l[l.length-1];
+  mushafEnsure(last.s,function(){
+    var el=document.getElementById('fm'+last.s+'_'+last.a);
+    if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع: '+nameFor(last.s)+' · آية '+ar(last.a));}
+    else{var s=document.getElementById('ms'+last.s);if(s)s.scrollIntoView();}
+  });
+}
+function jumpMushaf(n){mushafEnsure(n,function(){var el=document.getElementById('ms'+n);if(el)el.scrollIntoView();});}
 function toggleDrawer(){var dw=document.getElementById('drawer'),db=document.getElementById('drawerBk');var on=dw.classList.toggle('on');db.classList.toggle('on',on);}
 function closeDrawer(){document.getElementById('drawer').classList.remove('on');document.getElementById('drawerBk').classList.remove('on');}
 var VOTD=[[2,255],[2,286],[2,152],[2,186],[2,45],[2,153],[2,201],[3,26],[3,139],[3,159],[3,173],[8,46],[13,28],[14,7],[16,97],[17,80],[18,10],[25,74],[28,24],[29,69],[39,53],[40,60],[42,30],[55,13],[64,11],[65,3],[93,5],[94,5],[94,6]];
