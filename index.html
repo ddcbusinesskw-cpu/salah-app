@@ -347,6 +347,22 @@
 .name-cnt{font-size:12px;color:var(--green);margin-top:4px;}
 .name-detail{background:var(--bg2);border-radius:20px;padding:18px;margin-bottom:14px;display:none;}
 .name-detail.show{display:block;}
+/* ===== Names modal ===== */
+.nm-overlay{position:fixed;inset:0;z-index:220;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+.nm-box{background:var(--bg2);border:1px solid var(--line2);border-radius:24px;padding:26px 20px 20px;max-width:340px;width:calc(100% - 40px);text-align:center;box-shadow:0 28px 64px rgba(0,0,0,.75);}
+.nm-name{font-size:34px;font-weight:800;color:var(--gold);margin-bottom:5px;line-height:1.2;}
+.nm-en{font-size:12px;color:var(--muted);letter-spacing:.06em;margin-bottom:11px;}
+.nm-meaning{font-size:14px;color:var(--text);line-height:1.75;margin-bottom:15px;}
+.nm-prog-track{height:5px;background:rgba(255,255,255,.07);border-radius:3px;margin-bottom:14px;overflow:hidden;}
+.nm-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:3px;transition:width .3s ease;}
+.nm-count{font-size:48px;font-weight:800;color:var(--green);line-height:1;margin-bottom:3px;}
+.nm-count-sub{font-size:13px;color:var(--muted);margin-bottom:18px;}
+.nm-tap{width:100%;padding:22px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1000;font-size:17px;font-weight:800;border:none;border-radius:16px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;transition:transform .1s,background .2s;}
+.nm-tap:active{transform:scale(.95);}
+.nm-tap.nm-done{background:linear-gradient(135deg,var(--green),var(--green2));color:#fff;}
+.nm-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
+.nm-close-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;padding:6px 10px;}
+.nm-next-btn{background:var(--card);border:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;font-family:inherit;}
 .khatmah-ring{display:flex;justify-content:center;margin:20px 0;}
 .khatmah-ring svg{width:160px;height:160px;}
 .khatmah-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;}
@@ -872,8 +888,23 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="names" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>أسماء الله الحسنى</h2></div>
     <div class="pad">
-      <div id="nameDetail" class="name-detail"></div>
       <div class="names-grid" id="namesGrid"></div>
+    </div>
+  </div>
+  <!-- Names modal -->
+  <div id="nameModal" style="display:none" class="nm-overlay" onclick="if(event.target===this)nmClose()">
+    <div class="nm-box">
+      <div class="nm-name" id="nmName"></div>
+      <div class="nm-en" id="nmEn"></div>
+      <div class="nm-meaning" id="nmMeaning"></div>
+      <div class="nm-prog-track"><div class="nm-prog-fill" id="nmProgFill" style="width:0%"></div></div>
+      <div class="nm-count" id="nmCount">٠</div>
+      <div class="nm-count-sub" id="nmCountSub">من ٣٣</div>
+      <button class="nm-tap" id="nmTapBtn" onclick="nmTap()">اذكر</button>
+      <div class="nm-foot">
+        <button class="nm-close-btn" onclick="nmClose()">إغلاق</button>
+        <button class="nm-next-btn" onclick="nmNext()">التالي ›</button>
+      </div>
     </div>
   </div>
 
@@ -2103,41 +2134,63 @@ var ALLAH_NAMES=[
 var _namesCounts={};
 function loadNamesScreen(){
   var saved=lsGet('names_counts');if(saved)try{_namesCounts=JSON.parse(saved);}catch(e){}
-  var detail=document.getElementById('nameDetail');if(detail)detail.classList.remove('show');
   window.scrollTo(0,0);var scr=document.getElementById('names');if(scr)scr.scrollTop=0;
   var g=document.getElementById('namesGrid');if(!g)return;
   g.innerHTML=ALLAH_NAMES.map(function(n,i){
     var cnt=_namesCounts[i]||0;
     var done=cnt>=n.dc;
-    return '<div class="name-card'+(done?' done-name':'')+'" onclick="showNameDetail('+i+')">'+
+    return '<div class="name-card'+(done?' done-name':'')+'" onclick="nmOpen('+i+')">'+
       '<div class="name-ar">'+n.ar+'</div>'+
       '<div class="name-en">'+n.en+'</div>'+
       '<div class="name-cnt">'+ar(cnt)+' / '+ar(n.dc)+'</div></div>';
   }).join('');
 }
-var _activeNameIdx=-1;
-function showNameDetail(i){
-  _activeNameIdx=i;
+var _nmIdx=-1;
+function nmOpen(i){
+  _nmIdx=i;
   var n=ALLAH_NAMES[i];
-  var cnt=_namesCounts[i]||0;
-  var d=document.getElementById('nameDetail');
-  d.innerHTML='<div style="text-align:center"><div style="font-size:32px;color:var(--gold);font-weight:700;margin-bottom:8px">'+n.ar+'</div>'+
-    '<div style="font-size:14px;color:var(--muted);margin-bottom:10px">'+n.en+'</div>'+
-    '<div style="font-size:15px;color:var(--text);margin-bottom:14px;line-height:1.7">'+n.m+'</div>'+
-    '<div style="font-size:28px;color:var(--green);font-weight:700;margin-bottom:10px">'+ar(cnt)+' / '+ar(n.dc)+'</div>'+
-    '<button class="btn" onclick="countName('+i+')" style="margin:0 auto;display:block">ذكر +١</button>'+
-    '<button onclick="document.getElementById(\'nameDetail\').classList.remove(\'show\')" style="background:none;border:0;color:var(--muted);margin-top:10px;cursor:pointer;font-family:inherit;font-size:14px">إغلاق</button></div>';
-  d.classList.add('show');
-  d.scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.getElementById('nmName').textContent=n.ar;
+  document.getElementById('nmEn').textContent=n.en;
+  document.getElementById('nmMeaning').textContent=n.m;
+  _nmRender();
+  document.getElementById('nameModal').style.display='flex';
 }
-function countName(i){
-  if(!_namesCounts[i])_namesCounts[i]=0;
-  _namesCounts[i]++;
+function _nmRender(){
+  var n=ALLAH_NAMES[_nmIdx],cnt=_namesCounts[_nmIdx]||0,done=cnt>=n.dc;
+  document.getElementById('nmCount').textContent=ar(cnt);
+  document.getElementById('nmCountSub').textContent='من '+ar(n.dc);
+  document.getElementById('nmProgFill').style.width=Math.min(100,Math.round(cnt/n.dc*100))+'%';
+  var btn=document.getElementById('nmTapBtn');
+  btn.textContent=done?'✓ اكتمل':'اذكر';
+  btn.className='nm-tap'+(done?' nm-done':'');
+}
+function nmTap(){
+  var n=ALLAH_NAMES[_nmIdx],cnt=_namesCounts[_nmIdx]||0;
+  if(cnt>=n.dc)return;
+  _namesCounts[_nmIdx]=cnt+1;
   lsSet('names_counts',JSON.stringify(_namesCounts));
-  var n=ALLAH_NAMES[i];
-  if(_namesCounts[i]>=n.dc){toast('أتممت ذكر '+n.ar+' 🌟');}
-  showNameDetail(i);
-  loadNamesScreen();
+  if(_namesCounts[_nmIdx]===n.dc){buzz([40,30,60]);setTimeout(function(){toast('أتممت ذكر '+n.ar+' 🌟');},120);}
+  else{buzz(16);}
+  _nmRender();
+  _nmUpdateCard(_nmIdx);
+}
+function _nmUpdateCard(i){
+  var g=document.getElementById('namesGrid');if(!g)return;
+  var cards=g.querySelectorAll('.name-card');if(!cards[i])return;
+  var n=ALLAH_NAMES[i],cnt=_namesCounts[i]||0,done=cnt>=n.dc;
+  cards[i].className='name-card'+(done?' done-name':'');
+  var el=cards[i].querySelector('.name-cnt');if(el)el.textContent=ar(cnt)+' / '+ar(n.dc);
+}
+function nmNext(){
+  _nmIdx=(_nmIdx+1)%ALLAH_NAMES.length;
+  var n=ALLAH_NAMES[_nmIdx];
+  document.getElementById('nmName').textContent=n.ar;
+  document.getElementById('nmEn').textContent=n.en;
+  document.getElementById('nmMeaning').textContent=n.m;
+  _nmRender();
+}
+function nmClose(){
+  document.getElementById('nameModal').style.display='none';
 }
 
 /* ===== v18: متتبّع الختمة ===== */
