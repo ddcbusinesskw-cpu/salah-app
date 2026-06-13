@@ -1,0 +1,12 @@
+node_modules/
+www/
+android/
+ios/
+assets/
+icons/
+package.json
+package-lock.json
+capacitor.config.json
+scripts/
+codemagic.yaml
+BUILD_GUIDE.md
