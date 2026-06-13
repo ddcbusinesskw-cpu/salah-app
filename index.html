@@ -2735,70 +2735,6 @@ togglePrayer=function(p){
     }
   }
 };
-
-/* ===== INIT ===== */
-buildDhikr();renderTasbih();rakInit();
-document.getElementById('locName').textContent=tzCity();
-boot();
-try{renderVotd();}catch(e){}
-try{renderDailyCards();}catch(e){}
-</script>
-<script>
-(function(){
-var DICT={"تسميع الحفظ":{"en":"Memorization Test","hi":"हिफ़्ज़ परीक्षण","fr":"Test de mémorisation","zh":"背诵测试","de":"Auswendiglern-Test"},"المصحف كامل":{"en":"Full Mushaf","hi":"पूरा क़ुरआन","fr":"Coran complet","zh":"全本古兰经","de":"Vollständiger Koran"},"آية اليوم":{"en":"Verse of the Day","hi":"आज की आयत","fr":"Verset du jour","zh":"每日经文","de":"Vers des Tages"},"الخدمات":{"en":"Services","hi":"सेवाएँ","fr":"Services","zh":"服务","de":"Dienste"},"بحث":{"en":"Search","hi":"खोज","fr":"Recherche","zh":"搜索","de":"Suche"},"ابحث":{"en":"Search","hi":"खोजें","fr":"Rechercher","zh":"搜索","de":"Suchen"},"الحديث":{"en":"Hadith","hi":"हदीस","fr":"Hadith","zh":"圣训","de":"Hadith"},"القرآن":{"en":"Quran","hi":"क़ुरआन","fr":"Coran","zh":"古兰经","de":"Koran"},"الترجمة":{"en":"Translation","hi":"अनुवाद","fr":"Traduction","zh":"翻译","de":"Übersetzung"},"نور":{"en":"Noor","hi":"नूर","fr":"Noor","zh":"努尔","de":"Noor"},"رفيق الصلاة":{"en":"Your Prayer Companion","hi":"आपका नमाज़ साथी","fr":"Votre compagnon de prière","zh":"您的礼拜伴侣","de":"Ihr Gebetsbegleiter"},"نور — رفيق الصلاة":{"en":"Noor — Prayer Companion","hi":"नूर — नमाज़ साथी","fr":"Noor — Compagnon de prière","zh":"努尔 — 礼拜伴侣","de":"Noor — Gebetsbegleiter"},"الصلاة القادمة":{"en":"Next Prayer","hi":"अगली नमाज़","fr":"Prochaine prière","zh":"下一次礼拜","de":"Nächstes Gebet"},"باقٍ على الأذان":{"en":"Time to Adhan","hi":"अज़ान में बाक़ी","fr":"Avant l'adhan","zh":"距宣礼还有","de":"Bis zum Adhan"},"اضغط على موقعك لعرض المواقيت":{"en":"Tap your location to show prayer times","hi":"समय देखने के लिए स्थान चुनें","fr":"Touchez votre position pour les horaires","zh":"点按定位以显示礼拜时间","de":"Tippen Sie auf Standort für Zeiten"},"اضغط لتحديد موقعك وحساب المواقيت":{"en":"Tap to set location and calculate times","hi":"स्थान सेट करने के लिए टैप करें","fr":"Touchez pour définir la position","zh":"点按以设置定位并计算时间","de":"Tippen, um Standort festzulegen"},"حدّد موقعك":{"en":"Set location","hi":"स्थान सेट करें","fr":"Définir la position","zh":"设置定位","de":"Standort festlegen"},"تحديد الموقع":{"en":"Locating…","hi":"स्थान खोजा जा रहा…","fr":"Localisation…","zh":"定位中…","de":"Wird geortet…"},"الثلث الأخير":{"en":"Last Third","hi":"आख़िरी तिहाई","fr":"Dernier tiers","zh":"后三分之一","de":"Letztes Drittel"},"المواقيت":{"en":"Times","hi":"समय","fr":"Horaires","zh":"时间","de":"Zeiten"},"مواقيت الصلاة":{"en":"Prayer Times","hi":"नमाज़ का समय","fr":"Horaires de prière","zh":"礼拜时间","de":"Gebetszeiten"},"القبلة":{"en":"Qibla","hi":"क़िबला","fr":"Qibla","zh":"朝向","de":"Qibla"},"اتجاه القبلة":{"en":"Qibla Direction","hi":"क़िबला दिशा","fr":"Direction de la Qibla","zh":"朝向方位","de":"Qibla-Richtung"},"المصحف":{"en":"Quran","hi":"क़ुरआन","fr":"Coran","zh":"古兰经","de":"Koran"},"القرآن الكريم":{"en":"The Holy Quran","hi":"पवित्र क़ुरआन","fr":"Le Saint Coran","zh":"神圣古兰经","de":"Der Heilige Koran"},"الأذكار":{"en":"Adhkar","hi":"अज़कार","fr":"Invocations","zh":"赞念","de":"Adhkar"},"فضائل":{"en":"Virtues","hi":"फ़ज़ाइल","fr":"Mérites","zh":"善行","de":"Vorzüge"},"فضائل الأعمال":{"en":"Virtues of Deeds","hi":"नेक कामों की फ़ज़ीलत","fr":"Mérites des actions","zh":"善行的美德","de":"Vorzüge der Taten"},"أدعية":{"en":"Duas","hi":"दुआएँ","fr":"Douas","zh":"祈祷","de":"Bittgebete"},"أدعية مأثورة":{"en":"Prophetic Duas","hi":"मसनून दुआएँ","fr":"Douas prophétiques","zh":"先知的祈祷","de":"Überlieferte Bittgebete"},"السبحة":{"en":"Tasbih","hi":"तस्बीह","fr":"Tasbih","zh":"念珠","de":"Tasbih"},"التسبيح":{"en":"Tasbih","hi":"तस्बीह","fr":"Tasbih","zh":"赞颂","de":"Tasbih"},"الرقية":{"en":"Ruqyah","hi":"रुक़्या","fr":"Roqya","zh":"治疗经文","de":"Ruqya"},"الرقية الشرعية":{"en":"Quranic Ruqyah","hi":"शरई रुक़्या","fr":"Roqya légale","zh":"古兰治疗经文","de":"Schariakonforme Ruqya"},"عدّاد الركعات":{"en":"Rak'ah Counter","hi":"रकअत काउंटर","fr":"Compteur de rakahs","zh":"拜数计数器","de":"Rakat-Zähler"},"الفجر":{"en":"Fajr","hi":"फ़ज्र","fr":"Fajr","zh":"晨礼","de":"Fadschr"},"الشروق":{"en":"Sunrise","hi":"सूर्योदय","fr":"Lever du soleil","zh":"日出","de":"Sonnenaufgang"},"الظهر":{"en":"Dhuhr","hi":"ज़ुहर","fr":"Dhohr","zh":"晌礼","de":"Dhuhr"},"العصر":{"en":"Asr","hi":"अस्र","fr":"Asr","zh":"晡礼","de":"Asr"},"المغرب":{"en":"Maghrib","hi":"मग़रिब","fr":"Maghreb","zh":"昏礼","de":"Maghrib"},"العشاء":{"en":"Isha","hi":"इशा","fr":"Icha","zh":"宵礼","de":"Ischa"},"استماع":{"en":"Listen","hi":"सुनें","fr":"Écouter","zh":"聆听","de":"Anhören"},"▶ استماع":{"en":"▶ Listen","hi":"▶ सुनें","fr":"▶ Écouter","zh":"▶ 聆听","de":"▶ Anhören"},"استمع":{"en":"Listen","hi":"सुनें","fr":"Écouter","zh":"聆听","de":"Anhören"},"إيقاف":{"en":"Stop","hi":"रोकें","fr":"Arrêter","zh":"停止","de":"Stopp"},"حفظ":{"en":"Save","hi":"सहेजें","fr":"Enregistrer","zh":"保存","de":"Speichern"},"تفسير":{"en":"Tafsir","hi":"तफ़सीर","fr":"Exégèse","zh":"经注","de":"Tafsir"},"مشاركة":{"en":"Share","hi":"साझा करें","fr":"Partager","zh":"分享","de":"Teilen"},"الآية":{"en":"Verse","hi":"आयत","fr":"Verset","zh":"经文","de":"Vers"},"تفعيل البوصلة":{"en":"Enable Compass","hi":"कम्पास चालू करें","fr":"Activer la boussole","zh":"启用指南针","de":"Kompass aktivieren"},"ابدأ التتبّع":{"en":"Start Tracking","hi":"ट्रैकिंग शुरू करें","fr":"Démarrer le suivi","zh":"开始跟踪","de":"Verfolgung starten"},"إعادة ضبط":{"en":"Reset","hi":"रीसेट","fr":"Réinitialiser","zh":"重置","de":"Zurücksetzen"},"تنبيه الأذان":{"en":"Adhan Alert","hi":"अज़ान अलर्ट","fr":"Alerte adhan","zh":"宣礼提醒","de":"Adhan-Hinweis"},"صوت الأذان:":{"en":"Adhan voice:","hi":"अज़ान की आवाज़:","fr":"Voix de l'adhan :","zh":"宣礼声音：","de":"Adhan-Stimme:"},"القارئ:":{"en":"Reciter:","hi":"क़ारी:","fr":"Récitateur :","zh":"诵读者：","de":"Rezitator:"},"مفعّل":{"en":"On","hi":"चालू","fr":"Activé","zh":"开","de":"Ein"},"متوقف":{"en":"Off","hi":"बंद","fr":"Désactivé","zh":"关","de":"Aus"},"إعادة عرض شاشات البداية":{"en":"Show intro screens again","hi":"इंट्रो स्क्रीन फिर दिखाएँ","fr":"Revoir l'introduction","zh":"重新显示引导页","de":"Intro erneut zeigen"},"اختر مدينتك":{"en":"Choose your city","hi":"अपना शहर चुनें","fr":"Choisissez votre ville","zh":"选择您的城市","de":"Stadt wählen"},"الشروط والخصوصية":{"en":"Terms & Privacy","hi":"शर्तें और गोपनीयता","fr":"Conditions et confidentialité","zh":"条款与隐私","de":"Bedingungen & Datenschutz"},"موافق ومتابعة":{"en":"Agree & Continue","hi":"सहमत और जारी रखें","fr":"Accepter et continuer","zh":"同意并继续","de":"Zustimmen & Weiter"},"الخصوصية":{"en":"Privacy","hi":"गोपनीयता","fr":"Confidentialité","zh":"隐私","de":"Datenschutz"},"الأذونات":{"en":"Permissions","hi":"अनुमतियाँ","fr":"Autorisations","zh":"权限","de":"Berechtigungen"},"تسجيل الدخول":{"en":"Sign In","hi":"साइन इन","fr":"Se connecter","zh":"登录","de":"Anmelden"},"متابعة عبر Google":{"en":"Continue with Google","hi":"Google से जारी रखें","fr":"Continuer avec Google","zh":"使用 Google 继续","de":"Mit Google fortfahren"},"متابعة عبر Apple":{"en":"Continue with Apple","hi":"Apple से जारी रखें","fr":"Continuer avec Apple","zh":"使用 Apple 继续","de":"Mit Apple fortfahren"},"نور بريميوم":{"en":"Noor Premium","hi":"नूर प्रीमियम","fr":"Noor Premium","zh":"努尔高级版","de":"Noor Premium"},"بدون إعلانات":{"en":"No ads","hi":"कोई विज्ञापन नहीं","fr":"Sans publicité","zh":"无广告","de":"Keine Werbung"},"ابدأ التجربة المجانية":{"en":"Start Free Trial","hi":"मुफ़्त ट्रायल शुरू करें","fr":"Essai gratuit","zh":"开始免费试用","de":"Kostenlos testen"},"الدفع عبر الهاتف":{"en":"Phone payment","hi":"फ़ोन भुगतान","fr":"Paiement mobile","zh":"手机支付","de":"Zahlung per Handy"},"بطاقة بنكية":{"en":"Bank card","hi":"बैंक कार्ड","fr":"Carte bancaire","zh":"银行卡","de":"Bankkarte"},"استعادة الشراء":{"en":"Restore purchase","hi":"ख़रीद पुनर्स्थापित करें","fr":"Restaurer l'achat","zh":"恢复购买","de":"Kauf wiederherstellen"},"الاشتراك":{"en":"Subscription","hi":"सदस्यता","fr":"Abonnement","zh":"订阅","de":"Abonnement"},"استخدام التطبيق":{"en":"Use the app","hi":"ऐप इस्तेमाल करें","fr":"Utiliser l'app","zh":"使用应用","de":"App nutzen"},"جارٍ التحميل…":{"en":"Loading…","hi":"लोड हो रहा…","fr":"Chargement…","zh":"加载中…","de":"Lädt…"},"جارٍ تحميل السورة…":{"en":"Loading surah…","hi":"सूरह लोड हो रही…","fr":"Chargement de la sourate…","zh":"正在加载章…","de":"Sure wird geladen…"},"جارٍ تحميل المصحف…":{"en":"Loading Quran…","hi":"क़ुरआन लोड हो रहा…","fr":"Chargement du Coran…","zh":"加载古兰经…","de":"Koran wird geladen…"},"جارٍ تحميل الترجمة…":{"en":"Loading translation…","hi":"अनुवाद लोड हो रहा…","fr":"Chargement de la traduction…","zh":"加载翻译…","de":"Übersetzung wird geladen…"},"جارٍ تحميل التفسير…":{"en":"Loading tafsir…","hi":"तफ़सीर लोड हो रही…","fr":"Chargement de l'exégèse…","zh":"加载经注…","de":"Tafsir wird geladen…"},"التفسير الميسّر":{"en":"Al-Muyassar Tafsir","hi":"तफ़सीर अल-मुयस्सर","fr":"Tafsir Al-Muyassar","zh":"简明经注","de":"Al-Muyassar Tafsir"},"القارئ":{"en":"Reciter","hi":"क़ारी","fr":"Récitateur","zh":"诵读者","de":"Rezitator"}};
-var LANGS=[["ar", "العربية"], ["en", "English"], ["hi", "हिन्दी"], ["fr", "Français"], ["zh", "中文"], ["de", "Deutsch"]];
-
-var LANG='ar';try{LANG=localStorage.getItem('noor_lang')||'ar';}catch(e){}
-window.noorLang=LANG;
-var ORIG=new WeakMap();
-function tnode(n,lang){var o=ORIG.get(n);if(o===undefined){o=n.nodeValue;ORIG.set(n,o);}var k=o.trim();if(lang==='ar'){if(n.nodeValue!==o)n.nodeValue=o;return;}if(DICT[k]&&DICT[k][lang]!==undefined){n.nodeValue=o.replace(k,DICT[k][lang]);}}
-function walk(root,lang){try{var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);var a=[],n;while(n=w.nextNode())a.push(n);a.forEach(function(t){tnode(t,lang);});}catch(e){}}
-function applyLang(lang){LANG=lang;window.noorLang=lang;try{localStorage.setItem('noor_lang',lang);}catch(e){}var rtl=(lang==='ar');document.documentElement.dir=rtl?'rtl':'ltr';document.documentElement.lang=lang;walk(document.body,lang);var lb=document.getElementById('langBtnLbl');if(lb){var nm='ع';for(var i=0;i<LANGS.length;i++)if(LANGS[i][0]===lang)nm=LANGS[i][1];lb.textContent=nm;}}
-window.setNoorLang=function(l){document.getElementById('langOv').style.display='none';applyLang(l);};
-var mo=new MutationObserver(function(ms){if(LANG==='ar')return;ms.forEach(function(m){[].forEach.call(m.addedNodes,function(nd){if(nd.nodeType===3)tnode(nd,LANG);else if(nd.nodeType===1)walk(nd,LANG);});});});
-function buildUI(){
-  var btn=document.createElement('button');btn.id='langBtn';btn.innerHTML='🌐 <span id="langBtnLbl">ع</span>';
-  btn.setAttribute('style','position:fixed;top:10px;left:10px;z-index:150;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:30px;padding:7px 13px;font-size:14px;cursor:pointer;font-family:inherit;backdrop-filter:blur(6px);');
-  btn.onclick=function(){document.getElementById('langOv').style.display='flex';};
-  document.body.appendChild(btn);
-  var ov=document.createElement('div');ov.id='langOv';
-  ov.setAttribute('style','display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.6);align-items:center;justify-content:center;');
-  var box='<div style="background:#0f3a35;border-radius:20px;padding:22px;width:84%;max-width:340px;">';
-  box+='<div style="color:#d8b56e;font-weight:700;font-size:18px;text-align:center;margin-bottom:16px;">Language · اللغة</div>';
-  for(var i=0;i<LANGS.length;i++){box+='<button onclick="setNoorLang(\''+LANGS[i][0]+'\')" style="display:block;width:100%;margin:7px 0;padding:13px;border:none;border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;cursor:pointer;font-family:inherit;">'+LANGS[i][1]+'</button>';}
-  box+='<button onclick="document.getElementById(\'langOv\').style.display=\'none\'" style="display:block;width:100%;margin-top:10px;padding:11px;border:none;border-radius:14px;background:transparent;color:#8aa;font-size:14px;cursor:pointer;font-family:inherit;">✕</button></div>';
-  ov.innerHTML=box;ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};
-  document.body.appendChild(ov);
-  mo.observe(document.body,{childList:true,subtree:true});
-  applyLang(LANG);
-}
-if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEventListener('DOMContentLoaded',function(){setTimeout(buildUI,300);});
-})();
-</script>
-<script>
-var _pwaPrompt=null;
-window.addEventListener('beforeinstallprompt',function(e){
-  e.preventDefault();_pwaPrompt=e;
-  if(lsGet('pwa_dismissed')!=='1'){
-    setTimeout(function(){var b=document.getElementById('pwaInstallBar');if(b)b.classList.add('show');},3000);
-  }
-});
-window.addEventListener('appinstalled',function(){
-  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
-  _pwaPrompt=null;lsSet('pwa_dismissed','1');
-});
-function installPWA(){
-  if(!_pwaPrompt)return;
-  _pwaPrompt.prompt();
-  _pwaPrompt.userChoice.then(function(r){
-    if(r.outcome==='accepted'){lsSet('pwa_dismissed','1');}
-    _pwaPrompt=null;
-    var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
-  });
-}
-function dismissPWA(){
-  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
-  lsSet('pwa_dismissed','1');
 function rakFeed(evt){
   if(evt==='sujud'){
     RAK._sujudInRak++;
@@ -2996,6 +2932,71 @@ function _rakCamBadge(s){
   el.textContent=lbl;
   el.className='rak-pos-badge'+(s===2?' ps':s===1?' pr':'');
 }
+
+/* ===== INIT ===== */
+buildDhikr();renderTasbih();rakInit();
+document.getElementById('locName').textContent=tzCity();
+boot();
+try{renderVotd();}catch(e){}
+try{renderDailyCards();}catch(e){}
+</script>
+<script>
+(function(){
+var DICT={"تسميع الحفظ":{"en":"Memorization Test","hi":"हिफ़्ज़ परीक्षण","fr":"Test de mémorisation","zh":"背诵测试","de":"Auswendiglern-Test"},"المصحف كامل":{"en":"Full Mushaf","hi":"पूरा क़ुरआन","fr":"Coran complet","zh":"全本古兰经","de":"Vollständiger Koran"},"آية اليوم":{"en":"Verse of the Day","hi":"आज की आयत","fr":"Verset du jour","zh":"每日经文","de":"Vers des Tages"},"الخدمات":{"en":"Services","hi":"सेवाएँ","fr":"Services","zh":"服务","de":"Dienste"},"بحث":{"en":"Search","hi":"खोज","fr":"Recherche","zh":"搜索","de":"Suche"},"ابحث":{"en":"Search","hi":"खोजें","fr":"Rechercher","zh":"搜索","de":"Suchen"},"الحديث":{"en":"Hadith","hi":"हदीस","fr":"Hadith","zh":"圣训","de":"Hadith"},"القرآن":{"en":"Quran","hi":"क़ुरआन","fr":"Coran","zh":"古兰经","de":"Koran"},"الترجمة":{"en":"Translation","hi":"अनुवाद","fr":"Traduction","zh":"翻译","de":"Übersetzung"},"نور":{"en":"Noor","hi":"नूर","fr":"Noor","zh":"努尔","de":"Noor"},"رفيق الصلاة":{"en":"Your Prayer Companion","hi":"आपका नमाज़ साथी","fr":"Votre compagnon de prière","zh":"您的礼拜伴侣","de":"Ihr Gebetsbegleiter"},"نور — رفيق الصلاة":{"en":"Noor — Prayer Companion","hi":"नूर — नमाज़ साथी","fr":"Noor — Compagnon de prière","zh":"努尔 — 礼拜伴侣","de":"Noor — Gebetsbegleiter"},"الصلاة القادمة":{"en":"Next Prayer","hi":"अगली नमाज़","fr":"Prochaine prière","zh":"下一次礼拜","de":"Nächstes Gebet"},"باقٍ على الأذان":{"en":"Time to Adhan","hi":"अज़ान में बाक़ी","fr":"Avant l'adhan","zh":"距宣礼还有","de":"Bis zum Adhan"},"اضغط على موقعك لعرض المواقيت":{"en":"Tap your location to show prayer times","hi":"समय देखने के लिए स्थान चुनें","fr":"Touchez votre position pour les horaires","zh":"点按定位以显示礼拜时间","de":"Tippen Sie auf Standort für Zeiten"},"اضغط لتحديد موقعك وحساب المواقيت":{"en":"Tap to set location and calculate times","hi":"स्थान सेट करने के लिए टैप करें","fr":"Touchez pour définir la position","zh":"点按以设置定位并计算时间","de":"Tippen, um Standort festzulegen"},"حدّد موقعك":{"en":"Set location","hi":"स्थान सेट करें","fr":"Définir la position","zh":"设置定位","de":"Standort festlegen"},"تحديد الموقع":{"en":"Locating…","hi":"स्थान खोजा जा रहा…","fr":"Localisation…","zh":"定位中…","de":"Wird geortet…"},"الثلث الأخير":{"en":"Last Third","hi":"आख़िरी तिहाई","fr":"Dernier tiers","zh":"后三分之一","de":"Letztes Drittel"},"المواقيت":{"en":"Times","hi":"समय","fr":"Horaires","zh":"时间","de":"Zeiten"},"مواقيت الصلاة":{"en":"Prayer Times","hi":"नमाज़ का समय","fr":"Horaires de prière","zh":"礼拜时间","de":"Gebetszeiten"},"القبلة":{"en":"Qibla","hi":"क़िबला","fr":"Qibla","zh":"朝向","de":"Qibla"},"اتجاه القبلة":{"en":"Qibla Direction","hi":"क़िबला दिशा","fr":"Direction de la Qibla","zh":"朝向方位","de":"Qibla-Richtung"},"المصحف":{"en":"Quran","hi":"क़ुरआन","fr":"Coran","zh":"古兰经","de":"Koran"},"القرآن الكريم":{"en":"The Holy Quran","hi":"पवित्र क़ुरआन","fr":"Le Saint Coran","zh":"神圣古兰经","de":"Der Heilige Koran"},"الأذكار":{"en":"Adhkar","hi":"अज़कार","fr":"Invocations","zh":"赞念","de":"Adhkar"},"فضائل":{"en":"Virtues","hi":"फ़ज़ाइल","fr":"Mérites","zh":"善行","de":"Vorzüge"},"فضائل الأعمال":{"en":"Virtues of Deeds","hi":"नेक कामों की फ़ज़ीलत","fr":"Mérites des actions","zh":"善行的美德","de":"Vorzüge der Taten"},"أدعية":{"en":"Duas","hi":"दुआएँ","fr":"Douas","zh":"祈祷","de":"Bittgebete"},"أدعية مأثورة":{"en":"Prophetic Duas","hi":"मसनून दुआएँ","fr":"Douas prophétiques","zh":"先知的祈祷","de":"Überlieferte Bittgebete"},"السبحة":{"en":"Tasbih","hi":"तस्बीह","fr":"Tasbih","zh":"念珠","de":"Tasbih"},"التسبيح":{"en":"Tasbih","hi":"तस्बीह","fr":"Tasbih","zh":"赞颂","de":"Tasbih"},"الرقية":{"en":"Ruqyah","hi":"रुक़्या","fr":"Roqya","zh":"治疗经文","de":"Ruqya"},"الرقية الشرعية":{"en":"Quranic Ruqyah","hi":"शरई रुक़्या","fr":"Roqya légale","zh":"古兰治疗经文","de":"Schariakonforme Ruqya"},"عدّاد الركعات":{"en":"Rak'ah Counter","hi":"रकअत काउंटर","fr":"Compteur de rakahs","zh":"拜数计数器","de":"Rakat-Zähler"},"الفجر":{"en":"Fajr","hi":"फ़ज्र","fr":"Fajr","zh":"晨礼","de":"Fadschr"},"الشروق":{"en":"Sunrise","hi":"सूर्योदय","fr":"Lever du soleil","zh":"日出","de":"Sonnenaufgang"},"الظهر":{"en":"Dhuhr","hi":"ज़ुहर","fr":"Dhohr","zh":"晌礼","de":"Dhuhr"},"العصر":{"en":"Asr","hi":"अस्र","fr":"Asr","zh":"晡礼","de":"Asr"},"المغرب":{"en":"Maghrib","hi":"मग़रिब","fr":"Maghreb","zh":"昏礼","de":"Maghrib"},"العشاء":{"en":"Isha","hi":"इशा","fr":"Icha","zh":"宵礼","de":"Ischa"},"استماع":{"en":"Listen","hi":"सुनें","fr":"Écouter","zh":"聆听","de":"Anhören"},"▶ استماع":{"en":"▶ Listen","hi":"▶ सुनें","fr":"▶ Écouter","zh":"▶ 聆听","de":"▶ Anhören"},"استمع":{"en":"Listen","hi":"सुनें","fr":"Écouter","zh":"聆听","de":"Anhören"},"إيقاف":{"en":"Stop","hi":"रोकें","fr":"Arrêter","zh":"停止","de":"Stopp"},"حفظ":{"en":"Save","hi":"सहेजें","fr":"Enregistrer","zh":"保存","de":"Speichern"},"تفسير":{"en":"Tafsir","hi":"तफ़सीर","fr":"Exégèse","zh":"经注","de":"Tafsir"},"مشاركة":{"en":"Share","hi":"साझा करें","fr":"Partager","zh":"分享","de":"Teilen"},"الآية":{"en":"Verse","hi":"आयत","fr":"Verset","zh":"经文","de":"Vers"},"تفعيل البوصلة":{"en":"Enable Compass","hi":"कम्पास चालू करें","fr":"Activer la boussole","zh":"启用指南针","de":"Kompass aktivieren"},"ابدأ التتبّع":{"en":"Start Tracking","hi":"ट्रैकिंग शुरू करें","fr":"Démarrer le suivi","zh":"开始跟踪","de":"Verfolgung starten"},"إعادة ضبط":{"en":"Reset","hi":"रीसेट","fr":"Réinitialiser","zh":"重置","de":"Zurücksetzen"},"تنبيه الأذان":{"en":"Adhan Alert","hi":"अज़ान अलर्ट","fr":"Alerte adhan","zh":"宣礼提醒","de":"Adhan-Hinweis"},"صوت الأذان:":{"en":"Adhan voice:","hi":"अज़ान की आवाज़:","fr":"Voix de l'adhan :","zh":"宣礼声音：","de":"Adhan-Stimme:"},"القارئ:":{"en":"Reciter:","hi":"क़ारी:","fr":"Récitateur :","zh":"诵读者：","de":"Rezitator:"},"مفعّل":{"en":"On","hi":"चालू","fr":"Activé","zh":"开","de":"Ein"},"متوقف":{"en":"Off","hi":"बंद","fr":"Désactivé","zh":"关","de":"Aus"},"إعادة عرض شاشات البداية":{"en":"Show intro screens again","hi":"इंट्रो स्क्रीन फिर दिखाएँ","fr":"Revoir l'introduction","zh":"重新显示引导页","de":"Intro erneut zeigen"},"اختر مدينتك":{"en":"Choose your city","hi":"अपना शहर चुनें","fr":"Choisissez votre ville","zh":"选择您的城市","de":"Stadt wählen"},"الشروط والخصوصية":{"en":"Terms & Privacy","hi":"शर्तें और गोपनीयता","fr":"Conditions et confidentialité","zh":"条款与隐私","de":"Bedingungen & Datenschutz"},"موافق ومتابعة":{"en":"Agree & Continue","hi":"सहमत और जारी रखें","fr":"Accepter et continuer","zh":"同意并继续","de":"Zustimmen & Weiter"},"الخصوصية":{"en":"Privacy","hi":"गोपनीयता","fr":"Confidentialité","zh":"隐私","de":"Datenschutz"},"الأذونات":{"en":"Permissions","hi":"अनुमतियाँ","fr":"Autorisations","zh":"权限","de":"Berechtigungen"},"تسجيل الدخول":{"en":"Sign In","hi":"साइन इन","fr":"Se connecter","zh":"登录","de":"Anmelden"},"متابعة عبر Google":{"en":"Continue with Google","hi":"Google से जारी रखें","fr":"Continuer avec Google","zh":"使用 Google 继续","de":"Mit Google fortfahren"},"متابعة عبر Apple":{"en":"Continue with Apple","hi":"Apple से जारी रखें","fr":"Continuer avec Apple","zh":"使用 Apple 继续","de":"Mit Apple fortfahren"},"نور بريميوم":{"en":"Noor Premium","hi":"नूर प्रीमियम","fr":"Noor Premium","zh":"努尔高级版","de":"Noor Premium"},"بدون إعلانات":{"en":"No ads","hi":"कोई विज्ञापन नहीं","fr":"Sans publicité","zh":"无广告","de":"Keine Werbung"},"ابدأ التجربة المجانية":{"en":"Start Free Trial","hi":"मुफ़्त ट्रायल शुरू करें","fr":"Essai gratuit","zh":"开始免费试用","de":"Kostenlos testen"},"الدفع عبر الهاتف":{"en":"Phone payment","hi":"फ़ोन भुगतान","fr":"Paiement mobile","zh":"手机支付","de":"Zahlung per Handy"},"بطاقة بنكية":{"en":"Bank card","hi":"बैंक कार्ड","fr":"Carte bancaire","zh":"银行卡","de":"Bankkarte"},"استعادة الشراء":{"en":"Restore purchase","hi":"ख़रीद पुनर्स्थापित करें","fr":"Restaurer l'achat","zh":"恢复购买","de":"Kauf wiederherstellen"},"الاشتراك":{"en":"Subscription","hi":"सदस्यता","fr":"Abonnement","zh":"订阅","de":"Abonnement"},"استخدام التطبيق":{"en":"Use the app","hi":"ऐप इस्तेमाल करें","fr":"Utiliser l'app","zh":"使用应用","de":"App nutzen"},"جارٍ التحميل…":{"en":"Loading…","hi":"लोड हो रहा…","fr":"Chargement…","zh":"加载中…","de":"Lädt…"},"جارٍ تحميل السورة…":{"en":"Loading surah…","hi":"सूरह लोड हो रही…","fr":"Chargement de la sourate…","zh":"正在加载章…","de":"Sure wird geladen…"},"جارٍ تحميل المصحف…":{"en":"Loading Quran…","hi":"क़ुरआन लोड हो रहा…","fr":"Chargement du Coran…","zh":"加载古兰经…","de":"Koran wird geladen…"},"جارٍ تحميل الترجمة…":{"en":"Loading translation…","hi":"अनुवाद लोड हो रहा…","fr":"Chargement de la traduction…","zh":"加载翻译…","de":"Übersetzung wird geladen…"},"جارٍ تحميل التفسير…":{"en":"Loading tafsir…","hi":"तफ़सीर लोड हो रही…","fr":"Chargement de l'exégèse…","zh":"加载经注…","de":"Tafsir wird geladen…"},"التفسير الميسّر":{"en":"Al-Muyassar Tafsir","hi":"तफ़सीर अल-मुयस्सर","fr":"Tafsir Al-Muyassar","zh":"简明经注","de":"Al-Muyassar Tafsir"},"القارئ":{"en":"Reciter","hi":"क़ारी","fr":"Récitateur","zh":"诵读者","de":"Rezitator"}};
+var LANGS=[["ar", "العربية"], ["en", "English"], ["hi", "हिन्दी"], ["fr", "Français"], ["zh", "中文"], ["de", "Deutsch"]];
+
+var LANG='ar';try{LANG=localStorage.getItem('noor_lang')||'ar';}catch(e){}
+window.noorLang=LANG;
+var ORIG=new WeakMap();
+function tnode(n,lang){var o=ORIG.get(n);if(o===undefined){o=n.nodeValue;ORIG.set(n,o);}var k=o.trim();if(lang==='ar'){if(n.nodeValue!==o)n.nodeValue=o;return;}if(DICT[k]&&DICT[k][lang]!==undefined){n.nodeValue=o.replace(k,DICT[k][lang]);}}
+function walk(root,lang){try{var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);var a=[],n;while(n=w.nextNode())a.push(n);a.forEach(function(t){tnode(t,lang);});}catch(e){}}
+function applyLang(lang){LANG=lang;window.noorLang=lang;try{localStorage.setItem('noor_lang',lang);}catch(e){}var rtl=(lang==='ar');document.documentElement.dir=rtl?'rtl':'ltr';document.documentElement.lang=lang;walk(document.body,lang);var lb=document.getElementById('langBtnLbl');if(lb){var nm='ع';for(var i=0;i<LANGS.length;i++)if(LANGS[i][0]===lang)nm=LANGS[i][1];lb.textContent=nm;}}
+window.setNoorLang=function(l){document.getElementById('langOv').style.display='none';applyLang(l);};
+var mo=new MutationObserver(function(ms){if(LANG==='ar')return;ms.forEach(function(m){[].forEach.call(m.addedNodes,function(nd){if(nd.nodeType===3)tnode(nd,LANG);else if(nd.nodeType===1)walk(nd,LANG);});});});
+function buildUI(){
+  var btn=document.createElement('button');btn.id='langBtn';btn.innerHTML='🌐 <span id="langBtnLbl">ع</span>';
+  btn.setAttribute('style','position:fixed;top:10px;left:10px;z-index:150;background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:30px;padding:7px 13px;font-size:14px;cursor:pointer;font-family:inherit;backdrop-filter:blur(6px);');
+  btn.onclick=function(){document.getElementById('langOv').style.display='flex';};
+  document.body.appendChild(btn);
+  var ov=document.createElement('div');ov.id='langOv';
+  ov.setAttribute('style','display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.6);align-items:center;justify-content:center;');
+  var box='<div style="background:#0f3a35;border-radius:20px;padding:22px;width:84%;max-width:340px;">';
+  box+='<div style="color:#d8b56e;font-weight:700;font-size:18px;text-align:center;margin-bottom:16px;">Language · اللغة</div>';
+  for(var i=0;i<LANGS.length;i++){box+='<button onclick="setNoorLang(\''+LANGS[i][0]+'\')" style="display:block;width:100%;margin:7px 0;padding:13px;border:none;border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;cursor:pointer;font-family:inherit;">'+LANGS[i][1]+'</button>';}
+  box+='<button onclick="document.getElementById(\'langOv\').style.display=\'none\'" style="display:block;width:100%;margin-top:10px;padding:11px;border:none;border-radius:14px;background:transparent;color:#8aa;font-size:14px;cursor:pointer;font-family:inherit;">✕</button></div>';
+  ov.innerHTML=box;ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};
+  document.body.appendChild(ov);
+  mo.observe(document.body,{childList:true,subtree:true});
+  applyLang(LANG);
+}
+if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEventListener('DOMContentLoaded',function(){setTimeout(buildUI,300);});
+})();
+</script>
+<script>
+var _pwaPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();_pwaPrompt=e;
+  if(lsGet('pwa_dismissed')!=='1'){
+    setTimeout(function(){var b=document.getElementById('pwaInstallBar');if(b)b.classList.add('show');},3000);
+  }
+});
+window.addEventListener('appinstalled',function(){
+  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  _pwaPrompt=null;lsSet('pwa_dismissed','1');
+});
+function installPWA(){
+  if(!_pwaPrompt)return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(function(r){
+    if(r.outcome==='accepted'){lsSet('pwa_dismissed','1');}
+    _pwaPrompt=null;
+    var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  });
+}
+function dismissPWA(){
+  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  lsSet('pwa_dismissed','1');
+
 }
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
