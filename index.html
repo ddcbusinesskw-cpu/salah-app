@@ -1389,14 +1389,29 @@ function tick(){
   var tnc=document.getElementById('timesNextCount');if(tnc)tnc.textContent=ar(hh)+' س '+ar(mm)+' د';
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
-    if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();}}});
+    if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();
+      if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
+        new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
+      }
+    }}
+  });
+  // تنبيه مسبق بـ 5 دقائق
+  if(np&&notifOn&&'Notification' in window&&Notification.permission==='granted'){
+    var w5id='w5_'+np.key+now.toDateString();
+    if(Math.abs(np.diff-300)<2&&firedAdhan!==w5id){firedAdhan=w5id;
+      new Notification('صلاة '+P_NAMES[np.key]+' بعد ٥ دقائق',{body:'الموعد: '+t[np.key],icon:'./icon-192.png',dir:'rtl'});
+    }
+  }
 }
 function renderTimesScreen(){
   var body=document.getElementById('timesBody');if(!PT.data)return;
   var t=PT.data.timings,np=nextPrayer(),nk=np?np.key:'Fajr';
   var rows=P_ORDER.map(function(k){return '<div class="pt-row'+(k===nk?' next':'')+'"><span class="nm">'+P_NAMES[k]+'</span><span class="tm">'+ar(t[k])+'</span></div>';}).join('');
   var bs='border:0;font-family:inherit;font-weight:700;font-size:14px;padding:7px 14px;border-radius:999px;cursor:pointer;';
-  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button></span></div>'+
+  var nIcon=(!('Notification' in window)||Notification.permission==='denied')?'🔕':(notifOn?'🔔':'🔕');
+  var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
+  var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
+  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="reqNotifPerm()" style="'+bs+'background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button></span></div>'+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
   // السنن الرواتب المؤكدة (حديث ابن عمر — رواه مسلم ٧٢٨)
@@ -1434,6 +1449,15 @@ var ADHANS=[
 var adhanIdx=0;try{var _ai=lsGet('adhanIdx');if(_ai!==null)adhanIdx=Math.min(ADHANS.length-1,Math.max(0,+_ai));}catch(e){}
 function setAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));renderTimesScreen();playAdhan();}
 var adhanOn=false;try{adhanOn=lsGet('adhanOn')==='1';}catch(e){}
+var notifOn=false;try{notifOn=lsGet('notifOn')==='1';}catch(e){}
+function reqNotifPerm(){
+  if(!('Notification' in window)){toast('المتصفح لا يدعم الإشعارات','error');return;}
+  if(Notification.permission==='granted'){notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;}
+  Notification.requestPermission().then(function(p){
+    if(p==='granted'){notifOn=true;lsSet('notifOn','1');renderTimesScreen();toast('الإشعارات مفعّلة','success');}
+    else{toast('لم تُمنح صلاحية الإشعارات','error');}
+  });
+}
 function toggleAdhan(){adhanOn=!adhanOn;lsSet('adhanOn',adhanOn?'1':'0');var b=document.getElementById('adhanToggle');if(b){b.textContent=adhanOn?'مفعّل':'متوقف';b.style.background=adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';b.style.color=adhanOn?'var(--green)':'var(--gold)';}}
 function playAdhan(){
   var a=document.getElementById('adhanAudio');
