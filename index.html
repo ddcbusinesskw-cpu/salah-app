@@ -111,6 +111,16 @@
   .pt-row .nm{font-weight:600;font-size:16px;}
   .pt-row .tm{font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;}
   .nextbox{text-align:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:6px;}
+  .rawatib-sec{margin:18px 0 0;padding:14px 16px;background:rgba(255,255,255,.035);border-radius:14px;border:1px solid rgba(255,255,255,.07);}
+  .rawatib-sec h4{font-size:13px;color:var(--gold);margin:0 0 10px;font-weight:600;}
+  .raw-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;}
+  .raw-row:last-child{border-bottom:0;}
+  .raw-detail{color:var(--muted);font-size:13px;}
+  .kar-sec{margin:14px 0 0;padding:14px 16px;background:rgba(224,96,96,.06);border-radius:14px;border:1px solid rgba(224,96,96,.12);}
+  .kar-sec h4{font-size:13px;color:var(--red);margin:0 0 10px;font-weight:600;}
+  .kar-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;color:var(--muted);}
+  .kar-row:last-child{border-bottom:0;}
+  .hijri-note{font-size:11px;color:var(--muted);text-align:center;margin:14px 0 4px;opacity:.7;}
   .nextbox .big{font-size:30px;font-weight:300;font-variant-numeric:tabular-nums;}
 
   .slist{display:flex;flex-direction:column;gap:8px;}
@@ -1336,7 +1346,7 @@ function buildTimes(lat,lng){
   var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
   var timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
   timings.Midnight=fmtH(sunset+night/2);timings.Lastthird=fmtH(sunset+night*2/3);
-  PT.data={timings:timings};
+  PT.data={timings:timings,raw:t};
   document.getElementById('locName').textContent=lsGet('cityName')||tzCity();
   renderHome();renderTimesScreen();startCountdown();
 }
@@ -1377,7 +1387,27 @@ function renderTimesScreen(){
   var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button></span></div>'+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
-  body.innerHTML='<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>';
+  // السنن الرواتب المؤكدة (حديث ابن عمر — رواه مسلم ٧٢٨)
+  var RAW_DEF=[{p:'الفجر',b:2,a:0},{p:'الظهر',b:4,a:2},{p:'المغرب',b:0,a:2},{p:'العشاء',b:0,a:2}];
+  var rawRows=RAW_DEF.map(function(r){
+    var pts=[];if(r.b)pts.push('قبلها '+ar(r.b)+' ر');if(r.a)pts.push('بعدها '+ar(r.a)+' ر');
+    return '<div class="raw-row"><span>'+r.p+'</span><span class="raw-detail">'+pts.join(' · ')+'</span></div>';
+  }).join('');
+  var rawatibSec='<div class="rawatib-sec"><h4>السنن الرواتب المؤكدة — ١٢ ركعة يومياً</h4>'+rawRows+'</div>';
+  // أوقات الكراهة
+  var karSec='';
+  if(PT.data.raw){
+    var rw=PT.data.raw;
+    var k1=fmtH(rw.Sunrise+15/60),k2s=fmtH(rw.Dhuhr-8/60),k2e=fmtH(rw.Dhuhr),k3s=ar(t.Asr),k3e=ar(t.Maghrib);
+    karSec='<div class="kar-sec"><h4>أوقات الكراهة (يُكره فيها النافلة)</h4>'
+      +'<div class="kar-row"><span>بعد الفجر حتى</span><span>'+ar(k1)+'</span></div>'
+      +'<div class="kar-row"><span>حول الزوال</span><span>'+ar(k2s)+' – '+ar(k2e)+'</span></div>'
+      +'<div class="kar-row"><span>بعد العصر حتى المغرب</span><span>'+k3s+' – '+k3e+'</span></div>'
+      +'</div>';
+  }
+  // تنبيه التقويم الهجري
+  var hijriNote='<p class="hijri-note">التاريخ الهجري بحساب أم القرى — قد يختلف يوماً عن رؤية الهلال</p>';
+  body.innerHTML='<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>'+rawatibSec+karSec+hijriNote;
 }
 
 /* ===== الأذان ===== */
