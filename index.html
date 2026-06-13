@@ -121,6 +121,14 @@
   .kar-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;color:var(--muted);}
   .kar-row:last-child{border-bottom:0;}
   .hijri-note{font-size:11px;color:var(--muted);text-align:center;margin:14px 0 4px;opacity:.7;}
+  .pt-row .done-btn{background:none;border:2px solid rgba(255,255,255,.2);border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s;}
+  .pt-row .done-btn.done{border-color:var(--green);color:var(--green);background:rgba(78,202,168,.15);}
+  #duaCard{position:fixed;bottom:calc(var(--bnav-h)+16px);left:16px;right:16px;max-width:488px;margin:0 auto;background:rgba(10,30,25,.97);border:1px solid rgba(234,204,126,.3);border-radius:20px;padding:18px 18px 14px;z-index:350;transform:translateY(120%);transition:transform .4s cubic-bezier(.22,.8,.36,1);backdrop-filter:blur(12px);}
+  #duaCard.show{transform:translateY(0);}
+  #duaCard .dua-title{font-size:12px;color:var(--gold);margin-bottom:10px;font-weight:600;}
+  #duaCard .dua-text{font-size:17px;line-height:2;color:var(--text);}
+  #duaCard .dua-src{font-size:11px;color:var(--muted);margin-top:8px;}
+  #duaCard .dua-close{position:absolute;top:10px;left:12px;background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;}
   .font-slider-row{display:flex;align-items:center;gap:12px;margin:12px 0;}
   .font-slider-row input[type=range]{flex:1;accent-color:var(--gold);height:4px;}
   .font-slider-row .fsz{min-width:36px;text-align:center;color:var(--gold);font-weight:700;font-size:14px;}
@@ -861,6 +869,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <span class="fsz" id="fontSzLabel">٢٢</span>
       </div>
       <p class="note">يؤثر على نص المصحف والأذكار والقرآن المسموع.</p>
+      <h3 style="color:var(--gold);margin:20px 0 10px">تعديل المواقيت (دقائق)</h3>
+      <div class="font-slider-row">
+        <span style="font-size:13px;color:var(--muted)">-١٠</span>
+        <input type="range" min="-10" max="10" step="1" id="offsetSlider"
+          oninput="setTimeOffset(this.value)" style="flex:1;accent-color:var(--gold)">
+        <span style="font-size:13px;color:var(--muted)">+١٠</span>
+        <span class="fsz" id="offsetLabel">٠ د</span>
+      </div>
+      <p class="note">لمطابقة توقيت المسجد أو الهيئة المحلية. الشروق لا يتأثر.</p>
     </div>
   </div>
 
@@ -1258,7 +1275,12 @@ function renderDailyCards(){
     '</button>';
   }).join('');
 }
-function togglePrayer(p){var s=getDailyState();s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s);renderDailyCards();}
+function togglePrayer(p){
+  var s=getDailyState();s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s);renderDailyCards();
+  // update times screen button live
+  var btn=document.getElementById('pd_'+p);var done=!!s['prayer_'+p];
+  if(btn){btn.classList.toggle('done',done);btn.textContent=done?'✓':'○';}
+}
 
 
 /* ===== حساب المواقيت محليًا (بدون إنترنت) ===== */
@@ -1354,6 +1376,8 @@ function retryGeo(){document.getElementById('ov_city').classList.remove('on');lo
 function buildTimes(lat,lng){
   var tz=-new Date().getTimezoneOffset()/60;
   var t=computeTimes(new Date(),lat,lng,tz);
+  var ofs=(+(lsGet('time_offset')||0))/60;
+  if(ofs!==0){['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(k){t[k]=fixhour(t[k]+ofs);});}
   var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
   var timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
   timings.Midnight=fmtH(sunset+night/2);timings.Lastthird=fmtH(sunset+night*2/3);
@@ -1392,6 +1416,7 @@ function tick(){
     if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();
       if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
         new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
+      showDua();
       }
     }}
   });
@@ -1406,7 +1431,18 @@ function tick(){
 function renderTimesScreen(){
   var body=document.getElementById('timesBody');if(!PT.data)return;
   var t=PT.data.timings,np=nextPrayer(),nk=np?np.key:'Fajr';
-  var rows=P_ORDER.map(function(k){return '<div class="pt-row'+(k===nk?' next':'')+'"><span class="nm">'+P_NAMES[k]+'</span><span class="tm">'+ar(t[k])+'</span></div>';}).join('');
+  var _ds=getDailyState();
+  var rows=P_ORDER.map(function(k){
+    var isDone=!!_ds['prayer_'+k],isPray=k!=='Sunrise';
+    var dBtn=isPray?'<button id="pd_'+k+'" class="done-btn'+(isDone?' done':'')+
+      '" onclick="togglePrayer(\''+k+'\')" title="صلّيت">'+
+      (isDone?'✓':'○')+'</button>':'';
+    return '<div class="pt-row'+(k===nk?' next':'')+'">'
+      +'<span class="nm">'+P_NAMES[k]+'</span>'
+      +'<span style="display:flex;align-items:center;gap:10px">'
+      +'<span class="tm">'+ar(t[k])+'</span>'+dBtn
+      +'</span></div>';
+  }).join('');
   var bs='border:0;font-family:inherit;font-weight:700;font-size:14px;padding:7px 14px;border-radius:999px;cursor:pointer;';
   var nIcon=(!('Notification' in window)||Notification.permission==='denied')?'🔕':(notifOn?'🔔':'🔕');
   var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
@@ -1450,6 +1486,16 @@ var adhanIdx=0;try{var _ai=lsGet('adhanIdx');if(_ai!==null)adhanIdx=Math.min(ADH
 function setAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));renderTimesScreen();playAdhan();}
 var adhanOn=false;try{adhanOn=lsGet('adhanOn')==='1';}catch(e){}
 var notifOn=false;try{notifOn=lsGet('notifOn')==='1';}catch(e){}
+// تعديل المواقيت يدوياً
+var timeOffset=+(lsGet('time_offset')||0);
+function setTimeOffset(v){v=Math.min(10,Math.max(-10,+v));timeOffset=v;lsSet('time_offset',String(v));
+  var ol=document.getElementById('offsetLabel');if(ol)ol.textContent=(v>0?'+':'')+ar(v)+' د';
+  var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}}
+// تتبع الصلوات — يستخدم getDailyState() الموجودة
+// دعاء ما بعد الأذان
+var _duaT=null;
+function showDua(){var c=document.getElementById('duaCard');if(c){c.classList.add('show');clearTimeout(_duaT);_duaT=setTimeout(closeDua,30000);}}
+function closeDua(){var c=document.getElementById('duaCard');if(c)c.classList.remove('show');clearTimeout(_duaT);}
 function reqNotifPerm(){
   if(!('Notification' in window)){toast('المتصفح لا يدعم الإشعارات','error');return;}
   if(Notification.permission==='granted'){notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;}
@@ -2174,6 +2220,9 @@ function loadCalcSettings(){
   var fs=+(lsGet('qfont')||22);
   var sl=document.getElementById('fontSzSlider');if(sl)sl.value=fs;
   var lb=document.getElementById('fontSzLabel');if(lb)lb.textContent=ar(fs);
+  var ov=+(lsGet('time_offset')||0);
+  var os2=document.getElementById('offsetSlider');if(os2)os2.value=ov;
+  var ol2=document.getElementById('offsetLabel');if(ol2)ol2.textContent=(ov>0?'+':'')+ar(ov)+' د';
 }
 function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
 function setMadhhab(n){lsSet('calc_madhhab',String(n));var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث المذهب');}
@@ -2314,6 +2363,12 @@ if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEven
   </div>
   <div id="weeklyBody"></div>
   <button class="btn" onclick="shareWeekly()" style="margin-top:16px">مشاركة التقرير</button>
+</div>
+<div id="duaCard">
+  <button class="dua-close" onclick="closeDua()">✕</button>
+  <div class="dua-title">دعاء ما بعد الأذان</div>
+  <div class="dua-text">اللهم رب هذه الدعوة التامة والصلاة القائمة، آتِ محمداً الوسيلة والفضيلة، وابعثه مقاماً محموداً الذي وعدته، إنك لا تخلف الميعاد</div>
+  <div class="dua-src">رواه البخاري (٦١٤) — يُقال بعد سماع الأذان</div>
 </div>
 </body>
 </html>
