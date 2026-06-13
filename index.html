@@ -1276,37 +1276,54 @@ function openVotd(){if(votdCur)goAyah(votdCur[0],votdCur[1]);}
 function todayKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function getDailyState(){var k='daily_'+todayKey();try{return JSON.parse(lsGet(k)||'{}');}catch(e){return {};}}
 function saveDailyState(s){var k='daily_'+todayKey();lsSet(k,JSON.stringify(s));}
-function markAdhkarDone(cat){var s=getDailyState();s[cat]=true;saveDailyState(s);renderDailyCards();}
+function markAdhkarDone(cat){
+  var s=getDailyState();var wasDone=!!s[cat];s[cat]=true;saveDailyState(s);
+  if(!wasDone){
+    var sKey=cat==='صباح'?'morn_streak':cat==='مساء'?'eve_streak':null;
+    if(sKey){
+      var lKey=sKey+'_last',today=new Date().toDateString();
+      var cnt=+(lsGet(sKey)||0),last=lsGet(lKey);
+      if(last){var d=Math.round((new Date(today)-new Date(last))/86400000);
+        if(d===1){cnt++;}else if(d>=2){cnt=1;}}else{cnt=1;}
+      lsSet(sKey,String(cnt));lsSet(lKey,today);
+      if(cnt>=3)toast((cat==='صباح'?'أذكار الصباح':'أذكار المساء')+' · '+ar(cnt)+' أيام متتالية 🔥','success');
+    }
+  }
+  renderDailyCards();
+}
 function goAdhkarCat(cat){go('adhkar');setTimeout(function(){var cats=document.getElementById('adhkarCats');if(cats){var found=false;[].forEach.call(cats.children,function(b){if(b.textContent.indexOf(cat)>-1){b.click();found=true;}});if(!found)markAdhkarDone(cat);}markAdhkarDone(cat);},150);}
 var PRAYER_ICONS={Fajr:'🌙',Dhuhr:'☀️',Asr:'🌤️',Maghrib:'🌇',Isha:'🌃'};
 var PRAYER_AR={Fajr:'الفجر',Dhuhr:'الظهر',Asr:'العصر',Maghrib:'المغرب',Isha:'العشاء'};
 function renderDailyCards(){
   var s=getDailyState();
-  // أذكار الصباح
-  var mDone=!!s['صباح'];
-  var mCard=document.getElementById('dcMorn');
-  var mSub=document.getElementById('dcMornSub');
-  if(mCard){mCard.classList.toggle('done',mDone);if(mSub)mSub.textContent=mDone?'تمّ بحمد الله ✓':'اضغط لتبدأ';}
-  // أذكار المساء
-  var eDone=!!s['مساء'];
-  var eCard=document.getElementById('dcEve');
-  var eSub=document.getElementById('dcEveSub');
-  if(eCard){eCard.classList.toggle('done',eDone);if(eSub)eSub.textContent=eDone?'تمّ بحمد الله ✓':'اضغط لتبدأ';}
-  // نقطة الأذكار في شريط التنقّل
-  var allAdhkarDone=mDone&&eDone;
+  var mDone=!!s['صباح'],eDone=!!s['مساء'];
+  var mStreak=+(lsGet('morn_streak')||0),eStreak=+(lsGet('eve_streak')||0);
+  var mCard=document.getElementById('dcMorn'),mSub=document.getElementById('dcMornSub');
+  if(mCard){mCard.classList.toggle('done',mDone);
+    if(mSub)mSub.textContent=mDone?'تمّ بحمد الله ✓'+(mStreak>1?' · 🔥 '+ar(mStreak):''):'اضغط لتبدأ';}
+  var eCard=document.getElementById('dcEve'),eSub=document.getElementById('dcEveSub');
+  if(eCard){eCard.classList.toggle('done',eDone);
+    if(eSub)eSub.textContent=eDone?'تمّ بحمد الله ✓'+(eStreak>1?' · 🔥 '+ar(eStreak):''):'اضغط لتبدأ';}
   var adDot=document.getElementById('bnav-adhkar-dot');
-  if(adDot)adDot.classList.toggle('show',!allAdhkarDone);
-  // تتبّع الصلوات
-  var dots=document.getElementById('ptDots');
-  if(!dots)return;
+  if(adDot)adDot.classList.toggle('show',!(mDone&&eDone));
+  var dots=document.getElementById('ptDots');if(!dots)return;
   var prayers=['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+  var doneCount=prayers.filter(function(p){return !!s['prayer_'+p];}).length;
   dots.innerHTML=prayers.map(function(p){
     var done=!!s['prayer_'+p];
-    return '<button class="pt-dot'+(done?' done':'')+'" onclick="togglePrayer(\''+p+'\')" title="'+PRAYER_AR[p]+'">'+
-      '<div class="pd-icon">'+PRAYER_ICONS[p]+'</div>'+
-      '<div class="pd-name">'+PRAYER_AR[p]+'</div>'+
-    '</button>';
+    return '<button class="pt-dot'+(done?' done':'')+'" onclick="togglePrayer(''+p+'')" title="'+PRAYER_AR[p]+'">'+'<div class="pd-icon">'+PRAYER_ICONS[p]+'</div>'+'<div class="pd-name">'+PRAYER_AR[p]+'</div>'+'</button>';
   }).join('');
+  var ptTitle=document.querySelector('#prayersTrack .pt-title');
+  if(ptTitle){if(doneCount===5){ptTitle.textContent='صلواتك اليوم ✓';ptTitle.style.color='var(--green)';}
+    else{ptTitle.textContent='صلواتك اليوم';ptTitle.style.color='';}}
+  checkAllDailyGoal(s,doneCount,mDone,eDone);
+}
+function checkAllDailyGoal(s,doneCount,mDone,eDone){
+  if(doneCount!==5||!mDone||!eDone)return;
+  var today=new Date().toDateString();
+  if(lsGet('allgoal_'+today)==='1')return;
+  lsSet('allgoal_'+today,'1');
+  setTimeout(function(){toast('🌟 يوم مكتمل — الصلوات الخمس + الأذكار. بارك الله فيك','success');},500);
 }
 function togglePrayer(p){
   var s=getDailyState();s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s);renderDailyCards();
@@ -2297,10 +2314,12 @@ function openWeeklySheet(){
   var mornCount=+(lsGet('morn_streak')||0);var eveCount=+(lsGet('eve_streak')||0);
   var tasCount=+(lsGet('tasbih_total')||0);
   var pageCount=0;try{var kd=lsGet('khatmah_data');if(kd){var kp=JSON.parse(kd);pageCount=kp.pagesRead||0;}}catch(e){}
+  var p5streak=+(lsGet('p5_streak')||0);
   var msg='';if(prayers>=25)msg='أحسنت! أسبوع مبارك 🌟';else if(prayers>=15)msg='جيد، واصل التقدم 💪';else msg='لا تستسلم، الغد فرصة جديدة 🤍';
   body.innerHTML='<div class="weekly-item"><span class="label">الصلوات المُسجَّلة</span><span class="val">'+ar(prayers)+' / '+ar(35)+'</span></div>'+
-    '<div class="weekly-item"><span class="label">أذكار الصباح</span><span class="val">'+ar(mornCount)+' / '+ar(7)+'</span></div>'+
-    '<div class="weekly-item"><span class="label">أذكار المساء</span><span class="val">'+ar(eveCount)+' / '+ar(7)+'</span></div>'+
+    '<div class="weekly-item"><span class="label">أذكار الصباح (تتابع)</span><span class="val">'+ar(mornCount)+' يوم</span></div>'+
+    '<div class="weekly-item"><span class="label">أذكار المساء (تتابع)</span><span class="val">'+ar(eveCount)+' يوم</span></div>'+
+    (p5streak>0?'<div class="weekly-item"><span class="label">تتابع الصلوات الخمس</span><span class="val">🔥 '+ar(p5streak)+' يوم</span></div>':'')+
     '<div class="weekly-item"><span class="label">الصفحات المقروءة</span><span class="val">'+ar(pageCount)+'</span></div>'+
     '<div class="weekly-item"><span class="label">التسبيحات</span><span class="val">'+ar(tasCount)+'</span></div>'+
     '<div style="margin-top:14px;padding:12px;background:rgba(234,204,126,.1);border-radius:12px;color:var(--text);font-size:14px;line-height:1.7">'+msg+'</div>';
@@ -2330,7 +2349,7 @@ go=function(id){
   if(id==='calcSettings')loadCalcSettings();
 };
 
-/* ===== v18: Hook togglePrayer for first_prayer badge + fajr streak ===== */
+/* ===== Hook togglePrayer: badges + fajr streak + all-5 celebration ===== */
 var _origTogglePrayer=togglePrayer;
 togglePrayer=function(p){
   _origTogglePrayer(p);
@@ -2343,6 +2362,21 @@ togglePrayer=function(p){
       if(df===1){fc++;lsSet('fajr_streak',fc);}else if(df>=2){fc=1;lsSet('fajr_streak','1');}
     }else{fc=1;lsSet('fajr_streak','1');}
     lsSet('fajr_last',today);if(fc>=7)checkBadge('fajr_7');
+  }
+  // all-5 prayers celebration + streak
+  var ds=getDailyState();
+  var allFive=['Fajr','Dhuhr','Asr','Maghrib','Isha'].every(function(pr){return !!ds['prayer_'+pr];});
+  if(allFive){
+    var t5=new Date().toDateString();
+    if(lsGet('p5done_'+t5)!=='1'){
+      lsSet('p5done_'+t5,'1');
+      toast('اكتملت الصلوات الخمس اليوم 🌟 بارك الله فيك','success');
+      var p5l=lsGet('p5_last');var p5c=+(lsGet('p5_streak')||0);
+      if(p5l){var p5d=Math.round((new Date(t5)-new Date(p5l))/86400000);
+        if(p5d===1){p5c++;}else if(p5d>=2){p5c=1;}}else{p5c=1;}
+      lsSet('p5_streak',String(p5c));lsSet('p5_last',t5);
+      if(p5c>=7)checkBadge('streak_7');if(p5c>=30)checkBadge('streak_30');
+    }
   }
 };
 
