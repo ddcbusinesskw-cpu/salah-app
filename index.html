@@ -441,8 +441,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .sheet .acts button.act-on{background:rgba(234,204,126,.22);color:var(--gold);}
 .tafbox{max-height:42vh;overflow:auto;margin-top:14px;background:var(--card);border-radius:14px;padding:14px;line-height:2;font-size:16px;display:none;}
 .tafbox.on{display:block;}
-.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:rgba(0,0,0,.88);color:#fff;padding:11px 20px;border-radius:30px;font-size:14px;opacity:0;transition:.25s;z-index:300;pointer-events:none;max-width:80%;text-align:center;}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:rgba(10,26,22,.96);color:#e8f0ec;padding:11px 20px;border-radius:30px;font-size:14px;opacity:0;transition:.28s cubic-bezier(.22,.8,.36,1);z-index:300;pointer-events:none;max-width:82%;text-align:center;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.t-success{background:rgba(10,46,34,.96);border-color:rgba(78,202,168,.4);color:var(--green);}
+.toast.t-error{background:rgba(46,10,10,.96);border-color:rgba(224,96,96,.4);color:var(--red);}
+.toast.t-warning{background:rgba(46,36,6,.96);border-color:rgba(234,204,126,.4);color:var(--gold);}
+#offlineBadge{position:fixed;top:10px;left:50%;transform:translateX(-50%) translateY(-50px);background:rgba(46,36,6,.96);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:20px;padding:5px 16px;font-size:12px;z-index:400;transition:transform .35s cubic-bezier(.22,.8,.36,1);pointer-events:none;backdrop-filter:blur(8px);white-space:nowrap;}
+#offlineBadge.show{transform:translateX(-50%) translateY(0);}
 .tr{font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.7;color:#cfe5df;direction:ltr;text-align:left;opacity:.92;}
 .ayblk{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;border-radius:8px;}
 .ayblk.sel{background:rgba(234,204,126,.16);}
@@ -875,6 +880,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="tafbox" class="tafbox"></div>
 </div>
 <div id="toast" class="toast"></div>
+<div id="offlineBadge">لا يوجد اتصال بالإنترنت</div>
 
 <audio id="quranAudio" preload="none"></audio>
 
@@ -1464,7 +1470,23 @@ function isBk(s,a){try{return JSON.parse(lsGet('bookmarks')||'[]').some(function
 function ayBookmark(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}var i=-1;l.forEach(function(x,k){if(x.s===SEL_S&&x.a===SEL_A)i=k;});if(i>=0){l.splice(i,1);toast('أُزيلت من المحفوظات');}else{l.push({s:SEL_S,a:SEL_A});toast('✓ حُفظت الآية');}lsSet('bookmarks',JSON.stringify(l));bkSync();}
 function ayShare(){var t=ayText()+'\n\n﴿ '+nameFor(SEL_S)+' : '+ar(SEL_A)+' ﴾';if(navigator.share){navigator.share({text:t}).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(t);toast('نُسخت الآية للحافظة');}else{toast('انسخ يدويًا');}}
 function ayTafsir(){var tb=document.getElementById('tafbox');if(tb.classList.contains('on')){tb.classList.remove('on');return;}tb.classList.add('on');var key='tf_'+SEL_S+'_'+SEL_A,c=lsGet(key);if(c){tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+c;return;}tb.innerHTML='<div class="muted">جارٍ تحميل التفسير…</div>';fetch('https://api.alquran.cloud/v1/ayah/'+SEL_S+':'+SEL_A+'/ar.muyassar').then(function(r){return r.json();}).then(function(d){var t=d.data.text;lsSet(key,t);tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+t;}).catch(function(){tb.innerHTML='<div class="muted">تعذّر تحميل التفسير — يلزم إنترنت لأول مرة (يُحفظ بعدها).</div>';});}
-function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(window._tt);window._tt=setTimeout(function(){t.classList.remove('on');},2200);}
+function toast(m,type){
+  var t=document.getElementById('toast');
+  t.textContent=m;
+  t.className='toast'+(type?' t-'+type:'');
+  t.classList.add('on');
+  clearTimeout(window._tt);
+  window._tt=setTimeout(function(){t.classList.remove('on');},type==='error'?3500:2400);
+}
+window.addEventListener('offline',function(){
+  toast('أنت الآن بدون إنترنت — التطبيق يعمل من الكاش','warning');
+  var b=document.getElementById('offlineBadge');if(b)b.classList.add('show');
+});
+window.addEventListener('online',function(){
+  toast('تم استعادة الاتصال بالإنترنت','success');
+  var b=document.getElementById('offlineBadge');if(b)b.classList.remove('show');
+});
+if(!navigator.onLine){var _ob=document.getElementById('offlineBadge');if(_ob)_ob.classList.add('show');}
 
 /* ===== البحث ===== */
 var QFLAT=null,SEARCH_TAB='q';
