@@ -470,6 +470,10 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .toast.t-warning{background:rgba(46,36,6,.96);border-color:rgba(234,204,126,.4);color:var(--gold);}
 #offlineBadge{position:fixed;top:10px;left:50%;transform:translateX(-50%) translateY(-50px);background:rgba(46,36,6,.96);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:20px;padding:5px 16px;font-size:12px;z-index:400;transition:transform .35s cubic-bezier(.22,.8,.36,1);pointer-events:none;backdrop-filter:blur(8px);white-space:nowrap;}
 #offlineBadge.show{transform:translateX(-50%) translateY(0);}
+#pwaInstallBar{position:fixed;bottom:calc(var(--bnav-h)+14px);left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg,#1a4a3a,#0d2e26);border:1px solid rgba(234,204,126,.35);border-radius:50px;padding:10px 22px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--gold);cursor:pointer;z-index:360;transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .4s;opacity:0;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+#pwaInstallBar.show{transform:translateX(-50%) translateY(0);opacity:1;}
+#pwaInstallBar svg{width:18px;height:18px;flex-shrink:0;}
+#pwaInstallBar .pwa-close{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 0 0 6px;line-height:1;}
 .tr{font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.7;color:#cfe5df;direction:ltr;text-align:left;opacity:.92;}
 .ayblk{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;border-radius:8px;}
 .ayblk.sel{background:rgba(234,204,126,.16);}
@@ -634,12 +638,12 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="icell" id="ramadanBtn" onclick="go('ramadan')" style="display:none"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-7-8.8"/></svg></span><span class="lbl">رمضان</span></button>
     </div>
     <p class="note" id="trialNote" style="color:var(--gold)"></p>
-    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ١٩</p>
+    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ٢٠</p>
     <div style="height:calc(var(--bnav-h) + 10px)"></div>
   </div>
 
   <div id="qibla" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>اتجاه القبلة</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>اتجاه القبلة</h2></div>
     <div class="pad">
       <div class="compass" id="compass">
         <span class="cmark" style="top:8px">N</span><span class="cmark" style="bottom:8px">S</span>
@@ -648,40 +652,40 @@ button,a{-webkit-tap-highlight-color:transparent;}
       </div>
       <div class="qinfo"><div class="deg" id="qdeg">—</div><div class="lbl" id="qlbl">اضغط للسماح بالبوصلة والموقع</div></div>
       <div style="margin-top:18px"><button class="btn" id="qbtn" onclick="startQibla()">تفعيل البوصلة</button></div>
-      <p class="note">وجّه أعلى الهاتف نحو السهم الذهبي 🕋. الدقة تعتمد على بوصلة جهازك — ابعد عن المعادن.</p>
+      <p class="note">وجّه أعلى الهاتف نحو السهم الذهبي 🕋. لتحسين الدقة: حرّك الهاتف بحركة رقم 8 في الهواء عدة مرات قبل الاستخدام. ابعد عن المعادن والأجهزة الكهربائية. قد تختلف النتيجة بدرجة أو درجتين بسبب الانحراف المغناطيسي المحلي.</p>
     </div>
   </div>
 
   <div id="times" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>مواقيت الصلاة</h2><button onclick="go('calcSettings')" style="background:none;border:0;color:var(--gold);font-size:20px;cursor:pointer;padding:4px">⚙️</button></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>مواقيت الصلاة</h2><button onclick="go('calcSettings')" style="background:none;border:0;color:var(--gold);font-size:20px;cursor:pointer;padding:4px">⚙️</button></div>
     <div class="pad"><div id="timesBody"><div class="loading">اضغط لتحديد موقعك وحساب المواقيت</div><button class="btn" onclick="loadHome()">تحديد الموقع</button></div></div>
   </div>
 
   <div id="quran" class="screen">
-    <div class="top"><button class="back" id="quranBack" onclick="go('home')">→</button><h2 id="quranTitle">القرآن الكريم</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" id="quranBack" onclick="go('home')">→</button><h2 id="quranTitle">القرآن الكريم</h2></div>
     <div class="pad"><div id="quranBody"><div class="loading">جارٍ التحميل…</div></div></div>
   </div>
 
   <div id="adhkar" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>الأذكار</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الأذكار</h2></div>
     <div class="pad"><div class="cats" id="adhkarCats"></div><div id="adhkarBody"></div>
     <p class="note">للتأكد من النصوص والأعداد، راجع كتاب «حصن المسلم».</p></div>
   </div>
 
   <div id="fadail" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>فضائل الأعمال</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>فضائل الأعمال</h2></div>
     <div class="pad"><div id="fadailBody"></div>
     <p class="note">الأحاديث منسوبة لمصادرها. يُرجى التثبّت من كتب السنة المعتمدة عند النقل.</p></div>
   </div>
 
   <div id="adiya" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>أدعية مأثورة</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>أدعية مأثورة</h2></div>
     <div class="pad"><div class="cats" id="adiyaCats"></div><div id="adiyaBody"></div>
     <p class="note">أدعية من القرآن والسنّة. راجع المصادر عند الحاجة.</p></div>
   </div>
 
   <div id="search" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>بحث</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>بحث</h2></div>
     <div class="pad">
       <div class="cats" style="margin-bottom:12px"><button id="tabQ" class="on" onclick="searchTab('q')">القرآن</button><button id="tabH" onclick="searchTab('h')">الحديث</button></div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -694,14 +698,14 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="mushafFull" class="screen">
-    <div class="top" style="background:#0f3a35"><button class="back" onclick="go('home')">→</button><h2 style="flex:1">المصحف كامل<span id="mushafSurahInd" style="display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:1px;min-height:14px"></span></h2>
+    <div class="top" style="background:#0f3a35"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2 style="flex:1">المصحف كامل<span id="mushafSurahInd" style="display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:1px;min-height:14px"></span></h2>
       <select id="mushafJump" onchange="jumpMushaf(this.value)" style="margin-inline-start:auto;background:var(--card);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:14px"></select>
     </div>
     <div class="pad" id="mushafFullBody" style="padding-top:10px"></div>
   </div>
 
   <div id="memorize" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>تسميع الحفظ</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>تسميع الحفظ</h2></div>
     <div class="pad">
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <select id="memSurah" style="flex:1;background:var(--card);color:#fff;border:1px solid var(--line2);border-radius:14px;padding:13px 14px;font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;cursor:pointer"></select>
@@ -752,7 +756,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="tasbih" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>التسبيح</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>التسبيح</h2></div>
     <div class="pad"><div class="tasbih">
       <div class="dhikr-sel" id="dhikrSel"></div>
       <button class="counter-btn" id="counterBtn" onclick="tap()">
@@ -763,12 +767,12 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="ruqya" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>الرقية الشرعية</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الرقية الشرعية</h2></div>
     <div class="pad"><div id="ruqyaBody"></div></div>
   </div>
 
   <div id="rakaat" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>عدّاد الركعات</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>عدّاد الركعات</h2></div>
     <div class="pad">
       <div class="pills" id="prayerPills"></div>
       <div class="ring" id="ring">
@@ -794,31 +798,31 @@ button,a{-webkit-tap-highlight-color:transparent;}
 <audio id="adhanAudio" preload="none"></audio>
 <!-- شريط التنقّل السفلي -->
 <nav class="bnav" id="bnav">
-  <button class="bnav-tab on" id="bnt-home" onclick="go('home')">
+  <button class="bnav-tab on" id="bnt-home" aria-label="الرئيسية" onclick="go('home')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg>
     الرئيسية
   </button>
-  <button class="bnav-tab" id="bnt-quran" onclick="go('quran')">
+  <button class="bnav-tab" id="bnt-quran" aria-label="القرآن" onclick="go('quran')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5Z"/><path d="M18 19H6a2 2 0 0 0-2 2"/></svg>
     القرآن
   </button>
-  <button class="bnav-tab" id="bnt-adhkar" onclick="go('adhkar')">
+  <button class="bnav-tab" id="bnt-adhkar" aria-label="الأذكار" onclick="go('adhkar')">
     <div class="bnav-dot" id="bnav-adhkar-dot"></div>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l14 8M19 8 5 16"/></svg>
     الأذكار
   </button>
-  <button class="bnav-tab" id="bnt-tasbih" onclick="go('tasbih')">
+  <button class="bnav-tab" id="bnt-tasbih" aria-label="السبحة" onclick="go('tasbih')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6" r="2"/><circle cx="7" cy="10" r="2"/><circle cx="17" cy="10" r="2"/><circle cx="9" cy="16" r="2"/><circle cx="15" cy="16" r="2"/></svg>
     السبحة
   </button>
-  <button class="bnav-tab" id="bnt-more" onclick="toggleDrawer()">
+  <button class="bnav-tab" id="bnt-more" aria-label="المزيد" onclick="toggleDrawer()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
     المزيد
   </button>
 </nav>
   <!-- ===== أسماء الله الحسنى ===== -->
   <div id="names" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>أسماء الله الحسنى</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>أسماء الله الحسنى</h2></div>
     <div class="pad">
       <div id="nameDetail" class="name-detail"></div>
       <div class="names-grid" id="namesGrid"></div>
@@ -827,31 +831,31 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
   <!-- ===== متتبّع الختمة ===== -->
   <div id="khatmah" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>متتبّع الختمة</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>متتبّع الختمة</h2></div>
     <div class="pad" id="khatmahPad"></div>
   </div>
 
   <!-- ===== شاشة الشارات ===== -->
   <div id="badges" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>الإنجازات والشارات</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الإنجازات والشارات</h2></div>
     <div class="pad"><div class="badges-grid" id="badgesGrid"></div></div>
   </div>
 
   <!-- ===== شاشة رمضان ===== -->
   <div id="ramadan" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>رمضان المبارك 🌙</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>رمضان المبارك 🌙</h2></div>
     <div class="pad" id="ramadanPad"></div>
   </div>
 
   <!-- ===== مسابقة يومية ===== -->
   <div id="quiz" class="screen">
-    <div class="top"><button class="back" onclick="go('home')">→</button><h2>مسابقة يومية</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>مسابقة يومية</h2></div>
     <div class="pad" id="quizPad"></div>
   </div>
 
   <!-- ===== طرق الحساب ===== -->
   <div id="calcSettings" class="screen">
-    <div class="top"><button class="back" onclick="go('times')">→</button><h2>إعدادات المواقيت</h2></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('times')">→</button><h2>إعدادات المواقيت</h2></div>
     <div class="pad">
       <h3 style="color:var(--gold);margin-bottom:12px">طريقة الحساب</h3>
       <div class="calc-method-selector" id="calcMethodSel"></div>
@@ -2352,6 +2356,32 @@ function buildUI(){
 if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEventListener('DOMContentLoaded',function(){setTimeout(buildUI,300);});
 })();
 </script>
+<script>
+var _pwaPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();_pwaPrompt=e;
+  if(lsGet('pwa_dismissed')!=='1'){
+    setTimeout(function(){var b=document.getElementById('pwaInstallBar');if(b)b.classList.add('show');},3000);
+  }
+});
+window.addEventListener('appinstalled',function(){
+  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  _pwaPrompt=null;lsSet('pwa_dismissed','1');
+});
+function installPWA(){
+  if(!_pwaPrompt)return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(function(r){
+    if(r.outcome==='accepted'){lsSet('pwa_dismissed','1');}
+    _pwaPrompt=null;
+    var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  });
+}
+function dismissPWA(){
+  var b=document.getElementById('pwaInstallBar');if(b)b.classList.remove('show');
+  lsSet('pwa_dismissed','1');
+}
+</script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 <!-- Weekly Report Sheet — خارج كل الشاشات لتجنّب stacking context -->
 <div id="weeklyBk" onclick="closeWeeklySheet()" style="display:none;position:fixed;inset:0;z-index:290;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);"></div>
@@ -2369,6 +2399,11 @@ if(document.readyState!=='loading')setTimeout(buildUI,300);else document.addEven
   <div class="dua-title">دعاء ما بعد الأذان</div>
   <div class="dua-text">اللهم رب هذه الدعوة التامة والصلاة القائمة، آتِ محمداً الوسيلة والفضيلة، وابعثه مقاماً محموداً الذي وعدته، إنك لا تخلف الميعاد</div>
   <div class="dua-src">رواه البخاري (٦١٤) — يُقال بعد سماع الأذان</div>
+</div>
+<div id="pwaInstallBar" role="complementary" aria-label="تثبيت التطبيق">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v13m0 0-4-4m4 4 4-4M2 17v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"/></svg>
+  <span onclick="installPWA()">ثبّت التطبيق على شاشتك</span>
+  <button class="pwa-close" onclick="dismissPWA()" aria-label="إغلاق">✕</button>
 </div>
 </body>
 </html>
