@@ -2104,6 +2104,7 @@ var _namesCounts={};
 function loadNamesScreen(){
   var saved=lsGet('names_counts');if(saved)try{_namesCounts=JSON.parse(saved);}catch(e){}
   var detail=document.getElementById('nameDetail');if(detail)detail.classList.remove('show');
+  window.scrollTo(0,0);var scr=document.getElementById('names');if(scr)scr.scrollTop=0;
   var g=document.getElementById('namesGrid');if(!g)return;
   g.innerHTML=ALLAH_NAMES.map(function(n,i){
     var cnt=_namesCounts[i]||0;
