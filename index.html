@@ -146,6 +146,7 @@
     font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
   .cats button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
   .dhcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:12px;}
+.dh-src{font-size:11px;color:var(--muted);margin:5px 0 8px;padding:3px 10px;border-right:2px solid var(--gold2);line-height:1.5;}
   .dhcard .txt{font-size:19px;line-height:2;}
   .dhcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
   .dhcard .cnt{background:rgba(234,204,126,.15);color:var(--gold);font-weight:700;padding:6px 12px;border-radius:999px;
@@ -1561,20 +1562,20 @@ var ADHKAR={
     {t:'أستغفر الله وأتوب إليه',r:100}
   ],
   'المساء':[
-    {t:'أعوذ بالله من الشيطان الرجيم — آية الكرسي: اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ…',r:1},
-    {t:'قل هو الله أحد / قل أعوذ برب الفلق / قل أعوذ برب الناس',r:3},
-    {t:'أمسينا وأمسى الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير',r:1},
-    {t:'اللهم بك أمسينا، وبك أصبحنا، وبك نحيا، وبك نموت، وإليك المصير',r:1},
-    {t:'سيد الاستغفار: اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك… (انظر الصباح)',r:1},
-    {t:'اللهم إني أمسيت أُشهدك، وأُشهد حملة عرشك، وملائكتك، وجميع خلقك، أنك أنت الله لا إله إلا أنت وحدك لا شريك لك، وأن محمداً عبدك ورسولك',r:4},
-    {t:'أعوذ بكلمات الله التامات من شر ما خلق',r:3},
-    {t:'اللهم عافني في بدني، اللهم عافني في سمعي، اللهم عافني في بصري، لا إله إلا أنت',r:3},
-    {t:'حسبي الله لا إله إلا هو، عليه توكلت، وهو رب العرش العظيم',r:7},
-    {t:'رضيت بالله رباً، وبالإسلام ديناً، وبمحمد ﷺ نبياً',r:3},
-    {t:'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء، وهو السميع العليم',r:3},
-    {t:'أمسينا على فطرة الإسلام، وكلمة الإخلاص، ودين نبينا محمد ﷺ، وملة أبينا إبراهيم حنيفاً مسلماً',r:1},
-    {t:'سبحان الله وبحمده',r:100},
-    {t:'أستغفر الله وأتوب إليه',r:100}
+    {t:'أعوذ بالله من الشيطان الرجيم — آية الكرسي: اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ…',r:1,src:'القرآن الكريم — البقرة: ٢٥٥',review:true},
+    {t:'قل هو الله أحد / قل أعوذ برب الفلق / قل أعوذ برب الناس',r:3,src:'رواه أبو داود (٥٠٨٢) والترمذي (٣٥٧٥) والنسائي',review:true},
+    {t:'أمسينا وأمسى الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير',r:1,src:'رواه أبو داود (٥٠٧٦) والترمذي (٣٣٩١)',review:true},
+    {t:'اللهم بك أمسينا، وبك أصبحنا، وبك نحيا، وبك نموت، وإليك المصير',r:1,src:'رواه أبو داود (٥٠٦٩) والترمذي (٣٣٩١) وابن ماجه (٣٨٦٨)',review:true},
+    {t:'سيد الاستغفار: اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت، أعوذ بك من شر ما صنعت، أبوء لك بنعمتك عليّ، وأبوء بذنبي فاغفر لي فإنه لا يغفر الذنوب إلا أنت',r:1,src:'رواه البخاري (٦٣٠٦)',review:true},
+    {t:'اللهم إني أمسيت أُشهدك، وأُشهد حملة عرشك، وملائكتك، وجميع خلقك، أنك أنت الله لا إله إلا أنت وحدك لا شريك لك، وأن محمداً عبدك ورسولك',r:4,src:'رواه أبو داود (٤ /٣١٧) — صحيح',review:true},
+    {t:'أعوذ بكلمات الله التامات من شر ما خلق',r:3,src:'رواه مسلم (٢٧٠٩)',review:true},
+    {t:'اللهم عافني في بدني، اللهم عافني في سمعي، اللهم عافني في بصري، لا إله إلا أنت',r:3,src:'رواه أبو داود (٥٠٩٠) والترمذي — صحيح',review:true},
+    {t:'حسبي الله لا إله إلا هو، عليه توكلت، وهو رب العرش العظيم',r:7,src:'رواه أبو داود (٤ /٣٢١) — صحيح',review:true},
+    {t:'رضيت بالله رباً، وبالإسلام ديناً، وبمحمد ﷺ نبياً',r:3,src:'رواه أبو داود (٥٠٧٢) والترمذي (٣٣٨٩) — صحيح',review:true},
+    {t:'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء، وهو السميع العليم',r:3,src:'رواه أبو داود (٥٠٨٨) والترمذي (٣٣٨٨) وابن ماجه — صحيح',review:true},
+    {t:'أمسينا على فطرة الإسلام، وكلمة الإخلاص، ودين نبينا محمد ﷺ، وملة أبينا إبراهيم حنيفاً مسلماً',r:1,src:'رواه أحمد والترمذي والنسائي — صحيح',review:true},
+    {t:'سبحان الله وبحمده',r:100,src:'متفق عليه — البخاري (٦٤٠٥) ومسلم (٢٦٩٢)',review:true},
+    {t:'أستغفر الله وأتوب إليه',r:100,src:'رواه مسلم (٢٧٠٢) والبخاري',review:true}
   ],
   'بعد الصلاة':[
     {t:'أستغفر الله',r:3},
@@ -1621,7 +1622,12 @@ var ADHKAR={
   ]
 };
 function initAdhkar(){var cats=document.getElementById('adhkarCats');if(cats.children.length)return;Object.keys(ADHKAR).forEach(function(k,i){var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');renderAdhkar(k);};cats.appendChild(b);});renderAdhkar(Object.keys(ADHKAR)[0]);}
-function renderAdhkar(cat){document.getElementById('adhkarBody').innerHTML=ADHKAR[cat].map(function(d){return '<div class="dhcard"><div class="txt">'+d.t+'</div><div class="foot"><span class="rep">التكرار: '+ar(d.r)+'</span><button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button></div></div>';}).join('');}
+function renderAdhkar(cat){
+  document.getElementById('adhkarBody').innerHTML=ADHKAR[cat].map(function(d){
+    var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
+    return '<div class="dhcard"><div class="txt">'+d.t+'</div>'+srcHtml+'<div class="foot"><span class="rep">التكرار: '+ar(d.r)+'</span><button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button></div></div>';
+  }).join('');
+}
 function dhCount(el,total){var left=+el.getAttribute('data-left')-1;if(left<0)left=total;el.setAttribute('data-left',left);el.textContent=left===0?'✓':ar(left);el.style.background=left===0?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';el.style.color=left===0?'var(--green)':'var(--gold)';if(navigator.vibrate)try{navigator.vibrate(25);}catch(e){}}
 
 /* ===== فضائل الأعمال ===== */
