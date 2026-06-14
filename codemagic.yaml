@@ -27,6 +27,15 @@ workflows:
             -alias "$CM_KEY_ALIAS" \
             2>/dev/null | grep -E "SHA1:|SHA256:"
           echo "================================================================"
+      - name: Restore google-services.json
+        script: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            cp "$GOOGLE_SERVICES_JSON" android/app/google-services.json
+            echo "google-services.json placed"
+          else
+            echo "WARNING: GOOGLE_SERVICES_JSON not set — FirebaseAuthentication.load() will fail at runtime"
+            exit 1
+          fi
       - name: Prepare www
         script: npm run prepare:www
       - name: Capacitor sync
