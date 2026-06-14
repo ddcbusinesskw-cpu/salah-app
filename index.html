@@ -3680,9 +3680,25 @@ window.fbSignIn=function(){
 
 window.fbSignOut=function(){
   if(!_fb.auth) return;
+  var m=document.getElementById('signoutConfirm');
+  if(m){m.style.display='flex';return;}
+  _execSignOut();
+};
+window._execSignOut=function(){
+  var m=document.getElementById('signoutConfirm');if(m)m.style.display='none';
+  if(!_fb.auth)return;
   _fb.auth.signOut().then(function(){
-    if(typeof toast==='function') toast('تم تسجيل الخروج','info');
+    if(typeof toast==='function')toast('تم تسجيل الخروج','info');
+    try{
+      if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
+        var FA=window.Capacitor.Plugins.FirebaseAuthentication;
+        if(FA&&FA.signOut)FA.signOut().catch(function(){});
+      }
+    }catch(ex){}
   }).catch(function(e){console.warn('[NoorFB] signOut:',e);});
+};
+window._cancelSignOut=function(){
+  var m=document.getElementById('signoutConfirm');if(m)m.style.display='none';
 };
 
 window.fbForceSync=function(){
@@ -4017,6 +4033,18 @@ function _fbMerge(r){
 
 })(); // end IIFE
 </script>
+
+<div id="signoutConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="font-size:36px;margin-bottom:10px">🚪</div>
+    <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px">تسجيل الخروج</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">هل أنت متأكد من تسجيل الخروج؟ يمكنك الدخول مجدّداً في أي وقت.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="_execSignOut()" style="flex:1;background:rgba(248,119,119,.1);color:#f87777;border:1px solid rgba(248,119,119,.3);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">تسجيل الخروج</button>
+      <button onclick="_cancelSignOut()" style="flex:1;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">إلغاء</button>
+    </div>
+  </div>
+</div>
 
 <div id="customModal">
   <div class="cm-sheet">
