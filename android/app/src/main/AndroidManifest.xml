@@ -20,6 +20,10 @@
             </intent-filter>
         </activity>
 
+        <!-- Facebook SDK — placeholder to prevent LoginManager NoClassDefFoundError -->
+        <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
+        <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
