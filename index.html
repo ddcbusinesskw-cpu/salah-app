@@ -1127,7 +1127,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <div class="cs-diag">
           <div class="cs-diag-row"><span class="cs-diag-key">Firebase SDK محمّل:</span><span id="csDiagSdk" class="cs-diag-warn">…</span></div>
           <div class="cs-diag-row"><span class="cs-diag-key">initializeApp:</span><span id="csDiagInit" class="cs-diag-warn">…</span></div>
-          <div class="cs-diag-row"><span class="cs-diag-key">getRedirectResult:</span><span id="csDiagRedir" class="cs-diag-warn">…</span></div>
+          <div class="cs-diag-row"><span class="cs-diag-key">حفظ الجلسة (Persistence):</span><span id="csDiagRedir" class="cs-diag-warn">…</span></div>
           <div id="csDiagErrWrap" style="display:none">
             <div class="cs-diag-errmsg" id="csDiagErrMsg"></div>
           </div>
@@ -3168,7 +3168,7 @@ function dismissPWA(){
 var _fb={app:null,auth:null,db:null,user:null,_timer:null};
 
 // ── Diagnostic state (exposed for diagnostic panel) ──
-window._fbDiag={sdkLoaded:false,initDone:false,redirectDone:false,redirectErr:null,lastError:null};
+window._fbDiag={sdkLoaded:false,initDone:false,persistenceSet:false,persistenceErr:null,lastError:null};
 
 // ── Config ──
 var FB_CFG={
@@ -3191,25 +3191,28 @@ try{
   window._fbDiag.initDone=true;
   _fbRefreshDiag();
 
-  // Complete any pending redirect sign-in; surface errors visibly
-  _fb.auth.getRedirectResult()
-    .then(function(result){
-      window._fbDiag.redirectDone=true;
+  // Persist session across page reloads (localStorage, survives cookie restrictions)
+  _fb.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .then(function(){
+      window._fbDiag.persistenceSet=true;
       _fbRefreshDiag();
-      if(result&&result.user){console.log('[NoorFB] redirect sign-in complete');}
     })
     .catch(function(e){
-      window._fbDiag.redirectDone=true;
-      window._fbDiag.redirectErr=e;
-      _fbShowErr(e);
+      window._fbDiag.persistenceErr=e;
       _fbRefreshDiag();
+      console.warn('[NoorFB] persistence:',e.message);
     });
 
-  // Auth state listener
+  // Auth state listener — fires on page load if session exists, and after popup sign-in
   _fb.auth.onAuthStateChanged(function(user){
     _fb.user=user;
     _fbUpdateUI(user);
-    if(user) _fbOnLogin(user);
+    if(user&&!_fb._loginHandled){
+      _fb._loginHandled=true;
+      _fbOnLogin(user);
+    }else if(!user){
+      _fb._loginHandled=false;
+    }
   });
 
   // Hook lsSet to trigger debounced cloud write
@@ -3242,7 +3245,11 @@ window.fbSignIn=function(){
   var p=new firebase.auth.GoogleAuthProvider();
   p.addScope('email');p.addScope('profile');
   try{
-    _fb.auth.signInWithRedirect(p).catch(function(e){_fbShowErr(e);});
+    _fb.auth.signInWithPopup(p)
+      .then(function(){
+        _fb._loginHandled=false; // allow _fbOnLogin to run for this new sign-in
+      })
+      .catch(function(e){_fbShowErr(e);});
   }catch(e){_fbShowErr(e);}
 };
 
@@ -3294,8 +3301,10 @@ function _fbRefreshDiag(){
   if(d.initDone) _set('csDiagInit',true);
   else if(!d.sdkLoaded) _set('csDiagInit',false);
   else _setWait('csDiagInit');
-  if(d.redirectDone){
-    _set('csDiagRedir',!d.redirectErr,d.redirectErr?'✗ خطأ':'✓');
+  if(d.persistenceSet){
+    _set('csDiagRedir',true);
+  }else if(d.persistenceErr){
+    _set('csDiagRedir',false,'✗ خطأ');
   }else if(d.initDone){
     _setWait('csDiagRedir');
   }else{
