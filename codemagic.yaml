@@ -16,6 +16,17 @@ workflows:
     scripts:
       - name: Install dependencies
         script: npm ci
+      - name: Print signing certificate fingerprints (SHA-1 & SHA-256)
+        script: |
+          echo "================================================================"
+          echo "  بصمات شهادة التوقيع — أضفها في Firebase Console > Project Settings > Your apps > Android"
+          echo "================================================================"
+          keytool -list -v \
+            -keystore "$CM_KEYSTORE_PATH" \
+            -storepass "$CM_KEYSTORE_PASSWORD" \
+            -alias "$CM_KEY_ALIAS" \
+            2>/dev/null | grep -E "SHA1:|SHA256:"
+          echo "================================================================"
       - name: Prepare www
         script: npm run prepare:www
       - name: Capacitor sync
