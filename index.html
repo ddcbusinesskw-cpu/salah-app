@@ -172,6 +172,25 @@
   .dhcard .cnt{background:rgba(234,204,126,.15);color:var(--gold);font-weight:700;padding:6px 12px;border-radius:999px;
     font-size:14px;cursor:pointer;border:0;font-family:inherit;}
   .dhcard .rep{color:var(--muted);font-size:13px;}
+  .dhcard .ord-btns{display:flex;gap:4px;margin-inline-start:auto;}
+  .dhcard .ord-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 7px;border-radius:8px;cursor:pointer;line-height:1;}
+  .dhcard .ord-btn:active{background:rgba(255,255,255,.14);}
+  .counter-btn.tasbih-done{border-color:var(--green);background:rgba(78,202,168,.08);}
+  .counter-btn.tasbih-done .cnum{color:var(--green);}
+  .dhikr-pill{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
+  .dhikr-pill.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
+  .dhikr-pill.dhikr-add{font-size:18px;padding:6px 13px;background:rgba(255,255,255,.05);}
+  .dhikr-wrap{display:inline-flex;align-items:center;gap:3px;margin:3px;}
+  .dhikr-ord{background:transparent;border:0;color:var(--muted);font-size:11px;padding:2px 4px;cursor:pointer;line-height:1;}
+  .dhikr-ord:active{color:var(--text);}
+  .sect-add-btn{display:block;width:100%;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.15);color:var(--muted);font:inherit;font-size:14px;padding:13px;border-radius:12px;cursor:pointer;margin:10px 0 4px;text-align:center;}
+  .sect-add-btn:active{background:rgba(255,255,255,.08);}
+  #customModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-end;}
+  #customModal .cm-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;box-sizing:border-box;}
+  #customModal h3{margin:0 0 18px;text-align:center;color:var(--text);}
+  #customModal label{display:block;color:var(--muted);font-size:13px;margin-bottom:4px;}
+  #customModal input{width:100%;box-sizing:border-box;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--text);font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;margin-bottom:12px;outline:none;}
+  #customModal .cm-btns{display:flex;gap:8px;margin-top:4px;}
 
   .rak-ring-wrap{position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;margin:16px auto;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;}
   .rak-svg{position:absolute;inset:0;transform:rotate(-90deg);width:100%;height:100%;}
@@ -787,18 +806,21 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="adhkar" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الأذكار</h2></div>
     <div class="pad"><div class="cats" id="adhkarCats"></div><div id="adhkarBody"></div>
+    <button class="sect-add-btn" id="adhkarAddBtn" onclick="_adhkarAdd()">+ إضافة ذِكر مخصّص</button>
     <p class="note">للتأكد من النصوص والأعداد، راجع كتاب «حصن المسلم».</p></div>
   </div>
 
   <div id="fadail" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>فضائل الأعمال</h2></div>
     <div class="pad"><div id="fadailBody"></div>
+    <button class="sect-add-btn" onclick="_fadailAdd()">+ إضافة فضيلة مخصّصة</button>
     <p class="note">الأحاديث منسوبة لمصادرها. يُرجى التثبّت من كتب السنة المعتمدة عند النقل.</p></div>
   </div>
 
   <div id="adiya" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>أدعية مأثورة</h2></div>
     <div class="pad"><div class="cats" id="adiyaCats"></div><div id="adiyaBody"></div>
+    <button class="sect-add-btn" id="adiyaAddBtn" onclick="_adiyaAdd()">+ إضافة دعاء مخصّص</button>
     <p class="note">أدعية من القرآن والسنّة. راجع المصادر عند الحاجة.</p></div>
   </div>
 
@@ -884,7 +906,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="tasbih" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>التسبيح</h2></div>
     <div class="pad"><div class="tasbih">
-      <div class="dhikr-sel" id="dhikrSel"></div>
+      <div id="dhikrSel" style="display:flex;gap:0;flex-wrap:wrap;justify-content:center;"></div>
       <button class="counter-btn" id="counterBtn" onclick="tap()">
         <span class="cnum" id="cnum">0</span><span class="cdh" id="cdh">سبحان الله</span><span class="cof" id="cof">من ٣٣</span>
       </button>
@@ -2205,12 +2227,86 @@ var ADHKAR={
     {t:'اللهم أصلح لي ديني الذي هو عصمة أمري، وأصلح لي دنياي التي فيها معاشي، وأصلح لي آخرتي التي فيها معادي',r:1,src:'رواه مسلم (٢٧٢٠)',review:true}
   ]
 };
-function initAdhkar(){var cats=document.getElementById('adhkarCats');if(cats.children.length)return;Object.keys(ADHKAR).forEach(function(k,i){var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');renderAdhkar(k);};cats.appendChild(b);});renderAdhkar(Object.keys(ADHKAR)[0]);}
-function renderAdhkar(cat){
-  document.getElementById('adhkarBody').innerHTML=ADHKAR[cat].map(function(d){
-    var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
-    return '<div class="dhcard"><div class="txt">'+d.t+'</div>'+srcHtml+'<div class="foot"><span class="rep">التكرار: '+ar(d.r)+'</span><button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button></div></div>';
+/* ===== shared modal ===== */
+var _cmCb=null;
+function _cmShow(title,fields,cb){
+  _cmCb=cb;
+  document.getElementById('cmTitle').textContent=title;
+  var f=document.getElementById('cmFields');
+  f.innerHTML=fields.map(function(fl){
+    return '<label>'+fl.label+'</label><input id="cmf_'+fl.id+'" type="'+(fl.type||'text')+'" value="'+(fl.def||'')+'" placeholder="'+(fl.ph||'')+'">';
   }).join('');
+  var m=document.getElementById('customModal');m.style.display='flex';
+  setTimeout(function(){var fi=f.querySelector('input');if(fi)fi.focus();},60);
+}
+function _cmSubmit(){
+  var m=document.getElementById('customModal');m.style.display='none';
+  if(_cmCb)_cmCb();_cmCb=null;
+}
+function _cmClose(){document.getElementById('customModal').style.display='none';_cmCb=null;}
+function _cmVal(id){var el=document.getElementById('cmf_'+id);return el?el.value.trim():'';}
+
+/* ===== shared order helpers ===== */
+function _getOrd(key,len){
+  try{var o=JSON.parse(lsGet(key)||'');if(Array.isArray(o)){var v=o.filter(function(i){return typeof i==='number'&&i<len;});for(var i=0;i<len;i++)if(v.indexOf(i)<0)v.push(i);return v;}}catch(e){}
+  var r=[];for(var i=0;i<len;i++)r.push(i);return r;
+}
+function _saveOrd(key,arr){lsSet(key,JSON.stringify(arr));}
+function _moveOrd(key,arr,pos,delta){
+  var a=arr.slice(),np=pos+delta;
+  if(np<0||np>=a.length)return arr;
+  var tmp=a[pos];a[pos]=a[np];a[np]=tmp;
+  _saveOrd(key,a);return a;
+}
+
+/* ===== أذكار ===== */
+function _getAdhkarCustom(cat){try{return JSON.parse(lsGet('custom_adhkar_'+cat)||'[]');}catch(e){return[];}}
+function _saveAdhkarCustom(cat,arr){lsSet('custom_adhkar_'+cat,JSON.stringify(arr));}
+var _adhkarCat='';
+function initAdhkar(){
+  var cats=document.getElementById('adhkarCats');
+  if(!cats.children.length){
+    Object.keys(ADHKAR).forEach(function(k,i){
+      var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');
+      b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');_adhkarCat=k;renderAdhkar(k);};
+      cats.appendChild(b);
+    });
+  }
+  _adhkarCat=Object.keys(ADHKAR)[0];
+  renderAdhkar(_adhkarCat);
+}
+function renderAdhkar(cat){
+  var base=ADHKAR[cat]||[];
+  var custom=_getAdhkarCustom(cat);
+  var all=base.concat(custom.map(function(c){return {t:c.t,r:c.r||1,_custom:true};}));
+  var ord=_getOrd('adhkar_ord_'+cat,all.length);
+  var html='';
+  ord.forEach(function(ri,pos){
+    var d=all[ri];if(!d)return;
+    var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
+    var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',-1)">▲</button><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',1)">▼</button></span>';
+    html+='<div class="dhcard"><div class="txt">'+d.t+'</div>'+srcHtml+'<div class="foot"><span class="rep">التكرار: '+ar(d.r)+'</span><button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button>'+ordBtns+'</div></div>';
+  });
+  document.getElementById('adhkarBody').innerHTML=html;
+}
+function _adhkarMove(cat,pos,delta){
+  var base=ADHKAR[cat]||[];var custom=_getAdhkarCustom(cat);
+  var all=base.concat(custom);
+  var ord=_getOrd('adhkar_ord_'+cat,all.length);
+  _moveOrd('adhkar_ord_'+cat,ord,pos,delta);
+  renderAdhkar(cat);
+}
+function _adhkarAdd(){
+  var cat=_adhkarCat||Object.keys(ADHKAR)[0];
+  _cmShow('إضافة ذِكر',[
+    {id:'t',label:'نص الذكر',ph:'اكتب الذكر هنا'},
+    {id:'r',label:'عدد التكرار',type:'number',def:'1'}
+  ],function(){
+    var t=_cmVal('t'),r=+(_cmVal('r'))||1;
+    if(!t)return;
+    var custom=_getAdhkarCustom(cat);custom.push({t:t,r:r});_saveAdhkarCustom(cat,custom);
+    renderAdhkar(cat);
+  });
 }
 function dhCount(el,total){var left=+el.getAttribute('data-left')-1;if(left<0)left=total;el.setAttribute('data-left',left);el.textContent=left===0?'✓':ar(left);el.style.background=left===0?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';el.style.color=left===0?'var(--green)':'var(--gold)';if(navigator.vibrate)try{navigator.vibrate(25);}catch(e){}}
 
@@ -2231,7 +2327,37 @@ var FADAIL=[
   {t:'الحسنات تمحو السيئات',x:'﴿إِنَّ الْحَسَنَاتِ يُذْهِبْنَ السَّيِّئَاتِ﴾',s:'هود ١١٤'},
   {t:'فضل التقوى',x:'﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ۝ وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾',s:'الطلاق ٢–٣'}
 ];
-function initFadail(){document.getElementById('fadailBody').innerHTML=FADAIL.map(function(d){return '<div class="dhcard"><div class="muted" style="margin-bottom:6px;color:var(--gold);font-weight:600">'+d.t+'</div><div class="txt" style="line-height:2.1">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px">'+d.s+'</div></div>';}).join('');}
+function _getFadailCustom(){try{return JSON.parse(lsGet('custom_fadail')||'[]');}catch(e){return[];}}
+function initFadail(){renderFadail();}
+function renderFadail(){
+  var custom=_getFadailCustom();
+  var all=FADAIL.concat(custom.map(function(c){return {t:c.t,x:c.x,s:'مخصّص'};}));
+  var ord=_getOrd('fadail_ord',all.length);
+  var html='';
+  ord.forEach(function(ri,pos){
+    var d=all[ri];if(!d)return;
+    var ordBtns='<div style="display:flex;justify-content:flex-end;gap:4px;margin-top:8px"><button class="ord-btn" onclick="_fadailMove('+pos+',-1)">▲</button><button class="ord-btn" onclick="_fadailMove('+pos+',1)">▼</button></div>';
+    html+='<div class="dhcard"><div class="muted" style="margin-bottom:6px;color:var(--gold);font-weight:600">'+d.t+'</div><div class="txt" style="line-height:2.1">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px">'+d.s+'</div>'+ordBtns+'</div>';
+  });
+  document.getElementById('fadailBody').innerHTML=html;
+}
+function _fadailMove(pos,delta){
+  var all=FADAIL.concat(_getFadailCustom());
+  var ord=_getOrd('fadail_ord',all.length);
+  _moveOrd('fadail_ord',ord,pos,delta);
+  renderFadail();
+}
+function _fadailAdd(){
+  _cmShow('إضافة فضيلة',[
+    {id:'t',label:'العنوان',ph:'مثال: فضل الصيام'},
+    {id:'x',label:'النص',ph:'أدخل الحديث أو الآية'}
+  ],function(){
+    var t=_cmVal('t'),x=_cmVal('x');
+    if(!t||!x)return;
+    var custom=_getFadailCustom();custom.push({t:t,x:x});lsSet('custom_fadail',JSON.stringify(custom));
+    renderFadail();
+  });
+}
 
 /* ===== أدعية مأثورة ===== */
 var ADIYA={
@@ -2257,16 +2383,118 @@ var ADIYA={
     {x:'«اللهم اهدني وسدّدني»',s:'رواه مسلم'}
   ]
 };
-function initAdiya(){var cats=document.getElementById('adiyaCats');if(!cats.children.length){Object.keys(ADIYA).forEach(function(k,i){var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');renderAdiya(k);};cats.appendChild(b);});}renderAdiya(Object.keys(ADIYA)[0]);}
-function renderAdiya(cat){document.getElementById('adiyaBody').innerHTML=ADIYA[cat].map(function(d){return '<div class="dhcard"><div class="txt" style="line-height:2.2;font-size:20px">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px;color:var(--gold)">'+d.s+'</div></div>';}).join('');}
+function _getAdiyaCustom(cat){try{return JSON.parse(lsGet('custom_adiya_'+cat)||'[]');}catch(e){return[];}}
+function _saveAdiyaCustom(cat,arr){lsSet('custom_adiya_'+cat,JSON.stringify(arr));}
+var _adiyaCat='';
+function initAdiya(){
+  var cats=document.getElementById('adiyaCats');
+  if(!cats.children.length){
+    Object.keys(ADIYA).forEach(function(k,i){
+      var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');
+      b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');_adiyaCat=k;renderAdiya(k);};
+      cats.appendChild(b);
+    });
+  }
+  _adiyaCat=Object.keys(ADIYA)[0];
+  renderAdiya(_adiyaCat);
+}
+function renderAdiya(cat){
+  var base=ADIYA[cat]||[];
+  var custom=_getAdiyaCustom(cat);
+  var all=base.concat(custom.map(function(c){return {x:c.x,s:'مخصّص'};}));
+  var ord=_getOrd('adiya_ord_'+cat,all.length);
+  var html='';
+  ord.forEach(function(ri,pos){
+    var d=all[ri];if(!d)return;
+    var ordBtns='<div style="display:flex;justify-content:flex-end;gap:4px;margin-top:6px"><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',-1)">▲</button><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',1)">▼</button></div>';
+    html+='<div class="dhcard"><div class="txt" style="line-height:2.2;font-size:20px">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px;color:var(--gold)">'+d.s+'</div>'+ordBtns+'</div>';
+  });
+  document.getElementById('adiyaBody').innerHTML=html;
+}
+function _adiyaMove(cat,pos,delta){
+  var base=ADIYA[cat]||[];var custom=_getAdiyaCustom(cat);
+  var all=base.concat(custom);
+  var ord=_getOrd('adiya_ord_'+cat,all.length);
+  _moveOrd('adiya_ord_'+cat,ord,pos,delta);
+  renderAdiya(cat);
+}
+function _adiyaAdd(){
+  var cat=_adiyaCat||Object.keys(ADIYA)[0];
+  _cmShow('إضافة دعاء',[
+    {id:'x',label:'نص الدعاء',ph:'اكتب الدعاء هنا'}
+  ],function(){
+    var x=_cmVal('x');
+    if(!x)return;
+    var custom=_getAdiyaCustom(cat);custom.push({x:x});_saveAdiyaCustom(cat,custom);
+    renderAdiya(cat);
+  });
+}
 
 /* ===== التسبيح ===== */
-var DHIKR=[{t:'سبحان الله',m:33},{t:'الحمد لله',m:33},{t:'الله أكبر',m:34},{t:'لا إله إلا الله',m:100},{t:'أستغفر الله',m:100}];
+var DHIKR_BASE=[{t:'سبحان الله',m:33},{t:'الحمد لله',m:33},{t:'الله أكبر',m:34},{t:'لا إله إلا الله',m:100},{t:'أستغفر الله',m:100}];
 var dIdx=0,dCount=0;
-function buildDhikr(){var s=document.getElementById('dhikrSel');s.innerHTML='';DHIKR.forEach(function(d,i){var b=document.createElement('button');b.textContent=d.t;if(i===dIdx)b.classList.add('on');b.onclick=function(){dIdx=i;dCount=0;buildDhikr();renderTasbih();};s.appendChild(b);});}
-function renderTasbih(){document.getElementById('cnum').textContent=ar(dCount);document.getElementById('cdh').textContent=DHIKR[dIdx].t;document.getElementById('cof').textContent='من '+ar(DHIKR[dIdx].m);}
-function tap(){dCount++;if(navigator.vibrate)try{navigator.vibrate(dCount%DHIKR[dIdx].m===0?[40,30,40]:18);}catch(e){}renderTasbih();var _tt=+(lsGet('tasbih_total')||0)+1;lsSet('tasbih_total',String(_tt));if(_tt===1000)checkBadge('tasbih_1000');if(_tt===3000)checkBadge('tasbih_3000');}
+function _getDhikrCustom(){try{return JSON.parse(lsGet('custom_dhikr')||'[]');}catch(e){return[];}}
+function _dhikrOrdered(){
+  var all=DHIKR_BASE.concat(_getDhikrCustom());
+  var ord=_getOrd('dhikr_ord',all.length);
+  return ord.map(function(i){return all[i]||DHIKR_BASE[0];});
+}
+function buildDhikr(){
+  var all=DHIKR_BASE.concat(_getDhikrCustom());
+  var ord=_getOrd('dhikr_ord',all.length);
+  var s=document.getElementById('dhikrSel');if(!s)return;s.innerHTML='';
+  var ordered=ord.map(function(i){return all[i];});
+  ordered.forEach(function(d,pos){
+    var wrap=document.createElement('span');wrap.className='dhikr-wrap';
+    if(ordered.length>1){
+      var up=document.createElement('button');up.className='dhikr-ord';up.textContent='▲';up.title='للأعلى';
+      up.onclick=function(){var o=_getOrd('dhikr_ord',all.length);o=_moveOrd('dhikr_ord',o,pos,-1);if(dIdx===pos&&pos>0)dIdx=pos-1;else if(dIdx===pos-1)dIdx=pos;buildDhikr();renderTasbih();};
+      wrap.appendChild(up);
+    }
+    var b=document.createElement('button');b.textContent=d.t;b.className='dhikr-pill';if(pos===dIdx)b.classList.add('on');
+    b.onclick=function(){dIdx=pos;dCount=0;buildDhikr();renderTasbih();};
+    wrap.appendChild(b);
+    if(ordered.length>1){
+      var dn=document.createElement('button');dn.className='dhikr-ord';dn.textContent='▼';dn.title='للأسفل';
+      dn.onclick=function(){var o=_getOrd('dhikr_ord',all.length);o=_moveOrd('dhikr_ord',o,pos,1);if(dIdx===pos&&pos<ordered.length-1)dIdx=pos+1;else if(dIdx===pos+1)dIdx=pos;buildDhikr();renderTasbih();};
+      wrap.appendChild(dn);
+    }
+    s.appendChild(wrap);
+  });
+  var addBtn=document.createElement('button');addBtn.textContent='+';addBtn.className='dhikr-pill dhikr-add';addBtn.title='إضافة تسبيحة';addBtn.onclick=_showAddDhikr;
+  s.appendChild(addBtn);
+}
+function renderTasbih(){
+  var item=_dhikrOrdered()[dIdx]||DHIKR_BASE[0];
+  var done=dCount>=item.m;
+  var btn=document.getElementById('counterBtn');if(!btn)return;
+  document.getElementById('cnum').textContent=done?'✓':ar(dCount);
+  document.getElementById('cdh').textContent=item.t;
+  document.getElementById('cof').textContent='من '+ar(item.m);
+  btn.classList.toggle('tasbih-done',done);
+}
+function tap(){
+  var item=_dhikrOrdered()[dIdx]||DHIKR_BASE[0];
+  if(dCount>=item.m)return;
+  dCount++;
+  if(navigator.vibrate)try{navigator.vibrate(dCount%item.m===0?[40,30,40]:18);}catch(e){}
+  renderTasbih();
+  var _tt=+(lsGet('tasbih_total')||0)+1;lsSet('tasbih_total',String(_tt));
+  if(_tt===1000)checkBadge('tasbih_1000');if(_tt===3000)checkBadge('tasbih_3000');
+}
 function tasbihReset(){dCount=0;renderTasbih();}
+function _showAddDhikr(){
+  _cmShow('إضافة تسبيحة',[
+    {id:'name',label:'نص التسبيحة',ph:'مثال: سبحان الله وبحمده'},
+    {id:'count',label:'العدد المستهدف',type:'number',def:'33'}
+  ],function(){
+    var t=_cmVal('name'),m=+(_cmVal('count'))||33;
+    if(!t)return;
+    var custom=_getDhikrCustom();custom.push({t:t,m:m});lsSet('custom_dhikr',JSON.stringify(custom));
+    var all=DHIKR_BASE.concat(custom);dIdx=all.length-1;dCount=0;
+    buildDhikr();renderTasbih();
+  });
+}
 
 /* ===== عدّاد الركعات ===== */
 // ⚠ بحاجة مراجعة بشرية — السنن والوتر والتراويح فيها اختلاف بالروايات
@@ -3672,5 +3900,16 @@ function _fbMerge(r){
 
 })(); // end IIFE
 </script>
+
+<div id="customModal">
+  <div class="cm-sheet">
+    <h3 id="cmTitle"></h3>
+    <div id="cmFields"></div>
+    <div class="cm-btns">
+      <button class="btn" style="margin:0" onclick="_cmSubmit()">حفظ</button>
+      <button class="btn" style="margin:0;background:rgba(255,255,255,.08)" onclick="_cmClose()">إلغاء</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
