@@ -21,6 +21,10 @@
       "smallIcon": "ic_stat_noor",
       "iconColor": "#3fae8e",
       "sound": "none"
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
     }
   },
   "android": {
