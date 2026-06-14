@@ -6,6 +6,8 @@ import android.os.Looper;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.FirebaseAuthenticationPlugin;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 public class MainActivity extends BridgeActivity {
 
@@ -55,7 +57,7 @@ public class MainActivity extends BridgeActivity {
             Log.e(TAG, "registerPlugin FAILED", t);
         }
 
-        /* ── 3. bridge init — load() called here ── */
+        /* ── 3. bridge init — load() happens here ── */
         try {
             super.onCreate(savedInstanceState);
             diag.append("super.onCreate: OK\n");
@@ -68,41 +70,100 @@ public class MainActivity extends BridgeActivity {
         /* ── 4. verify plugin in bridge ── */
         try {
             boolean found = getBridge().getPlugin("FirebaseAuthentication") != null;
-            diag.append("InBridge: ").append(found ? "YES ✓" : "NO — load() failed silently").append("\n");
+            diag.append("InBridge: ").append(found ? "YES" : "NO—load() silently failed").append("\n");
         } catch (Throwable t) {
             diag.append("getBridge check threw: ").append(t.getMessage()).append("\n");
         }
 
-        /* ── 5. inject red banner ── */
-        final String diagFinal = diag.toString();
-        Log.i(TAG, diagFinal);
+        Log.i(TAG, diag.toString());
+
+        /* ── 5. read logcat then inject banner ── */
+        final String diagSnapshot = diag.toString();
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                try {
-                    String safe = diagFinal
-                        .replace("\\", "\\\\")
-                        .replace("\"", "\\\"")
-                        .replace("\n", "\\n")
-                        .replace("\r", "")
-                        .replace("\t", "  ");
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final String logLines = captureLogcat();
+                        final String full = diagSnapshot + "\n[logcat]\n" + logLines;
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                injectBanner(full);
+                            }
+                        });
+                    }
+                }).start();
+            }
+        }, 4000);
+    }
 
-                    String js =
-                        "(function(){" +
-                        "var d=document.createElement('div');" +
-                        "d.style.cssText='position:fixed;top:0;left:0;right:0;" +
-                        "z-index:2147483647;background:#c00;color:#fff;" +
-                        "padding:10px;font-size:11px;font-family:monospace;" +
-                        "white-space:pre-wrap;direction:ltr;';" +
-                        "d.textContent=\"" + safe + "\";" +
-                        "document.body.appendChild(d);" +
-                        "})();";
+    private String captureLogcat() {
+        StringBuilder out = new StringBuilder();
+        int lines = 0;
+        int trailCount = 0;
+        try {
+            int pid = android.os.Process.myPid();
+            Process proc = Runtime.getRuntime().exec(
+                new String[]{"logcat", "-d", "-v", "brief", "--pid=" + pid}
+            );
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(proc.getInputStream())
+            );
+            String line;
+            while ((line = reader.readLine()) != null && lines < 80) {
+                boolean match =
+                    line.contains("FirebaseAuthentication") ||
+                    line.contains("NoorBridge") ||
+                    line.contains("Capacitor") ||
+                    line.contains("Unable to load") ||
+                    line.contains("loadPlugin") ||
+                    line.contains("Exception") ||
+                    line.contains("Caused by") ||
+                    line.contains("firebase") ||
+                    (trailCount > 0 && (line.startsWith("\tat ") || line.startsWith("    at ")));
 
-                    getBridge().getWebView().evaluateJavascript(js, null);
-                } catch (Throwable ex) {
-                    Log.e(TAG, "Banner inject failed", ex);
+                if (match) {
+                    out.append(line).append("\n");
+                    lines++;
+                    trailCount = line.contains("Exception") || line.contains("Caused by") ? 12 : 0;
+                } else if (trailCount > 0) {
+                    trailCount--;
                 }
             }
-        }, 3000);
+            reader.close();
+            proc.destroy();
+        } catch (Throwable t) {
+            out.append("logcat read error: ").append(t.getMessage());
+        }
+        return out.length() > 0 ? out.toString() : "(no matching lines)";
+    }
+
+    private void injectBanner(String text) {
+        try {
+            // Limit to avoid JS string overflow
+            if (text.length() > 5000) text = text.substring(text.length() - 5000);
+            String safe = text
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "")
+                .replace("\t", "  ");
+            String js =
+                "(function(){" +
+                "var d=document.createElement('div');" +
+                "d.style.cssText='position:fixed;top:0;left:0;right:0;" +
+                "z-index:2147483647;background:#c00;color:#fff;" +
+                "padding:10px;font-size:10px;font-family:monospace;" +
+                "white-space:pre-wrap;direction:ltr;max-height:60vh;overflow-y:auto;';" +
+                "d.textContent=\"" + safe + "\";" +
+                "document.body.appendChild(d);" +
+                "})();";
+            getBridge().getWebView().evaluateJavascript(js, null);
+            Log.i(TAG, "Banner injected, length=" + safe.length());
+        } catch (Throwable ex) {
+            Log.e(TAG, "Banner inject failed", ex);
+        }
     }
 }
