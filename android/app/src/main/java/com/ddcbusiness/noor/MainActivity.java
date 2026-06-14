@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FirebaseAuthenticationPlugin.class);
+        registerPlugin(ProximitySensorPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
