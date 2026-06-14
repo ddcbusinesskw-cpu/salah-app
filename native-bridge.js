@@ -203,8 +203,8 @@
           window.fbSignIn داخل index.html (تحقق منصّة عند الضغط).
           هنا نسجّل فقط حالة الإضافة لمساعدة التشخيص.
     ════════════════════════════════════════════ */
-    var _fbAuthPlugin = Plugins.FirebaseAuthentication;
-    console.log('[NoorBridge] FirebaseAuthentication plugin:', _fbAuthPlugin ? 'ready' : 'NOT FOUND');
+    var _fbAuthPlugin = window.Capacitor.registerPlugin('FirebaseAuthentication');
+    console.log('[NoorBridge] FirebaseAuthentication plugin: proxy registered', !!_fbAuthPlugin);
 
     console.log('[NoorBridge] Native platform ready — haptics, geo, notifications, auth active');
   });

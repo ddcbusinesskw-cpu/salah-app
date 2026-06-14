@@ -31,6 +31,12 @@ workflows:
         script: npm run prepare:www
       - name: Capacitor sync
         script: npx cap sync android
+      - name: Diagnose plugin registration
+        script: |
+          echo "=== capacitor.settings.gradle ==="
+          cat android/capacitor.settings.gradle
+          echo "=== capacitor.build.gradle ==="
+          cat android/app/capacitor.build.gradle
       - name: Build release AAB
         script: |
           cd android
