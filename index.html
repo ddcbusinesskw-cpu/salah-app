@@ -3300,10 +3300,7 @@ window.fbSignIn=function(){
     var _Cap=window.Capacitor||{};
     var _FA=(_Cap.Plugins&&_Cap.Plugins.FirebaseAuthentication)||null;
     if(!_FA){
-      var _diagMsg='[plugin-missing] FirebaseAuthentication'
-        +' | Plugins.keys='+JSON.stringify(Object.keys(_Cap.Plugins||{}))
-        +' | Cap.keys='+JSON.stringify(Object.keys(_Cap));
-      _fbShowErr({code:'plugin-missing',message:_diagMsg});
+      _fbShowErr({code:'plugin-missing',message:'FirebaseAuthentication plugin not available'});
       return;
     }
     _FA.signInWithGoogle()

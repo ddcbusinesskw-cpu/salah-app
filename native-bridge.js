@@ -197,18 +197,6 @@
           Capacitor Camera plugin متاح للصور الفوتوغرافية إن احتجناه لاحقاً.
     ════════════════════════════════════════════ */
 
-    /* ════════════════════════════════════════════
-       8. Firebase Auth — diagnostic only
-          المسار الأصلي لتسجيل الدخول بجوجل مدمج مباشرة في
-          window.fbSignIn داخل index.html (تحقق منصّة عند الضغط).
-          هنا نسجّل فقط حالة الإضافة لمساعدة التشخيص.
-    ════════════════════════════════════════════ */
-    var _Cap2=window.Capacitor||{};
-    var _fbAuthPlugin=(_Cap2.Plugins&&_Cap2.Plugins.FirebaseAuthentication)||null;
-    console.log('[NoorBridge] FirebaseAuthentication plugin:'
-      +(_fbAuthPlugin?'found':'NOT FOUND')
-      +' | PluginKeys='+JSON.stringify(Object.keys(_Cap2.Plugins||{})));
-
     console.log('[NoorBridge] Native platform ready — haptics, geo, notifications, auth active');
   });
 })();
