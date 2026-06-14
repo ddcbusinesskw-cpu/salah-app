@@ -205,12 +205,8 @@
     ════════════════════════════════════════════ */
     var _Cap2=window.Capacitor||{};
     var _fbAuthPlugin=(_Cap2.Plugins&&_Cap2.Plugins.FirebaseAuthentication)||null;
-    if(!_fbAuthPlugin&&typeof _Cap2.registerPlugin==='function'){
-      _fbAuthPlugin=_Cap2.registerPlugin('FirebaseAuthentication');
-    }
     console.log('[NoorBridge] FirebaseAuthentication plugin:'
       +(_fbAuthPlugin?'found':'NOT FOUND')
-      +' | registerPlugin='+typeof _Cap2.registerPlugin
       +' | PluginKeys='+JSON.stringify(Object.keys(_Cap2.Plugins||{})));
 
     console.log('[NoorBridge] Native platform ready — haptics, geo, notifications, auth active');

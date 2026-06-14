@@ -3297,15 +3297,10 @@ window.fbSignIn=function(){
      signInWithCredential so all existing sync logic stays the same.
   ──────────────────────────────────────────────────────────────── */
   if(window.Capacitor && typeof window.Capacitor.isNativePlatform==='function' && window.Capacitor.isNativePlatform()){
-    /* دفاعي: جرّب كل الطرق المتاحة للحصول على الإضافة */
     var _Cap=window.Capacitor||{};
-    var _FA=(_Cap.Plugins&&_Cap.Plugins.FirebaseAuthentication)?_Cap.Plugins.FirebaseAuthentication:null;
-    if(!_FA&&typeof _Cap.registerPlugin==='function'){
-      _FA=_Cap.registerPlugin('FirebaseAuthentication');
-    }
+    var _FA=(_Cap.Plugins&&_Cap.Plugins.FirebaseAuthentication)||null;
     if(!_FA){
       var _diagMsg='[plugin-missing] FirebaseAuthentication'
-        +' | registerPlugin='+typeof _Cap.registerPlugin
         +' | Plugins.keys='+JSON.stringify(Object.keys(_Cap.Plugins||{}))
         +' | Cap.keys='+JSON.stringify(Object.keys(_Cap));
       _fbShowErr({code:'plugin-missing',message:_diagMsg});
