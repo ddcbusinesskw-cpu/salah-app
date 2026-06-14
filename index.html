@@ -3297,8 +3297,21 @@ window.fbSignIn=function(){
      signInWithCredential so all existing sync logic stays the same.
   ──────────────────────────────────────────────────────────────── */
   if(window.Capacitor && typeof window.Capacitor.isNativePlatform==='function' && window.Capacitor.isNativePlatform()){
-    var _fbPlugin=window.Capacitor.registerPlugin('FirebaseAuthentication');
-    _fbPlugin.signInWithGoogle()
+    /* دفاعي: جرّب كل الطرق المتاحة للحصول على الإضافة */
+    var _Cap=window.Capacitor||{};
+    var _FA=(_Cap.Plugins&&_Cap.Plugins.FirebaseAuthentication)?_Cap.Plugins.FirebaseAuthentication:null;
+    if(!_FA&&typeof _Cap.registerPlugin==='function'){
+      _FA=_Cap.registerPlugin('FirebaseAuthentication');
+    }
+    if(!_FA){
+      var _diagMsg='[plugin-missing] FirebaseAuthentication'
+        +' | registerPlugin='+typeof _Cap.registerPlugin
+        +' | Plugins.keys='+JSON.stringify(Object.keys(_Cap.Plugins||{}))
+        +' | Cap.keys='+JSON.stringify(Object.keys(_Cap));
+      _fbShowErr({code:'plugin-missing',message:_diagMsg});
+      return;
+    }
+    _FA.signInWithGoogle()
       .then(function(r){
         var cred=r&&r.credential;
         if(!cred||!cred.idToken) throw {code:'auth/no-credential',message:'لم يُعاد idToken من نتيجة تسجيل الدخول الأصلي'};
