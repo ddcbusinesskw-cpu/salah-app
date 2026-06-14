@@ -34,15 +34,10 @@ workflows:
       - name: Build release AAB
         script: |
           cd android
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease assembleRelease
     artifacts:
-      - android/app/build/outputs/bundle/release/*.aab
-      - android/app/build/outputs/apk/release/*.apk
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true
+      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/**/*.apk
 
   ios-release:
     name: iOS Release (IPA → TestFlight)
