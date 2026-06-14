@@ -197,6 +197,54 @@
           Capacitor Camera plugin متاح للصور الفوتوغرافية إن احتجناه لاحقاً.
     ════════════════════════════════════════════ */
 
-    console.log('[NoorBridge] Native platform ready — haptics, geo, notifications active');
+    /* ════════════════════════════════════════════
+       8. Firebase Auth — Native Google Sign-In
+          يعترض window.fbSignIn ويستبدله بـ FirebaseAuthentication.signInWithGoogle()
+          ثم يمرّر الـ credential لـ Firebase JS SDK عبر signInWithCredential
+          بحيث يبقى كامل منطق onAuthStateChanged / المزامنة دون تغيير.
+
+          Web path (isNativePlatform=false) لا يُلمس — signInWithPopup شغّال.
+    ════════════════════════════════════════════ */
+    var FirebaseAuth = Plugins.FirebaseAuthentication;
+    if (FirebaseAuth && typeof firebase !== 'undefined') {
+      window.fbSignIn = function () {
+        /* امسح أي رسالة خطأ سابقة */
+        ['fbAuthErr', 'csAuthErr', 'ovLoginErr'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+
+        FirebaseAuth.signInWithGoogle()
+          .then(function (r) {
+            var cred = r && r.result && r.result.credential;
+            if (!cred || !cred.idToken) {
+              throw { code: 'auth/no-credential', message: 'لم يُعاد idToken من نتيجة تسجيل الدخول' };
+            }
+            var googleCred = firebase.auth.GoogleAuthProvider.credential(
+              cred.idToken,
+              cred.accessToken || null
+            );
+            /* onAuthStateChanged في الـ IIFE سيتولّى updateUI + sync */
+            return firebase.auth().signInWithCredential(googleCred);
+          })
+          .then(function () {
+            console.log('[NoorBridge] Native Google sign-in complete');
+          })
+          .catch(function (e) {
+            console.error('[NoorBridge] Native sign-in error:', e);
+            var code = (e && e.code)    || 'auth/error';
+            var msg  = (e && e.message) || String(e);
+            var html = '<b>[' + code + ']</b> ' + msg;
+            ['fbAuthErr', 'csAuthErr', 'ovLoginErr'].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (el) { el.innerHTML = html; el.style.display = ''; }
+            });
+          });
+      };
+
+      console.log('[NoorBridge] Native Google auth ready — signInWithGoogle wired');
+    }
+
+    console.log('[NoorBridge] Native platform ready — haptics, geo, notifications, auth active');
   });
 })();
