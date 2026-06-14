@@ -382,12 +382,35 @@
 .nm-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
 .nm-close-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;padding:6px 10px;}
 .nm-next-btn{background:var(--card);border:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;font-family:inherit;}
-.khatmah-ring{display:flex;justify-content:center;margin:20px 0;}
+.khatmah-ring{display:flex;justify-content:center;margin:16px 0 10px;}
 .khatmah-ring svg{width:160px;height:160px;}
-.khatmah-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;}
+.khatmah-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
 .khatmah-stat{background:var(--card);border-radius:14px;padding:14px;text-align:center;}
 .khatmah-stat b{display:block;font-size:22px;color:var(--gold);}
 .khatmah-stat span{font-size:12px;color:var(--muted);}
+.khatmah-plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.kplan-btn{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 10px;cursor:pointer;color:var(--text);text-align:center;display:flex;flex-direction:column;gap:4px;font-family:inherit;transition:.15s;}
+.kplan-btn:active{background:rgba(234,204,126,.12);border-color:var(--gold);}
+.kp-dur{font-size:17px;font-weight:700;color:var(--gold);}
+.kp-rate{font-size:12px;color:var(--text);}
+.kp-sub{font-size:11px;color:var(--muted);}
+.kplan-custom{border-style:dashed;}
+.khatmah-wird{background:linear-gradient(135deg,rgba(234,204,126,.12),rgba(78,202,168,.05));border:1px solid rgba(234,204,126,.25);border-radius:18px;padding:16px;margin-bottom:12px;}
+.kw-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.kw-label{font-size:13px;color:var(--gold);font-weight:600;}
+.kw-day{font-size:12px;color:var(--muted);}
+.kw-range{font-size:21px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.kw-juz{font-size:14px;color:var(--muted);margin-bottom:12px;}
+.khatmah-today{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;}
+.kt-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.kt-label{font-size:13px;color:var(--muted);}
+.kt-pct{font-size:13px;color:var(--gold);font-weight:600;}
+.kt-bar-track{background:rgba(255,255,255,.08);border-radius:999px;height:6px;margin-bottom:14px;overflow:hidden;}
+.kt-bar-fill{background:var(--green);border-radius:999px;height:6px;transition:.5s;}
+.kt-input-row{display:flex;gap:8px;align-items:center;}
+.kt-adj{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--text);font-size:20px;cursor:pointer;line-height:1;font-family:inherit;}
+.kt-adj:active{background:rgba(255,255,255,.18);}
+.kt-pages-in{width:64px;text-align:center;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--text);font:inherit;font-size:20px;border-radius:10px;padding:8px 0;}
 .streak-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.3);border-radius:20px;padding:4px 10px;font-size:13px;color:#ff8c00;margin-right:8px;}
 .badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:4px 0;}
 .badge-card{background:var(--card);border-radius:14px;padding:14px 8px;text-align:center;border:1px solid var(--line);}
@@ -1378,6 +1401,16 @@ function _onMushafScroll(){
     lsSet('mushaf_surah',String(cur));
     var ind=document.getElementById('mushafSurahInd');
     if(ind)ind.textContent=nameFor(cur);
+    try{
+      var kd=lsGet('khatmah_data');
+      if(kd&&typeof SURAH_START_PAGE!=='undefined'){
+        var km=JSON.parse(kd);
+        if(km&&km.days){
+          var pg=SURAH_START_PAGE[cur-1]||1;
+          if(pg>(km.pagesRead||0)){km.pagesRead=pg;_khatmahCheckComplete(km);lsSet('khatmah_data',JSON.stringify(km));}
+        }
+      }
+    }catch(ex){}
   },250);
 }
 function go(id){
@@ -2733,49 +2766,133 @@ function nmClose(){
 }
 
 /* ===== v18: متتبّع الختمة ===== */
-var KHATMAH_GOALS={1:{label:'شهر واحد',days:30,pagesDay:20,pages:604},3:{label:'٣ أشهر',days:90,pagesDay:7,pages:604},6:{label:'٦ أشهر',days:180,pagesDay:4,pages:604},12:{label:'سنة كاملة',days:365,pagesDay:2,pages:604}};
+/* ===== متتبّع الختمة v2 ===== */
+var SURAH_START_PAGE=[1,2,50,77,106,128,151,177,187,208,221,235,249,255,262,267,282,293,305,312,322,332,342,350,359,367,377,385,396,404,411,415,418,428,434,440,446,453,458,467,477,483,489,496,499,502,507,511,515,518,520,523,526,528,531,534,537,542,545,549,551,553,554,556,558,560,562,564,566,568,570,572,574,575,577,578,580,582,583,585,586,587,587,589,590,591,591,592,593,594,595,595,596,596,597,597,598,598,599,599,600,600,601,601,601,602,602,602,603,603,603,604,604,604];
+var JUZ_START_PAGE=[1,22,42,62,82,102,121,142,162,182,201,222,242,262,282,302,322,342,362,382,402,422,442,462,482,502,522,542,562,582];
+function _surahForPage(p){for(var i=SURAH_START_PAGE.length-1;i>=0;i--)if(SURAH_START_PAGE[i]<=p)return i+1;return 1;}
+function _juzForPage(p){for(var i=JUZ_START_PAGE.length-1;i>=0;i--)if(JUZ_START_PAGE[i]<=p)return i+1;return 1;}
+function _daysSince(ds){return Math.max(0,Math.round((new Date().setHours(0,0,0,0)-new Date(ds).setHours(0,0,0,0))/86400000));}
+function _khatmahCheckComplete(data){
+  if((data.pagesRead||0)>=604&&!data.completedOnce){
+    data.completedOnce=true;
+    toast('مبارك! أتممت ختمة القرآن الكريم 🎉','success');
+    checkBadge('khatmah_first');
+    var km=(+lsGet('khatmah_count')||0)+1;lsSet('khatmah_count',String(km));
+    if(km>=2)checkBadge('khatmah_month');
+  }
+}
 function loadKhatmah(){
   var pad=document.getElementById('khatmahPad');if(!pad)return;
   var saved=lsGet('khatmah_data');
   var data=null;try{if(saved)data=JSON.parse(saved);}catch(e){}
-  if(!data){
-    pad.innerHTML='<h3 style="color:var(--gold);margin-bottom:16px">اختر هدف الختمة</h3>'+
-      Object.keys(KHATMAH_GOALS).map(function(k){var g=KHATMAH_GOALS[k];return '<button class="btn" style="margin-bottom:10px;width:100%" onclick="startKhatmah('+k+')">'+g.label+' ('+ar(g.pagesDay)+' صفحة/يوم)</button>';}).join('');
+  if(data&&data.months&&!data.days){data.days=data.months*30;}
+  if(!data||!data.days){
+    pad.innerHTML=
+      '<h3 style="color:var(--gold);margin:0 0 18px;font-size:18px">اختر مدة الختمة</h3>'+
+      '<div class="khatmah-plan-grid">'+
+        '<button class="kplan-btn" onclick="startKhatmah(15)"><span class="kp-dur">١٥ يوماً</span><span class="kp-rate">~٤١ صفحة/يوم</span><span class="kp-sub">جزآن يومياً</span></button>'+
+        '<button class="kplan-btn" onclick="startKhatmah(30)"><span class="kp-dur">شهر</span><span class="kp-rate">~٢٠ صفحة/يوم</span><span class="kp-sub">جزء يومياً</span></button>'+
+        '<button class="kplan-btn" onclick="startKhatmah(60)"><span class="kp-dur">شهران</span><span class="kp-rate">~١١ صفحة/يوم</span><span class="kp-sub">نصف جزء/يوم</span></button>'+
+        '<button class="kplan-btn kplan-custom" onclick="_khatmahCustom()"><span class="kp-dur">مخصّص</span><span class="kp-rate">أدخل عدد الأيام</span></button>'+
+      '</div>';
     return;
   }
-  var today=new Date().toDateString();
   var pagesRead=data.pagesRead||0;
-  var goal=KHATMAH_GOALS[data.months]||KHATMAH_GOALS[1];
-  var pct=Math.min(100,Math.round(pagesRead/goal.pages*100));
-  var r=70,cx=80,cy=80,circ=2*Math.PI*r;
-  var dash=circ*pct/100;
-  pad.innerHTML='<div style="text-align:center;margin-bottom:8px;color:var(--muted);font-size:13px">هدف: '+goal.label+'</div>'+
-    '<div class="khatmah-ring"><svg viewBox="0 0 160 160"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--gold)" stroke-width="12" stroke-dasharray="'+dash+','+(circ-dash)+'" stroke-linecap="round" transform="rotate(-90 80 80)"/><text x="80" y="72" text-anchor="middle" fill="var(--gold)" font-size="22" font-weight="700">'+ar(pct)+'٪</text><text x="80" y="92" text-anchor="middle" fill="var(--muted)" font-size="11">مكتمل</text></svg></div>'+
+  var pagesDay=Math.ceil(604/data.days);
+  var dayIdx=_daysSince(data.startDate);
+  var rangeStart=Math.min(604,dayIdx*pagesDay+1);
+  var rangeEnd=Math.min(604,(dayIdx+1)*pagesDay);
+  var todayBase=dayIdx*pagesDay;
+  var todayDone=Math.max(0,Math.min(rangeEnd-rangeStart+1,pagesRead-todayBase));
+  var todayGoal=rangeEnd-rangeStart+1;
+  var todayPct=Math.min(100,Math.round(todayDone/todayGoal*100));
+  var overallPct=Math.min(100,Math.round(pagesRead/604*100));
+  var juzS=_juzForPage(rangeStart),juzE=_juzForPage(rangeEnd);
+  var juzLabel=juzS===juzE?'الجزء '+ar(juzS):'الجزء '+ar(juzS)+' – '+ar(juzE);
+  var startSurah=_surahForPage(rangeStart);
+  var done=pagesRead>=604;
+  var r=68,cx=80,cy=80,circ=2*Math.PI*r,dash=circ*overallPct/100;
+  var rc=done?'var(--green)':'var(--gold)';
+  var ring='<div class="khatmah-ring"><svg viewBox="0 0 160 160">'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+rc+'" stroke-width="12" stroke-dasharray="'+dash.toFixed(1)+','+(circ-dash).toFixed(1)+'" stroke-linecap="round" transform="rotate(-90 80 80)"/>'+
+    '<text x="80" y="72" text-anchor="middle" fill="'+rc+'" font-size="22" font-weight="700">'+ar(overallPct)+'٪</text>'+
+    '<text x="80" y="92" text-anchor="middle" fill="var(--muted)" font-size="11">من الختمة</text></svg></div>';
+  if(done){
+    pad.innerHTML=ring+
+      '<div style="text-align:center;padding:16px 0">'+
+        '<div style="font-size:46px;margin-bottom:8px">🎉</div>'+
+        '<div style="color:var(--green);font-size:20px;font-weight:700;margin-bottom:6px">مبارك! أتممت الختمة</div>'+
+        '<div style="color:var(--muted);font-size:14px;margin-bottom:18px">في '+ar(data.days)+' يوماً</div>'+
+      '</div>'+
+      '<button onclick="resetKhatmah()" class="btn" style="width:100%">ابدأ ختمة جديدة</button>';
+    return;
+  }
+  pad.innerHTML=ring+
+    '<div class="khatmah-wird">'+
+      '<div class="kw-head"><span class="kw-label">ورد اليوم</span><span class="kw-day">يوم '+ar(dayIdx+1)+' / '+ar(data.days)+'</span></div>'+
+      '<div class="kw-range">صفحة '+ar(rangeStart)+' — '+ar(rangeEnd)+'</div>'+
+      '<div class="kw-juz">'+juzLabel+'</div>'+
+      '<button class="btn" style="margin:0;width:100%" onclick="khatmahOpenMushaf('+startSurah+')">📖 اقرأ الآن</button>'+
+    '</div>'+
+    '<div class="khatmah-today">'+
+      '<div class="kt-head"><span class="kt-label">تقدّم اليوم</span><span class="kt-pct">'+ar(todayDone)+' / '+ar(todayGoal)+' صفحة ('+ar(todayPct)+'٪)</span></div>'+
+      '<div class="kt-bar-track"><div class="kt-bar-fill" style="width:'+todayPct+'%"></div></div>'+
+      '<div style="color:var(--muted);font-size:13px;margin-bottom:8px">سجّل عدد الصفحات التي قرأتها اليوم:</div>'+
+      '<div class="kt-input-row">'+
+        '<button class="kt-adj" onclick="khatmahAdjust(-1)">−</button>'+
+        '<input id="ktPagesIn" class="kt-pages-in" type="number" min="0" max="'+todayGoal+'" value="'+todayDone+'">'+
+        '<button class="kt-adj" onclick="khatmahAdjust(1)">+</button>'+
+        '<button class="btn" style="margin:0;padding:10px 18px;flex:1" onclick="khatmahSaveToday()">حفظ</button>'+
+      '</div>'+
+    '</div>'+
     '<div class="khatmah-stats">'+
       '<div class="khatmah-stat"><b>'+ar(pagesRead)+'</b><span>صفحة قرأت</span></div>'+
-      '<div class="khatmah-stat"><b>'+ar(goal.pages-pagesRead)+'</b><span>صفحة متبقية</span></div>'+
-      '<div class="khatmah-stat"><b>'+ar(goal.pagesDay)+'</b><span>صفحة يومياً</span></div>'+
-      '<div class="khatmah-stat"><b>'+ar(data.todayRead||0)+'</b><span>صفحة اليوم</span></div>'+
+      '<div class="khatmah-stat"><b>'+ar(604-pagesRead)+'</b><span>صفحة متبقية</span></div>'+
+      '<div class="khatmah-stat"><b>'+ar(pagesDay)+'</b><span>صفحة يومياً</span></div>'+
+      '<div class="khatmah-stat"><b>'+ar(Math.max(0,data.days-dayIdx))+'</b><span>يوم متبقٍ</span></div>'+
     '</div>'+
-    (data.lastDay===today?'<div style="text-align:center;color:var(--green);margin:8px 0">✓ أحسنت! سجّلت قراءتك اليوم</div>':'<button class="btn" style="width:100%;margin:12px 0" onclick="khatmahReadToday()">قرأت اليوم 📖</button>')+
     '<button onclick="resetKhatmah()" style="background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer;width:100%;margin-top:8px;font-family:inherit">إعادة البدء</button>';
 }
-function startKhatmah(months){lsSet('khatmah_data',JSON.stringify({months:months,pagesRead:0,startDate:new Date().toDateString(),todayRead:0}));loadKhatmah();}
+function startKhatmah(days){
+  lsSet('khatmah_data',JSON.stringify({days:days,pagesRead:0,startDate:new Date().toDateString()}));
+  loadKhatmah();
+}
+function _khatmahCustom(){
+  _cmShow('خطة مخصّصة',[{id:'days',label:'عدد الأيام',type:'number',def:'45'}],function(){
+    var d=+(_cmVal('days'))||45;if(d<1||d>3650)return;startKhatmah(d);
+  });
+}
+function khatmahOpenMushaf(surah){
+  go('mushafFull');
+  setTimeout(function(){
+    var el=document.getElementById('ms'+(surah||1));
+    if(el){try{el.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){el.scrollIntoView();}}
+  },400);
+}
+function khatmahAdjust(delta){
+  var el=document.getElementById('ktPagesIn');if(!el)return;
+  el.value=Math.max(0,(+el.value||0)+delta);
+}
+function khatmahSaveToday(){
+  var el=document.getElementById('ktPagesIn');if(!el)return;
+  var todayPages=Math.max(0,+el.value||0);
+  var saved=lsGet('khatmah_data');if(!saved)return;
+  var data=JSON.parse(saved);
+  var pagesDay=Math.ceil(604/data.days);
+  var dayIdx=_daysSince(data.startDate);
+  var newPagesRead=Math.min(604,dayIdx*pagesDay+todayPages);
+  if(newPagesRead>(data.pagesRead||0))data.pagesRead=newPagesRead;
+  _khatmahCheckComplete(data);
+  lsSet('khatmah_data',JSON.stringify(data));
+  loadKhatmah();
+}
 function khatmahReadToday(){
   var saved=lsGet('khatmah_data');if(!saved)return;
   var data=JSON.parse(saved);
-  var goal=KHATMAH_GOALS[data.months]||KHATMAH_GOALS[1];
-  var today=new Date().toDateString();
-  data.pagesRead=(data.pagesRead||0)+goal.pagesDay;
-  data.todayRead=goal.pagesDay;
-  data.lastDay=today;
-  if(data.pagesRead>=goal.pages){
-    data.pagesRead=goal.pages;
-    toast('مبارك! أتممت ختمة القرآن الكريم 🎉');
-    checkBadge('khatmah_first');
-    var km=(+lsGet('khatmah_count')||0)+1;lsSet('khatmah_count',km);
-    if(km>=2)checkBadge('khatmah_month');
-  }
+  var pagesDay=Math.ceil(604/(data.days||30));
+  data.pagesRead=Math.min(604,(data.pagesRead||0)+pagesDay);
+  _khatmahCheckComplete(data);
   lsSet('khatmah_data',JSON.stringify(data));
   loadKhatmah();
 }
