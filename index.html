@@ -3290,13 +3290,37 @@ window.fbSignIn=function(){
     var el=document.getElementById(id);
     if(el)el.style.display='none';
   });
+
+  /* ── Native path (Android / iOS) ────────────────────────────────
+     FirebaseAuthentication plugin handles the native Google UI.
+     We get the idToken back and hand it to the Firebase JS SDK via
+     signInWithCredential so all existing sync logic stays the same.
+  ──────────────────────────────────────────────────────────────── */
+  if(window.Capacitor && typeof window.Capacitor.isNativePlatform==='function' && window.Capacitor.isNativePlatform()){
+    var _fbPlugin=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
+    if(_fbPlugin){
+      _fbPlugin.signInWithGoogle()
+        .then(function(r){
+          var cred=r&&r.result&&r.result.credential;
+          if(!cred||!cred.idToken) throw {code:'auth/no-credential',message:'لم يُعاد idToken من نتيجة تسجيل الدخول الأصلي'};
+          var googleCred=firebase.auth.GoogleAuthProvider.credential(cred.idToken,cred.accessToken||null);
+          return _fb.auth.signInWithCredential(googleCred);
+        })
+        .then(function(){_fb._loginHandled=false;})
+        .catch(function(e){_fbShowErr(e);});
+      return;
+    }
+    /* Plugin missing — show diagnostic instead of silent popup failure */
+    _fbShowErr({code:'plugin-missing',message:'إضافة FirebaseAuthentication غير متاحة — أعد بناء التطبيق (cap sync)'});
+    return;
+  }
+
+  /* ── Web path (unchanged): signInWithPopup ── */
   var p=new firebase.auth.GoogleAuthProvider();
   p.addScope('email');p.addScope('profile');
   try{
     _fb.auth.signInWithPopup(p)
-      .then(function(){
-        _fb._loginHandled=false; // allow _fbOnLogin to run for this new sign-in
-      })
+      .then(function(){_fb._loginHandled=false;})
       .catch(function(e){_fbShowErr(e);});
   }catch(e){_fbShowErr(e);}
 };
