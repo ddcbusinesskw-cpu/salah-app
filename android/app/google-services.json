@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "911972197466",
+    "firebase_url": "https://noor-84c2b-default-rtdb.firebaseio.com",
+    "project_id": "noor-84c2b",
+    "storage_bucket": "noor-84c2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:911972197466:android:b2233a4ff7bf2acff9a463",
+        "android_client_info": {
+          "package_name": "com.ddcbusiness.noor"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "911972197466-ag5h43rbm52s4620i81kkthk8kdcaqgt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYKYGwUjuzDVkZrSHMgoikd4Hrxtv0jss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "911972197466-ag5h43rbm52s4620i81kkthk8kdcaqgt.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
