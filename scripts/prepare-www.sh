@@ -16,7 +16,7 @@ done
 echo "→ Injecting native-bridge.js into www/index.html"
 # Append script tag before </body> — only if not already present
 if ! grep -q 'native-bridge.js' "$ROOT/www/index.html"; then
-  sed -i 's|</body>|<script src="native-bridge.js"></script>\n</body>|' "$ROOT/www/index.html"
+  perl -i -pe 's|</body>|<script src="native-bridge.js"></script>\n</body>|' "$ROOT/www/index.html"
 fi
 
 cp "$ROOT/native-bridge.js" "$ROOT/www/native-bridge.js"
