@@ -1298,7 +1298,6 @@ button,a{-webkit-tap-highlight-color:transparent;}
     متابعة عبر Apple
   </button>
   <p id="ovLoginErr" class="auth-err" style="display:none"></p>
-  <p class="fineprint">تسجيل الدخول للعرض التجريبي فقط في هذه النسخة.</p>
   <button onclick="skipLogin()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:6px;font-family:inherit;padding:8px;width:100%">تخطّي تسجيل الدخول لاحقاً ←</button>
 </div>
 
@@ -1961,6 +1960,11 @@ var _duaT=null;
 function showDua(){var c=document.getElementById('duaCard');if(c){c.classList.add('show');clearTimeout(_duaT);_duaT=setTimeout(closeDua,30000);}}
 function closeDua(){var c=document.getElementById('duaCard');if(c)c.classList.remove('show');clearTimeout(_duaT);}
 function reqNotifPerm(){
+  if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
+    if(window._nativeNotifGranted===false){toast('لم تُمنح صلاحية الإشعارات','error');return;}
+    notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();
+    toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;
+  }
   if(!('Notification' in window)){toast('المتصفح لا يدعم الإشعارات','error');return;}
   if(Notification.permission==='granted'){notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;}
   Notification.requestPermission().then(function(p){
@@ -2934,7 +2938,7 @@ function _rakProxSupported(){
 function rakProxOpen(){
   var st=document.getElementById('rstatus');
   if(!_rakProxSupported()){
-    if(st)st.textContent='حسّاس القُرب غير مدعوم في هذا المتصفح — سيعمل في النسخة الأصلية للتطبيق';
+    if(st)st.textContent='حسّاس القُرب غير مدعوم على هذا الجهاز';
     return;
   }
   _rakProxStart();
