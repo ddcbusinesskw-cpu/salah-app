@@ -53,6 +53,9 @@
   [data-theme="light"] .dhcard .cnt{background:rgba(138,106,0,.1);color:var(--gold);}
   [data-theme="light"] .dhcard .ord-btn{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .dh-src{border-color:var(--gold);}
+  [data-theme="light"] .acat-card{background:rgba(255,255,255,.75);border-color:rgba(0,0,0,.08);}
+  [data-theme="light"] .acat-card:active{background:rgba(0,0,0,.04);}
+  [data-theme="light"] .dh-rchip{background:rgba(138,106,0,.08);border-color:rgba(138,106,0,.2);}
 
   [data-theme="light"] .srow{background:rgba(255,255,255,.75);border-color:rgba(0,0,0,.08);}
   [data-theme="light"] .srow:active{background:rgba(0,0,0,.06);}
@@ -285,14 +288,24 @@
   .cats button{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;
     font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
   .cats button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
+  .acat-card{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px 18px;cursor:pointer;transition:background .15s;margin-bottom:10px;}
+  .acat-card:active{background:var(--card2);}
+  .acat-ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .acat-ic svg{width:22px;height:22px;color:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .acat-info{flex:1;min-width:0;}
+  .acat-name{font-size:15px;font-weight:700;color:var(--text);}
+  .acat-count{font-size:12px;color:var(--muted);margin-top:2px;}
+  .acat-arr{font-size:20px;color:var(--muted);opacity:.45;flex-shrink:0;}
+  .dh-head{display:flex;justify-content:flex-end;margin-bottom:6px;}
+  .dh-rchip{background:rgba(234,204,126,.12);color:var(--gold);font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid rgba(234,204,126,.2);}
   .dhcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px;margin-bottom:12px;transition:var(--tr);}
-.dh-src{font-size:11px;color:var(--muted);margin:5px 0 8px;padding:3px 10px;border-inline-start:2px solid var(--gold2);line-height:1.5;}
+  .dh-src{font-size:11px;color:var(--muted);margin:5px 0 8px;padding:3px 10px;border-inline-start:2px solid var(--gold2);line-height:1.5;}
   .dhcard .txt{font-size:var(--qfont);line-height:2;}
-  .dhcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
-  .dhcard .cnt{background:rgba(234,204,126,.15);color:var(--gold);font-weight:700;padding:6px 12px;border-radius:999px;
-    font-size:14px;cursor:pointer;border:0;font-family:inherit;}
+  .dhcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;}
+  .dhcard .cnt{background:rgba(234,204,126,.15);color:var(--gold);font-weight:700;padding:9px 20px;border-radius:999px;
+    font-size:15px;cursor:pointer;border:0;font-family:inherit;}
   .dhcard .rep{color:var(--muted);font-size:13px;}
-  .dhcard .ord-btns{display:flex;gap:4px;margin-inline-start:auto;}
+  .dhcard .ord-btns{display:flex;gap:4px;}
   .dhcard .ord-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;line-height:1;min-height:32px;}
   .dhcard .ord-btn:active{background:rgba(255,255,255,.14);}
   .counter-btn.tasbih-done{border-color:var(--green);background:rgba(78,202,168,.08);}
@@ -1045,10 +1058,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="adhkar" class="screen">
-    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الأذكار</h2></div>
-    <div class="pad"><div class="cats" id="adhkarCats"></div><div id="adhkarBody"></div>
-    <button class="sect-add-btn" id="adhkarAddBtn" onclick="_adhkarAdd()">+ إضافة ذِكر مخصّص</button>
-    <p class="note">للتأكد من النصوص والأعداد، راجع كتاب «حصن المسلم».</p></div>
+    <div class="top"><button class="back" aria-label="رجوع" id="adhkarBackBtn" onclick="adhkarBack()">→</button><h2 id="adhkarTitle">الأذكار</h2></div>
+    <div class="pad">
+      <div id="adhkarCatsView"></div>
+      <div id="adhkarListView" style="display:none">
+        <div id="adhkarBody"></div>
+        <button class="sect-add-btn" id="adhkarAddBtn" onclick="_adhkarAdd()">+ إضافة ذِكر مخصّص</button>
+      </div>
+      <p class="note">للتأكد من النصوص والأعداد، راجع كتاب «حصن المسلم».</p>
+    </div>
   </div>
 
   <div id="fadail" class="screen">
@@ -2716,17 +2734,56 @@ function _moveOrd(key,arr,pos,delta){
 function _getAdhkarCustom(cat){try{return JSON.parse(lsGet('custom_adhkar_'+cat)||'[]');}catch(e){return[];}}
 function _saveAdhkarCustom(cat,arr){lsSet('custom_adhkar_'+cat,JSON.stringify(arr));}
 var _adhkarCat='';
-function initAdhkar(){
-  var cats=document.getElementById('adhkarCats');
-  if(!cats.children.length){
-    Object.keys(ADHKAR).forEach(function(k,i){
-      var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');
-      b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');_adhkarCat=k;renderAdhkar(k);};
-      cats.appendChild(b);
-    });
-  }
-  _adhkarCat=Object.keys(ADHKAR)[0];
-  renderAdhkar(_adhkarCat);
+var _adhkarInList=false;
+var _ACAT_ICONS={
+  'الاستيقاظ':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="1" y1="16" x2="23" y2="16"/><path d="M7 16a5 5 0 0 1 10 0"/><line x1="12" y1="5" x2="12" y2="9"/><line x1="7.2" y1="11.8" x2="5.8" y2="10.4"/><line x1="16.8" y1="11.8" x2="18.2" y2="10.4"/></svg>'],
+  'الصباح':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5.6" y1="5.6" x2="7.8" y2="7.8"/><line x1="16.2" y1="16.2" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7.8" y2="16.2"/><line x1="16.2" y1="7.8" x2="18.4" y2="5.6"/></svg>'],
+  'المساء':['c6','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><circle cx="17.5" cy="5.5" r="1.2" fill="currentColor" stroke="none"/></svg>'],
+  'بعد الصلاة':['c1','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 20h18"/><path d="M5 20v-8"/><path d="M19 20v-8"/><path d="M5 12c0-4 7-9 7-9s7 5 7 9"/><line x1="12" y1="3" x2="12" y2="2"/></svg>'],
+  'النوم':['c3','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><polyline points="15,4 18,4 15,8 18,8"/></svg>'],
+  'الخروج من البيت':['c5','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/><line x1="17" y1="16" x2="21" y2="16"/><polyline points="19,14 21,16 19,18"/></svg>'],
+  'دخول البيت':['c5','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/><rect x="10" y="14" width="4" height="7"/></svg>'],
+  'الحاجة والكرب':['c4','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v4.5"/><path d="M18 8a2 2 0 1 1 4 0v5a8 8 0 0 1-16 0V9"/></svg>'],
+  'زيارة المريض':['c4','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'],
+  'ختم القرآن':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/><polyline points="15,10 16.5,12 20,8"/></svg>']
+};
+var _ACAT_DEFAULT=['c1','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'];
+function adhkarBack(){if(_adhkarInList){_adhkarShowCats();}else{go('home');}}
+function initAdhkar(){_adhkarShowCats();}
+function _adhkarShowCats(){
+  _adhkarInList=false;_adhkarCat='';
+  document.getElementById('adhkarTitle').textContent='الأذكار';
+  document.getElementById('adhkarCatsView').style.display='';
+  document.getElementById('adhkarListView').style.display='none';
+  if(!document.getElementById('adhkarCatsView').children.length)_buildAdhkarCats();
+}
+function _buildAdhkarCats(){
+  var html='';
+  Object.keys(ADHKAR).forEach(function(cat){
+    var ic=_ACAT_ICONS[cat]||_ACAT_DEFAULT;
+    var count=(ADHKAR[cat]||[]).length+(_getAdhkarCustom(cat)||[]).length;
+    html+='<div class="acat-card" onclick="_adhkarShowList(\''+cat.replace(/'/g,"\\'")+'\')">' +
+      '<div class="acat-ic '+ic[0]+'">'+ic[1]+'</div>' +
+      '<div class="acat-info"><div class="acat-name">'+cat+'</div><div class="acat-count">'+ar(count)+' ذِكر</div></div>' +
+      '<div class="acat-arr">›</div></div>';
+  });
+  document.getElementById('adhkarCatsView').innerHTML=html;
+}
+function _adhkarShowList(cat){
+  _adhkarInList=true;_adhkarCat=cat;
+  document.getElementById('adhkarTitle').textContent=cat;
+  document.getElementById('adhkarCatsView').style.display='none';
+  document.getElementById('adhkarListView').style.display='';
+  renderAdhkar(cat);
+}
+function goAdhkarCat(cat){
+  go('adhkar');
+  setTimeout(function(){
+    var fullCat=cat;
+    Object.keys(ADHKAR).forEach(function(k){if(k.indexOf(cat)>-1)fullCat=k;});
+    _adhkarShowList(fullCat);
+    markAdhkarDone(cat);
+  },150);
 }
 function renderAdhkar(cat){
   var base=ADHKAR[cat]||[];
@@ -2737,8 +2794,13 @@ function renderAdhkar(cat){
   ord.forEach(function(ri,pos){
     var d=all[ri];if(!d)return;
     var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
-    var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',-1)">▲</button><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',1)">▼</button></span>';
-    html+='<div class="dhcard"><div class="txt">'+d.t+'</div>'+srcHtml+'<div class="foot"><span class="rep">التكرار: '+ar(d.r)+'</span><button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button>'+ordBtns+'</div></div>';
+    var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',1)">↓</button></span>';
+    html+='<div class="dhcard">' +
+      '<div class="dh-head"><span class="dh-rchip">×'+ar(d.r)+'</span></div>' +
+      '<div class="txt">'+d.t+'</div>' +
+      srcHtml +
+      '<div class="foot">'+ordBtns+'<button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button></div>' +
+    '</div>';
   });
   document.getElementById('adhkarBody').innerHTML=html;
 }
