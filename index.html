@@ -699,6 +699,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .auth-sync-msg.err{color:#f87;}
 .auth-signout-btn{background:rgba(248,119,119,.08);color:#f87;border:1px solid rgba(248,119,119,.25);border-radius:10px;padding:9px 18px;font-size:13px;cursor:pointer;width:100%;font:inherit;}
 .auth-delete-btn{background:rgba(248,119,119,.14);color:#f87777;border:1px solid rgba(248,119,119,.4);border-radius:10px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;width:100%;font:inherit;margin-top:8px;}
+.sett-row{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:14px 16px;font:inherit;color:var(--text);cursor:pointer;text-align:right;transition:background .15s;}
+.sett-row:last-child{border-bottom:none;}
+.sett-row:active{background:rgba(255,255,255,.06);}
+.sett-row-ic{font-size:18px;width:26px;text-align:center;flex-shrink:0;line-height:1;}
+.sett-row-lbl{flex:1;font-size:14px;font-weight:500;line-height:1.4;}
+.sett-row-arr{width:15px;height:15px;opacity:.35;flex-shrink:0;}
+.about-panel{background:var(--card2);border:1px solid var(--gold-b);border-radius:14px;padding:20px 16px;text-align:center;margin-top:12px;}
 .auth-benefit-li{font-size:13px;color:var(--muted);padding:5px 0 5px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;}
 .auth-benefit-li:last-child{border-bottom:none;}
 .auth-benefit-li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;}
@@ -1711,6 +1718,45 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <div class="cs-diag-row"><span class="cs-diag-key">initializeApp:</span><span id="csDiagInit" class="cs-diag-warn">…</span></div>
         <div class="cs-diag-row"><span class="cs-diag-key">حفظ الجلسة (Persistence):</span><span id="csDiagRedir" class="cs-diag-warn">…</span></div>
         <div id="csDiagErrWrap" style="display:none"><div class="cs-diag-errmsg" id="csDiagErrMsg"></div></div>
+      </div>
+    </div>
+
+    <!-- تواصل ودعم -->
+    <div class="sett-sec">
+      <div class="sett-sec-title">تواصل ودعم</div>
+      <div class="auth-card" style="padding:0;overflow:hidden">
+        <button class="sett-row" onclick="_supportAction('contact')">
+          <span class="sett-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg></span>
+          <span class="sett-row-lbl">تواصل معنا</span>
+          <svg class="sett-row-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button class="sett-row" onclick="_supportAction('suggest')">
+          <span class="sett-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16" stroke-linecap="round" stroke-width="2.5"/></svg></span>
+          <span class="sett-row-lbl">اقترح ميزة / أرسل ملاحظة</span>
+          <svg class="sett-row-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button class="sett-row" onclick="_supportAction('rate')">
+          <span class="sett-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></span>
+          <span class="sett-row-lbl">قيّم التطبيق</span>
+          <svg class="sett-row-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button class="sett-row" onclick="_supportAction('share')">
+          <span class="sett-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
+          <span class="sett-row-lbl">شارك التطبيق</span>
+          <svg class="sett-row-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button class="sett-row" onclick="_supportAction('about')">
+          <span class="sett-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8" stroke-linecap="round" stroke-width="2.5"/></svg></span>
+          <span class="sett-row-lbl">عن التطبيق</span>
+          <svg class="sett-row-arr" id="aboutRowArr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <div id="aboutAppPanel" class="about-panel" style="display:none">
+        <div style="font-size:22px;font-weight:800;color:var(--gold);letter-spacing:.5px;margin-bottom:2px">المجدّد</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;font-weight:500">طريق الأتقياء</div>
+        <div style="font-size:12px;color:var(--muted);line-height:2;margin-bottom:12px">المصحف الكامل · مواقيت الصلاة · اتجاه القبلة<br>الأذكار والأدعية · عدّاد الركعات · يعمل بدون إنترنت</div>
+        <div style="display:inline-block;background:rgba(234,204,126,.12);border:1px solid rgba(234,204,126,.3);border-radius:8px;padding:4px 14px;font-size:12px;color:var(--gold);margin-bottom:12px">الإصدار 1.0 (بناء 1)</div>
+        <div style="font-size:11px;color:var(--muted);opacity:.6">© DDC Business · ddcbusiness.kw@gmail.com</div>
       </div>
     </div>
 
@@ -5414,6 +5460,43 @@ function _rakCamBadge(s){
   var lbl=s===2?'سجود':s===1?'ركوع':'قيام';
   el.textContent=lbl;
   el.className='rak-pos-badge'+(s===2?' ps':s===1?' pr':'');
+}
+
+/* ===== Support / About ===== */
+function _supportAction(type){
+  var PLAY='https://play.google.com/store/apps/details?id=com.ddcbusiness.noor';
+  var EMAIL='ddcbusiness.kw@gmail.com';
+  function _open(url){
+    try{
+      if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
+        var Browser=window.Capacitor.Plugins&&window.Capacitor.Plugins.Browser;
+        if(Browser&&Browser.open){Browser.open({url:url});return;}
+      }
+    }catch(ex){}
+    window.open(url,'_system');
+  }
+  if(type==='contact'){
+    _open('mailto:'+EMAIL+'?subject='+encodeURIComponent('تواصل — تطبيق المجدّد'));
+  }else if(type==='suggest'){
+    _open('mailto:'+EMAIL+'?subject='+encodeURIComponent('اقتراح/ملاحظة — المجدّد'));
+  }else if(type==='rate'){
+    _open(PLAY);
+  }else if(type==='share'){
+    var shareText='تطبيق المجدّد — طريق الأتقياء\nمصحف كامل، مواقيت الصلاة، القبلة، أذكار وأدعية — يعمل بدون إنترنت.\n'+PLAY;
+    if(navigator.share){
+      navigator.share({title:'المجدّد — طريق الأتقياء',text:'مصحف كامل، مواقيت الصلاة، القبلة، أذكار وأدعية — يعمل بدون إنترنت.',url:PLAY}).catch(function(){});
+    }else{
+      try{navigator.clipboard.writeText(shareText).then(function(){toast('تم نسخ رابط التطبيق','ok');});}
+      catch(e){toast('الرابط: '+PLAY);}
+    }
+  }else if(type==='about'){
+    var panel=document.getElementById('aboutAppPanel');
+    var arr=document.getElementById('aboutRowArr');
+    if(!panel)return;
+    var show=panel.style.display==='none';
+    panel.style.display=show?'':'none';
+    if(arr)arr.style.transform=show?'rotate(-90deg)':'';
+  }
 }
 
 /* ===== INIT ===== */
