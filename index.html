@@ -5834,7 +5834,7 @@ window._execDeleteAccount=function(){
         if(_FA){
           _FA.signInWithGoogle()
             .then(function(cred){
-              var gc=firebase.auth.GoogleAuthProvider.credential(cred.idToken,cred.accessToken||null);
+              var gc=firebase.auth.GoogleAuthProvider.credential(cred.credential.idToken,cred.credential.accessToken||null);
               return _fb.auth.signInWithCredential(gc);
             })
             .then(function(){return _performDelete(_fb.auth.currentUser);})
