@@ -446,7 +446,8 @@
   .daily-card{flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 14px 12px;cursor:pointer;
     transition:background .2s;position:relative;overflow:hidden;}
   .daily-card:active{background:var(--card2);}
-  .daily-card .dc-icon{font-size:22px;margin-bottom:6px;}
+  .daily-card .dc-icon{font-size:22px;margin-bottom:6px;line-height:1;}
+  .daily-card .dc-icon svg{width:26px;height:26px;display:block;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .daily-card .dc-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;}
   .daily-card .dc-sub{font-size:11.5px;color:var(--muted);line-height:1.5;}
   .daily-card.done{border-color:rgba(63,174,142,.35);background:rgba(63,174,142,.07);}
@@ -974,13 +975,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div class="daily-row">
         <div class="daily-card" id="dcMorn" onclick="goAdhkarCat('صباح')">
           <div class="dc-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div class="dc-icon">🌅</div>
+          <div class="dc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--gold)"><line x1="1" y1="16" x2="23" y2="16"/><path d="M7 16a5 5 0 0 1 10 0"/><line x1="12" y1="5" x2="12" y2="9"/><line x1="7.2" y1="11.8" x2="5.8" y2="10.4"/><line x1="16.8" y1="11.8" x2="18.2" y2="10.4"/><line x1="2" y1="13.5" x2="4.5" y2="13.5"/><line x1="22" y1="13.5" x2="19.5" y2="13.5"/></svg></div>
           <div class="dc-title">أذكار الصباح</div>
           <div class="dc-sub" id="dcMornSub">اضغط لتبدأ</div>
         </div>
         <div class="daily-card" id="dcEve" onclick="goAdhkarCat('مساء')">
           <div class="dc-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div class="dc-icon">🌙</div>
+          <div class="dc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--green)"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><circle cx="17.5" cy="5.5" r="1.2" fill="currentColor" stroke="none"/></svg></div>
           <div class="dc-title">أذكار المساء</div>
           <div class="dc-sub" id="dcEveSub">اضغط لتبدأ</div>
         </div>
