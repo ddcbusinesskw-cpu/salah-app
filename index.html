@@ -1382,7 +1382,14 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <p class="st-tip">📷 كاميرا أمامية لرصد الوضعيات • 🎙️ التعرّف الصوتي يتطلّب إنترنت ومتصفّح (ليس داخل التطبيق)</p>
         <div id="stLoadStatus" style="font-size:12px;color:var(--muted);margin:8px 0;min-height:16px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
+          <span style="font-size:13px;color:var(--muted)">🎙️ تحليل صوتي (يزيد الدقة)</span>
+          <button id="stAudioLayerBtn" onclick="_stToggleAudioLayer()" style="border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s">متوقف</button>
+        </div>
         <button class="st-start-btn" id="stStartBtn" onclick="salahTrackStart()">▶ ابدأ التتبّع</button>
+        <div style="text-align:center;margin:10px 0 0">
+          <button onclick="_stManualPrayer()" style="border:1.5px solid var(--line);background:transparent;color:var(--gold);font-size:13px;font-weight:600;padding:8px 22px;border-radius:12px;cursor:pointer;font-family:inherit">✓ سجّلتها بنفسي</button>
+        </div>
       </div>
     </div>
 
@@ -1488,6 +1495,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <div class="st-segs-title">تفاصيل القراءة</div>
         <div id="stSegsList"></div>
+        <div id="stSumRegMsg" style="text-align:center;font-size:13px;padding:8px 0;min-height:20px;font-weight:600;"></div>
         <button class="st-sum-btn" onclick="salahTrackReset()">🔄 صلاة جديدة</button>
       </div>
     </div>
@@ -4350,7 +4358,8 @@ var ST={
   rakaat:0,sujudInRak:0,inSujud:false,totalSujud:0,
   totalRuku:0,totalJalsa:0,inRuku:false,inJalsa:false,
   segments:[],currentSpeech:'',currentScore:null,
-  speaking:false,_lastInf:0,_warned:false
+  speaking:false,_lastInf:0,_warned:false,
+  audioLayer:false,vadLastPulse:0,_vadSpeakStart:0
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -4411,21 +4420,28 @@ function salahTrackStart(){
       }
       ST.detector=det;
       if(msg)msg.textContent='جارٍ فتح الكاميرا…';
-      navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}},audio:true})
-      .then(function(stream){
-        var tracks=stream.getTracks();
-        var vTracks=tracks.filter(function(t){return t.kind==='video';});
-        var aTracks=tracks.filter(function(t){return t.kind==='audio';});
-        ST.camStream=new MediaStream(vTracks);
-        ST.audioStream=new MediaStream(aTracks);
-        _stBeginSession();
-      })
-      .catch(function(e){
-        console.error('[ST] camera error:',e);
-        navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}}})
+      var _vcon={facingMode:'user',width:{ideal:320},height:{ideal:240}};
+      if(ST.audioLayer){
+        navigator.mediaDevices.getUserMedia({video:_vcon,audio:true})
+        .then(function(stream){
+          var tracks=stream.getTracks();
+          var vTracks=tracks.filter(function(t){return t.kind==='video';});
+          var aTracks=tracks.filter(function(t){return t.kind==='audio';});
+          ST.camStream=new MediaStream(vTracks);
+          ST.audioStream=new MediaStream(aTracks);
+          _stBeginSession();
+        })
+        .catch(function(e){
+          console.error('[ST] camera+audio error:',e);
+          navigator.mediaDevices.getUserMedia({video:_vcon})
+          .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
+          .catch(function(e2){console.error('[ST] camera video-only error:',e2);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
+        });
+      }else{
+        navigator.mediaDevices.getUserMedia({video:_vcon})
         .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
-        .catch(function(e2){console.error('[ST] camera video-only error:',e2);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
-      });
+        .catch(function(e){console.error('[ST] camera error:',e);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
+      }
     });
   });
 }
@@ -4486,7 +4502,14 @@ function _stVADTick(){
   ST.analyser.getByteFrequencyData(ST._vadData);
   var sum=0;for(var i=0;i<ST._vadData.length;i++)sum+=ST._vadData[i];
   var avg=sum/ST._vadData.length;
-  ST.speaking=avg>24;
+  var speaking=avg>24;
+  var now=Date.now();
+  if(speaking&&!ST.speaking){ST._vadSpeakStart=now;}
+  if(!speaking&&ST.speaking){
+    var dur=now-ST._vadSpeakStart;
+    if(dur>=400&&dur<=2500)ST.vadLastPulse=now; // likely takbeer → boost transition sensitivity
+  }
+  ST.speaking=speaking;
   var dot=document.getElementById('stVadDot');
   if(dot)dot.classList.toggle('active',ST.speaking);
   var card=document.getElementById('stSrCard');
@@ -4516,12 +4539,16 @@ function _stPoseLoop(){
     if(txt)txt.textContent=_stAr(Math.round(conf*100))+'٪';
     _stDraw(pose,W,H);
     _stCheckWarnings(pose,W,H);
-    // Debounce
+    // Debounce (shorter when a takbeer pulse was recently detected by VAD)
     if(cls!==ST.pendPose){ST.pendPose=cls;ST.pendTime=now;}
-    else if(now-ST.pendTime>ST.DEBOUNCE&&cls!==ST.pose){
-      var prev=ST.pose;
-      ST.pose=cls;
-      _stOnPoseChange(prev,cls);
+    else{
+      var deb=ST.DEBOUNCE;
+      if(ST.vadLastPulse&&now-ST.vadLastPulse<1500)deb=200;
+      if(now-ST.pendTime>deb&&cls!==ST.pose){
+        var prev=ST.pose;
+        ST.pose=cls;
+        _stOnPoseChange(prev,cls);
+      }
     }
     _stUpdatePoseBadge(ST.pose);
   })
@@ -4533,31 +4560,36 @@ function _stClassify(pose,W,H){
   for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
   if(avg<0.07)return 'unknown';
   var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  var nose=kp[0],lK=kp[13],rK=kp[14];
-  // Best visible shoulder
+  var nose=kp[0],lK=kp[13],rK=kp[14],lA=kp[15],rA=kp[16];
   var sBest=lS.score>rS.score?lS:rS;
   if(sBest.score<0.18)return 'unknown';
   var sY=sBest.y;
-  // Hip (may be hidden in sujud — estimate from shoulder if low confidence)
   var hBest=lH.score>rH.score?lH:rH;
   var hY=hBest.score>0.12?hBest.y:sY+H*0.12;
-  // Torso ratio: positive when standing (hip below shoulder in image = hipY > shoulderY)
   var torsoRatio=(hY-sY)/H;
-  // Head relative to hip: positive means head physically above hip (hipY > noseY in image)
   var noseY=nose.score>0.15?nose.y:sY-(hY-sY)*0.55;
   var headRel=(hY-noseY)/H;
-  // SUJUD: head at or below hip level (prostrating) — headRel very small or negative
   if(headRel<0.07)return 'sujud';
-  // QIYAM: clearly standing — tall torso and head well above hip
-  if(torsoRatio>0.17&&headRel>0.23)return 'qiyam';
-  // JALSA: sitting — head above hip, knees near/at hip height (bent legs)
-  var kBest=lK.score>rK.score?lK:rK;
-  if(kBest.score>0.15&&hBest.score>0.12){
-    var kneeRel=(kBest.y-hY)/H;
-    // In jalsa: knees folded back so kneeRel is small (not extended downward)
-    if(headRel>0.10&&kneeRel<0.11&&torsoRatio>0.04)return 'jalsa';
+  // Leg angle at knee: vectors (knee→hip) · (knee→ankle); < 120° = bent = jalsa
+  function _legAng(Hk,Kk,Ak){
+    if(Hk.score<0.15||Kk.score<0.15||Ak.score<0.15)return -1;
+    var v1x=Hk.x-Kk.x,v1y=Hk.y-Kk.y,v2x=Ak.x-Kk.x,v2y=Ak.y-Kk.y;
+    var mag=Math.sqrt(v1x*v1x+v1y*v1y)*Math.sqrt(v2x*v2x+v2y*v2y);
+    if(mag<1e-6)return -1;
+    return Math.acos(Math.max(-1,Math.min(1,(v1x*v2x+v1y*v2y)/mag)))*180/Math.PI;
   }
-  // RUKU: torso bent forward, head above hip but torso compressed
+  var aL=_legAng(lH,lK,lA),aR=_legAng(rH,rK,rA);
+  var legAngle=(aL>0&&aR>0)?Math.min(aL,aR):(aL>0?aL:(aR>0?aR:-1));
+  // JALSA: upright torso, head above hip, legs bent
+  if(headRel>0.10&&torsoRatio>0.04){
+    if(legAngle>=0&&legAngle<120)return 'jalsa';
+    // fallback when ankles not visible: knee not far below hip
+    if(legAngle<0){
+      var kBest=lK.score>rK.score?lK:rK;
+      if(kBest.score>0.15&&hBest.score>0.12&&(kBest.y-hY)/H<0.11)return 'jalsa';
+    }
+  }
+  if(torsoRatio>0.17&&headRel>0.23)return 'qiyam';
   if(headRel>=0.07)return 'ruku';
   return 'qiyam';
 }
@@ -4751,6 +4783,11 @@ function salahTrackFinish(){
         +'<span class="st-seg-sc st-sr-score-badge '+cls+'">'+sc+'</span></div>';
     }).join('')||'<div style="font-size:12px;color:var(--muted);padding:8px 0">لا توجد بيانات قراءة</div>';
   }
+  // Auto-mark prayer done in daily state + achievements
+  var pKey=ST.prayer.charAt(0).toUpperCase()+ST.prayer.slice(1);
+  _stMarkPrayerDone(pKey);
+  var regMsg=document.getElementById('stSumRegMsg');
+  if(regMsg){var _ds2=getDailyState();if(_ds2['prayer_'+pKey]){regMsg.style.color='var(--green)';regMsg.textContent='✓ تم تسجيل الصلاة في إنجازاتك';}else{regMsg.textContent='';}}
   _stShowPane('stSumPane');
 }
 function salahTrackReset(){
@@ -4775,6 +4812,32 @@ function salahTrackReset(){
   if(wl)wl.classList.remove('show');if(wb)wb.classList.remove('show');
   var timer=document.getElementById('stTimer');if(timer)timer.textContent='٠:٠٠';
   var lbl=document.getElementById('stCamLbl');if(lbl)lbl.textContent='عرض الكاميرا';
+  var regMsg=document.getElementById('stSumRegMsg');if(regMsg)regMsg.textContent='';
+}
+function _stMarkPrayerDone(pKey){
+  var s=getDailyState();
+  if(!s['prayer_'+pKey]){
+    togglePrayer(pKey); // hooked: handles badges, fajr streak, all-5 celebration
+    if(typeof _achvSaveSnap==='function')_achvSaveSnap();
+  }
+}
+function _stManualPrayer(){
+  var pKey=ST.prayer.charAt(0).toUpperCase()+ST.prayer.slice(1);
+  var s=getDailyState();
+  if(s['prayer_'+pKey]){toast('الصلاة مسجّلة بالفعل ✓');return;}
+  _stMarkPrayerDone(pKey);
+  var PNAMES={fajr:'الفجر',dhuhr:'الظهر',asr:'العصر',maghrib:'المغرب',isha:'العشاء'};
+  toast('✓ تم تسجيل صلاة '+(PNAMES[ST.prayer]||ST.prayer));
+}
+function _stToggleAudioLayer(){
+  ST.audioLayer=!ST.audioLayer;
+  var btn=document.getElementById('stAudioLayerBtn');
+  if(btn){
+    btn.textContent=ST.audioLayer?'مفعّل':'متوقف';
+    btn.style.borderColor=ST.audioLayer?'var(--green)':'var(--line)';
+    btn.style.color=ST.audioLayer?'var(--green)':'var(--muted)';
+    btn.style.background=ST.audioLayer?'rgba(63,174,142,.08)':'transparent';
+  }
 }
 
 /* ===== v18: go() hook for new screens ===== */
