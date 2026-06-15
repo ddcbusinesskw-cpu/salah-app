@@ -3529,6 +3529,7 @@ function _updateSubCard(){
 }
 
 /* ===== تسلسل البداية: سبلاش → شروط → بريميوم → دخول → التطبيق ===== */
+var PREMIUM_ENABLED=false; /* اضبطه true لإعادة تفعيل شاشة الاشتراك */
 var TRIAL_DAYS=12,splashDone=false;
 function showOv(id){['splash','consent','login','paywall'].forEach(function(k){var el=document.getElementById('ov_'+k);if(el)el.classList.remove('on');});if(id){var t=document.getElementById('ov_'+id);if(t)t.classList.add('on');}}
 function boot(){
@@ -3541,13 +3542,13 @@ function afterSplash(){
 }
 function route(){
   if(!lsGet('consent'))return showOv('consent');
-  if(!lsGet('sub'))return showOv('paywall');    /* بريميوم قبل الدخول */
+  if(PREMIUM_ENABLED&&!lsGet('sub'))return showOv('paywall'); /* بريميوم قبل الدخول */
   if(!lsGet('session'))return showOv('login');
   enterApp();
 }
 function agreeTerms(){
   try{lsSet('consent','1');}catch(e){}
-  showOv('paywall');   /* consent → paywall */
+  if(PREMIUM_ENABLED){showOv('paywall');}else{showOv('login');} /* consent → (paywall|login) */
 }
 function skipPremium(){
   try{lsSet('sub','skip');}catch(e){}
