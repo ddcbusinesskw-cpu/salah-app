@@ -866,9 +866,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .mem2-range-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:14px;}
 .mem2-range-in{width:56px;background:var(--card);border:1px solid var(--line2);color:#fff;border-radius:10px;padding:7px 8px;font-family:inherit;font-size:14px;outline:none;text-align:center;}
 .mem2-range-in:focus{border-color:rgba(234,204,126,.5);}
-.mem2-seg-pills{display:flex;gap:8px;margin-bottom:16px;}
+.mem2-seg-pills{display:flex;gap:8px;margin-bottom:14px;}
 .mem2-pill{flex:1;background:var(--card);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:13px;padding:8px 0;border-radius:999px;cursor:pointer;transition:all .18s;}
 .mem2-pill.on{background:var(--gold);color:#1a1300;border-color:transparent;font-weight:700;}
+.mem2-rec-row{display:flex;flex-wrap:wrap;gap:6px;}
+.mem2-rec-pill{flex:0 0 auto;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;padding:5px 12px;border-radius:999px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.mem2-rec-pill.on{background:rgba(15,118,110,.15);border-color:rgba(15,118,110,.4);color:var(--teal);font-weight:700;}
+.mem2-setup-bar{position:fixed;bottom:var(--bnav-h);left:0;right:0;max-width:680px;margin:0 auto;background:rgba(5,26,22,.97);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid rgba(255,255,255,.08);padding:12px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.4);z-index:130;}
+.mem2-rec-chip{background:rgba(255,255,255,.07);border:1px solid var(--line2);color:var(--muted);font:inherit;font-size:11px;padding:4px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;}
+.mem2-rec-chip:active{border-color:rgba(15,118,110,.4);color:var(--teal);}
 .mem2-seg-hdr{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.05em;text-align:center;margin:18px 0 4px;opacity:.85;}
 .mem2-mushaf{direction:rtl;font-family:"Uthmani","Scheherazade New",serif;font-size:22px;line-height:2.9;text-align:justify;padding:16px 14px;background:var(--card);border:1px solid var(--line2);border-radius:18px;margin-bottom:6px;}
 .mw2{display:inline;padding:0 1px;transition:color .28s;}
@@ -1084,16 +1090,16 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button id="mem2RevealBtn" onclick="mem2ToggleReveal()" style="display:none;background:none;border:1px solid rgba(255,255,255,.18);color:var(--muted);font-size:13px;border-radius:20px;padding:5px 12px;cursor:pointer;font-family:inherit;transition:.2s">👁</button>
     </div>
     <!-- إعداد -->
-    <div class="pad" id="mem2SetupPane">
+    <div class="pad" id="mem2SetupPane" style="padding-bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 90px)">
       <div class="mem2-setup-card">
         <div class="mem2-label">السورة</div>
         <select id="memSurah" class="mem2-surah-sel" onchange="memSurahChange()"></select>
         <div class="mem2-label">نطاق الآيات</div>
         <div class="mem2-range-row">
           <span>من</span>
-          <input id="memFrom" class="mem2-range-in" type="number" min="1" value="1">
+          <input id="memFrom" class="mem2-range-in" type="number" min="1" value="1" oninput="_memClampRange()">
           <span>إلى</span>
-          <input id="memTo" class="mem2-range-in" type="number" min="1" value="7">
+          <input id="memTo" class="mem2-range-in" type="number" min="1" value="7" oninput="_memClampRange()">
           <span id="memAyahCount" style="color:var(--gold);font-size:12px;margin-inline-start:auto"></span>
         </div>
         <div class="mem2-label">طول المقطع</div>
@@ -1102,9 +1108,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <button class="mem2-pill" onclick="mem2SetSeg(3)">٣ آيات</button>
           <button class="mem2-pill" onclick="mem2SetSeg(5)">٥ آيات</button>
         </div>
+        <div class="mem2-label" style="margin-top:2px">القارئ</div>
+        <div class="mem2-rec-row" id="mem2RecRow"></div>
       </div>
-      <button class="btn" onclick="mem2Start()">ابدأ التسميع</button>
       <p class="note">اقرأ كل مقطع دفعةً واحدة — التطبيق يطابق تلاوتك ويظهر الأخطاء بعد الانتهاء. الخطأ الحقيقي هو خطأ الحفظ لا التعرّف.</p>
+    </div>
+    <div class="mem2-setup-bar" id="mem2SetupBar" style="display:none">
+      <button class="btn" onclick="mem2Start()" style="margin:0">▶ ابدأ التسميع</button>
     </div>
     <!-- جلسة التسميع -->
     <div id="mem2SessionPane" style="display:none;padding:10px 16px 180px">
@@ -1132,6 +1142,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div class="mem2-bar-foot">
         <button class="mem2-back-btn" onclick="mem2Back()">← اختر سورة</button>
         <span class="mem2-seg-lbl" id="mem2SegLbl">مقطع ١/١</span>
+        <button class="mem2-rec-chip" id="mem2RecChip" onclick="mem2CycleRec()" title="تغيير القارئ">—</button>
       </div>
     </div>
   </div>
@@ -1830,6 +1841,8 @@ function initMemorize(){
     sel.innerHTML=meta.map(function(s){return '<option value="'+s.number+'">'+ar(s.number)+' · '+s.name+'</option>';}).join('');
     memSurahChange();
   }
+  _mem2UpdateRecUI();
+  var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='block';
 }
 function memSurahChange(){
   var n=+document.getElementById('memSurah').value;
@@ -1839,6 +1852,29 @@ function memSurahChange(){
   if(fi){fi.value=1;fi.max=tot;}if(ti){ti.value=Math.min(tot,7);ti.max=tot;}
   var ac=document.getElementById('memAyahCount');if(ac)ac.textContent=ar(tot)+' آية';
 }
+function _memClampRange(){
+  var n=+document.getElementById('memSurah').value;
+  var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];
+  var tot=arr?arr.length:1;
+  var fi=document.getElementById('memFrom'),ti=document.getElementById('memTo');
+  if(!fi||!ti)return;
+  fi.max=tot;ti.max=tot;
+  if(fi.value&&+fi.value>tot)fi.value=tot;
+  if(fi.value&&+fi.value<1)fi.value=1;
+  ti.min=Math.max(1,+fi.value||1);
+  if(ti.value&&+ti.value>tot)ti.value=tot;
+  if(ti.value&&+ti.value<+ti.min)ti.value=ti.min;
+}
+function _mem2UpdateRecUI(){
+  var row=document.getElementById('mem2RecRow');
+  if(row)row.innerHTML=RECITERS.map(function(r,i){
+    return '<button class="mem2-rec-pill'+(i===recIdx?' on':'')+'" onclick="mem2SetRecInSetup('+i+')">'+r.n+'</button>';
+  }).join('');
+  var chip=document.getElementById('mem2RecChip');
+  if(chip){chip.textContent=RECITERS[recIdx].n;chip.title=RECITERS[recIdx].n;}
+}
+function mem2SetRecInSetup(i){recIdx=i;lsSet('reciter',String(i));_mem2UpdateRecUI();}
+function mem2CycleRec(){recIdx=(recIdx+1)%RECITERS.length;lsSet('reciter',String(recIdx));_mem2UpdateRecUI();}
 function mem2SetSeg(n){
   _m2sl=n;
   var pills=document.querySelectorAll('.mem2-pill');
@@ -1865,6 +1901,7 @@ function mem2Start(){
   document.getElementById('mem2ResultsPane').style.display='none';
   document.getElementById('mem2Bar').style.display='block';
   document.getElementById('mem2RevealBtn').style.display='';
+  var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='none';
   _mem2Render();_mem2UpdateBar();
 }
 function _mem2Render(){
@@ -2013,6 +2050,7 @@ function mem2Back(){
   document.getElementById('mem2ResultsPane').style.display='none';
   document.getElementById('mem2Bar').style.display='none';
   document.getElementById('mem2RevealBtn').style.display='none';
+  var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='block';
 }
 function mem2Finish(){
   if(MEM2.recActive)_mem2StopRec();
