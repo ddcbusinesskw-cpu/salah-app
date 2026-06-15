@@ -769,6 +769,16 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-ai-cr{display:flex;align-items:center;gap:10px;margin:8px 0;}
 .rak-ai-cbar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden;}
 .rak-ai-cfill{height:100%;background:var(--green);border-radius:3px;transition:.25s;width:0%;}
+.rak-ai-cal{padding:10px 2px;text-align:center;}
+.rak-ai-cal-lbl{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.rak-ai-cal-hint{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6;}
+.rak-ai-cal-prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 6px;}
+.rak-ai-cal-fill{height:100%;background:var(--gold);transition:.1s;width:0%;}
+.rak-ai-cal-dots{font-size:20px;letter-spacing:6px;color:var(--muted);}
+.rak-ai-diag{font-size:10px;color:var(--muted);font-family:monospace;padding:4px 8px;background:var(--card2);border-radius:6px;margin:4px 0;word-break:break-all;}
+.rak-ai-warn{font-size:12px;color:var(--orange,#e08840);background:rgba(224,136,64,.1);border-radius:8px;padding:6px 10px;display:none;margin:4px 0;text-align:center;}
+.rak-ai-warn.show{display:block;}
+.rak-ai-recal{font-size:12px;background:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;color:var(--muted);cursor:pointer;margin:6px auto 0;display:block;}
 .rak-ai-load{text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;}
 .rak-ai-spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:rakAISpin .85s linear infinite;margin:0 auto 10px;}
 @keyframes rakAISpin{to{transform:rotate(360deg)}}
@@ -1240,12 +1250,27 @@ button,a{-webkit-tap-highlight-color:transparent;}
             <video id="rakAIVideo" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;"></video>
             <canvas id="rakAISkel" class="rak-ai-skel"></canvas>
           </div>
-          <div class="rak-ai-cr">
-            <span id="rakAIPoseInfo" style="font-size:13px;color:var(--muted)">جاري التحليل…</span>
-            <div class="rak-ai-cbar"><div class="rak-ai-cfill" id="rakAIConfFill"></div></div>
+          <!-- Calibration wizard -->
+          <div id="rakAICalSec">
+            <div class="rak-ai-cal">
+              <div class="rak-ai-cal-lbl" id="rakAICalLbl">استعدّ للمعايرة</div>
+              <div class="rak-ai-cal-hint" id="rakAICalHint">ستُسجَّل بصمة جسمك لثلاث وضعيات — مرّة واحدة فقط</div>
+              <div class="rak-ai-cal-prog"><div class="rak-ai-cal-fill" id="rakAICalFill"></div></div>
+              <div class="rak-ai-cal-dots" id="rakAICalDots">○ ○ ○</div>
+            </div>
           </div>
-          <div class="rak-cam-note">🔒 لا رفع · لا تسجيل · على الجهاز فقط<br>صِف أمام الكاميرا — سيُعدّ السجود تلقائياً</div>
-          <button class="rak-stop-cam" onclick="rakAIStop();rakSetMode('touch')">⏹ إيقاف</button>
+          <!-- Live tracking (hidden until calibration done) -->
+          <div id="rakAITrackSec" style="display:none">
+            <div class="rak-ai-cr">
+              <span id="rakAIPoseInfo" style="font-size:13px;color:var(--muted)">جاري التحليل…</span>
+              <div class="rak-ai-cbar"><div class="rak-ai-cfill" id="rakAIConfFill"></div></div>
+            </div>
+            <div class="rak-ai-diag" id="rakAIDiag"></div>
+            <div class="rak-ai-warn" id="rakAIWarnLow">⚠ ضعف في الكشف — العدّ موقوف مؤقتاً</div>
+            <div class="rak-cam-note" style="margin:4px 0">🔒 لا رفع · على الجهاز فقط</div>
+            <button class="rak-ai-recal" onclick="rakAIRecal()">↺ إعادة المعايرة</button>
+          </div>
+          <button class="rak-stop-cam" onclick="rakAIStop();rakSetMode('touch')" style="margin-top:8px">⏹ إيقاف</button>
         </div>
       </div>
       <div class="rak-ctrl-row">
@@ -2932,7 +2957,7 @@ var PRAYER_TYPES={
 var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
 var _rakCurPrayer=null;
 var _rakCurTab='fard';
-var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0}};
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,cal:{qiyam:null,ruku:null,sujud:null},calStep:0,calBuf:[],calTimer:null,history:[],paused:false,_standH:0}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
 function buildPills(){buildPrayerPicker();}
@@ -4306,18 +4331,14 @@ function rakAIStart(){
       var v=document.getElementById('rakAIVideo');
       if(v){v.srcObject=stream;v.play();}
       if(st)st.textContent='جاري تحميل النموذج…';
+      if(ai.detector){_rakAIOnDetReady(ai.detector);return;}
       _rakAILoadDet(function(det,err2){
         if(err2||!det){
           if(load)load.style.display='none';if(priv)priv.style.display='';
           if(st)st.textContent='تعذّر تحميل النموذج — تحقق من الإنترنت';
           rakAIStop();return;
         }
-        ai.detector=det;ai.loaded=true;
-        var cvs=document.getElementById('rakAISkel');
-        if(cvs){ai.cvs=cvs;ai.ctx=cvs.getContext('2d');}
-        if(load)load.style.display='none';if(active)active.style.display='';
-        if(st)st.textContent='صِف أمام الكاميرا — سيُعدّ السجود تلقائياً';
-        rakWakeLock(true);_rakAILoop();
+        _rakAIOnDetReady(det);
       });
     }).catch(function(){
       if(load)load.style.display='none';if(priv)priv.style.display='';
@@ -4325,55 +4346,214 @@ function rakAIStart(){
     });
   });
 }
+function _rakAIOnDetReady(det){
+  var ai=RAK._ai;
+  ai.detector=det;ai.loaded=true;
+  var load=document.getElementById('rakAILoading');
+  var active=document.getElementById('rakAIActive');
+  var cvs=document.getElementById('rakAISkel');
+  if(cvs){ai.cvs=cvs;ai.ctx=cvs.getContext('2d');}
+  if(load)load.style.display='none';if(active)active.style.display='';
+  // Restore saved calibration
+  var stored=lsGet('rak_ai_cal');
+  if(stored){try{ai.cal=JSON.parse(stored);}catch(e){}}
+  var hasCal=ai.cal&&ai.cal.qiyam&&ai.cal.ruku&&ai.cal.sujud;
+  if(hasCal){_rakAIBeginTracking();}else{_rakAIStartCal();}
+  rakWakeLock(true);
+  _rakAILoop();
+}
 function rakAIStop(){
   var ai=RAK._ai;
+  if(ai.calTimer){clearInterval(ai.calTimer);ai.calTimer=null;}
   if(ai.afId){cancelAnimationFrame(ai.afId);ai.afId=null;}
   if(ai.stream){ai.stream.getTracks().forEach(function(t){t.stop();});ai.stream=null;}
   var v=document.getElementById('rakAIVideo');if(v)v.srcObject=null;
-  ai.posState=-1;ai.pendState=-1;ai.inSujud=false;ai.loaded=false;ai.detector=null;
+  ai.posState=-1;ai.pendState=-1;ai.inSujud=false;ai.loaded=false;
+  ai.history=[];ai.paused=false;
+  // Keep ai.detector and ai.cal for reuse
   var priv=document.getElementById('rakAIPrivCard');
   var load=document.getElementById('rakAILoading');
   var active=document.getElementById('rakAIActive');
   if(priv)priv.style.display='';if(load)load.style.display='none';if(active)active.style.display='none';
   rakWakeLock(false);
 }
+function rakAIRecal(){
+  var ai=RAK._ai;
+  ai.cal={qiyam:null,ruku:null,sujud:null};
+  lsSet('rak_ai_cal','');
+  var trkSec=document.getElementById('rakAITrackSec');
+  if(trkSec)trkSec.style.display='none';
+  _rakAIStartCal();
+}
+var _AI_CAL_POSES=[
+  {key:'qiyam',lbl:'القيام',hint:'قف مستقيماً — جذعك يجب أن يظهر كاملاً في الكاميرا'},
+  {key:'ruku', lbl:'الركوع', hint:'انحنِ للركوع وأمسك الوضعية ثلاث ثوانٍ'},
+  {key:'sujud',lbl:'السجود', hint:'اسجد وأمسك الوضعية — ضع الجهاز بحيث يرى جسمك'}
+];
+function _rakAIStartCal(){
+  var ai=RAK._ai;
+  ai.calStep=0;ai.calBuf=[];
+  var calSec=document.getElementById('rakAICalSec');
+  if(calSec)calSec.style.display='';
+  var st=document.getElementById('rstatus');
+  if(st)st.textContent='المعايرة — ثبّت كل وضعية ~٣ ثوانٍ';
+  _rakAICalStep();
+}
+function _rakAICalStep(){
+  var ai=RAK._ai;
+  var step=ai.calStep;
+  if(step>=_AI_CAL_POSES.length){
+    var calSec=document.getElementById('rakAICalSec');
+    if(calSec)calSec.style.display='none';
+    _rakAIBeginTracking();
+    return;
+  }
+  var pd=_AI_CAL_POSES[step];
+  var lbl=document.getElementById('rakAICalLbl');
+  var hint=document.getElementById('rakAICalHint');
+  var fill=document.getElementById('rakAICalFill');
+  var dots=document.getElementById('rakAICalDots');
+  if(lbl)lbl.textContent='أمسك وضعية: '+pd.lbl;
+  if(hint)hint.textContent=pd.hint;
+  if(fill)fill.style.width='0%';
+  if(dots)dots.textContent=[0,1,2].map(function(i){return i<step?'●':'○';}).join(' ');
+  ai.calBuf=[];
+  var COUNT=6,n=0;
+  if(ai.calTimer)clearInterval(ai.calTimer);
+  ai.calTimer=setInterval(function(){
+    var v=document.getElementById('rakAIVideo');
+    if(!v||!ai.detector||v.readyState<2)return;
+    ai.detector.estimatePoses(v,{maxPoses:1,flipHorizontal:true}).then(function(poses){
+      var p=poses&&poses[0];
+      if(!p)return;
+      var feat=_rakAIExtract(p,v.videoWidth||320,v.videoHeight||240);
+      if(feat&&feat[2]>0.12){
+        ai.calBuf.push(feat);
+        n++;
+        if(fill)fill.style.width=Math.min(100,Math.round((n/COUNT)*100))+'%';
+        if(n>=COUNT){
+          clearInterval(ai.calTimer);ai.calTimer=null;
+          var c=[0,0,0,0];
+          for(var i=0;i<ai.calBuf.length;i++)for(var j=0;j<4;j++)c[j]+=ai.calBuf[i][j];
+          for(var j=0;j<4;j++)c[j]/=ai.calBuf.length;
+          if(!ai.cal)ai.cal={};
+          ai.cal[pd.key]=c;
+          lsSet('rak_ai_cal',JSON.stringify(ai.cal));
+          ai.calStep++;
+          setTimeout(_rakAICalStep,400);
+        }
+      }
+    }).catch(function(){});
+  },500);
+}
+function _rakAIBeginTracking(){
+  var ai=RAK._ai;
+  ai.history=[];ai.posState=-1;ai.pendState=-1;ai.pendTime=0;
+  var trkSec=document.getElementById('rakAITrackSec');
+  if(trkSec)trkSec.style.display='';
+  var st=document.getElementById('rstatus');
+  if(st)st.textContent='صِف أمام الكاميرا — سيُعدّ السجود تلقائياً';
+  _rakAIBadge(-1,'unknown');
+}
+function _rakAIExtract(pose,W,H){
+  if(!pose||!pose.keypoints)return null;
+  var kp=pose.keypoints,avg=0;
+  for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
+  var minY=H,maxY=0,vis=0;
+  for(var i=0;i<kp.length;i++){
+    if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}
+  }
+  if(vis<3)return null;
+  var bboxH=(maxY-minY)/H;
+  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
+  var torso=0;
+  if(Math.max(lS.score,rS.score)>0.15&&Math.max(lH.score,rH.score)>0.15){
+    var sY=(lS.score>rS.score?lS:rS).y;
+    var hY=(lH.score>rH.score?lH:rH).y;
+    torso=(hY-sY)/H;
+  }
+  var shoulderY=Math.max(lS.score>0.10?lS.y:0,rS.score>0.10?rS.y:0)/H;
+  return [torso,bboxH,avg,shoulderY];
+}
+function _rakAIClassifyCal(feat){
+  var ai=RAK._ai;
+  var cal=ai.cal;
+  if(!cal||!cal.qiyam||!cal.ruku||!cal.sujud)return null;
+  if(feat[2]<0.10)return 'unknown';
+  var best='unknown',bestD=Infinity;
+  var POSES=['qiyam','ruku','sujud'];
+  var W=[4,3,1,2];
+  for(var p=0;p<POSES.length;p++){
+    var c=cal[POSES[p]];if(!c)continue;
+    var d=0;
+    for(var j=0;j<Math.min(feat.length,c.length,W.length);j++)d+=W[j]*Math.pow(feat[j]-c[j],2);
+    d=Math.sqrt(d);
+    if(d<bestD){bestD=d;best=POSES[p];}
+  }
+  return bestD<0.60?best:'unknown';
+}
 function _rakAILoop(){
   var ai=RAK._ai;
   if(RAK.mode!=='ai'||!ai.detector||!ai.stream){return;}
   ai.afId=requestAnimationFrame(_rakAILoop);
-  var now=Date.now();if(now-ai._lastInf<100)return;ai._lastInf=now;
+  var now=Date.now();if(now-ai._lastInf<120)return;ai._lastInf=now;
   var v=document.getElementById('rakAIVideo');
   if(!v||v.readyState<2){return;}
   ai.detector.estimatePoses(v,{maxPoses:1,flipHorizontal:true})
   .then(function(poses){
     if(RAK.mode!=='ai')return;
     var pose=poses&&poses[0];
-    var conf=0;
-    if(pose&&pose.keypoints){for(var i=0;i<pose.keypoints.length;i++)conf+=pose.keypoints[i].score;conf/=pose.keypoints.length;}
+    var feat=pose?_rakAIExtract(pose,v.videoWidth||320,v.videoHeight||240):null;
+    var conf=feat?feat[2]:0;
     var fill=document.getElementById('rakAIConfFill');
     if(fill)fill.style.width=Math.round(conf*100)+'%';
-    var label=_rakAIClassify(pose,v.videoWidth||320,v.videoHeight||240);
     _rakAIDraw(pose,v.videoWidth||320,v.videoHeight||240);
-    var ns=label==='sujud'?2:label==='ruku'?1:0;
+    var trkSec=document.getElementById('rakAITrackSec');
+    var isTracking=trkSec&&trkSec.style.display!=='none';
+    // Live diagnostics (only during tracking)
+    if(isTracking&&feat){
+      var diag=document.getElementById('rakAIDiag');
+      if(diag)diag.textContent='جذع:'+feat[0].toFixed(2)+' صندوق:'+feat[1].toFixed(2)+' كتف:'+feat[3].toFixed(2)+' ثقة:'+Math.round(conf*100)+'%';
+    }
+    // Low-confidence guard: pause counting, show warning
+    var lowConf=conf<0.10||!feat;
+    var warnEl=document.getElementById('rakAIWarnLow');
+    if(warnEl)warnEl.classList.toggle('show',lowConf&&isTracking);
+    if(lowConf){ai.paused=true;return;}
+    ai.paused=false;
+    // Classify: use calibrated model if available, else fallback to geometric
+    var calLabel=feat?_rakAIClassifyCal(feat):null;
+    var label=calLabel!==null?calLabel:_rakAIClassify(pose,v.videoWidth||320,v.videoHeight||240);
+    // Update pose badge during calibration too
+    _rakAIBadge(label==='sujud'?2:label==='ruku'?1:label==='qiyam'?0:-1,label);
+    if(!isTracking)return;
+    // 7-frame majority vote
+    ai.history.push(label);
+    if(ai.history.length>7)ai.history.shift();
+    var votes={};
+    for(var i=0;i<ai.history.length;i++){var k=ai.history[i];votes[k]=(votes[k]||0)+1;}
+    var smoothed=label,maxV=0;
+    ['qiyam','ruku','sujud','unknown'].forEach(function(k){if((votes[k]||0)>maxV){maxV=votes[k];smoothed=k;}});
+    var ns=smoothed==='sujud'?2:smoothed==='ruku'?1:smoothed==='qiyam'?0:-1;
+    if(ns<0)return;
     var t=Date.now();
     if(ns!==ai.pendState){ai.pendState=ns;ai.pendTime=t;}
-    else if(t-ai.pendTime>450&&ns!==ai.posState){
+    else if(t-ai.pendTime>600&&ns!==ai.posState){
       var prev=ai.posState;ai.posState=ns;
       if(ns===2&&!ai.inSujud){ai.inSujud=true;if(RAK.hap)buzz(12);}
       if(prev===2&&ns!==2&&ai.inSujud){ai.inSujud=false;ai.sujudTotal++;rakFeed('sujud');}
-      _rakAIBadge(ns,label);
     }
   }).catch(function(){});
 }
 function _rakAIClassify(pose,W,H){
   if(!pose||!pose.keypoints)return 'unknown';
-  var kp=pose.keypoints,MIN=0.25,avg=0;
+  var kp=pose.keypoints,avg=0;
   for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
-  if(avg<0.08)return 'sujud';
+  if(avg<0.10)return 'unknown';
   var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  if(Math.max(lS.score,rS.score)<MIN||Math.max(lH.score,rH.score)<MIN)return 'unknown';
-  var sY=lS.score>rS.score?lS.y:rS.y;
-  var hY=lH.score>rH.score?lH.y:rH.y;
+  if(Math.max(lS.score,rS.score)<0.20||Math.max(lH.score,rH.score)<0.20)return 'unknown';
+  var sY=(lS.score>rS.score?lS:rS).y;
+  var hY=(lH.score>rH.score?lH:rH).y;
   var ratio=(hY-sY)/H;
   if(ratio>0.20)return 'qiyam';
   if(ratio<0.04)return 'sujud';
@@ -4385,7 +4565,7 @@ function _rakAIDraw(pose,W,H){
   var dW=v.clientWidth||320,dH=v.clientHeight||240;
   ai.cvs.width=dW;ai.cvs.height=dH;
   var ctx=ai.ctx;ctx.clearRect(0,0,dW,dH);
-  var sx=dW/(W||dW),sy=dH/(H||dH),MIN=0.25;
+  var sx=dW/(W||dW),sy=dH/(H||dH),MIN=0.20;
   var CONN=[[5,6],[5,7],[6,8],[7,9],[8,10],[5,11],[6,12],[11,12],[11,13],[12,14],[13,15],[14,16]];
   ctx.strokeStyle='rgba(78,202,168,.75)';ctx.lineWidth=2;
   CONN.forEach(function(c){
