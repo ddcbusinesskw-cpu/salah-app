@@ -796,62 +796,89 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-ai-load{text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;}
 .rak-ai-spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:rakAISpin .85s linear infinite;margin:0 auto 10px;}
 @keyframes rakAISpin{to{transform:rotate(360deg)}}
-/* ===== salahTrack AI screen ===== */
+/* ===== salahTrack v2 — premium redesign ===== */
 #salahTrack{overflow-y:auto;}
-.st-setup-card{background:var(--card);border-radius:16px;padding:18px;margin:12px 0;}
-.st-tip{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.7;}
-.st-prayer-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;}
-.st-prayer-btn{flex:1;min-width:70px;padding:8px 6px;border-radius:10px;border:2px solid var(--line);background:var(--card2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
-.st-prayer-btn.on{border-color:var(--gold);color:var(--gold);background:var(--card);}
-.st-start-btn{display:block;width:100%;margin:14px 0 0;padding:13px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
-.st-start-btn:disabled{opacity:.45;cursor:default;}
-.st-loading-wrap{text-align:center;padding:36px 16px;color:var(--muted);font-size:13px;}
-.st-spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:stSpin .85s linear infinite;margin:0 auto 12px;}
+.st-setup-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;margin:12px 0;}
+.st-tip{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.7;}
+.st-prayer-row{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px;}
+.st-prayer-btn{flex:1;min-width:60px;padding:9px 6px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit;}
+.st-prayer-btn.on{border-color:var(--gold);color:var(--gold);background:rgba(234,204,126,.08);}
+.st-start-btn{display:block;width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--green),#2e9b7a);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 18px rgba(63,174,142,.3);transition:opacity .18s;}
+.st-start-btn:disabled{opacity:.4;cursor:default;box-shadow:none;}
+#stLoadStatus{font-size:12px;color:var(--muted);margin:8px 0;min-height:16px;}
+.st-loading-wrap{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;}
+.st-spin{width:38px;height:38px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:stSpin .85s linear infinite;margin:0 auto 16px;}
 @keyframes stSpin{to{transform:rotate(360deg)}}
-.st-active-wrap{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
-.st-header-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
-.st-rak-num{font-size:42px;font-weight:800;color:var(--gold);line-height:1;}
-.st-rak-lbl{font-size:11px;color:var(--muted);margin-top:2px;}
-.st-pose-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:14px;font-weight:700;background:var(--card2);color:var(--muted);transition:.25s;}
-.st-pose-badge.qiyam{background:#1a3a28;color:var(--green);}
-.st-pose-badge.ruku{background:#2a2a12;color:#d4b84a;}
-.st-pose-badge.sujud{background:#1a2a3a;color:#5ab4f0;}
-.st-sujud-dots{display:flex;gap:5px;margin-top:6px;}
-.st-sujud-dot{width:10px;height:10px;border-radius:50%;background:var(--line);}
-.st-sujud-dot.done{background:var(--green);}
-.st-vid-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3;max-height:200px;}
+.st-active-wrap{display:flex;flex-direction:column;gap:12px;padding-bottom:90px;}
+.st-live-bar{display:flex;align-items:center;gap:8px;padding:4px 0;}
+.st-prayer-chip{background:rgba(234,204,126,.11);color:var(--gold);font-size:13px;font-weight:700;padding:5px 14px;border-radius:999px;border:1px solid rgba(234,204,126,.22);}
+.st-live-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-weight:600;margin-inline-start:auto;}
+.st-live-pulse{width:7px;height:7px;border-radius:50%;background:var(--green);animation:livePulse 1.8s ease-in-out infinite;}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(63,174,142,.5);}60%{box-shadow:0 0 0 6px rgba(63,174,142,0);}}
+.st-timer-lbl{font-size:14px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
+.st-pose-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;}
+.st-pose-ring{width:114px;height:114px;border-radius:50%;border:3px solid var(--line);display:flex;align-items:center;justify-content:center;transition:border-color .3s,box-shadow .3s;}
+.st-pose-ring.qiyam{border-color:var(--green);box-shadow:0 0 0 7px rgba(63,174,142,.1);}
+.st-pose-ring.ruku{border-color:#d4b84a;box-shadow:0 0 0 7px rgba(212,184,74,.1);}
+.st-pose-ring.sujud{border-color:#5ab4f0;box-shadow:0 0 0 7px rgba(90,180,240,.1);}
+.st-pose-ring.jalsa{border-color:#b491d6;box-shadow:0 0 0 7px rgba(180,145,214,.1);}
+.st-pose-ara{font-size:26px;font-weight:800;color:var(--muted);transition:color .3s;}
+.st-pose-ring.qiyam .st-pose-ara{color:var(--green);}
+.st-pose-ring.ruku .st-pose-ara{color:#d4b84a;}
+.st-pose-ring.sujud .st-pose-ara{color:#5ab4f0;}
+.st-pose-ring.jalsa .st-pose-ara{color:#b491d6;}
+.st-conf-strip{width:108px;height:4px;background:var(--card2);border-radius:2px;overflow:hidden;}
+.st-conf-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:2px;transition:.3s;width:0%;}
+.st-conf-pct{font-size:11px;color:var(--muted);}
+.st-prog-wrap{background:var(--card);border-radius:16px;padding:14px 16px;border:1px solid var(--line);}
+.st-prog-track{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin-bottom:8px;}
+.st-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:3px;transition:.45s;width:0%;}
+.st-prog-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);align-items:center;}
+.st-prog-label span:last-child{font-weight:700;color:var(--gold);font-size:14px;}
+.st-ctrs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.st-ctr-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 4px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.st-ctr-card.st-ctr-gold{background:rgba(234,204,126,.07);border-color:rgba(234,204,126,.25);}
+.st-ctr-n{font-size:26px;font-weight:800;color:var(--text);line-height:1;}
+.st-ctr-card.st-ctr-gold .st-ctr-n{color:var(--gold);}
+.st-ctr-k{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+.st-rak-dots{display:flex;align-items:center;gap:8px;justify-content:center;padding:2px 0;}
+.st-rak-dot{width:14px;height:14px;border-radius:50%;background:var(--card2);border:2px solid var(--line);transition:.25s;flex-shrink:0;}
+.st-rak-dot.done{background:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(63,174,142,.4);}
+.st-rak-sep{width:24px;height:2px;background:var(--line);border-radius:1px;}
+.st-rak-sep-lbl{font-size:10px;color:var(--muted);margin-inline-start:4px;}
+.st-cam-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--muted);font-size:12px;padding:5px 0;user-select:none;}
+.st-cam-toggle:hover{color:var(--text);}
+.st-vid-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;max-height:180px;margin-top:4px;}
 .st-vid-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
 .st-vid-skel{position:absolute;inset:0;pointer-events:none;}
-.st-warn{font-size:12px;color:var(--orange,#e0884a);background:rgba(224,136,74,.12);border-radius:8px;padding:7px 11px;display:none;}
+.st-warn{font-size:12px;color:#e0884a;background:rgba(224,136,74,.1);border:1px solid rgba(224,136,74,.2);border-radius:10px;padding:8px 12px;display:none;}
 .st-warn.show{display:block;}
-.st-indicators{display:flex;gap:8px;align-items:center;}
-.st-vad-dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex-shrink:0;transition:.2s;}
-.st-vad-dot.active{background:var(--green);box-shadow:0 0 5px var(--green);}
-.st-conf-bar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden;}
-.st-conf-fill{height:100%;background:var(--green);border-radius:3px;transition:.25s;width:0%;}
-.st-sr-card{background:var(--card);border-radius:12px;padding:10px 12px;display:none;}
-.st-sr-card.show{display:block;}
-.st-sr-heard{font-size:13px;color:var(--text);direction:rtl;text-align:right;min-height:18px;margin-bottom:6px;}
-.st-sr-score-row{display:flex;align-items:center;gap:6px;}
-.st-sr-score-badge{font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;background:var(--card2);}
-.st-sr-score-badge.great{background:#1a3a28;color:var(--green);}
-.st-sr-score-badge.ok{background:#2a2a12;color:#d4b84a;}
-.st-sr-score-badge.low{background:#3a1a1a;color:#e06060;}
-.st-offline-note{font-size:11px;color:var(--muted);text-align:center;}
-.st-bottom-bar{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 8px);left:0;right:0;padding:0 16px;z-index:90;pointer-events:none;}
-.st-stop-btn{pointer-events:all;display:block;width:100%;padding:12px;border-radius:14px;border:none;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer;}
-.st-sum-card{background:var(--card);border-radius:16px;padding:18px;margin:10px 0;}
-.st-sum-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;text-align:center;}
-.st-sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
-.st-sum-item{background:var(--card2);border-radius:10px;padding:10px;text-align:center;}
-.st-sum-val{font-size:26px;font-weight:800;color:var(--gold);}
-.st-sum-key{font-size:11px;color:var(--muted);margin-top:2px;}
-.st-segs-title{font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px;}
-.st-seg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;}
-.st-seg-pose{width:48px;color:var(--muted);}
+.st-heard-wrap{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:12px;padding:9px 12px;border:1px solid var(--line);}
+.st-heard-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex-shrink:0;transition:.2s;}
+.st-heard-dot.active{background:var(--green);box-shadow:0 0 6px var(--green);}
+.st-heard-text{flex:1;font-size:12px;color:var(--text);direction:rtl;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-sr-score-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--card2);color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.st-sr-score-badge.great{background:rgba(63,174,142,.15);color:var(--green);}
+.st-sr-score-badge.ok{background:rgba(234,204,126,.12);color:var(--gold);}
+.st-sr-score-badge.low{background:rgba(224,96,96,.1);color:#e06060;}
+.st-offline-note{font-size:11px;color:var(--muted);text-align:center;padding:2px 0;}
+.st-bottom-bar{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 8px);left:0;right:0;padding:0 16px;z-index:90;pointer-events:none;max-width:520px;margin:0 auto;}
+.st-stop-btn{pointer-events:all;display:block;width:100%;padding:13px;border-radius:14px;border:none;background:linear-gradient(135deg,#c0392b,#922b21);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(192,57,43,.3);}
+.st-sum-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;margin:10px 0;}
+.st-sum-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;text-align:center;}
+.st-sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.st-sum-item{background:var(--card2);border-radius:12px;padding:12px;text-align:center;}
+.st-sum-val{font-size:28px;font-weight:800;color:var(--gold);}
+.st-sum-key{font-size:11px;color:var(--muted);margin-top:3px;}
+.st-segs-title{font-size:13px;font-weight:700;color:var(--muted);margin:14px 0 8px;}
+.st-seg{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;}
+.st-seg-pose{width:48px;color:var(--muted);flex-shrink:0;}
 .st-seg-heard{flex:1;color:var(--text);direction:rtl;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.st-seg-sc{font-weight:700;width:36px;text-align:center;}
-.st-sum-btn{display:block;width:100%;margin-top:12px;padding:12px;border-radius:12px;border:none;background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;}
+.st-seg-sc{font-weight:700;width:36px;text-align:center;font-size:11px;}
+.st-sum-btn{display:block;width:100%;margin-top:14px;padding:13px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--green),#2e9b7a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+[data-theme="light"] .st-setup-card,[data-theme="light"] .st-prog-wrap,[data-theme="light"] .st-ctr-card,[data-theme="light"] .st-heard-wrap,[data-theme="light"] .st-sum-card{background:rgba(255,255,255,.85);border-color:rgba(0,0,0,.08);}
+[data-theme="light"] .st-ctr-card.st-ctr-gold{background:rgba(138,106,0,.06);}
+[data-theme="light"] .st-sum-item{background:rgba(0,0,0,.04);}
 .rak-qasr-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:4px 0 10px;font-size:13px;color:var(--muted);}
 .rak-qasr-btn{width:40px;height:22px;border-radius:11px;border:none;background:var(--line);position:relative;cursor:pointer;transition:.18s;flex-shrink:0;}
 .rak-qasr-btn::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;inset-inline-start:3px;transition:.18s;}
@@ -1327,7 +1354,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <!-- Setup pane -->
     <div id="stSetupPane">
       <div class="st-setup-card">
-        <b style="font-size:14px">اختر الصلاة</b>
+        <b style="font-size:15px;color:var(--text)">اختر الصلاة</b>
         <div class="st-prayer-row" id="stPrayerRow">
           <button class="st-prayer-btn on" data-p="fajr" onclick="_stSelPrayer(this)">فجر</button>
           <button class="st-prayer-btn" data-p="dhuhr" onclick="_stSelPrayer(this)">ظهر</button>
@@ -1352,50 +1379,78 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
     <!-- Active pane -->
     <div id="stActivePane" class="st-active-wrap" style="display:none">
-      <!-- Header: rakat count + pose badge -->
-      <div class="st-header-row">
-        <div>
-          <div class="st-rak-num" id="stRakNum">٠</div>
-          <div class="st-rak-lbl" id="stRakLbl">ركعة / <span id="stRakTarget">٢</span></div>
-        </div>
-        <div style="text-align:center">
-          <div class="st-pose-badge" id="stPoseBadge">؟</div>
-          <div class="st-sujud-dots" id="stSujudDots">
-            <div class="st-sujud-dot" id="stSd1"></div>
-            <div class="st-sujud-dot" id="stSd2"></div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);text-align:left" id="stTimer">٠:٠٠</div>
+
+      <!-- Live bar: prayer + live indicator + timer -->
+      <div class="st-live-bar">
+        <span class="st-prayer-chip" id="stPrayerChip">—</span>
+        <span class="st-live-badge"><span class="st-live-pulse"></span>مباشر</span>
+        <span class="st-timer-lbl" id="stTimer">٠:٠٠</span>
       </div>
 
-      <!-- Camera feed + skeleton -->
+      <!-- Pose hero -->
+      <div class="st-pose-hero">
+        <div class="st-pose-ring" id="stPoseRing">
+          <span class="st-pose-ara" id="stPoseBadge">؟</span>
+        </div>
+        <div class="st-conf-strip"><div class="st-conf-fill" id="stConfFill"></div></div>
+        <span class="st-conf-pct" id="stConfTxt">٠٪</span>
+      </div>
+
+      <!-- Progress toward target -->
+      <div class="st-prog-wrap">
+        <div class="st-prog-track"><div class="st-prog-fill" id="stProgFill"></div></div>
+        <div class="st-prog-label"><span>التقدّم نحو <span id="stRakTarget">—</span> ركعات</span><span id="stProgText">٠ / —</span></div>
+      </div>
+
+      <!-- Live counters -->
+      <div class="st-ctrs">
+        <div class="st-ctr-card st-ctr-gold">
+          <span class="st-ctr-n" id="stRakNum">٠</span>
+          <span class="st-ctr-k">ركعات</span>
+        </div>
+        <div class="st-ctr-card">
+          <span class="st-ctr-n" id="stRukuNum">٠</span>
+          <span class="st-ctr-k">ركوع</span>
+        </div>
+        <div class="st-ctr-card">
+          <span class="st-ctr-n" id="stSujudNum">٠</span>
+          <span class="st-ctr-k">سجود</span>
+        </div>
+        <div class="st-ctr-card">
+          <span class="st-ctr-n" id="stJalsaNum">٠</span>
+          <span class="st-ctr-k">جلوس</span>
+        </div>
+      </div>
+
+      <!-- Sujud dots for current rakaat -->
+      <div class="st-rak-dots">
+        <span class="st-rak-dot" id="stSd1"></span>
+        <span class="st-rak-sep"></span>
+        <span class="st-rak-dot" id="stSd2"></span>
+        <span class="st-rak-sep-lbl">سجدات الركعة</span>
+      </div>
+
+      <!-- Camera (collapsible) -->
+      <div class="st-cam-toggle" onclick="_stToggleCam(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="7" width="16" height="12" rx="2"/><path d="M22 8l-4 4 4 4V8z"/></svg>
+        <span id="stCamLbl">عرض الكاميرا</span>
+      </div>
       <div class="st-vid-wrap" id="stVidWrap" style="display:none">
         <video id="stVideo" playsinline muted autoplay></video>
         <canvas id="stSkel" class="st-vid-skel"></canvas>
       </div>
 
       <!-- Warnings -->
-      <div class="st-warn" id="stWarnLight">💡 إضاءة ضعيفة</div>
-      <div class="st-warn" id="stWarnBody">🔍 لم يُرصد جسم — تأكّد من ظهور الجذع في الكاميرا</div>
+      <div class="st-warn" id="stWarnLight">💡 إضاءة ضعيفة — حسّن الإضاءة</div>
+      <div class="st-warn" id="stWarnBody">🔍 تأكّد من ظهور الجذع في الكاميرا</div>
 
-      <!-- VAD + confidence -->
-      <div class="st-indicators">
-        <div class="st-vad-dot" id="stVadDot" title="كشف الصوت"></div>
-        <div class="st-conf-bar"><div class="st-conf-fill" id="stConfFill"></div></div>
-        <span style="font-size:11px;color:var(--muted)" id="stConfTxt">٠٪</span>
+      <!-- Speech heard + VAD -->
+      <div class="st-heard-wrap" id="stSrCard">
+        <div class="st-heard-dot" id="stVadDot"></div>
+        <div class="st-heard-text" id="stSrHeard" dir="rtl">—</div>
+        <div class="st-sr-score-badge" id="stSrScore">–</div>
       </div>
-
-      <!-- Speech recognition card -->
-      <div class="st-sr-card" id="stSrCard">
-        <div class="st-sr-heard" id="stSrHeard" dir="rtl"></div>
-        <div class="st-sr-score-row">
-          <span style="font-size:11px;color:var(--muted)">تطابق القراءة:</span>
-          <span class="st-sr-score-badge" id="stSrScore">–</span>
-        </div>
-      </div>
-
-      <!-- Offline note -->
-      <div class="st-offline-note" id="stOfflineNote" style="display:none">📵 التعرّف الصوتي غير متاح — متابعة بكاميرا + VAD</div>
+      <div class="st-offline-note" id="stOfflineNote" style="display:none">📵 التعرّف الصوتي غير متاح</div>
 
       <!-- Fixed stop button -->
       <div class="st-bottom-bar">
@@ -3999,6 +4054,7 @@ var ST={
   pose:'unknown',poseConf:0,
   pendPose:'unknown',pendTime:0,DEBOUNCE:700,
   rakaat:0,sujudInRak:0,inSujud:false,totalSujud:0,
+  totalRuku:0,totalJalsa:0,inRuku:false,inJalsa:false,
   segments:[],currentSpeech:'',currentScore:null,
   speaking:false,_lastInf:0,_warned:false
 };
@@ -4044,6 +4100,7 @@ function salahTrackStart(){
   var msg=document.getElementById('stLoadMsg');
   if(msg)msg.textContent='جارٍ تحميل مكتبة الذكاء الاصطناعي…';
   ST.rakaat=0;ST.sujudInRak=0;ST.inSujud=false;ST.totalSujud=0;
+  ST.totalRuku=0;ST.totalJalsa=0;ST.inRuku=false;ST.inJalsa=false;
   ST.segments=[];ST.currentSpeech='';ST.currentScore=null;
   ST.pose='unknown';ST.pendPose='unknown';ST.pendTime=0;
   ST.elapsed=0;ST.active=false;
@@ -4095,9 +4152,16 @@ function _stBeginSession(){
   ST.active=true;
   ST.startTime=Date.now();
   _stShowPane('stActivePane');
-  // Update target label
+  // Update prayer chip + target
+  var chip=document.getElementById('stPrayerChip');
+  var PNAMES={fajr:'فجر',dhuhr:'ظهر',asr:'عصر',maghrib:'مغرب',isha:'عشاء'};
+  if(chip)chip.textContent=PNAMES[ST.prayer]||ST.prayer;
   var tEl=document.getElementById('stRakTarget');
   if(tEl)tEl.textContent=_stAr(ST.target);
+  var pt=document.getElementById('stProgText');
+  if(pt)pt.textContent='٠ / '+_stAr(ST.target);
+  var pf=document.getElementById('stProgFill');
+  if(pf)pf.style.width='0%';
   // Timer
   ST.timerId=setInterval(function(){
     if(!ST.active)return;
@@ -4131,6 +4195,8 @@ function _stVADTick(){
   ST.speaking=avg>24;
   var dot=document.getElementById('stVadDot');
   if(dot)dot.classList.toggle('active',ST.speaking);
+  var card=document.getElementById('stSrCard');
+  if(card&&ST.speaking)card.style.display='flex';
 }
 function _stPoseLoop(){
   if(!ST.active)return;
@@ -4171,52 +4237,58 @@ function _stClassify(pose,W,H){
   if(!pose||!pose.keypoints)return 'unknown';
   var kp=pose.keypoints,avg=0;
   for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
-  if(avg<0.08)return 'unknown';
+  if(avg<0.07)return 'unknown';
   var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  if(Math.max(lS.score,rS.score)<0.22||Math.max(lH.score,rH.score)<0.22)return 'unknown';
-  var sY=(lS.score>rS.score?lS:rS).y;
-  var hY=(lH.score>rH.score?lH:rH).y;
-  var ratio=(hY-sY)/H;
-  if(ratio>0.20)return 'qiyam';
-  if(ratio<0.04)return 'sujud';
-  return 'ruku';
+  var nose=kp[0],lK=kp[13],rK=kp[14];
+  // Best visible shoulder
+  var sBest=lS.score>rS.score?lS:rS;
+  if(sBest.score<0.18)return 'unknown';
+  var sY=sBest.y;
+  // Hip (may be hidden in sujud — estimate from shoulder if low confidence)
+  var hBest=lH.score>rH.score?lH:rH;
+  var hY=hBest.score>0.12?hBest.y:sY+H*0.12;
+  // Torso ratio: positive when standing (hip below shoulder in image = hipY > shoulderY)
+  var torsoRatio=(hY-sY)/H;
+  // Head relative to hip: positive means head physically above hip (hipY > noseY in image)
+  var noseY=nose.score>0.15?nose.y:sY-(hY-sY)*0.55;
+  var headRel=(hY-noseY)/H;
+  // SUJUD: head at or below hip level (prostrating) — headRel very small or negative
+  if(headRel<0.07)return 'sujud';
+  // QIYAM: clearly standing — tall torso and head well above hip
+  if(torsoRatio>0.17&&headRel>0.23)return 'qiyam';
+  // JALSA: sitting — head above hip, knees near/at hip height (bent legs)
+  var kBest=lK.score>rK.score?lK:rK;
+  if(kBest.score>0.15&&hBest.score>0.12){
+    var kneeRel=(kBest.y-hY)/H;
+    // In jalsa: knees folded back so kneeRel is small (not extended downward)
+    if(headRel>0.10&&kneeRel<0.11&&torsoRatio>0.04)return 'jalsa';
+  }
+  // RUKU: torso bent forward, head above hip but torso compressed
+  if(headRel>=0.07)return 'ruku';
+  return 'qiyam';
 }
 function _stOnPoseChange(prev,cur){
-  // qiyam → ruku → qiyam → sujud1 → jalsa → sujud2 → rakat++
+  // Ruku: entering from qiyam
+  if(cur==='ruku'&&prev==='qiyam'){ST.totalRuku++;ST.inRuku=true;_stUpdateCounters();}
+  if(cur!=='ruku')ST.inRuku=false;
+  // Jalsa: sitting between sujuds
+  if(cur==='jalsa'&&!ST.inJalsa){
+    ST.inJalsa=true;ST.totalJalsa++;_stUpdateCounters();
+    if(ST.currentSpeech){var ej=_stGetExpected('jalsa');if(ej){var sj=_stScoreMatch(ST.currentSpeech,ej);ST.segments.push({pose:'جلوس',heard:ST.currentSpeech,score:sj});_stShowSrScore(sj);}ST.currentSpeech='';}
+  }
+  if(cur!=='jalsa')ST.inJalsa=false;
+  // Sujud
   if(cur==='sujud'&&!ST.inSujud){
-    ST.inSujud=true;
-    ST.sujudInRak++;
-    ST.totalSujud++;
-    _stUpdateCounters();
+    ST.inSujud=true;ST.sujudInRak++;ST.totalSujud++;_stUpdateCounters();
     if(navigator.vibrate)navigator.vibrate(40);
-    // Save speech segment
-    if(ST.currentSpeech){
-      var exp=_stGetExpected('sujud');
-      var sc=exp?_stScoreMatch(ST.currentSpeech,exp):null;
-      ST.segments.push({pose:'سجود',heard:ST.currentSpeech,score:sc});
-      ST.currentSpeech='';
-      _stShowSrScore(sc);
-    }
+    if(ST.currentSpeech){var exp=_stGetExpected('sujud');var sc=exp?_stScoreMatch(ST.currentSpeech,exp):null;ST.segments.push({pose:'سجود',heard:ST.currentSpeech,score:sc});ST.currentSpeech='';_stShowSrScore(sc);}
   }
   if(cur!=='sujud'&&ST.inSujud){
     ST.inSujud=false;
-    if(ST.sujudInRak>=2){
-      ST.rakaat++;
-      ST.sujudInRak=0;
-      _stUpdateCounters();
-      if(navigator.vibrate)navigator.vibrate([60,30,60]);
-      if(ST.rakaat>=ST.target)salahTrackFinish();
-    }
+    if(ST.sujudInRak>=2){ST.rakaat++;ST.sujudInRak=0;_stUpdateCounters();if(navigator.vibrate)navigator.vibrate([60,30,60]);if(ST.rakaat>=ST.target)salahTrackFinish();}
   }
-  if(cur==='qiyam'&&ST.currentSpeech){
-    var exp2=_stGetExpected('ruku');
-    if(prev==='ruku'&&exp2){
-      var sc2=_stScoreMatch(ST.currentSpeech,exp2);
-      ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});
-      _stShowSrScore(sc2);
-    }
-    ST.currentSpeech='';
-  }
+  // Ruku speech segment: captured when returning to qiyam
+  if(cur==='qiyam'&&ST.currentSpeech){var exp2=_stGetExpected('ruku');if(prev==='ruku'&&exp2){var sc2=_stScoreMatch(ST.currentSpeech,exp2);ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});_stShowSrScore(sc2);}ST.currentSpeech='';}
 }
 function _stGetExpected(pose){
   var E={
@@ -4270,7 +4342,7 @@ function _stStartSpeech(){
       var el=document.getElementById('stSrHeard');
       if(el)el.textContent=display;
       var card=document.getElementById('stSrCard');
-      if(card&&display)card.classList.add('show');
+      if(card&&display)card.style.display='flex';
     };
     r.onerror=function(){ST.recActive=false;};
     r.onend=function(){
@@ -4280,6 +4352,14 @@ function _stStartSpeech(){
     r.start();
     ST.rec=r;ST.recActive=true;
   }catch(e){}
+}
+function _stToggleCam(el){
+  var wrap=document.getElementById('stVidWrap');
+  var lbl=document.getElementById('stCamLbl');
+  if(!wrap)return;
+  var show=wrap.style.display==='none';
+  wrap.style.display=show?'':'none';
+  if(lbl)lbl.textContent=show?'إخفاء الكاميرا':'عرض الكاميرا';
 }
 function _stStopSpeech(){
   if(ST.rec){try{ST.rec.abort();}catch(e){}ST.rec=null;ST.recActive=false;}
@@ -4321,18 +4401,25 @@ function _stDraw(pose,W,H){
 }
 function _stUpdatePoseBadge(pose){
   var badge=document.getElementById('stPoseBadge');
+  var ring=document.getElementById('stPoseRing');
   if(!badge)return;
-  var MAP={qiyam:{ar:'قيام',cls:'qiyam'},ruku:{ar:'ركوع',cls:'ruku'},sujud:{ar:'سجود',cls:'sujud'},unknown:{ar:'؟',cls:''}};
+  var MAP={qiyam:{ar:'قيام',cls:'qiyam'},ruku:{ar:'ركوع',cls:'ruku'},sujud:{ar:'سجود',cls:'sujud'},jalsa:{ar:'جلوس',cls:'jalsa'},unknown:{ar:'؟',cls:''}};
   var info=MAP[pose]||MAP.unknown;
   badge.textContent=info.ar;
-  badge.className='st-pose-badge'+(info.cls?' '+info.cls:'');
+  if(ring){ring.className='st-pose-ring'+(info.cls?' '+info.cls:'');}
 }
 function _stUpdateCounters(){
-  var rn=document.getElementById('stRakNum');
-  if(rn)rn.textContent=_stAr(ST.rakaat);
+  var rn=document.getElementById('stRakNum');if(rn)rn.textContent=_stAr(ST.rakaat);
+  var ru=document.getElementById('stRukuNum');if(ru)ru.textContent=_stAr(ST.totalRuku);
+  var su=document.getElementById('stSujudNum');if(su)su.textContent=_stAr(ST.totalSujud);
+  var ja=document.getElementById('stJalsaNum');if(ja)ja.textContent=_stAr(ST.totalJalsa);
   var sd1=document.getElementById('stSd1'),sd2=document.getElementById('stSd2');
   if(sd1)sd1.classList.toggle('done',ST.sujudInRak>=1);
   if(sd2)sd2.classList.toggle('done',ST.sujudInRak>=2);
+  var pf=document.getElementById('stProgFill');
+  var pt=document.getElementById('stProgText');
+  if(pf)pf.style.width=Math.round((ST.rakaat/Math.max(ST.target,1))*100)+'%';
+  if(pt)pt.textContent=_stAr(ST.rakaat)+' / '+_stAr(ST.target);
 }
 function salahTrackStop(){
   ST.active=false;
@@ -4376,17 +4463,24 @@ function salahTrackReset(){
   var btn=document.getElementById('stStartBtn');if(btn)btn.disabled=false;
   _stShowPane('stSetupPane');
   var rn=document.getElementById('stRakNum');if(rn)rn.textContent='٠';
-  var badge=document.getElementById('stPoseBadge');if(badge){badge.textContent='؟';badge.className='st-pose-badge';}
+  var ru=document.getElementById('stRukuNum');if(ru)ru.textContent='٠';
+  var su=document.getElementById('stSujudNum');if(su)su.textContent='٠';
+  var ja=document.getElementById('stJalsaNum');if(ja)ja.textContent='٠';
+  var badge=document.getElementById('stPoseBadge');if(badge)badge.textContent='؟';
+  var ring=document.getElementById('stPoseRing');if(ring)ring.className='st-pose-ring';
   var sd1=document.getElementById('stSd1'),sd2=document.getElementById('stSd2');
   if(sd1)sd1.classList.remove('done');if(sd2)sd2.classList.remove('done');
   var fill=document.getElementById('stConfFill');if(fill)fill.style.width='0%';
   var txt=document.getElementById('stConfTxt');if(txt)txt.textContent='٠٪';
-  var heard=document.getElementById('stSrHeard');if(heard)heard.textContent='';
+  var pf=document.getElementById('stProgFill');if(pf)pf.style.width='0%';
+  var pt=document.getElementById('stProgText');if(pt)pt.textContent='٠ / —';
+  var heard=document.getElementById('stSrHeard');if(heard)heard.textContent='—';
   var score=document.getElementById('stSrScore');if(score){score.textContent='–';score.className='st-sr-score-badge';}
   var dot=document.getElementById('stVadDot');if(dot)dot.classList.remove('active');
   var wl=document.getElementById('stWarnLight'),wb=document.getElementById('stWarnBody');
   if(wl)wl.classList.remove('show');if(wb)wb.classList.remove('show');
   var timer=document.getElementById('stTimer');if(timer)timer.textContent='٠:٠٠';
+  var lbl=document.getElementById('stCamLbl');if(lbl)lbl.textContent='عرض الكاميرا';
 }
 
 /* ===== v18: go() hook for new screens ===== */
