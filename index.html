@@ -5869,10 +5869,14 @@ function _fbShowErr(e){
   var code=e&&e.code?e.code:'error';
   var msg=e&&e.message?e.message:(typeof e==='string'?e:String(e));
   window._fbDiag.lastError={code:code,message:msg};
-  var html='<b>['+code+']</b> '+msg;
   ['fbAuthErr','csAuthErr','ovLoginErr'].forEach(function(id){
     var el=document.getElementById(id);
-    if(el){el.innerHTML=html;el.style.display='';}
+    if(el){
+      el.innerHTML='';
+      var b=document.createElement('b');b.textContent='['+code+']';
+      el.appendChild(b);el.appendChild(document.createTextNode(' '+msg));
+      el.style.display='';
+    }
   });
   _fbRefreshDiag();
   console.warn('[NoorFB]',code,msg);
