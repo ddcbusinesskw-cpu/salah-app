@@ -2435,6 +2435,7 @@ function buildTimes(lat,lng){
   PT.data={timings:timings,raw:t};
   document.getElementById('locName').textContent=lsGet('cityName')||tzCity();
   renderHome();renderTimesScreen();startCountdown();
+  scheduleNoorPrayerAlerts();
 }
 function renderHome(){
   if(!PT.data)return;var t=PT.data.timings;
@@ -2498,7 +2499,9 @@ function renderTimesScreen(){
   var nIcon=(!('Notification' in window)||Notification.permission==='denied')?'🔕':(notifOn?'🔔':'🔕');
   var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
   var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
+  var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,174,142,.18)':'rgba(234,204,126,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
   var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="reqNotifPerm()" style="'+bs+'background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button></span></div>'+
+  (notifOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">تنبيه لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
   // السنن الرواتب المؤكدة (حديث ابن عمر — رواه مسلم ٧٢٨)
@@ -2537,6 +2540,46 @@ var adhanIdx=0;try{var _ai=lsGet('adhanIdx');if(_ai!==null)adhanIdx=Math.min(ADH
 function setAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));renderTimesScreen();playAdhan();}
 var adhanOn=false;try{adhanOn=lsGet('adhanOn')==='1';}catch(e){}
 var notifOn=false;try{notifOn=lsGet('notifOn')==='1';}catch(e){}
+/* إعدادات الإشعار لكل صلاة (افتراضي: مفعّل) */
+var ADHAN_NOTIF_KEYS=['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+var notifPrefs={};
+ADHAN_NOTIF_KEYS.forEach(function(k){notifPrefs[k]=lsGet('notif_'+k.toLowerCase())!=='0';});
+/* جدولة إشعارات الأذان لليوم الحالي واليوم التالي */
+function scheduleNoorPrayerAlerts(){
+  if(!notifOn||!PT||!PT.data)return;
+  var t=PT.data.timings,now=new Date();
+  var todayMap={};
+  ADHAN_NOTIF_KEYS.forEach(function(k){
+    if(!notifPrefs[k])return;
+    var hm=t[k].split(':'),d=new Date();d.setHours(+hm[0],+hm[1],0,0);
+    todayMap[k.toLowerCase()]=d;
+  });
+  var tomorrowMap={};
+  var coords=lsGet('coords');
+  if(coords){try{
+    var _co=JSON.parse(coords);
+    var _tz=-now.getTimezoneOffset()/60;
+    var _tmr=new Date(+now+86400000);
+    var _rt=computeTimes(_tmr,_co.lat,_co.lng,_tz);
+    var _ofs=(+(lsGet('time_offset')||0))/60;
+    ADHAN_NOTIF_KEYS.forEach(function(k){
+      if(!notifPrefs[k])return;
+      var _hv=_ofs!==0?fixhour(_rt[k]+_ofs):_rt[k];
+      var _hm=fmtH(_hv).split(':');
+      var _d=new Date(_tmr);_d.setHours(+_hm[0],+_hm[1],0,0);
+      tomorrowMap[k.toLowerCase()]=_d;
+    });
+  }catch(e){}}
+  if(typeof window.scheduleAdhanAlerts==='function'){
+    window.scheduleAdhanAlerts(todayMap,tomorrowMap);
+  }else if(typeof window.scheduleTodayPrayers==='function'){
+    window.scheduleTodayPrayers(todayMap);
+  }
+}
+function toggleNotifPrayer(k){
+  notifPrefs[k]=!notifPrefs[k];lsSet('notif_'+k.toLowerCase(),notifPrefs[k]?'1':'0');
+  renderTimesScreen();scheduleNoorPrayerAlerts();
+}
 // تعديل المواقيت يدوياً
 var timeOffset=+(lsGet('time_offset')||0);
 function setTimeOffset(v){v=Math.min(10,Math.max(-10,+v));timeOffset=v;lsSet('time_offset',String(v));
@@ -2549,14 +2592,15 @@ function showDua(){var c=document.getElementById('duaCard');if(c){c.classList.ad
 function closeDua(){var c=document.getElementById('duaCard');if(c)c.classList.remove('show');clearTimeout(_duaT);}
 function reqNotifPerm(){
   if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
-    if(window._nativeNotifGranted===false){toast('لم تُمنح صلاحية الإشعارات','error');return;}
+    if(window._nativeNotifGranted===false){toast('لم تُمنح صلاحية الإشعارات — افتح إعدادات التطبيق وفعّلها','error');return;}
     notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();
-    toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;
+    if(notifOn)scheduleNoorPrayerAlerts();
+    toast(notifOn?'إشعارات الأذان مفعّلة':'إشعارات الأذان متوقفة',notifOn?'success':'warning');return;
   }
   if(!('Notification' in window)){toast('المتصفح لا يدعم الإشعارات','error');return;}
-  if(Notification.permission==='granted'){notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();toast(notifOn?'الإشعارات مفعّلة':'الإشعارات متوقفة',notifOn?'success':'warning');return;}
+  if(Notification.permission==='granted'){notifOn=!notifOn;lsSet('notifOn',notifOn?'1':'0');renderTimesScreen();if(notifOn)scheduleNoorPrayerAlerts();toast(notifOn?'إشعارات الأذان مفعّلة':'إشعارات الأذان متوقفة',notifOn?'success':'warning');return;}
   Notification.requestPermission().then(function(p){
-    if(p==='granted'){notifOn=true;lsSet('notifOn','1');renderTimesScreen();toast('الإشعارات مفعّلة','success');}
+    if(p==='granted'){notifOn=true;lsSet('notifOn','1');renderTimesScreen();scheduleNoorPrayerAlerts();toast('إشعارات الأذان مفعّلة','success');}
     else{toast('لم تُمنح صلاحية الإشعارات','error');}
   });
 }
@@ -5418,6 +5462,11 @@ function _fbReadLocal(){
       adhanOn:ls.getItem('adhanOn')||null,
       adhanIdx:ls.getItem('adhanIdx')||null,
       notifOn:ls.getItem('notifOn')||null,
+      notif_fajr:ls.getItem('notif_fajr')||null,
+      notif_dhuhr:ls.getItem('notif_dhuhr')||null,
+      notif_asr:ls.getItem('notif_asr')||null,
+      notif_maghrib:ls.getItem('notif_maghrib')||null,
+      notif_isha:ls.getItem('notif_isha')||null,
       time_offset:ls.getItem('time_offset')||null,
       updatedAt:now
     },
@@ -5570,7 +5619,7 @@ function _fbMerge(r){
       var lUpdated=parseInt(localStorage.getItem('settings_updatedAt'))||0;
       var rUpdated=rs.updatedAt||0;
       var preferRemote=rUpdated>lUpdated;
-      ['calc_method','calc_madhhab','rak_mode','rak_hap','adhanOn','adhanIdx','notifOn','time_offset'].forEach(function(k){
+      ['calc_method','calc_madhhab','rak_mode','rak_hap','adhanOn','adhanIdx','notifOn','notif_fajr','notif_dhuhr','notif_asr','notif_maghrib','notif_isha','time_offset'].forEach(function(k){
         var lv=localStorage.getItem(k);
         var rv=rs[k];
         if(rv&&rv!=='null'&&(!lv||lv==='null'||preferRemote)) _ls(k,rv);

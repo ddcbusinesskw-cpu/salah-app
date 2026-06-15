@@ -118,63 +118,84 @@
     }
 
     /* ════════════════════════════════════════════
-       4. Local Notifications — إشعارات مواقيت الصلاة
-          دالة scheduleNoorPrayerAlerts() تُستدعى من index.html
-          إن وُجد، وإلا نُعرِّفها هنا.
+       4. Local Notifications — إشعارات الأذان
+          - قناة مخصّصة بصوت adhan_alert.wav (Android 26+)
+          - scheduleNoorNotifications([{id,title,body,date}])
+          - scheduleAdhanAlerts(todayMap, tomorrowMap)
+          - عند الإطلاق: تُعاد الجدولة تلقائياً عبر scheduleNoorPrayerAlerts()
     ════════════════════════════════════════════ */
     if (LocalNotif) {
-      /* طلب الإذن عند أول تشغيل */
+
+      /* إنشاء قناة أذان مخصّصة بصوت وإشعار عالي الأولوية */
+      if (LocalNotif.createChannel) {
+        LocalNotif.createChannel({
+          id:          'adhan',
+          name:        'أذان الصلاة',
+          description: 'تنبيه عند دخول وقت الصلاة',
+          importance:  5,
+          sound:       'adhan_alert.wav',
+          vibration:   true,
+          visibility:  1
+        }).catch(function () {});
+      }
+
+      /* طلب الإذن — يُعيد جدولة التنبيهات فور المنح */
       LocalNotif.requestPermissions().then(function (r) {
-        if (r.display !== 'granted') return;
-        window._nativeNotifGranted = true;
-        /* إن كانت خاصية الجدولة موجودة في التطبيق — ادعُها */
-        if (typeof window.scheduleNoorPrayerAlerts === 'function') {
-          window.scheduleNoorPrayerAlerts();
+        window._nativeNotifGranted = r.display === 'granted';
+        if (window._nativeNotifGranted) {
+          if (typeof window.scheduleNoorPrayerAlerts === 'function') {
+            window.scheduleNoorPrayerAlerts();
+          }
         }
       });
 
       /**
-       * scheduleNoorNotifications(times) — API مفتوحة لـ index.html
+       * scheduleNoorNotifications(times)
        * times: [{ id, title, body, date }]
        */
       window.scheduleNoorNotifications = function (times) {
         if (!window._nativeNotifGranted || !times || !times.length) return;
+        var cancelIds = times.map(function (t) { return { id: t.id }; });
+        LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
         var notifications = times.map(function (t) {
           return {
-            id:       t.id,
-            title:    t.title,
-            body:     t.body,
-            schedule: { at: new Date(t.date) },
-            sound:    null,
+            id:        t.id,
+            title:     t.title,
+            body:      t.body,
+            schedule:  { at: new Date(t.date), allowWhileIdle: true },
+            channelId: 'adhan',
+            sound:     'adhan_alert.wav',
             smallIcon: 'ic_stat_noor',
             iconColor: '#3fae8e'
           };
         });
-        LocalNotif.cancel({ notifications: notifications }).catch(function () {});
-        LocalNotif.schedule({ notifications: notifications });
+        LocalNotif.schedule({ notifications: notifications }).catch(function () {});
       };
 
       /**
-       * scheduleTodayPrayers(prayerMap) — helper مباشر
-       * prayerMap: { fajr: Date, dhuhr: Date, asr: Date, maghrib: Date, isha: Date }
+       * scheduleAdhanAlerts(todayMap, tomorrowMap)
+       * todayMap/tomorrowMap: { fajr:Date, dhuhr:Date, asr:Date, maghrib:Date, isha:Date }
+       * ضع في الـ map الصلوات المُفعَّلة فقط.
        */
-      window.scheduleTodayPrayers = function (prayerMap) {
-        var LABELS = {
-          fajr: 'الفجر', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء'
-        };
+      var _ADHAN_LABELS = { fajr:'الفجر', dhuhr:'الظهر', asr:'العصر', maghrib:'المغرب', isha:'العشاء' };
+      var _ADHAN_KEYS   = ['fajr','dhuhr','asr','maghrib','isha'];
+      window.scheduleAdhanAlerts = function (todayMap, tomorrowMap) {
+        var now = new Date();
         var notifs = [];
-        var id = 1000;
-        Object.keys(LABELS).forEach(function (key) {
-          if (prayerMap[key] && prayerMap[key] > new Date()) {
-            notifs.push({
-              id:    id++,
-              title: 'نور · ' + LABELS[key],
-              body:  'حان وقت صلاة ' + LABELS[key],
-              date:  prayerMap[key]
-            });
+        _ADHAN_KEYS.forEach(function (k, i) {
+          if (todayMap && todayMap[k] && new Date(todayMap[k]) > now) {
+            notifs.push({ id: 2000 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: todayMap[k] });
+          }
+          if (tomorrowMap && tomorrowMap[k] && new Date(tomorrowMap[k]) > now) {
+            notifs.push({ id: 2010 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: tomorrowMap[k] });
           }
         });
         if (notifs.length) window.scheduleNoorNotifications(notifs);
+      };
+
+      /* backwards-compatible helper */
+      window.scheduleTodayPrayers = function (prayerMap) {
+        window.scheduleAdhanAlerts(prayerMap, null);
       };
     }
 
