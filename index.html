@@ -1836,7 +1836,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.6 13.2l7.8 6.1C12.2 13.2 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.6-9.6 6.6-17z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.3-4.5 2.1-8.8 2.1-6.4 0-11.8-3.7-13.6-9.8l-7.8 6.1C6.4 42.6 14.6 48 24 48z"/></svg>
     متابعة عبر Google
   </button>
-  <button class="authbtn apple" onclick="login('apple')">
+  <button id="appleSignInBtn" class="authbtn apple" onclick="login('apple')" style="display:none">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.1 0 1.6-.7 3-.7s1.8.7 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.8zM14.2 5.9c.6-.8 1-1.8.9-2.9-.9 0-2 .6-2.6 1.3-.6.7-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.1z"/></svg>
     متابعة عبر Apple
   </button>
@@ -5415,6 +5415,10 @@ function _rakCamBadge(s){
 /* ===== INIT ===== */
 buildDhikr();renderTasbih();rakInit();
 document.getElementById('locName').textContent=tzCity();
+(function(){
+  var ios=(window.Capacitor&&typeof window.Capacitor.getPlatform==='function'&&window.Capacitor.getPlatform()==='ios')||(/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream);
+  if(ios){var b=document.getElementById('appleSignInBtn');if(b)b.style.display='';}
+})();
 boot();
 try{renderVotd();}catch(e){}
 try{renderDailyCards();}catch(e){}
