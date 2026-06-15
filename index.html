@@ -3690,9 +3690,43 @@ function login(provider){
       if(ovErr){ovErr.textContent='['+(e.code||'error')+'] '+(e.message||String(e));ovErr.style.display='';}
     }
   }else if(provider==='apple'){
-    /* Apple Sign-In غير مفعّل — ادخل كضيف */
     try{lsSet('session','apple');}catch(e){}
-    enterApp();
+    var _FA2=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
+    if(!_FA2){
+      /* web / unsupported platform — let Firebase handle it */
+      if(typeof fbSignIn==='function'){
+        if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
+          var _auth2=firebase.auth();
+          if(window._loginAuthUnsub){try{window._loginAuthUnsub();}catch(ex){}}
+          window._loginAuthUnsub=_auth2.onAuthStateChanged(function(u){
+            if(u){try{window._loginAuthUnsub();}catch(e2){}window._loginAuthUnsub=null;enterApp();}
+          });
+        }
+        try{
+          var _ap=new firebase.auth.OAuthProvider('apple.com');
+          _ap.addScope('email');_ap.addScope('name');
+          firebase.auth().signInWithPopup(_ap)
+            .then(function(){_fb._loginHandled=false;})
+            .catch(function(e){if(ovErr){ovErr.textContent='['+(e.code||'error')+'] '+(e.message||String(e));ovErr.style.display='';}});
+        }catch(e){enterApp();}
+      }else{enterApp();}
+      return;
+    }
+    _FA2.signInWithApple()
+      .then(function(result){
+        var cred=result&&result.credential;
+        if(!cred||!cred.idToken) throw {code:'auth/no-credential',message:'لم يُعاد idToken من Apple Sign-In'};
+        var apCred=new firebase.auth.OAuthProvider('apple.com').credential({
+          idToken:cred.idToken,
+          rawNonce:cred.rawNonce||undefined
+        });
+        return firebase.auth().signInWithCredential(apCred);
+      })
+      .then(function(){_fb._loginHandled=false;enterApp();})
+      .catch(function(e){
+        try{lsSet('session','');}catch(ex){}
+        if(ovErr){ovErr.textContent='['+(e.code||'error')+'] '+(e.message||String(e));ovErr.style.display='';}
+      });
   }
 }
 function trialLeft(){var s=lsGet('trialStart');if(!s)return TRIAL_DAYS;var used=Math.floor((Date.now()-(+s))/86400000);return Math.max(0,TRIAL_DAYS-used);}
