@@ -309,6 +309,9 @@
   .dhcard .ord-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;line-height:1;min-height:32px;}
   .dhcard .ord-btn:active{background:rgba(255,255,255,.14);}
   .fad-title{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px;letter-spacing:.02em;}
+  .dhcard-done{background:rgba(63,174,142,.07)!important;border-color:rgba(63,174,142,.28)!important;}
+  .dhcard-done .txt{opacity:.65;}
+  .dhcard-done .dh-rchip{background:rgba(63,174,142,.15);color:var(--green);border-color:rgba(63,174,142,.3);}
   .counter-btn.tasbih-done{border-color:var(--green);background:rgba(78,202,168,.08);}
   .counter-btn.tasbih-done .cnum{color:var(--green);}
   .dhikr-pill{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
@@ -2794,24 +2797,48 @@ function goAdhkarCat(cat){
     var fullCat=cat;
     Object.keys(ADHKAR).forEach(function(k){if(k.indexOf(cat)>-1)fullCat=k;});
     _adhkarShowList(fullCat);
-    markAdhkarDone(cat);
   },150);
+}
+/* ── Per-dhikr progress (daily, resets with todayKey) ── */
+function _adhkarProgKey(cat){return 'adhkar_left_'+cat+'_'+todayKey();}
+function _getAdhkarProg(cat,len){
+  var arr=[];try{var s=lsGet(_adhkarProgKey(cat));if(s)arr=JSON.parse(s);}catch(e){}
+  while(arr.length<len)arr.push(null);
+  return arr;
+}
+function _saveAdhkarProg(cat,arr){lsSet(_adhkarProgKey(cat),JSON.stringify(arr));}
+function _adhkarCheckCatDone(cat){
+  var base=ADHKAR[cat]||[];
+  var custom=_getAdhkarCustom(cat);
+  var n=base.length+custom.length;
+  if(!n)return;
+  var prog=_getAdhkarProg(cat,n);
+  var allDone=prog.slice(0,n).every(function(v){return v===0;});
+  if(allDone){
+    var s=getDailyState();
+    if(!s[cat])markAdhkarDone(cat);
+  }
 }
 function renderAdhkar(cat){
   var base=ADHKAR[cat]||[];
   var custom=_getAdhkarCustom(cat);
   var all=base.concat(custom.map(function(c){return {t:c.t,r:c.r||1,_custom:true};}));
   var ord=_getOrd('adhkar_ord_'+cat,all.length);
+  var prog=_getAdhkarProg(cat,all.length);
   var html='';
   ord.forEach(function(ri,pos){
     var d=all[ri];if(!d)return;
+    var left=prog[ri]===null||prog[ri]===undefined?d.r:prog[ri];
+    var done=left===0;
     var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
     var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',1)">↓</button></span>';
-    html+='<div class="dhcard">' +
-      '<div class="dh-head"><span class="dh-rchip">×'+ar(d.r)+'</span></div>' +
+    var chipHtml='<span class="dh-rchip">'+(done?'تم ✓':'×'+ar(d.r))+'</span>';
+    var cntStyle=done?'background:rgba(63,174,142,.2);color:var(--green)':'';
+    html+='<div class="dhcard'+(done?' dhcard-done':'')+'">' +
+      '<div class="dh-head">'+chipHtml+'</div>' +
       '<div class="txt">'+d.t+'</div>' +
       srcHtml +
-      '<div class="foot">'+ordBtns+'<button class="cnt" data-left="'+d.r+'" onclick="dhCount(this,'+d.r+')">'+ar(d.r)+'</button></div>' +
+      '<div class="foot">'+ordBtns+'<button class="cnt" data-left="'+left+'" style="'+cntStyle+'" onclick="dhCount(this,'+d.r+',\''+cat+'\','+ri+')">'+(done?'✓':ar(left))+'</button></div>' +
     '</div>';
   });
   document.getElementById('adhkarBody').innerHTML=html;
@@ -2835,7 +2862,24 @@ function _adhkarAdd(){
     renderAdhkar(cat);
   });
 }
-function dhCount(el,total){var left=+el.getAttribute('data-left')-1;if(left<0)left=total;el.setAttribute('data-left',left);el.textContent=left===0?'✓':ar(left);el.style.background=left===0?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';el.style.color=left===0?'var(--green)':'var(--gold)';if(navigator.vibrate)try{navigator.vibrate(25);}catch(e){}}
+function dhCount(el,total,cat,ri){
+  var left=+el.getAttribute('data-left')-1;
+  if(left<0)left=total;
+  el.setAttribute('data-left',left);
+  el.textContent=left===0?'✓':ar(left);
+  el.style.background=left===0?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
+  el.style.color=left===0?'var(--green)':'var(--gold)';
+  if(navigator.vibrate)try{navigator.vibrate(25);}catch(e){}
+  if(cat!==undefined&&ri!==undefined){
+    var prog=_getAdhkarProg(cat,ri+1);
+    prog[ri]=left;
+    _saveAdhkarProg(cat,prog);
+    var card=el.closest?el.closest('.dhcard'):null;
+    if(!card){var p=el.parentNode;while(p&&!p.classList.contains('dhcard'))p=p.parentNode;card=p;}
+    if(card){if(left===0)card.classList.add('dhcard-done');else card.classList.remove('dhcard-done');}
+    if(left===0)_adhkarCheckCatDone(cat);
+  }
+}
 
 /* ===== فضائل الأعمال ===== */
 var FADAIL={
@@ -5247,6 +5291,7 @@ function _fbReadLocal(){
       morn_streak:ls.getItem('morn_streak')||null,
       quran_opens:ls.getItem('quran_opens')||null,
       adiya_opens:ls.getItem('adiya_opens')||null,
+      adhkarProg:(function(){var o={};try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(k&&k.indexOf('adhkar_left_')===0)o[k]=ls.getItem(k);}}catch(e){}return o;})(),
       updatedAt:now
     },
     names:{counts:ls.getItem('names_counts')||null,updatedAt:now},
@@ -5383,6 +5428,12 @@ function _fbMerge(r){
         var rv=rd[k];
         if(rv&&rv!=='null'&&(!lv||rv>lv)) _ls(k,rv);
       });
+      // Adhkar per-dhikr progress: restore remote keys missing locally
+      if(rd.adhkarProg&&typeof rd.adhkarProg==='object'){
+        Object.keys(rd.adhkarProg).forEach(function(k){
+          if(!localStorage.getItem(k)&&rd.adhkarProg[k]) _ls(k,rd.adhkarProg[k]);
+        });
+      }
     }
 
     // ── Names of Allah ──
