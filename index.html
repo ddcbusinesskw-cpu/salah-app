@@ -3666,8 +3666,9 @@ function login(provider){
         /* redirect flow: الصفحة ستُعاد تحميلها وroute() ستتصل بـenterApp */
         if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
           var _auth=firebase.auth();
-          var _un=_auth.onAuthStateChanged(function(u){
-            if(u){try{_un();}catch(e2){}enterApp();}
+          if(window._loginAuthUnsub){try{window._loginAuthUnsub();}catch(ex){}}
+          window._loginAuthUnsub=_auth.onAuthStateChanged(function(u){
+            if(u){try{window._loginAuthUnsub();}catch(e2){}window._loginAuthUnsub=null;enterApp();}
           });
         }else{
           enterApp(); /* Firebase غير محمّل → ادخل مباشرة */
