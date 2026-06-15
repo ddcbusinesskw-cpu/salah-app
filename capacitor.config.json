@@ -33,7 +33,7 @@
     "webContentsDebuggingEnabled": false
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "backgroundColor": "#051a16"
   }
 }
