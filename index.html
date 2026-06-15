@@ -1330,8 +1330,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <!-- Loading pane -->
     <div id="stLoadPane" style="display:none">
       <div class="st-loading-wrap">
-        <div class="st-spin"></div>
+        <div class="st-spin" id="stLoadSpin"></div>
         <div id="stLoadMsg">جارٍ تحميل نموذج الذكاء الاصطناعي…</div>
+        <button onclick="salahTrackBack()" style="margin-top:16px;background:none;border:1px solid var(--line);color:var(--muted);font:inherit;font-size:13px;padding:8px 18px;border-radius:8px;cursor:pointer;">إلغاء</button>
       </div>
     </div>
 
@@ -3804,31 +3805,39 @@ function salahTrackStart(){
   ST.target=_PRAYER_RAK[ST.prayer]||4;
   _stShowPane('stLoadPane');
   var msg=document.getElementById('stLoadMsg');
-  if(msg)msg.textContent='جارٍ تحميل نموذج الذكاء الاصطناعي…';
-  // Reset state
+  if(msg)msg.textContent='جارٍ تحميل مكتبة الذكاء الاصطناعي…';
   ST.rakaat=0;ST.sujudInRak=0;ST.inSujud=false;ST.totalSujud=0;
   ST.segments=[];ST.currentSpeech='';ST.currentScore=null;
   ST.pose='unknown';ST.pendPose='unknown';ST.pendTime=0;
   ST.elapsed=0;ST.active=false;
-  _rakAILoadDet(function(det){
-    if(!det){_stErrMsg('فشل تحميل النموذج. تأكّد من الاتصال بالإنترنت أوّل مرّة.');return;}
-    ST.detector=det;
-    if(msg)msg.textContent='جارٍ فتح الكاميرا…';
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}},audio:true})
-    .then(function(stream){
-      // Split audio track for VAD
-      var tracks=stream.getTracks();
-      var vTracks=tracks.filter(function(t){return t.kind==='video';});
-      var aTracks=tracks.filter(function(t){return t.kind==='audio';});
-      ST.camStream=new MediaStream(vTracks);
-      ST.audioStream=new MediaStream(aTracks);
-      _stBeginSession();
-    })
-    .catch(function(e){
-      // Try video-only
-      navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}}})
-      .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
-      .catch(function(){_stErrMsg('لا يمكن الوصول إلى الكاميرا. تحقّق من الأذونات.');});
+  _loadTFJS(function(err){
+    if(err){
+      console.error('[ST] TF.js load error:',err);
+      _stErrMsg('تعذّر تحميل المكتبة — تأكّد من الإنترنت وأعد المحاولة.\n('+err.message+')');return;
+    }
+    if(msg)msg.textContent='جارٍ تحميل نموذج الوضعية…';
+    _rakAILoadDet(function(det,err2){
+      if(!det){
+        console.error('[ST] detector load error:',err2);
+        _stErrMsg('تعذّر تحميل النموذج — '+(err2?err2.message:'خطأ غير معروف')+'.\nتأكّد من الإنترنت.');return;
+      }
+      ST.detector=det;
+      if(msg)msg.textContent='جارٍ فتح الكاميرا…';
+      navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}},audio:true})
+      .then(function(stream){
+        var tracks=stream.getTracks();
+        var vTracks=tracks.filter(function(t){return t.kind==='video';});
+        var aTracks=tracks.filter(function(t){return t.kind==='audio';});
+        ST.camStream=new MediaStream(vTracks);
+        ST.audioStream=new MediaStream(aTracks);
+        _stBeginSession();
+      })
+      .catch(function(e){
+        console.error('[ST] camera error:',e);
+        navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}}})
+        .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
+        .catch(function(e2){console.error('[ST] camera video-only error:',e2);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
+      });
     });
   });
 }
@@ -4365,35 +4374,55 @@ var _tfSt='idle';
 function _loadTFJS(cb){
   if(typeof window.poseDetection!=='undefined'&&_tfSt==='ready'){cb(null);return;}
   if(_tfSt==='loading'){
+    var _pStart=Date.now();
     var poll=setInterval(function(){
       if(_tfSt==='ready'){clearInterval(poll);cb(null);}
-      else if(_tfSt==='error'){clearInterval(poll);cb(new Error('فشل'));}
+      else if(_tfSt==='error'){clearInterval(poll);cb(new Error('فشل تحميل المكتبة'));}
+      else if(Date.now()-_pStart>16000){clearInterval(poll);_tfSt='error';cb(new Error('انتهت مهلة الانتظار'));}
     },300);return;
   }
   _tfSt='loading';
-  function ls(src,next,fail){var s=document.createElement('script');s.src=src;s.onload=next;s.onerror=fail;document.head.appendChild(s);}
+  function ls(src,next,fail){
+    var s=document.createElement('script');
+    var tid=setTimeout(function(){_tfSt='error';fail(new Error('timeout:'+src.split('/').pop()));},15000);
+    s.src=src;
+    s.onload=function(){clearTimeout(tid);next();};
+    s.onerror=function(e){clearTimeout(tid);fail(e);};
+    document.head.appendChild(s);
+  }
   ls('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js',function(){
     ls('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js',
       function(){_tfSt='ready';cb(null);},
-      function(){_tfSt='error';cb(new Error('فشل مكتبة الكشف'));});
-  },function(){_tfSt='error';cb(new Error('فشل TensorFlow'));});
+      function(e){_tfSt='error';console.error('[TFJS] pose-detection load failed',e);cb(new Error('تعذّر تحميل مكتبة الكشف — CDN'));});
+  },function(e){_tfSt='error';console.error('[TFJS] tfjs load failed',e);cb(new Error('تعذّر تحميل TensorFlow — CDN'));});
 }
 function _rakAILoadDet(cb){
+  if(typeof poseDetection==='undefined'||typeof tf==='undefined'){
+    console.error('[TFJS] poseDetection/tf not available');
+    cb(null,new Error('المكتبة غير محمّلة'));return;
+  }
   var IK='indexeddb://noor-movenet-v1';
+  var _done=false;
+  function _once(det,err){if(_done)return;_done=true;cb(det,err);}
   function fromCDN(){
-    poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
-      {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING})
-    .then(function(det){
-      try{if(det.moveNetModel)det.moveNetModel.save(IK).catch(function(){});}catch(e){}
-      cb(det,null);
-    }).catch(function(e){cb(null,e);});
+    var tid=setTimeout(function(){console.error('[TFJS] createDetector timeout');_once(null,new Error('انتهت مهلة تحميل النموذج'));},20000);
+    try{
+      poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+        {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING})
+      .then(function(det){
+        clearTimeout(tid);
+        try{if(det.moveNetModel)det.moveNetModel.save(IK).catch(function(){});}catch(e){}
+        _once(det,null);
+      }).catch(function(e){clearTimeout(tid);console.error('[TFJS] createDetector failed',e);_once(null,e);});
+    }catch(e){clearTimeout(tid);console.error('[TFJS] createDetector threw',e);_once(null,e);}
   }
   try{
     tf.io.listModels().then(function(m){
       var cached=Object.keys(m).some(function(k){return k.indexOf('noor-movenet')>-1;});
       if(cached){
+        var tid2=setTimeout(function(){fromCDN();},10000);
         poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelUrl:IK})
-        .then(function(det){cb(det,null);}).catch(function(){fromCDN();});
+        .then(function(det){clearTimeout(tid2);_once(det,null);}).catch(function(){clearTimeout(tid2);fromCDN();});
       }else{fromCDN();}
     }).catch(function(){fromCDN();});
   }catch(e){fromCDN();}
@@ -4408,8 +4437,9 @@ function rakAIStart(){
   if(st)st.textContent='جاري تحميل نموذج الذكاء الاصطناعي…';
   _loadTFJS(function(err){
     if(err){
+      console.error('[RAK-AI] TF.js load error:',err);
       if(load)load.style.display='none';if(priv)priv.style.display='';
-      if(st)st.textContent='تعذّر تحميل مكتبة الذكاء — تحقق من الإنترنت';return;
+      if(st)st.textContent='تعذّر تحميل مكتبة الذكاء — '+err.message;return;
     }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
       if(load)load.style.display='none';if(priv)priv.style.display='';
@@ -4424,8 +4454,9 @@ function rakAIStart(){
       if(ai.detector){_rakAIReady();return;}
       _rakAILoadDet(function(det,err2){
         if(err2||!det){
+          console.error('[RAK-AI] detector load error:',err2);
           if(load)load.style.display='none';if(priv)priv.style.display='';
-          if(st)st.textContent='تعذّر تحميل النموذج — تحقق من الإنترنت';
+          if(st)st.textContent='تعذّر تحميل النموذج — '+(err2?err2.message:'تحقق من الإنترنت');
           rakAIStop();return;
         }
         ai.detector=det;
