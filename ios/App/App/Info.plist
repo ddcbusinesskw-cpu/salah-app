@@ -63,5 +63,20 @@
 	<!-- Microphone: tasmee (memorization test) speech recognition — processed on-device -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>يُستخدم الميكروفون لميزة تسميع الحفظ، والمعالجة تتم على الجهاز بدون تسجيل أو رفع.</string>
+
+	<!-- Google Sign-In redirect URL (REVERSED_CLIENT_ID from GoogleService-Info.plist) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.ddcbusiness.noor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.911972197466-urmirpvsa2necvmkshj3pi3s3jd99888</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
