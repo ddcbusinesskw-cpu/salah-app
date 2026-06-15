@@ -2984,7 +2984,7 @@ var PRAYER_TYPES={
 var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
 var _rakCurPrayer=null;
 var _rakCurTab='fard';
-var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,cal:{qiyam:null,ruku:null,sujud:null},calStep:0,calBuf:[],calTimer:null,history:[],paused:false,_standH:0}};
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,cal:{qiyam:null,ruku:null,sujud:null},calStep:0,calBuf:[],calTimer:null,history:[],paused:false,_standH:0,_sujudThr:0.69}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
 function buildPills(){buildPrayerPicker();}
@@ -4383,7 +4383,7 @@ function _rakAIOnDetReady(det){
   if(load)load.style.display='none';if(active)active.style.display='';
   // Restore saved calibration
   var stored=lsGet('rak_ai_cal');
-  if(stored&&lsGet('rak_ai_cal_v')==='2'){try{ai.cal=JSON.parse(stored);}catch(e){}}
+  if(stored&&lsGet('rak_ai_cal_v')==='3'){try{ai.cal=JSON.parse(stored);}catch(e){}}
   var hasCal=ai.cal&&ai.cal.qiyam&&ai.cal.ruku&&ai.cal.sujud&&ai.cal.jalsa;
   if(hasCal){_rakAIBeginTracking();}else{_rakAIStartCal();}
   rakWakeLock(true);
@@ -4406,7 +4406,8 @@ function rakAIStop(){
 }
 function rakAIRecal(){
   var ai=RAK._ai;
-  ai.cal={qiyam:null,ruku:null,sujud:null};
+  ai.cal={qiyam:null,ruku:null,sujud:null,jalsa:null};
+  ai._sujudThr=0.69;
   lsSet('rak_ai_cal','');
   var trkSec=document.getElementById('rakAITrackSec');
   if(trkSec)trkSec.style.display='none';
@@ -4433,7 +4434,16 @@ function _rakAICalStep(){
   if(step>=_AI_CAL_POSES.length){
     var calSec=document.getElementById('rakAICalSec');
     if(calSec)calSec.style.display='none';
-    lsSet('rak_ai_cal_v','2');
+    // Auto-order by centerY: smallest→قيام, →ركوع, →جلوس, largest→سجود
+    // Fixes any accidental swaps during calibration (physical constraint)
+    var _ents=Object.keys(ai.cal).filter(function(k){return ai.cal[k]!==null;}).map(function(k){return{k:k,c:ai.cal[k]};});
+    _ents.sort(function(a,b){return a.c[0]-b.c[0];});
+    var _ORDERED=['qiyam','ruku','jalsa','sujud'];
+    var _sorted={};
+    _ents.forEach(function(e,i){if(_ORDERED[i])_sorted[_ORDERED[i]]=e.c;});
+    ai.cal=_sorted;
+    lsSet('rak_ai_cal',JSON.stringify(ai.cal));
+    lsSet('rak_ai_cal_v','3');
     _rakAIBeginTracking();
     return;
   }
@@ -4478,6 +4488,8 @@ function _rakAICalStep(){
 function _rakAIBeginTracking(){
   var ai=RAK._ai;
   ai.history=[];ai.posState=-1;ai.pendState=-1;ai.pendTime=0;
+  // Sujud threshold = midpoint between جلوس and سجود centroids
+  ai._sujudThr=(ai.cal&&ai.cal.jalsa&&ai.cal.sujud)?(ai.cal.jalsa[0]+ai.cal.sujud[0])/2:0.69;
   var trkSec=document.getElementById('rakAITrackSec');
   if(trkSec)trkSec.style.display='';
   var st=document.getElementById('rstatus');
@@ -4493,11 +4505,18 @@ function _rakAIExtract(pose,W,H){
     if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}
   }
   if(vis<3)return null;
-  // [centerY, bboxTop, bboxBot, avgConf] — derived from real labeled data
   var centerY=((minY+maxY)/2)/H;
   var bboxTop=minY/H;
   var bboxBot=maxY/H;
-  return [centerY,bboxTop,bboxBot,avg];
+  // Torso angle (auxiliary — NOT used in centroid distance, weight=0 in classifier)
+  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
+  var torsoAngle=0;
+  if(Math.max(lS.score,rS.score)>0.15&&Math.max(lH.score,rH.score)>0.15){
+    var sX=(lS.score>rS.score?lS:rS).x,sY=(lS.score>rS.score?lS:rS).y;
+    var hX=(lH.score>rH.score?lH:rH).x,hY=(lH.score>rH.score?lH:rH).y;
+    torsoAngle=Math.round(Math.atan2(Math.abs(hY-sY),Math.abs(hX-sX))*180/Math.PI);
+  }
+  return [centerY,bboxTop,bboxBot,avg,torsoAngle];
 }
 function _rakAIClassifyCal(feat){
   var ai=RAK._ai;
@@ -4538,7 +4557,7 @@ function _rakAILoop(){
     // Live diagnostics (only during tracking)
     if(isTracking&&feat){
       var diag=document.getElementById('rakAIDiag');
-      if(diag)diag.textContent='مركز:'+feat[0].toFixed(2)+' أعلى:'+feat[1].toFixed(2)+' أسفل:'+feat[2].toFixed(2)+' ثقة:'+Math.round(conf*100)+'%';
+      if(diag)diag.textContent='مركز:'+feat[0].toFixed(2)+'(حد:'+(ai._sujudThr||0.69).toFixed(2)+') زاوية:'+feat[4]+'° ثقة:'+Math.round(conf*100)+'%';
     }
     // Low-confidence guard: pause counting, show warning
     var lowConf=conf<0.10||!feat;
@@ -4563,23 +4582,22 @@ function _rakAILoop(){
       var _minY2=_H2,_maxY2=0;
       for(var _ki=0;_ki<_kp2.length;_ki++){if(_kp2[_ki].score>0.10){_minY2=Math.min(_minY2,_kp2[_ki].y);_maxY2=Math.max(_maxY2,_kp2[_ki].y);}}
       var _bkT=(_minY2/_H2).toFixed(3),_bkB=(_maxY2/_H2).toFixed(3),_cY=((_minY2+_maxY2)/(2*_H2)).toFixed(3);
-      _diagLog.push([_dn,_diagLabel,label,feat[0].toFixed(3),feat[1].toFixed(3),feat[2].toFixed(3),Math.round(conf*100),_shVis,_hpVis].join(','));
+      _diagLog.push([_dn,_diagLabel,label,feat[0].toFixed(3),feat[1].toFixed(3),feat[2].toFixed(3),Math.round(conf*100),(feat[4]||0),_shVis,_hpVis].join(','));
       var _dst=document.getElementById('rakDiagStatus');
       if(_dst)_dst.textContent='⏺ '+_diagLog.length+' صف | '+_diagLabel;
     }
     if(!isTracking)return;
-    // 7-frame majority vote
-    ai.history.push(label);
+    // Binary sujud threshold on centerY — immune to 4-class misclassification
+    var thr=ai._sujudThr||0.69;
+    var sujudNow=feat[0]>thr;
+    // 7-frame binary smoothing (5/7 majority = committed state)
+    ai.history.push(sujudNow?1:0);
     if(ai.history.length>7)ai.history.shift();
-    var votes={};
-    for(var i=0;i<ai.history.length;i++){var k=ai.history[i];votes[k]=(votes[k]||0)+1;}
-    var smoothed=label,maxV=0;
-    ['qiyam','ruku','sujud','jalsa','unknown'].forEach(function(k){if((votes[k]||0)>maxV){maxV=votes[k];smoothed=k;}});
-    var ns=smoothed==='sujud'?2:smoothed==='ruku'?1:smoothed==='qiyam'?0:smoothed==='jalsa'?3:-1;
-    if(ns<0)return;
+    var sv=0;for(var i=0;i<ai.history.length;i++)sv+=ai.history[i];
+    var ns=sv>=5?2:0;
     var t=Date.now();
     if(ns!==ai.pendState){ai.pendState=ns;ai.pendTime=t;}
-    else if(t-ai.pendTime>1500&&ns!==ai.posState){
+    else if(t-ai.pendTime>1000&&ns!==ai.posState){
       var prev=ai.posState;ai.posState=ns;
       if(ns===2&&!ai.inSujud){ai.inSujud=true;if(RAK.hap)buzz(12);}
       if(prev===2&&ns!==2&&ai.inSujud){ai.inSujud=false;ai.sujudTotal++;rakFeed('sujud');}
@@ -4671,7 +4689,7 @@ function rakDiagCopy(){
     if(st)st.textContent='لا توجد بيانات — سجّل أولاً';
     return;
   }
-  var csv='time_ms,label,model_cls,centerY,bboxTop,bboxBot,conf_pct,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
+  var csv='time_ms,label,model_cls,centerY,bboxTop,bboxBot,conf_pct,torso_angle,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
   function _doCopy(txt){
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(txt).then(function(){
