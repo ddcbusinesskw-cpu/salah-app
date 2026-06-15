@@ -772,6 +772,62 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-ai-load{text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;}
 .rak-ai-spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:rakAISpin .85s linear infinite;margin:0 auto 10px;}
 @keyframes rakAISpin{to{transform:rotate(360deg)}}
+/* ===== salahTrack AI screen ===== */
+#salahTrack{overflow-y:auto;}
+.st-setup-card{background:var(--card);border-radius:16px;padding:18px;margin:12px 0;}
+.st-tip{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.7;}
+.st-prayer-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;}
+.st-prayer-btn{flex:1;min-width:70px;padding:8px 6px;border-radius:10px;border:2px solid var(--line);background:var(--card2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
+.st-prayer-btn.on{border-color:var(--gold);color:var(--gold);background:var(--card);}
+.st-start-btn{display:block;width:100%;margin:14px 0 0;padding:13px;border-radius:14px;border:none;background:var(--green);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
+.st-start-btn:disabled{opacity:.45;cursor:default;}
+.st-loading-wrap{text-align:center;padding:36px 16px;color:var(--muted);font-size:13px;}
+.st-spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:stSpin .85s linear infinite;margin:0 auto 12px;}
+@keyframes stSpin{to{transform:rotate(360deg)}}
+.st-active-wrap{display:flex;flex-direction:column;gap:10px;padding-bottom:80px;}
+.st-header-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
+.st-rak-num{font-size:42px;font-weight:800;color:var(--gold);line-height:1;}
+.st-rak-lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+.st-pose-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:14px;font-weight:700;background:var(--card2);color:var(--muted);transition:.25s;}
+.st-pose-badge.qiyam{background:#1a3a28;color:var(--green);}
+.st-pose-badge.ruku{background:#2a2a12;color:#d4b84a;}
+.st-pose-badge.sujud{background:#1a2a3a;color:#5ab4f0;}
+.st-sujud-dots{display:flex;gap:5px;margin-top:6px;}
+.st-sujud-dot{width:10px;height:10px;border-radius:50%;background:var(--line);}
+.st-sujud-dot.done{background:var(--green);}
+.st-vid-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3;max-height:200px;}
+.st-vid-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+.st-vid-skel{position:absolute;inset:0;pointer-events:none;}
+.st-warn{font-size:12px;color:var(--orange,#e0884a);background:rgba(224,136,74,.12);border-radius:8px;padding:7px 11px;display:none;}
+.st-warn.show{display:block;}
+.st-indicators{display:flex;gap:8px;align-items:center;}
+.st-vad-dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex-shrink:0;transition:.2s;}
+.st-vad-dot.active{background:var(--green);box-shadow:0 0 5px var(--green);}
+.st-conf-bar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden;}
+.st-conf-fill{height:100%;background:var(--green);border-radius:3px;transition:.25s;width:0%;}
+.st-sr-card{background:var(--card);border-radius:12px;padding:10px 12px;display:none;}
+.st-sr-card.show{display:block;}
+.st-sr-heard{font-size:13px;color:var(--text);direction:rtl;text-align:right;min-height:18px;margin-bottom:6px;}
+.st-sr-score-row{display:flex;align-items:center;gap:6px;}
+.st-sr-score-badge{font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;background:var(--card2);}
+.st-sr-score-badge.great{background:#1a3a28;color:var(--green);}
+.st-sr-score-badge.ok{background:#2a2a12;color:#d4b84a;}
+.st-sr-score-badge.low{background:#3a1a1a;color:#e06060;}
+.st-offline-note{font-size:11px;color:var(--muted);text-align:center;}
+.st-bottom-bar{position:fixed;bottom:calc(var(--bnav-h) + 8px);left:0;right:0;padding:0 16px;z-index:90;pointer-events:none;}
+.st-stop-btn{pointer-events:all;display:block;width:100%;padding:12px;border-radius:14px;border:none;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer;}
+.st-sum-card{background:var(--card);border-radius:16px;padding:18px;margin:10px 0;}
+.st-sum-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;text-align:center;}
+.st-sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.st-sum-item{background:var(--card2);border-radius:10px;padding:10px;text-align:center;}
+.st-sum-val{font-size:26px;font-weight:800;color:var(--gold);}
+.st-sum-key{font-size:11px;color:var(--muted);margin-top:2px;}
+.st-segs-title{font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 6px;}
+.st-seg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;}
+.st-seg-pose{width:48px;color:var(--muted);}
+.st-seg-heard{flex:1;color:var(--text);direction:rtl;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-seg-sc{font-weight:700;width:36px;text-align:center;}
+.st-sum-btn{display:block;width:100%;margin-top:12px;padding:12px;border-radius:12px;border:none;background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;}
 .rak-qasr-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:4px 0 10px;font-size:13px;color:var(--muted);}
 .rak-qasr-btn{width:40px;height:22px;border-radius:11px;border:none;background:var(--line);position:relative;cursor:pointer;transition:.18s;flex-shrink:0;}
 .rak-qasr-btn::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;inset-inline-start:3px;transition:.18s;}
@@ -935,6 +991,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="icell" onclick="go('search')"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><span class="lbl">بحث</span></button>
       <button class="icell" onclick="go('ruqya')"><span class="ic c6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.5-7 10-7 10Z"/></svg></span><span class="lbl">الرقية</span></button>
       <button class="icell" onclick="go('rakaat')"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 18h16M7 18V9m5 9V6m5 12v-6"/></svg></span><span class="lbl">عدّاد الركعات</span></button>
+      <button class="icell" onclick="go('salahTrack')"><span class="ic c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2a5 5 0 0 1 5 5c0 2-1 3.5-2.5 4.5L17 20H7l2.5-8.5C8 10.5 7 9 7 7a5 5 0 0 1 5-5Z" stroke-width="1.5"/><path d="M9 13h6" stroke-width="1.5"/></svg></span><span class="lbl">تتبّع الصلاة</span></button>
       <button class="icell" onclick="go('names')"><span class="ic c5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01" stroke-width="2"/></svg></span><span class="lbl">أسماء الله</span></button>
       <button class="icell" onclick="go('badges')"><span class="ic c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M8 14l-4 8h16l-4-8"/></svg></span><span class="lbl">الإنجازات</span></button>
       <button class="icell" onclick="go('quiz')"><span class="ic c4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 10a3 3 0 1 1 5 2.2c-.8.6-1.5 1-1.5 2.3"/><circle cx="12" cy="18" r=".6" fill="currentColor"/><circle cx="12" cy="12" r="9.5"/></svg></span><span class="lbl">مسابقة</span></button>
@@ -1199,6 +1256,112 @@ button,a{-webkit-tap-highlight-color:transparent;}
     </div>
   </div>
 
+</div>
+
+<!-- ===== تتبّع الصلاة بالذكاء الاصطناعي ===== -->
+<div id="salahTrack" class="screen">
+  <div class="top">
+    <button class="back" aria-label="رجوع" onclick="salahTrackBack()">→</button>
+    <h2>تتبّع الصلاة</h2>
+    <span></span>
+  </div>
+  <div class="pad">
+
+    <!-- Setup pane -->
+    <div id="stSetupPane">
+      <div class="st-setup-card">
+        <b style="font-size:14px">اختر الصلاة</b>
+        <div class="st-prayer-row" id="stPrayerRow">
+          <button class="st-prayer-btn on" data-p="fajr" onclick="_stSelPrayer(this)">فجر</button>
+          <button class="st-prayer-btn" data-p="dhuhr" onclick="_stSelPrayer(this)">ظهر</button>
+          <button class="st-prayer-btn" data-p="asr" onclick="_stSelPrayer(this)">عصر</button>
+          <button class="st-prayer-btn" data-p="maghrib" onclick="_stSelPrayer(this)">مغرب</button>
+          <button class="st-prayer-btn" data-p="isha" onclick="_stSelPrayer(this)">عشاء</button>
+        </div>
+        <p class="st-tip">📷 كاميرا أمامية لرصد الوضعيات • 🎙️ التعرّف الصوتي يتطلّب إنترنت ومتصفّح (ليس داخل التطبيق)</p>
+        <div id="stLoadStatus" style="font-size:12px;color:var(--muted);margin:8px 0;min-height:16px;"></div>
+        <button class="st-start-btn" id="stStartBtn" onclick="salahTrackStart()">▶ ابدأ التتبّع</button>
+      </div>
+    </div>
+
+    <!-- Loading pane -->
+    <div id="stLoadPane" style="display:none">
+      <div class="st-loading-wrap">
+        <div class="st-spin"></div>
+        <div id="stLoadMsg">جارٍ تحميل نموذج الذكاء الاصطناعي…</div>
+      </div>
+    </div>
+
+    <!-- Active pane -->
+    <div id="stActivePane" class="st-active-wrap" style="display:none">
+      <!-- Header: rakat count + pose badge -->
+      <div class="st-header-row">
+        <div>
+          <div class="st-rak-num" id="stRakNum">٠</div>
+          <div class="st-rak-lbl" id="stRakLbl">ركعة / <span id="stRakTarget">٢</span></div>
+        </div>
+        <div style="text-align:center">
+          <div class="st-pose-badge" id="stPoseBadge">؟</div>
+          <div class="st-sujud-dots" id="stSujudDots">
+            <div class="st-sujud-dot" id="stSd1"></div>
+            <div class="st-sujud-dot" id="stSd2"></div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);text-align:left" id="stTimer">٠:٠٠</div>
+      </div>
+
+      <!-- Camera feed + skeleton -->
+      <div class="st-vid-wrap" id="stVidWrap" style="display:none">
+        <video id="stVideo" playsinline muted autoplay></video>
+        <canvas id="stSkel" class="st-vid-skel"></canvas>
+      </div>
+
+      <!-- Warnings -->
+      <div class="st-warn" id="stWarnLight">💡 إضاءة ضعيفة</div>
+      <div class="st-warn" id="stWarnBody">🔍 لم يُرصد جسم — تأكّد من ظهور الجذع في الكاميرا</div>
+
+      <!-- VAD + confidence -->
+      <div class="st-indicators">
+        <div class="st-vad-dot" id="stVadDot" title="كشف الصوت"></div>
+        <div class="st-conf-bar"><div class="st-conf-fill" id="stConfFill"></div></div>
+        <span style="font-size:11px;color:var(--muted)" id="stConfTxt">٠٪</span>
+      </div>
+
+      <!-- Speech recognition card -->
+      <div class="st-sr-card" id="stSrCard">
+        <div class="st-sr-heard" id="stSrHeard" dir="rtl"></div>
+        <div class="st-sr-score-row">
+          <span style="font-size:11px;color:var(--muted)">تطابق القراءة:</span>
+          <span class="st-sr-score-badge" id="stSrScore">–</span>
+        </div>
+      </div>
+
+      <!-- Offline note -->
+      <div class="st-offline-note" id="stOfflineNote" style="display:none">📵 التعرّف الصوتي غير متاح — متابعة بكاميرا + VAD</div>
+
+      <!-- Fixed stop button -->
+      <div class="st-bottom-bar">
+        <button class="st-stop-btn" onclick="salahTrackStop()">⏹ إيقاف</button>
+      </div>
+    </div>
+
+    <!-- Summary pane -->
+    <div id="stSumPane" style="display:none">
+      <div class="st-sum-card">
+        <div class="st-sum-title">ملخّص الصلاة</div>
+        <div class="st-sum-grid">
+          <div class="st-sum-item"><div class="st-sum-val" id="stSumRak">٠</div><div class="st-sum-key">ركعات</div></div>
+          <div class="st-sum-item"><div class="st-sum-val" id="stSumSuj">٠</div><div class="st-sum-key">سجدات</div></div>
+          <div class="st-sum-item"><div class="st-sum-val" id="stSumTime">٠:٠٠</div><div class="st-sum-key">الوقت</div></div>
+          <div class="st-sum-item"><div class="st-sum-val" id="stSumScore">–</div><div class="st-sum-key">متوسّط القراءة</div></div>
+        </div>
+        <div class="st-segs-title">تفاصيل القراءة</div>
+        <div id="stSegsList"></div>
+        <button class="st-sum-btn" onclick="salahTrackReset()">🔄 صلاة جديدة</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <!-- اختيار مدينة يدويًا -->
@@ -3472,6 +3635,399 @@ function checkWeeklyReport(){
   lsSet('weekly_shown',today);setTimeout(openWeeklySheet,1500);
 }
 
+/* ===== salahTrack: AI Salah Tracker ===== */
+var ST={
+  active:false,prayer:'fajr',target:2,
+  camStream:null,audioStream:null,detector:null,
+  audioCtx:null,analyser:null,_vadData:null,
+  afId:null,vadId:null,timerId:null,
+  rec:null,recActive:false,srAvail:false,
+  startTime:0,elapsed:0,
+  pose:'unknown',poseConf:0,
+  pendPose:'unknown',pendTime:0,DEBOUNCE:700,
+  rakaat:0,sujudInRak:0,inSujud:false,totalSujud:0,
+  segments:[],currentSpeech:'',currentScore:null,
+  speaking:false,_lastInf:0,_warned:false
+};
+var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
+
+function _stAr(n){
+  var D='٠١٢٣٤٥٦٧٨٩';
+  return String(n).replace(/[0-9]/g,function(c){return D[+c];});
+}
+function _stFmt(sec){
+  var m=Math.floor(sec/60),s=sec%60;
+  return _stAr(m)+':'+(s<10?'٠':'')+_stAr(s);
+}
+function _stShowPane(name){
+  ['stSetupPane','stLoadPane','stActivePane','stSumPane'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el)el.style.display=(id===name?'':'none');
+  });
+}
+function _stSelPrayer(btn){
+  document.querySelectorAll('.st-prayer-btn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  ST.prayer=btn.dataset.p;
+  ST.target=_PRAYER_RAK[ST.prayer]||4;
+}
+function initSalahTrack(){
+  ST.srAvail=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+  var note=document.getElementById('stOfflineNote');
+  if(note)note.style.display=ST.srAvail?'none':'block';
+  var status=document.getElementById('stLoadStatus');
+  if(status)status.textContent=ST.srAvail?'✅ التعرّف الصوتي متاح':'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
+  _stShowPane('stSetupPane');
+}
+function salahTrackBack(){
+  salahTrackStop();
+  go('home');
+}
+function salahTrackStart(){
+  var btn=document.getElementById('stStartBtn');
+  if(btn)btn.disabled=true;
+  ST.target=_PRAYER_RAK[ST.prayer]||4;
+  _stShowPane('stLoadPane');
+  var msg=document.getElementById('stLoadMsg');
+  if(msg)msg.textContent='جارٍ تحميل نموذج الذكاء الاصطناعي…';
+  // Reset state
+  ST.rakaat=0;ST.sujudInRak=0;ST.inSujud=false;ST.totalSujud=0;
+  ST.segments=[];ST.currentSpeech='';ST.currentScore=null;
+  ST.pose='unknown';ST.pendPose='unknown';ST.pendTime=0;
+  ST.elapsed=0;ST.active=false;
+  _rakAILoadDet(function(det){
+    if(!det){_stErrMsg('فشل تحميل النموذج. تأكّد من الاتصال بالإنترنت أوّل مرّة.');return;}
+    ST.detector=det;
+    if(msg)msg.textContent='جارٍ فتح الكاميرا…';
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}},audio:true})
+    .then(function(stream){
+      // Split audio track for VAD
+      var tracks=stream.getTracks();
+      var vTracks=tracks.filter(function(t){return t.kind==='video';});
+      var aTracks=tracks.filter(function(t){return t.kind==='audio';});
+      ST.camStream=new MediaStream(vTracks);
+      ST.audioStream=new MediaStream(aTracks);
+      _stBeginSession();
+    })
+    .catch(function(e){
+      // Try video-only
+      navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:320},height:{ideal:240}}})
+      .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
+      .catch(function(){_stErrMsg('لا يمكن الوصول إلى الكاميرا. تحقّق من الأذونات.');});
+    });
+  });
+}
+function _stErrMsg(msg){
+  var el=document.getElementById('stLoadMsg');
+  if(el)el.textContent=msg;
+  var btn=document.getElementById('stStartBtn');
+  if(btn)btn.disabled=false;
+  _stShowPane('stSetupPane');
+  var st=document.getElementById('stLoadStatus');
+  if(st)st.textContent=msg;
+}
+function _stBeginSession(){
+  var video=document.getElementById('stVideo');
+  var wrap=document.getElementById('stVidWrap');
+  if(video){video.srcObject=ST.camStream;video.play().catch(function(){});}
+  if(wrap)wrap.style.display='';
+  ST.active=true;
+  ST.startTime=Date.now();
+  _stShowPane('stActivePane');
+  // Update target label
+  var tEl=document.getElementById('stRakTarget');
+  if(tEl)tEl.textContent=_stAr(ST.target);
+  // Timer
+  ST.timerId=setInterval(function(){
+    if(!ST.active)return;
+    ST.elapsed=Math.floor((Date.now()-ST.startTime)/1000);
+    var tEl2=document.getElementById('stTimer');
+    if(tEl2)tEl2.textContent=_stFmt(ST.elapsed);
+  },1000);
+  // VAD
+  if(ST.audioStream){
+    try{
+      ST.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      ST.analyser=ST.audioCtx.createAnalyser();
+      ST.analyser.fftSize=512;
+      ST._vadData=new Uint8Array(ST.analyser.frequencyBinCount);
+      var src=ST.audioCtx.createMediaStreamSource(ST.audioStream);
+      src.connect(ST.analyser);
+      ST.vadId=setInterval(_stVADTick,80);
+    }catch(e){}
+  }
+  // Speech recognition
+  if(ST.srAvail){_stStartSpeech();}
+  // Pose loop
+  rakWakeLock(true);
+  _stPoseLoop();
+}
+function _stVADTick(){
+  if(!ST.analyser||!ST._vadData)return;
+  ST.analyser.getByteFrequencyData(ST._vadData);
+  var sum=0;for(var i=0;i<ST._vadData.length;i++)sum+=ST._vadData[i];
+  var avg=sum/ST._vadData.length;
+  ST.speaking=avg>24;
+  var dot=document.getElementById('stVadDot');
+  if(dot)dot.classList.toggle('active',ST.speaking);
+}
+function _stPoseLoop(){
+  if(!ST.active)return;
+  ST.afId=requestAnimationFrame(_stPoseLoop);
+  var now=Date.now();
+  if(now-ST._lastInf<130)return;
+  ST._lastInf=now;
+  var video=document.getElementById('stVideo');
+  if(!video||video.readyState<2||!ST.detector)return;
+  ST.detector.estimatePoses(video,{flipHorizontal:true})
+  .then(function(poses){
+    if(!ST.active)return;
+    var W=video.videoWidth||320,H=video.videoHeight||240;
+    var pose=poses&&poses.length?poses[0]:null;
+    var cls=_stClassify(pose,W,H);
+    // Confidence from avg keypoint score
+    var conf=0;
+    if(pose&&pose.keypoints){var s=0;for(var i=0;i<pose.keypoints.length;i++)s+=pose.keypoints[i].score;conf=s/pose.keypoints.length;}
+    ST.poseConf=conf;
+    var fill=document.getElementById('stConfFill');
+    var txt=document.getElementById('stConfTxt');
+    if(fill)fill.style.width=Math.round(conf*100)+'%';
+    if(txt)txt.textContent=_stAr(Math.round(conf*100))+'٪';
+    _stDraw(pose,W,H);
+    _stCheckWarnings(pose,W,H);
+    // Debounce
+    if(cls!==ST.pendPose){ST.pendPose=cls;ST.pendTime=now;}
+    else if(now-ST.pendTime>ST.DEBOUNCE&&cls!==ST.pose){
+      var prev=ST.pose;
+      ST.pose=cls;
+      _stOnPoseChange(prev,cls);
+    }
+    _stUpdatePoseBadge(ST.pose);
+  })
+  .catch(function(){});
+}
+function _stClassify(pose,W,H){
+  if(!pose||!pose.keypoints)return 'unknown';
+  var kp=pose.keypoints,avg=0;
+  for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
+  if(avg<0.08)return 'unknown';
+  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
+  if(Math.max(lS.score,rS.score)<0.22||Math.max(lH.score,rH.score)<0.22)return 'unknown';
+  var sY=(lS.score>rS.score?lS:rS).y;
+  var hY=(lH.score>rH.score?lH:rH).y;
+  var ratio=(hY-sY)/H;
+  if(ratio>0.20)return 'qiyam';
+  if(ratio<0.04)return 'sujud';
+  return 'ruku';
+}
+function _stOnPoseChange(prev,cur){
+  // qiyam → ruku → qiyam → sujud1 → jalsa → sujud2 → rakat++
+  if(cur==='sujud'&&!ST.inSujud){
+    ST.inSujud=true;
+    ST.sujudInRak++;
+    ST.totalSujud++;
+    _stUpdateCounters();
+    if(navigator.vibrate)navigator.vibrate(40);
+    // Save speech segment
+    if(ST.currentSpeech){
+      var exp=_stGetExpected('sujud');
+      var sc=exp?_stScoreMatch(ST.currentSpeech,exp):null;
+      ST.segments.push({pose:'سجود',heard:ST.currentSpeech,score:sc});
+      ST.currentSpeech='';
+      _stShowSrScore(sc);
+    }
+  }
+  if(cur!=='sujud'&&ST.inSujud){
+    ST.inSujud=false;
+    if(ST.sujudInRak>=2){
+      ST.rakaat++;
+      ST.sujudInRak=0;
+      _stUpdateCounters();
+      if(navigator.vibrate)navigator.vibrate([60,30,60]);
+      if(ST.rakaat>=ST.target)salahTrackFinish();
+    }
+  }
+  if(cur==='qiyam'&&ST.currentSpeech){
+    var exp2=_stGetExpected('ruku');
+    if(prev==='ruku'&&exp2){
+      var sc2=_stScoreMatch(ST.currentSpeech,exp2);
+      ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});
+      _stShowSrScore(sc2);
+    }
+    ST.currentSpeech='';
+  }
+}
+function _stGetExpected(pose){
+  var E={
+    ruku:'سبحان ربي العظيم سبحان ربي العظيم سبحان ربي العظيم',
+    sujud:'سبحان ربي الأعلى سبحان ربي الأعلى سبحان ربي الأعلى',
+    jalsa:'رب اغفر لي رب اغفر لي'
+  };
+  if(pose==='qiyam'){
+    if(typeof QURAN_EMBED!=='undefined'&&QURAN_EMBED&&QURAN_EMBED.surahs&&QURAN_EMBED.surahs['1'])
+      return QURAN_EMBED.surahs['1'].join(' ');
+    return '';
+  }
+  return E[pose]||'';
+}
+function _stScoreMatch(heard,expected){
+  if(!heard||!expected)return 0;
+  var h=typeof snorm==='function'?snorm(heard):heard;
+  var e=typeof snorm==='function'?snorm(expected):expected;
+  if(!h||!e)return 0;
+  // Use existing fuzzy if available, else simple ratio
+  if(typeof _memFuz==='function'){
+    var res=_memFuz(h,e);
+    return typeof res==='number'?Math.round(res*100):0;
+  }
+  // Fallback: word overlap
+  var hw=h.split(' '),ew=e.split(' ');
+  var matches=hw.filter(function(w){return ew.indexOf(w)>=0;}).length;
+  return Math.round((matches/Math.max(ew.length,1))*100);
+}
+function _stShowSrScore(score){
+  var badge=document.getElementById('stSrScore');
+  if(!badge)return;
+  if(score===null||score===undefined){badge.textContent='–';badge.className='st-sr-score-badge';return;}
+  badge.textContent=_stAr(score)+'٪';
+  badge.className='st-sr-score-badge '+(score>=75?'great':score>=45?'ok':'low');
+}
+function _stStartSpeech(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  try{
+    var r=new SR();
+    r.lang='ar-SA';r.continuous=true;r.interimResults=true;
+    r.onresult=function(e){
+      var interim='',final_='';
+      for(var i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal)final_+=e.results[i][0].transcript;
+        else interim+=e.results[i][0].transcript;
+      }
+      var display=final_||interim;
+      ST.currentSpeech+=(final_?' '+final_:'');
+      var el=document.getElementById('stSrHeard');
+      if(el)el.textContent=display;
+      var card=document.getElementById('stSrCard');
+      if(card&&display)card.classList.add('show');
+    };
+    r.onerror=function(){ST.recActive=false;};
+    r.onend=function(){
+      ST.recActive=false;
+      if(ST.active)setTimeout(_stStartSpeech,500);
+    };
+    r.start();
+    ST.rec=r;ST.recActive=true;
+  }catch(e){}
+}
+function _stStopSpeech(){
+  if(ST.rec){try{ST.rec.abort();}catch(e){}ST.rec=null;ST.recActive=false;}
+}
+function _stCheckWarnings(pose,W,H){
+  // Low light: if avg keypoint confidence very low
+  var lowLight=ST.poseConf<0.12;
+  var noBody=!pose||!pose.keypoints||ST.poseConf<0.08;
+  var wl=document.getElementById('stWarnLight');
+  var wb=document.getElementById('stWarnBody');
+  if(wl)wl.classList.toggle('show',lowLight&&!noBody);
+  if(wb)wb.classList.toggle('show',noBody);
+}
+function _stDraw(pose,W,H){
+  var cvs=document.getElementById('stSkel');
+  if(!cvs||!pose||!pose.keypoints)return;
+  var dpr=window.devicePixelRatio||1;
+  var rect=cvs.getBoundingClientRect();
+  cvs.width=rect.width*dpr;cvs.height=rect.height*dpr;
+  var ctx=cvs.getContext('2d');
+  ctx.scale(dpr,dpr);
+  var scX=rect.width/W,scY=rect.height/H;
+  var kp=pose.keypoints;
+  var PAIRS=[[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+  ctx.strokeStyle='rgba(90,180,240,.7)';ctx.lineWidth=2;
+  PAIRS.forEach(function(p){
+    var a=kp[p[0]],b=kp[p[1]];
+    if(a.score>0.2&&b.score>0.2){
+      ctx.beginPath();
+      ctx.moveTo((W-a.x)*scX,a.y*scY);
+      ctx.lineTo((W-b.x)*scX,b.y*scY);
+      ctx.stroke();
+    }
+  });
+  ctx.fillStyle='rgba(234,204,126,.9)';
+  kp.forEach(function(k){
+    if(k.score>0.2){ctx.beginPath();ctx.arc((W-k.x)*scX,k.y*scY,3,0,Math.PI*2);ctx.fill();}
+  });
+}
+function _stUpdatePoseBadge(pose){
+  var badge=document.getElementById('stPoseBadge');
+  if(!badge)return;
+  var MAP={qiyam:{ar:'قيام',cls:'qiyam'},ruku:{ar:'ركوع',cls:'ruku'},sujud:{ar:'سجود',cls:'sujud'},unknown:{ar:'؟',cls:''}};
+  var info=MAP[pose]||MAP.unknown;
+  badge.textContent=info.ar;
+  badge.className='st-pose-badge'+(info.cls?' '+info.cls:'');
+}
+function _stUpdateCounters(){
+  var rn=document.getElementById('stRakNum');
+  if(rn)rn.textContent=_stAr(ST.rakaat);
+  var sd1=document.getElementById('stSd1'),sd2=document.getElementById('stSd2');
+  if(sd1)sd1.classList.toggle('done',ST.sujudInRak>=1);
+  if(sd2)sd2.classList.toggle('done',ST.sujudInRak>=2);
+}
+function salahTrackStop(){
+  ST.active=false;
+  _stStopSpeech();
+  if(ST.afId){cancelAnimationFrame(ST.afId);ST.afId=null;}
+  if(ST.vadId){clearInterval(ST.vadId);ST.vadId=null;}
+  if(ST.timerId){clearInterval(ST.timerId);ST.timerId=null;}
+  if(ST.audioCtx){try{ST.audioCtx.close();}catch(e){}ST.audioCtx=null;}
+  if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});}
+  if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});}
+  ST.camStream=null;ST.audioStream=null;
+  rakWakeLock(false);
+  var video=document.getElementById('stVideo');
+  if(video){video.srcObject=null;}
+}
+function salahTrackFinish(){
+  salahTrackStop();
+  // Compute avg score
+  var scores=ST.segments.filter(function(s){return s.score!==null;}).map(function(s){return s.score;});
+  var avg=scores.length?Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length):null;
+  // Fill summary
+  var sumRak=document.getElementById('stSumRak');if(sumRak)sumRak.textContent=_stAr(ST.rakaat);
+  var sumSuj=document.getElementById('stSumSuj');if(sumSuj)sumSuj.textContent=_stAr(ST.totalSujud);
+  var sumTime=document.getElementById('stSumTime');if(sumTime)sumTime.textContent=_stFmt(ST.elapsed);
+  var sumScore=document.getElementById('stSumScore');
+  if(sumScore)sumScore.textContent=avg!==null?_stAr(avg)+'٪':'–';
+  // Segments list
+  var list=document.getElementById('stSegsList');
+  if(list){
+    list.innerHTML=ST.segments.map(function(s){
+      var sc=s.score!==null?_stAr(s.score)+'٪':'–';
+      var cls=s.score!==null?(s.score>=75?'great':s.score>=45?'ok':'low'):'';
+      return '<div class="st-seg"><span class="st-seg-pose">'+s.pose+'</span>'
+        +'<span class="st-seg-heard">'+s.heard.slice(0,40)+'</span>'
+        +'<span class="st-seg-sc st-sr-score-badge '+cls+'">'+sc+'</span></div>';
+    }).join('')||'<div style="font-size:12px;color:var(--muted);padding:8px 0">لا توجد بيانات قراءة</div>';
+  }
+  _stShowPane('stSumPane');
+}
+function salahTrackReset(){
+  var btn=document.getElementById('stStartBtn');if(btn)btn.disabled=false;
+  _stShowPane('stSetupPane');
+  var rn=document.getElementById('stRakNum');if(rn)rn.textContent='٠';
+  var badge=document.getElementById('stPoseBadge');if(badge){badge.textContent='؟';badge.className='st-pose-badge';}
+  var sd1=document.getElementById('stSd1'),sd2=document.getElementById('stSd2');
+  if(sd1)sd1.classList.remove('done');if(sd2)sd2.classList.remove('done');
+  var fill=document.getElementById('stConfFill');if(fill)fill.style.width='0%';
+  var txt=document.getElementById('stConfTxt');if(txt)txt.textContent='٠٪';
+  var heard=document.getElementById('stSrHeard');if(heard)heard.textContent='';
+  var score=document.getElementById('stSrScore');if(score){score.textContent='–';score.className='st-sr-score-badge';}
+  var dot=document.getElementById('stVadDot');if(dot)dot.classList.remove('active');
+  var wl=document.getElementById('stWarnLight'),wb=document.getElementById('stWarnBody');
+  if(wl)wl.classList.remove('show');if(wb)wb.classList.remove('show');
+  var timer=document.getElementById('stTimer');if(timer)timer.textContent='٠:٠٠';
+}
+
 /* ===== v18: go() hook for new screens ===== */
 var _origGo=go;
 go=function(id){
@@ -3482,6 +4038,7 @@ go=function(id){
   if(id==='ramadan')loadRamadanScreen();
   if(id==='quiz')loadQuiz();
   if(id==='calcSettings')loadCalcSettings();
+  if(id==='salahTrack')initSalahTrack();
 };
 
 /* ===== Hook togglePrayer: badges + fajr streak + all-5 celebration ===== */
