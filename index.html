@@ -769,16 +769,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-ai-cr{display:flex;align-items:center;gap:10px;margin:8px 0;}
 .rak-ai-cbar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden;}
 .rak-ai-cfill{height:100%;background:var(--green);border-radius:3px;transition:.25s;width:0%;}
-.rak-ai-cal{padding:10px 2px;text-align:center;}
-.rak-ai-cal-lbl{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;}
-.rak-ai-cal-hint{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6;}
-.rak-ai-cal-prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 6px;}
-.rak-ai-cal-fill{height:100%;background:var(--gold);transition:.1s;width:0%;}
-.rak-ai-cal-dots{font-size:20px;letter-spacing:6px;color:var(--muted);}
 .rak-ai-diag{font-size:10px;color:var(--muted);font-family:monospace;padding:4px 8px;background:var(--card2);border-radius:6px;margin:4px 0;word-break:break-all;}
 .rak-ai-warn{font-size:12px;color:var(--orange,#e08840);background:rgba(224,136,64,.1);border-radius:8px;padding:6px 10px;display:none;margin:4px 0;text-align:center;}
 .rak-ai-warn.show{display:block;}
-.rak-ai-recal{font-size:12px;background:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;color:var(--muted);cursor:pointer;margin:6px auto 0;display:block;}
 .rak-diag-panel{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;background:var(--card);}
 .rak-diag-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
 .rak-diag-lbl-row{display:flex;gap:5px;margin-bottom:8px;}
@@ -1260,42 +1253,29 @@ button,a{-webkit-tap-highlight-color:transparent;}
             <video id="rakAIVideo" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;"></video>
             <canvas id="rakAISkel" class="rak-ai-skel"></canvas>
           </div>
-          <!-- Calibration wizard -->
-          <div id="rakAICalSec">
-            <div class="rak-ai-cal">
-              <div class="rak-ai-cal-lbl" id="rakAICalLbl">استعدّ للمعايرة</div>
-              <div class="rak-ai-cal-hint" id="rakAICalHint">ستُسجَّل بصمة جسمك لثلاث وضعيات — مرّة واحدة فقط</div>
-              <div class="rak-ai-cal-prog"><div class="rak-ai-cal-fill" id="rakAICalFill"></div></div>
-              <div class="rak-ai-cal-dots" id="rakAICalDots">○ ○ ○</div>
-            </div>
+          <div class="rak-ai-cr">
+            <span id="rakAIPoseInfo" style="font-size:13px;color:var(--muted)">جاري التحليل…</span>
+            <div class="rak-ai-cbar"><div class="rak-ai-cfill" id="rakAIConfFill"></div></div>
           </div>
-          <!-- Live tracking (hidden until calibration done) -->
-          <div id="rakAITrackSec" style="display:none">
-            <div class="rak-ai-cr">
-              <span id="rakAIPoseInfo" style="font-size:13px;color:var(--muted)">جاري التحليل…</span>
-              <div class="rak-ai-cbar"><div class="rak-ai-cfill" id="rakAIConfFill"></div></div>
+          <div class="rak-ai-diag" id="rakAIDiag"></div>
+          <div class="rak-ai-warn" id="rakAIWarnLow">⚠ ضعف في الكشف — العدّ موقوف مؤقتاً</div>
+          <div class="rak-cam-note" style="margin:4px 0">🔒 لا رفع · على الجهاز فقط</div>
+          <!-- Diagnostic logger -->
+          <div class="rak-diag-panel" id="rakDiagPanel">
+            <div class="rak-diag-title">
+              <span>📊 تسجيل بيانات تشخيصية</span>
             </div>
-            <div class="rak-ai-diag" id="rakAIDiag"></div>
-            <div class="rak-ai-warn" id="rakAIWarnLow">⚠ ضعف في الكشف — العدّ موقوف مؤقتاً</div>
-            <div class="rak-cam-note" style="margin:4px 0">🔒 لا رفع · على الجهاز فقط</div>
-            <button class="rak-ai-recal" onclick="rakAIRecal()">↺ إعادة المعايرة</button>
-            <!-- Diagnostic logger -->
-            <div class="rak-diag-panel" id="rakDiagPanel">
-              <div class="rak-diag-title">
-                <span>📊 تسجيل بيانات تشخيصية</span>
-              </div>
-              <div class="rak-diag-lbl-row">
-                <button class="rak-diag-lbl-btn" data-lbl="qiyam" onclick="rakDiagLabel('qiyam')">قيام</button>
-                <button class="rak-diag-lbl-btn" data-lbl="ruku" onclick="rakDiagLabel('ruku')">ركوع</button>
-                <button class="rak-diag-lbl-btn" data-lbl="sujud" onclick="rakDiagLabel('sujud')">سجود</button>
-                <button class="rak-diag-lbl-btn" data-lbl="jalsa" onclick="rakDiagLabel('jalsa')">جلوس</button>
-              </div>
-              <div class="rak-diag-act-row">
-                <button class="rak-diag-rec-btn" id="rakDiagRecBtn" onclick="rakDiagToggleRec()">⏺ بدء التسجيل</button>
-                <button class="rak-diag-copy-btn" onclick="rakDiagCopy()">📋 نسخ CSV</button>
-              </div>
-              <div class="rak-diag-status" id="rakDiagStatus">اختر وضعية ثم ابدأ التسجيل</div>
+            <div class="rak-diag-lbl-row">
+              <button class="rak-diag-lbl-btn" data-lbl="qiyam" onclick="rakDiagLabel('qiyam')">قيام</button>
+              <button class="rak-diag-lbl-btn" data-lbl="ruku" onclick="rakDiagLabel('ruku')">ركوع</button>
+              <button class="rak-diag-lbl-btn" data-lbl="sujud" onclick="rakDiagLabel('sujud')">سجود</button>
+              <button class="rak-diag-lbl-btn" data-lbl="jalsa" onclick="rakDiagLabel('jalsa')">جلوس</button>
             </div>
+            <div class="rak-diag-act-row">
+              <button class="rak-diag-rec-btn" id="rakDiagRecBtn" onclick="rakDiagToggleRec()">⏺ بدء التسجيل</button>
+              <button class="rak-diag-copy-btn" onclick="rakDiagCopy()">📋 نسخ CSV</button>
+            </div>
+            <div class="rak-diag-status" id="rakDiagStatus">اختر وضعية ثم ابدأ التسجيل</div>
           </div>
           <button class="rak-stop-cam" onclick="rakAIStop();rakSetMode('touch')" style="margin-top:8px">⏹ إيقاف</button>
         </div>
@@ -2984,7 +2964,7 @@ var PRAYER_TYPES={
 var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
 var _rakCurPrayer=null;
 var _rakCurTab='fard';
-var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,cal:{qiyam:null,ruku:null,sujud:null},calStep:0,calBuf:[],calTimer:null,history:[],paused:false,_standH:0,_sujudThr:0.69}};
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,history:[],poseLabel:'unknown',pendPose:'unknown'}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
 function buildPills(){buildPrayerPicker();}
@@ -4358,14 +4338,15 @@ function rakAIStart(){
       var v=document.getElementById('rakAIVideo');
       if(v){v.srcObject=stream;v.play();}
       if(st)st.textContent='جاري تحميل النموذج…';
-      if(ai.detector){_rakAIOnDetReady(ai.detector);return;}
+      if(ai.detector){_rakAIReady();return;}
       _rakAILoadDet(function(det,err2){
         if(err2||!det){
           if(load)load.style.display='none';if(priv)priv.style.display='';
           if(st)st.textContent='تعذّر تحميل النموذج — تحقق من الإنترنت';
           rakAIStop();return;
         }
-        _rakAIOnDetReady(det);
+        ai.detector=det;
+        _rakAIReady();
       });
     }).catch(function(){
       if(load)load.style.display='none';if(priv)priv.style.display='';
@@ -4373,252 +4354,144 @@ function rakAIStart(){
     });
   });
 }
-function _rakAIOnDetReady(det){
+function _rakAIReady(){
   var ai=RAK._ai;
-  ai.detector=det;ai.loaded=true;
   var load=document.getElementById('rakAILoading');
   var active=document.getElementById('rakAIActive');
   var cvs=document.getElementById('rakAISkel');
   if(cvs){ai.cvs=cvs;ai.ctx=cvs.getContext('2d');}
   if(load)load.style.display='none';if(active)active.style.display='';
-  // Restore saved calibration
-  var stored=lsGet('rak_ai_cal');
-  if(stored&&lsGet('rak_ai_cal_v')==='3'){try{ai.cal=JSON.parse(stored);}catch(e){}}
-  var hasCal=ai.cal&&ai.cal.qiyam&&ai.cal.ruku&&ai.cal.sujud&&ai.cal.jalsa;
-  if(hasCal){_rakAIBeginTracking();}else{_rakAIStartCal();}
+  ai.loaded=true;ai.history=[];ai.inSujud=false;
+  ai.posState=-1;ai.pendState=-1;ai.pendTime=0;
+  ai.poseLabel='unknown';ai.pendPose='unknown';
+  var st=document.getElementById('rstatus');
+  if(st)st.textContent='صِف أمام الكاميرا — سيُعدّ السجود تلقائياً';
+  _rakAIBadge('unknown');
   rakWakeLock(true);
   _rakAILoop();
 }
 function rakAIStop(){
   var ai=RAK._ai;
-  if(ai.calTimer){clearInterval(ai.calTimer);ai.calTimer=null;}
   if(ai.afId){cancelAnimationFrame(ai.afId);ai.afId=null;}
   if(ai.stream){ai.stream.getTracks().forEach(function(t){t.stop();});ai.stream=null;}
   var v=document.getElementById('rakAIVideo');if(v)v.srcObject=null;
-  ai.posState=-1;ai.pendState=-1;ai.inSujud=false;ai.loaded=false;
-  ai.history=[];ai.paused=false;
-  // Keep ai.detector and ai.cal for reuse
+  ai.posState=-1;ai.pendState=-1;ai.inSujud=false;ai.loaded=false;ai.history=[];
   var priv=document.getElementById('rakAIPrivCard');
   var load=document.getElementById('rakAILoading');
   var active=document.getElementById('rakAIActive');
   if(priv)priv.style.display='';if(load)load.style.display='none';if(active)active.style.display='none';
   rakWakeLock(false);
 }
-function rakAIRecal(){
-  var ai=RAK._ai;
-  ai.cal={qiyam:null,ruku:null,sujud:null,jalsa:null};
-  ai._sujudThr=0.69;
-  lsSet('rak_ai_cal','');
-  var trkSec=document.getElementById('rakAITrackSec');
-  if(trkSec)trkSec.style.display='none';
-  _rakAIStartCal();
-}
-var _AI_CAL_POSES=[
-  {key:'qiyam',lbl:'القيام',hint:'قف مستقيماً — يجب أن يظهر جذعك كاملاً في الكاميرا'},
-  {key:'ruku', lbl:'الركوع', hint:'انحنِ للركوع وأمسك الوضعية ثلاث ثوانٍ'},
-  {key:'sujud',lbl:'السجود', hint:'اسجد وأمسك الوضعية — ضع الجهاز بحيث يرى جسمك'},
-  {key:'jalsa',lbl:'الجلوس', hint:'اجلس بين السجدتين وأمسك الوضعية ثلاث ثوانٍ'}
-];
-function _rakAIStartCal(){
-  var ai=RAK._ai;
-  ai.calStep=0;ai.calBuf=[];
-  var calSec=document.getElementById('rakAICalSec');
-  if(calSec)calSec.style.display='';
-  var st=document.getElementById('rstatus');
-  if(st)st.textContent='المعايرة — ثبّت كل وضعية ~٣ ثوانٍ';
-  _rakAICalStep();
-}
-function _rakAICalStep(){
-  var ai=RAK._ai;
-  var step=ai.calStep;
-  if(step>=_AI_CAL_POSES.length){
-    var calSec=document.getElementById('rakAICalSec');
-    if(calSec)calSec.style.display='none';
-    // Auto-order by centerY: smallest→قيام, →ركوع, →جلوس, largest→سجود
-    // Fixes any accidental swaps during calibration (physical constraint)
-    var _ents=Object.keys(ai.cal).filter(function(k){return ai.cal[k]!==null;}).map(function(k){return{k:k,c:ai.cal[k]};});
-    _ents.sort(function(a,b){return a.c[0]-b.c[0];});
-    var _ORDERED=['qiyam','ruku','jalsa','sujud'];
-    var _sorted={};
-    _ents.forEach(function(e,i){if(_ORDERED[i])_sorted[_ORDERED[i]]=e.c;});
-    ai.cal=_sorted;
-    lsSet('rak_ai_cal',JSON.stringify(ai.cal));
-    lsSet('rak_ai_cal_v','3');
-    _rakAIBeginTracking();
-    return;
-  }
-  var pd=_AI_CAL_POSES[step];
-  var lbl=document.getElementById('rakAICalLbl');
-  var hint=document.getElementById('rakAICalHint');
-  var fill=document.getElementById('rakAICalFill');
-  var dots=document.getElementById('rakAICalDots');
-  if(lbl)lbl.textContent='أمسك وضعية: '+pd.lbl;
-  if(hint)hint.textContent=pd.hint;
-  if(fill)fill.style.width='0%';
-  if(dots)dots.textContent=[0,1,2,3].map(function(i){return i<step?'●':'○';}).join(' ');
-  ai.calBuf=[];
-  var COUNT=6,n=0;
-  if(ai.calTimer)clearInterval(ai.calTimer);
-  ai.calTimer=setInterval(function(){
-    var v=document.getElementById('rakAIVideo');
-    if(!v||!ai.detector||v.readyState<2)return;
-    ai.detector.estimatePoses(v,{maxPoses:1,flipHorizontal:true}).then(function(poses){
-      var p=poses&&poses[0];
-      if(!p)return;
-      var feat=_rakAIExtract(p,v.videoWidth||320,v.videoHeight||240);
-      if(feat&&feat[3]>0.12){
-        ai.calBuf.push(feat);
-        n++;
-        if(fill)fill.style.width=Math.min(100,Math.round((n/COUNT)*100))+'%';
-        if(n>=COUNT){
-          clearInterval(ai.calTimer);ai.calTimer=null;
-          var c=[0,0,0,0];
-          for(var i=0;i<ai.calBuf.length;i++)for(var j=0;j<4;j++)c[j]+=ai.calBuf[i][j];
-          for(var j=0;j<4;j++)c[j]/=ai.calBuf.length;
-          if(!ai.cal)ai.cal={};
-          ai.cal[pd.key]=c;
-          lsSet('rak_ai_cal',JSON.stringify(ai.cal));
-          ai.calStep++;
-          setTimeout(_rakAICalStep,400);
-        }
-      }
-    }).catch(function(){});
-  },500);
-}
-function _rakAIBeginTracking(){
-  var ai=RAK._ai;
-  ai.history=[];ai.posState=-1;ai.pendState=-1;ai.pendTime=0;
-  // Sujud threshold = midpoint between جلوس and سجود centroids
-  ai._sujudThr=(ai.cal&&ai.cal.jalsa&&ai.cal.sujud)?(ai.cal.jalsa[0]+ai.cal.sujud[0])/2:0.69;
-  var trkSec=document.getElementById('rakAITrackSec');
-  if(trkSec)trkSec.style.display='';
-  var st=document.getElementById('rstatus');
-  if(st)st.textContent='صِف أمام الكاميرا — سيُعدّ السجود تلقائياً';
-  _rakAIBadge(-1,'unknown');
-}
-function _rakAIExtract(pose,W,H){
-  if(!pose||!pose.keypoints)return null;
-  var kp=pose.keypoints,avg=0;
-  for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
-  var minY=H,maxY=0,vis=0;
-  for(var i=0;i<kp.length;i++){
-    if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}
-  }
-  if(vis<3)return null;
-  var centerY=((minY+maxY)/2)/H;
-  var bboxTop=minY/H;
-  var bboxBot=maxY/H;
-  // Torso angle (auxiliary — NOT used in centroid distance, weight=0 in classifier)
+// Camera-invariant geometric features from MoveNet keypoints
+function _geoFeat(kp){
   var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  var torsoAngle=0;
-  if(Math.max(lS.score,rS.score)>0.15&&Math.max(lH.score,rH.score)>0.15){
-    var sX=(lS.score>rS.score?lS:rS).x,sY=(lS.score>rS.score?lS:rS).y;
-    var hX=(lH.score>rH.score?lH:rH).x,hY=(lH.score>rH.score?lH:rH).y;
-    torsoAngle=Math.round(Math.atan2(Math.abs(hY-sY),Math.abs(hX-sX))*180/Math.PI);
+  var lK=kp[13],rK=kp[14],lA=kp[15],rA=kp[16],nose=kp[0];
+  var avg=0;for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
+  if(avg<0.10)return null;
+  var shVis=Math.max(lS.score,rS.score),hpVis=Math.max(lH.score,rH.score);
+  if(shVis<0.12||hpVis<0.12)return null;
+  // Weighted mid-shoulder and mid-hip
+  var sw=lS.score+rS.score,hw=lH.score+rH.score;
+  var sX=(lS.x*lS.score+rS.x*rS.score)/sw,sY=(lS.y*lS.score+rS.y*rS.score)/sw;
+  var hX=(lH.x*lH.score+rH.x*rH.score)/hw,hY=(lH.y*lH.score+rH.y*rH.score)/hw;
+  // Trunk angle from vertical: 0=upright, 90=horizontal
+  var dY=hY-sY,dX=Math.abs(hX-sX);
+  var trunk=dY<=0?90:Math.round(Math.atan2(dX,dY)*180/Math.PI);
+  // Body length for normalisation
+  var bodyLen=Math.max(Math.abs(hY-sY),1);
+  // Leg angle at knee (180=straight, decreases when seated/kneeling)
+  var legAngle=180;
+  var useL=lK.score>rK.score&&lA.score>0.12&&lH.score>0.12&&lK.score>0.12;
+  var useR=!useL&&rK.score>0.12&&rA.score>0.12&&rH.score>0.12;
+  if(useL||useR){
+    var hKp=useL?lH:rH,kKp=useL?lK:rK,aKp=useL?lA:rA;
+    var v1x=hKp.x-kKp.x,v1y=hKp.y-kKp.y;
+    var v2x=aKp.x-kKp.x,v2y=aKp.y-kKp.y;
+    var dot=v1x*v2x+v1y*v2y;
+    var mag=Math.sqrt((v1x*v1x+v1y*v1y)*(v2x*v2x+v2y*v2y));
+    legAngle=mag>0?Math.round(Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI):180;
   }
-  return [centerY,bboxTop,bboxBot,avg,torsoAngle];
+  // Head relative to hip: positive=head above hip, ~0=head at hip level (sujud)
+  var headRel=nose.score>0.12?(hY-nose.y)/bodyLen:-99;
+  return {trunk:trunk,leg:legAngle,head:headRel,conf:avg};
 }
-function _rakAIClassifyCal(feat){
-  var ai=RAK._ai;
-  var cal=ai.cal;
-  if(!cal||!cal.qiyam||!cal.ruku||!cal.sujud)return null;
-  if(feat[3]<0.10)return 'unknown';  // feat[3]=avgConf
-  var best='unknown',bestD=Infinity;
-  var POSES=['qiyam','ruku','sujud','jalsa'];
-  // weights: centerY×5 (primary), bboxTop×3 (qiyam/ruku separator), bboxBot×2, conf×0
-  var WW=[5,3,2,0];
-  for(var p=0;p<POSES.length;p++){
-    var c=cal[POSES[p]];if(!c)continue;
-    var d=0;
-    for(var j=0;j<Math.min(feat.length,c.length,WW.length);j++)d+=WW[j]*Math.pow(feat[j]-c[j],2);
-    d=Math.sqrt(d);
-    if(d<bestD){bestD=d;best=POSES[p];}
-  }
-  return bestD<0.45?best:'unknown';
+// Rule-based classifier using geometric features
+function _geoClassify(f){
+  if(!f||f.conf<0.12)return 'unknown';
+  // Sujud: nose near or below hip level
+  if(f.head<0.30&&f.head>-90)return 'sujud';
+  // Sujud fallback: very horizontal trunk when nose is occluded
+  if(f.trunk>62&&f.head===-99)return 'sujud';
+  // Ruku: trunk tilted, legs mostly straight, head clearly above hips
+  if(f.trunk>=38&&f.leg>143&&f.head>=0.25)return 'ruku';
+  // Jalsa: seated (legs bent), trunk upright, head above hips
+  if(f.leg<148&&f.trunk<40&&f.head>0.35)return 'jalsa';
+  // Qiyam: upright trunk + straight legs
+  if(f.trunk<35&&f.leg>147)return 'qiyam';
+  return 'unknown';
 }
 function _rakAILoop(){
   var ai=RAK._ai;
   if(RAK.mode!=='ai'||!ai.detector||!ai.stream){return;}
   ai.afId=requestAnimationFrame(_rakAILoop);
-  var now=Date.now();if(now-ai._lastInf<120)return;ai._lastInf=now;
+  var now=Date.now();if(now-ai._lastInf<130)return;ai._lastInf=now;
   var v=document.getElementById('rakAIVideo');
   if(!v||v.readyState<2){return;}
   ai.detector.estimatePoses(v,{maxPoses:1,flipHorizontal:true})
   .then(function(poses){
     if(RAK.mode!=='ai')return;
     var pose=poses&&poses[0];
-    var feat=pose?_rakAIExtract(pose,v.videoWidth||320,v.videoHeight||240):null;
-    var conf=feat?feat[3]:0;
+    var kp=pose?pose.keypoints:null;
+    var f=kp?_geoFeat(kp):null;
+    var conf=f?f.conf:0;
+    // Confidence bar
     var fill=document.getElementById('rakAIConfFill');
     if(fill)fill.style.width=Math.round(conf*100)+'%';
+    // Skeleton overlay
     _rakAIDraw(pose,v.videoWidth||320,v.videoHeight||240);
-    var trkSec=document.getElementById('rakAITrackSec');
-    var isTracking=trkSec&&trkSec.style.display!=='none';
-    // Live diagnostics (only during tracking)
-    if(isTracking&&feat){
-      var diag=document.getElementById('rakAIDiag');
-      if(diag)diag.textContent='مركز:'+feat[0].toFixed(2)+'(حد:'+(ai._sujudThr||0.69).toFixed(2)+') زاوية:'+feat[4]+'° ثقة:'+Math.round(conf*100)+'%';
-    }
-    // Low-confidence guard: pause counting, show warning
-    var lowConf=conf<0.10||!feat;
+    // Live diagnostics
+    var diag=document.getElementById('rakAIDiag');
+    if(diag&&f){
+      diag.textContent='جذع:'+f.trunk+'° ركبة:'+f.leg+'° رأس:'+f.head.toFixed(2)+' ثقة:'+Math.round(conf*100)+'%';
+    }else if(diag){diag.textContent='';}
+    // Low-confidence warning
+    var lowConf=!f||conf<0.10;
     var warnEl=document.getElementById('rakAIWarnLow');
-    if(warnEl)warnEl.classList.toggle('show',lowConf&&isTracking);
-    if(lowConf){ai.paused=true;return;}
-    ai.paused=false;
-    // Classify: use calibrated model if available, else fallback to geometric
-    var calLabel=feat?_rakAIClassifyCal(feat):null;
-    var label=calLabel!==null?calLabel:_rakAIClassify(pose,v.videoWidth||320,v.videoHeight||240);
-    // Update pose badge during calibration too
-    _rakAIBadge(label==='sujud'?2:label==='ruku'?1:label==='qiyam'?0:-1,label);
-    // Diagnostic snapshot (200ms interval, independent of tracking state)
+    if(warnEl)warnEl.classList.toggle('show',lowConf);
+    // Diagnostic data logging
     var _dn=Date.now();
-    if(_diagRec&&feat&&_dn-_diagLastSnap>=200){
+    if(_diagRec&&f&&_dn-_diagLastSnap>=200){
       _diagLastSnap=_dn;
-      var _kp2=pose.keypoints;
+      var _kp2=kp;
       var _ls2=_kp2[5],_rs2=_kp2[6],_lh2=_kp2[11],_rh2=_kp2[12];
       var _shVis=(_ls2.score>0.20||_rs2.score>0.20)?1:0;
       var _hpVis=(_lh2.score>0.20||_rh2.score>0.20)?1:0;
-      var _W2=v.videoWidth||320,_H2=v.videoHeight||240;
-      var _minY2=_H2,_maxY2=0;
-      for(var _ki=0;_ki<_kp2.length;_ki++){if(_kp2[_ki].score>0.10){_minY2=Math.min(_minY2,_kp2[_ki].y);_maxY2=Math.max(_maxY2,_kp2[_ki].y);}}
-      var _bkT=(_minY2/_H2).toFixed(3),_bkB=(_maxY2/_H2).toFixed(3),_cY=((_minY2+_maxY2)/(2*_H2)).toFixed(3);
-      _diagLog.push([_dn,_diagLabel,label,feat[0].toFixed(3),feat[1].toFixed(3),feat[2].toFixed(3),Math.round(conf*100),(feat[4]||0),_shVis,_hpVis].join(','));
+      var _lbl=_geoClassify(f);
+      _diagLog.push([_dn,_diagLabel,_lbl,f.trunk,f.leg,f.head.toFixed(3),Math.round(conf*100),_shVis,_hpVis].join(','));
       var _dst=document.getElementById('rakDiagStatus');
       if(_dst)_dst.textContent='⏺ '+_diagLog.length+' صف | '+_diagLabel;
     }
-    if(!isTracking)return;
-    // Binary sujud threshold on centerY — immune to 4-class misclassification
-    var thr=ai._sujudThr||0.69;
-    var sujudNow=feat[0]>thr;
-    // 7-frame binary smoothing (5/7 majority = committed state)
-    ai.history.push(sujudNow?1:0);
+    if(lowConf)return;
+    // Classify and update badge
+    var label=_geoClassify(f);
+    _rakAIBadge(label);
+    // 7-frame majority vote for temporal smoothing
+    ai.history.push(label);
     if(ai.history.length>7)ai.history.shift();
-    var sv=0;for(var i=0;i<ai.history.length;i++)sv+=ai.history[i];
-    var ns=sv>=5?2:0;
+    var votes={};
+    for(var i=0;i<ai.history.length;i++){var k=ai.history[i];votes[k]=(votes[k]||0)+1;}
+    var smoothed='unknown',maxV=0;
+    ['qiyam','ruku','sujud','jalsa','unknown'].forEach(function(k){if((votes[k]||0)>maxV){maxV=votes[k];smoothed=k;}});
+    // Minimum hold time before committing to new pose
+    var holdMs=smoothed==='sujud'?900:smoothed==='unknown'?200:700;
     var t=Date.now();
-    if(ns!==ai.pendState){ai.pendState=ns;ai.pendTime=t;}
-    else if(t-ai.pendTime>1000&&ns!==ai.posState){
-      var prev=ai.posState;ai.posState=ns;
-      if(ns===2&&!ai.inSujud){ai.inSujud=true;if(RAK.hap)buzz(12);}
-      if(prev===2&&ns!==2&&ai.inSujud){ai.inSujud=false;ai.sujudTotal++;rakFeed('sujud');}
+    if(smoothed!==ai.pendPose){ai.pendPose=smoothed;ai.pendTime=t;}
+    else if(t-ai.pendTime>=holdMs&&smoothed!==ai.poseLabel){
+      var prev=ai.poseLabel;ai.poseLabel=smoothed;
+      if(smoothed==='sujud'&&!ai.inSujud){ai.inSujud=true;if(RAK.hap)buzz(12);}
+      if(prev==='sujud'&&smoothed!=='sujud'&&ai.inSujud){ai.inSujud=false;rakFeed('sujud');rakRender();}
     }
   }).catch(function(){});
-}
-function _rakAIClassify(pose,W,H){
-  if(!pose||!pose.keypoints)return 'unknown';
-  var kp=pose.keypoints,avg=0;
-  for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
-  if(avg<0.10)return 'unknown';
-  var minY=H,maxY=0,vis=0;
-  for(var i=0;i<kp.length;i++){if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}}
-  if(vis<3)return 'unknown';
-  // Thresholds derived from real labeled-data analysis
-  var centerY=((minY+maxY)/2)/H;
-  var bboxTop=minY/H;
-  if(centerY>0.66)return 'sujud';
-  if(centerY>0.53)return 'jalsa';
-  if(bboxTop>0.13)return 'ruku';
-  return 'qiyam';
 }
 function _rakAIDraw(pose,W,H){
   var ai=RAK._ai;if(!ai.cvs||!pose||!pose.keypoints)return;
@@ -4638,15 +4511,16 @@ function _rakAIDraw(pose,W,H){
     if(k.score>MIN){ctx.beginPath();ctx.arc(k.x*sx,k.y*sy,3.5,0,Math.PI*2);ctx.fill();}
   });
 }
-function _rakAIBadge(state,label){
+function _rakAIBadge(label){
   var el=document.getElementById('rakAIPosLabel');
   var info=document.getElementById('rakAIPoseInfo');
   if(!el)return;
-  var ar={qiyam:'قيام',ruku:'ركوع',sujud:'سجود',unknown:'…'};
-  var lbl=ar[label]||'…';
-  el.textContent=lbl;el.className='rak-pos-badge'+(state===2?' ps':state===1?' pr':'');
+  var ar={qiyam:'قيام',ruku:'ركوع',sujud:'سجود',jalsa:'جلوس',unknown:'؟'};
+  var lbl=ar[label]||'؟';
+  el.textContent=lbl;el.className='rak-pos-badge'+(label==='sujud'?' ps':label==='ruku'?' pr':'');
   if(info)info.textContent=lbl;
 }
+
 var _diagLabel='';
 var _diagRec=false;
 var _diagLog=[];
@@ -4689,7 +4563,7 @@ function rakDiagCopy(){
     if(st)st.textContent='لا توجد بيانات — سجّل أولاً';
     return;
   }
-  var csv='time_ms,label,model_cls,centerY,bboxTop,bboxBot,conf_pct,torso_angle,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
+  var csv='time_ms,label,model_cls,trunk_angle,leg_angle,head_rel,conf_pct,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
   function _doCopy(txt){
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(txt).then(function(){
