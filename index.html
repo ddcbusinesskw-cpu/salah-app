@@ -1982,6 +1982,7 @@ function go(id){
   var dw=document.getElementById('drawer');if(dw)dw.classList.remove('on');
   var db=document.getElementById('drawerBk');if(db)db.classList.remove('on');
   var prev=document.querySelector('.screen.on');
+  if(prev&&prev.id==='rakaat'){try{rakCamStop();}catch(ex){}try{rakAIStop();}catch(ex){}try{rakProxStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);}
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
