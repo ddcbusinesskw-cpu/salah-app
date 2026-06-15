@@ -5508,9 +5508,9 @@ function dismissPWA(){
      Firebase SDK — CDN compat build (no bundler)
      تسجيل دخول Google + مزامنة Realtime Database
      ═══════════════════════════════════════════════ -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="./firebase/firebase-app-compat.js"></script>
+<script src="./firebase/firebase-auth-compat.js"></script>
+<script src="./firebase/firebase-database-compat.js"></script>
 <script>
 /* ╔══════════════════════════════════════════════════════╗
    ║  نور — Firebase Auth + Realtime Database Sync        ║
@@ -5540,7 +5540,7 @@ var FB_CFG={
 
 // ── Init (wrapped — never blocks the app) ──
 try{
-  if(typeof firebase==='undefined') throw new Error('Firebase SDK لم يُحمَّل — تأكد من الاتصال بالإنترنت');
+  if(typeof firebase==='undefined') throw new Error('Firebase SDK غير محمَّل');
   window._fbDiag.sdkLoaded=true;
   _fb.app=firebase.initializeApp(FB_CFG);
   _fb.auth=firebase.auth();
