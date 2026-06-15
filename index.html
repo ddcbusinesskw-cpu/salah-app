@@ -772,16 +772,6 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .rak-ai-diag{font-size:10px;color:var(--muted);font-family:monospace;padding:4px 8px;background:var(--card2);border-radius:6px;margin:4px 0;word-break:break-all;}
 .rak-ai-warn{font-size:12px;color:var(--orange,#e08840);background:rgba(224,136,64,.1);border-radius:8px;padding:6px 10px;display:none;margin:4px 0;text-align:center;}
 .rak-ai-warn.show{display:block;}
-.rak-diag-panel{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;background:var(--card);}
-.rak-diag-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.rak-diag-lbl-row{display:flex;gap:5px;margin-bottom:8px;}
-.rak-diag-lbl-btn{flex:1;padding:7px 2px;border-radius:8px;border:2px solid var(--line);background:var(--card2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
-.rak-diag-lbl-btn.on{border-color:var(--gold);color:var(--gold);}
-.rak-diag-act-row{display:flex;gap:6px;margin-bottom:6px;}
-.rak-diag-rec-btn{flex:1;padding:8px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
-.rak-diag-rec-btn.rec{background:#c0392b;}
-.rak-diag-copy-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:12px;cursor:pointer;}
-.rak-diag-status{font-size:11px;color:var(--muted);min-height:16px;}
 .rak-ai-load{text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;}
 .rak-ai-spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:rakAISpin .85s linear infinite;margin:0 auto 10px;}
 @keyframes rakAISpin{to{transform:rotate(360deg)}}
@@ -1260,23 +1250,6 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <div class="rak-ai-diag" id="rakAIDiag"></div>
           <div class="rak-ai-warn" id="rakAIWarnLow">⚠ ضعف في الكشف — العدّ موقوف مؤقتاً</div>
           <div class="rak-cam-note" style="margin:4px 0">🔒 لا رفع · على الجهاز فقط</div>
-          <!-- Diagnostic logger -->
-          <div class="rak-diag-panel" id="rakDiagPanel">
-            <div class="rak-diag-title">
-              <span>📊 تسجيل بيانات تشخيصية</span>
-            </div>
-            <div class="rak-diag-lbl-row">
-              <button class="rak-diag-lbl-btn" data-lbl="qiyam" onclick="rakDiagLabel('qiyam')">قيام</button>
-              <button class="rak-diag-lbl-btn" data-lbl="ruku" onclick="rakDiagLabel('ruku')">ركوع</button>
-              <button class="rak-diag-lbl-btn" data-lbl="sujud" onclick="rakDiagLabel('sujud')">سجود</button>
-              <button class="rak-diag-lbl-btn" data-lbl="jalsa" onclick="rakDiagLabel('jalsa')">جلوس</button>
-            </div>
-            <div class="rak-diag-act-row">
-              <button class="rak-diag-rec-btn" id="rakDiagRecBtn" onclick="rakDiagToggleRec()">⏺ بدء التسجيل</button>
-              <button class="rak-diag-copy-btn" onclick="rakDiagCopy()">📋 نسخ CSV</button>
-            </div>
-            <div class="rak-diag-status" id="rakDiagStatus">اختر وضعية ثم ابدأ التسجيل</div>
-          </div>
           <button class="rak-stop-cam" onclick="rakAIStop();rakSetMode('touch')" style="margin-top:8px">⏹ إيقاف</button>
         </div>
       </div>
@@ -4459,19 +4432,6 @@ function _rakAILoop(){
     var lowConf=!f||conf<0.10;
     var warnEl=document.getElementById('rakAIWarnLow');
     if(warnEl)warnEl.classList.toggle('show',lowConf);
-    // Diagnostic data logging
-    var _dn=Date.now();
-    if(_diagRec&&f&&_dn-_diagLastSnap>=200){
-      _diagLastSnap=_dn;
-      var _kp2=kp;
-      var _ls2=_kp2[5],_rs2=_kp2[6],_lh2=_kp2[11],_rh2=_kp2[12];
-      var _shVis=(_ls2.score>0.20||_rs2.score>0.20)?1:0;
-      var _hpVis=(_lh2.score>0.20||_rh2.score>0.20)?1:0;
-      var _lbl=_geoClassify(f);
-      _diagLog.push([_dn,_diagLabel,_lbl,f.trunk,f.leg,f.head.toFixed(3),Math.round(conf*100),_shVis,_hpVis].join(','));
-      var _dst=document.getElementById('rakDiagStatus');
-      if(_dst)_dst.textContent='⏺ '+_diagLog.length+' صف | '+_diagLabel;
-    }
     if(lowConf){_rakAIBadge('unknown');return;}
     // 7-frame vote for smooth badge display (not used for counting)
     var label=_geoClassify(f);
@@ -4523,69 +4483,6 @@ function _rakAIBadge(label){
   if(info)info.textContent=lbl;
 }
 
-var _diagLabel='';
-var _diagRec=false;
-var _diagLog=[];
-var _diagLastSnap=0;
-var _DIAG_LBL_AR={qiyam:'قيام',ruku:'ركوع',sujud:'سجود',jalsa:'جلوس'};
-
-function rakDiagLabel(lbl){
-  _diagLabel=lbl;
-  document.querySelectorAll('.rak-diag-lbl-btn').forEach(function(b){
-    b.classList.toggle('on',b.dataset.lbl===lbl);
-  });
-  var st=document.getElementById('rakDiagStatus');
-  if(st&&!_diagRec)st.textContent='وضعية محددة: '+(_DIAG_LBL_AR[lbl]||lbl)+' — اضغط بدء التسجيل';
-}
-
-function rakDiagToggleRec(){
-  if(_diagRec){
-    _diagRec=false;
-    var btn=document.getElementById('rakDiagRecBtn');
-    if(btn){btn.textContent='⏺ بدء التسجيل';btn.classList.remove('rec');}
-    var st=document.getElementById('rakDiagStatus');
-    if(st)st.textContent='توقّف — '+_diagLog.length+' صف مسجَّل. اضغط "نسخ CSV" للحصول على البيانات.';
-  } else {
-    if(!_diagLabel){
-      var st=document.getElementById('rakDiagStatus');
-      if(st)st.textContent='⚠ اختر وضعية أولاً';
-      return;
-    }
-    _diagRec=true;_diagLastSnap=0;
-    var btn=document.getElementById('rakDiagRecBtn');
-    if(btn){btn.textContent='⏹ إيقاف التسجيل';btn.classList.add('rec');}
-    var st=document.getElementById('rakDiagStatus');
-    if(st)st.textContent='⏺ جارٍ التسجيل… الوضعية: '+(_DIAG_LBL_AR[_diagLabel]||_diagLabel);
-  }
-}
-
-function rakDiagCopy(){
-  if(_diagLog.length===0){
-    var st=document.getElementById('rakDiagStatus');
-    if(st)st.textContent='لا توجد بيانات — سجّل أولاً';
-    return;
-  }
-  var csv='time_ms,label,model_cls,trunk_angle,leg_angle,head_rel,conf_pct,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
-  function _doCopy(txt){
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(function(){
-        var st=document.getElementById('rakDiagStatus');
-        if(st)st.textContent='✅ تم النسخ — '+_diagLog.length+' صف جاهز للصق';
-      }).catch(function(){_diagFbCopy(txt);});
-    } else {_diagFbCopy(txt);}
-  }
-  _doCopy(csv);
-}
-
-function _diagFbCopy(text){
-  var ta=document.createElement('textarea');
-  ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0;';
-  document.body.appendChild(ta);ta.focus();ta.select();
-  try{document.execCommand('copy');}catch(e){}
-  document.body.removeChild(ta);
-  var st=document.getElementById('rakDiagStatus');
-  if(st)st.textContent='✅ تم النسخ — '+_diagLog.length+' صف';
-}
 
 function _rakCamLoop(){
   var cam=RAK._cam;
