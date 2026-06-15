@@ -1,4 +1,4 @@
-const CACHE='mujaddid-v42';
+const CACHE='mujaddid-v43';
 const CORE=[
   './','./index.html','./manifest.json',
   './favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png','./icon-maskable-512.png',
@@ -14,6 +14,16 @@ self.addEventListener('fetch',e=>{
   if(req.method!=='GET'){return;}
   const url=new URL(req.url);
   if(url.origin===location.origin){
-    e.respondWith(caches.match(req).then(r=>r||fetch(req).then(resp=>{const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));
+    e.respondWith(caches.match(req).then(r=>r||fetch(req).then(resp=>{
+      // Only cache successful responses
+      if(resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp)).catch(()=>{});}
+      return resp;
+    }).catch(()=>{
+      // Only fall back to index.html for HTML navigation requests — never for scripts/assets
+      if(req.destination==='document'||req.headers.get('accept')||''.includes('text/html')){
+        return caches.match('./index.html');
+      }
+      return new Response('',{status:503,statusText:'Offline'});
+    })));
   }
 });

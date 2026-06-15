@@ -5617,9 +5617,9 @@ function dismissPWA(){
      Firebase SDK — CDN compat build (no bundler)
      تسجيل دخول Google + مزامنة Realtime Database
      ═══════════════════════════════════════════════ -->
-<script src="./firebase/firebase-app-compat.js"></script>
-<script src="./firebase/firebase-auth-compat.js"></script>
-<script src="./firebase/firebase-database-compat.js"></script>
+<script src="./firebase/firebase-app-compat.js" onerror="window._fbLoadErr='firebase-app-compat.js (404 أو خطأ شبكة)'"></script>
+<script src="./firebase/firebase-auth-compat.js" onerror="window._fbLoadErr='firebase-auth-compat.js (404 أو خطأ شبكة)'"></script>
+<script src="./firebase/firebase-database-compat.js" onerror="window._fbLoadErr='firebase-database-compat.js (404 أو خطأ شبكة)'"></script>
 <script>
 /* ╔══════════════════════════════════════════════════════╗
    ║  نور — Firebase Auth + Realtime Database Sync        ║
@@ -5649,7 +5649,10 @@ var FB_CFG={
 
 // ── Init (wrapped — never blocks the app) ──
 try{
-  if(typeof firebase==='undefined') throw new Error('Firebase SDK غير محمَّل');
+  if(typeof firebase==='undefined'){
+    var _fe=window._fbLoadErr||'تحقق من اتصال الإنترنت أو أعد تحميل الصفحة';
+    throw new Error('Firebase SDK غير محمَّل — '+_fe);
+  }
   window._fbDiag.sdkLoaded=true;
   _fb.app=firebase.initializeApp(FB_CFG);
   _fb.auth=firebase.auth();
