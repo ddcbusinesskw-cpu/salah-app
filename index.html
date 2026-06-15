@@ -155,6 +155,8 @@
     color:#fff;font:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:999px;cursor:pointer;
     -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
   .loc-chip svg{width:14px;height:14px;}
+  #exitAppBtn{display:none;align-items:center;justify-content:center;width:34px;height:34px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:50%;cursor:pointer;color:rgba(255,255,255,.8);padding:0;flex-shrink:0;transition:background .2s,border-color .2s,color .2s;}
+  #exitAppBtn:active{background:rgba(234,204,126,.18);border-color:rgba(234,204,126,.4);color:var(--gold);}
   .next-wrap{text-align:center;margin:18px 0 6px;z-index:2;}
   .next-wrap .lbl{color:rgba(255,255,255,.85);font-size:15px;font-weight:600;}
   .countdown{font-size:60px;font-weight:200;line-height:1.1;color:#fff;font-variant-numeric:tabular-nums;
@@ -930,10 +932,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div class="topbar">
         <div class="brand">نور<span style="color:var(--gold);font-size:14px;margin-inline-start:3px;opacity:.7">✦</span></div>
         <span class="streak-badge" id="streakBadge" style="display:none">🔥 <span id="streakCount">٠</span></span>
-        <button class="loc-chip" onclick="loadHome()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-          <span id="locName">حدّد موقعك</span>
-        </button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="loc-chip" onclick="loadHome()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            <span id="locName">حدّد موقعك</span>
+          </button>
+          <button id="exitAppBtn" onclick="_showExitConfirm()" aria-label="إغلاق التطبيق">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18.36 6.64A9 9 0 1 1 5.64 5.64"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          </button>
+        </div>
       </div>
       <div class="next-wrap">
         <div class="lbl" id="nextLabel">الصلاة القادمة</div>
@@ -4592,6 +4599,25 @@ function dismissPWA(){
 }
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
+<script>
+(function(){
+  var _cap=window.Capacitor;
+  function _isAndroid(){return _cap&&typeof _cap.getPlatform==='function'&&_cap.getPlatform()==='android';}
+  var btn=document.getElementById('exitAppBtn');
+  if(btn&&_isAndroid())btn.style.display='flex';
+  window._showExitConfirm=function(){
+    if(!_isAndroid())return;
+    var m=document.getElementById('exitAppConfirm');if(m)m.style.display='flex';
+  };
+  window._execExitApp=function(){
+    var m=document.getElementById('exitAppConfirm');if(m)m.style.display='none';
+    try{_cap.Plugins.App.exitApp();}catch(e){console.warn('[exitApp]',e);}
+  };
+  window._cancelExitApp=function(){
+    var m=document.getElementById('exitAppConfirm');if(m)m.style.display='none';
+  };
+})();
+</script>
 <!-- Weekly Report Sheet — خارج كل الشاشات لتجنّب stacking context -->
 <div id="weeklyBk" onclick="closeWeeklySheet()" style="display:none;position:fixed;inset:0;z-index:290;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);"></div>
 <div id="weeklySheet" class="weekly-sheet">
@@ -5101,6 +5127,17 @@ function _fbMerge(r){
 })(); // end IIFE
 </script>
 
+<div id="exitAppConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(15,118,110,.12);border:1px solid rgba(15,118,110,.2);margin:0 auto 14px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" width="26" height="26"><path d="M18.36 6.64A9 9 0 1 1 5.64 5.64"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
+    <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px">إغلاق التطبيق</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">هل تريد إغلاق التطبيق؟</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="_execExitApp()" style="flex:1;background:rgba(15,118,110,.15);color:var(--teal);border:1px solid rgba(15,118,110,.3);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">نعم، أغلق</button>
+      <button onclick="_cancelExitApp()" style="flex:1;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">إلغاء</button>
+    </div>
+  </div>
+</div>
 <div id="signoutConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
     <div style="font-size:36px;margin-bottom:10px">🚪</div>
