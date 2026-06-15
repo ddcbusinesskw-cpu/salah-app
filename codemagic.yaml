@@ -39,6 +39,7 @@ workflows:
           cat android/app/capacitor.build.gradle
       - name: Install Android SDK 35
         script: |
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Build release AAB
