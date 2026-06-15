@@ -1117,33 +1117,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="btn" onclick="mem2Start()" style="margin:0">▶ ابدأ التسميع</button>
     </div>
     <!-- جلسة التسميع -->
-    <div id="mem2SessionPane" style="display:none;padding:10px 16px 180px">
+    <div id="mem2SessionPane" style="display:none;padding:10px 16px calc(var(--bnav-h) + 150px + env(safe-area-inset-bottom))">
       <div id="mem2Mushaf"></div>
       <div id="mem2Live" class="mem2-live"></div>
     </div>
     <!-- النتائج -->
     <div class="pad" id="mem2ResultsPane" style="display:none">
       <div id="mem2ResultsBody"></div>
-    </div>
-    <!-- شريط التحكّم الثابت -->
-    <div class="mem2-bar" id="mem2Bar" style="display:none">
-      <div class="mem2-prog-track"><div class="mem2-prog-fill" id="mem2ProgFill" style="width:0%"></div></div>
-      <div class="mem2-bar-main">
-        <button class="mem2-nav-btn" id="mem2PrevBtn" onclick="mem2PrevSeg()" title="السابق" disabled>&#8249;</button>
-        <button class="mem2-mic-btn" id="mem2MicBtn" onclick="mem2ToggleRec()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"/></svg>
-          <span id="mem2MicLbl">سمّع</span>
-        </button>
-        <button class="mem2-nav-btn" id="mem2NextBtn" onclick="mem2NextSeg()" title="التالي" disabled>&#8250;</button>
-        <button class="mem2-hear-btn" onclick="mem2HearSeg()" title="اسمع الآيات">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </button>
-      </div>
-      <div class="mem2-bar-foot">
-        <button class="mem2-back-btn" onclick="mem2Back()">← اختر سورة</button>
-        <span class="mem2-seg-lbl" id="mem2SegLbl"><span id="mem2SegPfx">مقطع</span> <span id="mem2SegNm">١/١</span></span>
-        <button class="mem2-rec-chip" id="mem2RecChip" onclick="mem2CycleRec()" title="تغيير القارئ">—</button>
-      </div>
     </div>
   </div>
 
@@ -1849,7 +1829,7 @@ function memSurahChange(){
   if(!n||!QURAN_EMBED)return;
   var arr=QURAN_EMBED.surahs[String(n)];var tot=arr?arr.length:0;
   var fi=document.getElementById('memFrom'),ti=document.getElementById('memTo');
-  if(fi){fi.value=1;fi.max=tot;}if(ti){ti.value=Math.min(tot,7);ti.max=tot;}
+  if(fi){fi.value=1;fi.max=tot;}if(ti){ti.value=tot;ti.max=tot;}
   var ac=document.getElementById('memAyahCount');if(ac)ac.textContent=ar(tot)+' آية';
 }
 function _memClampRange(){
@@ -5197,6 +5177,26 @@ function _fbMerge(r){
       <button class="btn" style="margin:0" onclick="_cmSubmit()">حفظ</button>
       <button class="btn" style="margin:0;background:rgba(255,255,255,.08)" onclick="_cmClose()">إلغاء</button>
     </div>
+  </div>
+</div>
+<!-- شريط تحكّم تسميع الحفظ — خارج .screen لتجنّب تأثير transform على position:fixed -->
+<div class="mem2-bar" id="mem2Bar" style="display:none">
+  <div class="mem2-prog-track"><div class="mem2-prog-fill" id="mem2ProgFill" style="width:0%"></div></div>
+  <div class="mem2-bar-main">
+    <button class="mem2-nav-btn" id="mem2PrevBtn" onclick="mem2PrevSeg()" title="السابق" disabled>&#8249;</button>
+    <button class="mem2-mic-btn" id="mem2MicBtn" onclick="mem2ToggleRec()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"/></svg>
+      <span id="mem2MicLbl">سمّع</span>
+    </button>
+    <button class="mem2-nav-btn" id="mem2NextBtn" onclick="mem2NextSeg()" title="التالي" disabled>&#8250;</button>
+    <button class="mem2-hear-btn" onclick="mem2HearSeg()" title="اسمع الآيات">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    </button>
+  </div>
+  <div class="mem2-bar-foot">
+    <button class="mem2-back-btn" onclick="mem2Back()">← اختر سورة</button>
+    <span class="mem2-seg-lbl" id="mem2SegLbl"><span id="mem2SegPfx">مقطع</span> <span id="mem2SegNm">١/١</span></span>
+    <button class="mem2-rec-chip" id="mem2RecChip" onclick="mem2CycleRec()" title="تغيير القارئ">—</button>
   </div>
 </div>
 </body>
