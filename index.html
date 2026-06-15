@@ -1877,7 +1877,9 @@ function initMemorize(){
     memSurahChange();
   }
   _mem2UpdateRecUI();
-  var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='block';
+  // Don't show setup bar while a session is active (user navigated away then back)
+  var midSession=document.getElementById('mem2Bar').style.display==='block';
+  if(!midSession){var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='block';}
 }
 function memSurahChange(){
   var n=+document.getElementById('memSurah').value;
@@ -1981,8 +1983,11 @@ function _mem2UpdateBar(){
 function mem2ToggleRec(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){toast('التعرّف الصوتي غير مدعوم — جرّب Chrome','error');return;}
+  // Secure context required (HTTPS / localhost) — Capacitor is always secure
+  if(!window.isSecureContext&&!window.Capacitor){toast('يلزم اتصال آمن (HTTPS) للتعرّف الصوتي','error');return;}
   if(MEM2.recActive){_mem2StopAndEval();return;}
-  var seg=MEM2.segs[MEM2.cur];if(!seg)return;
+  var seg=MEM2.segs[MEM2.cur];
+  if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
   MEM2._tr='';MEM2.rec=new SR();
   MEM2.rec.lang='ar-SA';MEM2.rec.continuous=true;MEM2.rec.interimResults=true;
@@ -1994,13 +1999,29 @@ function mem2ToggleRec(){
     MEM2._tr+=fin;
   };
   MEM2.rec.onerror=function(ev){
-    var msgs={'not-allowed':'لم تُمنح صلاحية الميكروفون','audio-capture':'لم يُعثر على ميكروفون','network':'يلزم إنترنت للتعرّف'};
-    if(msgs[ev.error])toast(msgs[ev.error],'error');
+    var msgs={
+      'not-allowed':'لم تُمنح صلاحية الميكروفون',
+      'service-not-allowed':'يلزم اتصال آمن (HTTPS) للتعرّف الصوتي',
+      'audio-capture':'لم يُعثر على ميكروفون',
+      'network':'يلزم إنترنت للتعرّف الصوتي'
+    };
+    toast(msgs[ev.error]||'خطأ في التعرّف الصوتي ('+ev.error+')','error');
     _mem2StopRec();
   };
-  MEM2.rec.onend=function(){if(MEM2.recActive){try{MEM2.rec.start();}catch(e){}}};
-  try{MEM2.rec.start();MEM2.recActive=true;toast('اقرأ المقطع بصوت واضح…');_mem2UpdateBar();}
-  catch(e){_mem2StopRec();}
+  // If recognition ends while still active, restart (continuous mode);
+  // if restart throws, stop cleanly so we don't loop silently.
+  MEM2.rec.onend=function(){
+    if(MEM2.recActive&&MEM2.rec){try{MEM2.rec.start();}catch(e){_mem2StopRec();}}
+  };
+  try{
+    MEM2.rec.start();
+    MEM2.recActive=true;
+    toast('اقرأ المقطع بصوت واضح…');
+    _mem2UpdateBar();
+  }catch(e){
+    toast('تعذّر بدء التعرّف — حاول مجدداً','error');
+    _mem2StopRec();
+  }
 }
 function _mem2StopAndEval(){
   var tr=MEM2._tr;
