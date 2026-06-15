@@ -698,6 +698,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .auth-sync-msg.ok{color:var(--green);}
 .auth-sync-msg.err{color:#f87;}
 .auth-signout-btn{background:rgba(248,119,119,.08);color:#f87;border:1px solid rgba(248,119,119,.25);border-radius:10px;padding:9px 18px;font-size:13px;cursor:pointer;width:100%;font:inherit;}
+.auth-delete-btn{background:rgba(248,119,119,.14);color:#f87777;border:1px solid rgba(248,119,119,.4);border-radius:10px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;width:100%;font:inherit;margin-top:8px;}
 .auth-benefit-li{font-size:13px;color:var(--muted);padding:5px 0 5px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;}
 .auth-benefit-li:last-child{border-bottom:none;}
 .auth-benefit-li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;}
@@ -1703,6 +1704,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <button class="btn" onclick="fbForceSync()" style="width:100%;margin-bottom:10px">مزامنة الآن</button>
         <button class="auth-signout-btn" onclick="fbSignOut()">تسجيل الخروج</button>
+        <button class="auth-delete-btn" onclick="fbDeleteAccount()">⚠ حذف حسابي وبياناتي نهائياً</button>
       </div>
       <div class="cs-diag" style="margin-top:10px">
         <div class="cs-diag-row"><span class="cs-diag-key">Firebase SDK محمّل:</span><span id="csDiagSdk" class="cs-diag-warn">…</span></div>
@@ -1717,10 +1719,12 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div class="sett-sec-title">سياسة الخصوصية</div>
       <div class="auth-card" style="padding:16px 20px">
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.9">
-          • بياناتك تُخزَّن محلياً على جهازك ولا تُشارَك مع أي طرف ثالث.<br>
-          • عند تسجيل الدخول بحساب Google، تُرفَع نسخة احتياطية مشفَّرة إلى Firebase مرتبطة بحسابك فقط.<br>
-          • المواقيت والقبلة تُحسَب داخل التطبيق بدون إرسال موقعك لأي خادم خارجي.<br>
-          • ميزة تسميع الحفظ تستخدم واجهة التعرّف الصوتي في جهازك (Web Speech API)، وقد تُعالَج التسجيلات عبر خدمة Google للتعرّف على الكلام — لا يُخزَّن أي صوت داخل التطبيق ولا يُرفَع إلى خوادمنا.<br>
+          • بياناتك تُخزَّن محلياً على جهازك. عند تسجيل الدخول بـ Google، تُرسَل نسخة احتياطية لخوادم Firebase (Google) محمية ومُرسَلة بأمان عبر HTTPS ومرتبطة بحسابك فقط.<br>
+          • الموقع الجغرافي يُحسَب داخل التطبيق بالكامل ولا يُرسَل إلى أي خادم خارجي.<br>
+          • إطارات الكاميرا (عدّاد الركعات، تتبّع الصلاة) تُعالَج محلياً على جهازك بالكامل ولا تُغادره إطلاقاً.<br>
+          • تسميع الحفظ وتأكيد القراءة في تتبّع الصلاة تستخدمان Web Speech API؛ قد تُعالَج التسجيلات عبر خدمة Google للتعرّف على الكلام — لا يُخزَّن صوت داخل التطبيق ولا يُرفَع إلى خوادمنا.<br>
+          • بحث الحديث يُرسِل نصَّ البحث إلى موسوعة الدرر السنية (dorar.net) للحصول على النتائج.<br>
+          • يمكنك حذف حسابك وبياناتك من Firebase في أي وقت من شاشة الإعدادات.<br>
           • لا تتبَّع، لا إعلانات، لا بيع للبيانات.
         </p>
       </div>
@@ -1809,10 +1813,10 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div class="terms">
     <b>استخدام التطبيق</b>
     «المجدّد» تطبيق للمساعدة على أداء الصلاة (مواقيت، قبلة، أذكار، مصحف). المحتوى الديني للاسترشاد، ويُرجى التحقق من المصادر المعتمدة عند الحاجة.
-    <b>الخصوصية</b>
-    يُستخدم موقعك الجغرافي على جهازك فقط لحساب المواقيت واتجاه القبلة، ولا يُرسل إلى أي خادم. تُحفظ إعداداتك على جهازك.
+    <b>الخصوصية والبيانات</b>
+    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. الكاميرا (عدّاد الركعات، تتبّع الصلاة) تُعالَج محلياً ولا تغادر جهازك. الميكروفون (تسميع الحفظ، تأكيد القراءة) قد يُرسَل صوتك لـ Google Speech API. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
-    قد يطلب التطبيق الوصول إلى الموقع وحسّاسات الحركة والبوصلة لتشغيل الميزات. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
+    قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
     <b>الاشتراك</b>
     تتوفّر تجربة مجانية ثم اشتراك مدفوع يُجدَّد تلقائيًا ما لم يُلغَ. يمكنك الإلغاء في أي وقت من إعدادات حسابك.
   </div>
@@ -2802,7 +2806,7 @@ function searchTab(t){SEARCH_TAB=t;document.getElementById('tabQ').classList.tog
 function doSearch(){var q=document.getElementById('searchInput').value.trim();if(q.length<2){toast('اكتب كلمتين على الأقل');return;}if(SEARCH_TAB==='q')searchQuran(q);else searchHadith(q);}
 function searchQuran(q){buildQFlat();var nq=snorm(q),res=document.getElementById('searchRes'),out=[];for(var i=0;i<QFLAT.length&&out.length<100;i++){if(QFLAT[i].n.indexOf(nq)>=0)out.push(QFLAT[i]);}if(!out.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج</div>';return;}res.innerHTML='<div class="muted" style="margin-bottom:10px">'+ar(out.length)+(out.length>=100?'+':'')+' نتيجة</div>'+out.map(function(r){return '<div class="dhcard" style="cursor:pointer" onclick="goAyah('+r.s+','+r.a+')"><div class="muted" style="color:var(--gold);margin-bottom:6px">'+nameFor(r.s)+' · آية '+ar(r.a)+'</div><div class="ayat" style="font-size:20px;line-height:2;margin:0">'+r.t+'</div></div>';}).join('');}
 function goAyah(s,a){go('quran');openSurah(s,nameFor(s));setTimeout(function(){var els=document.querySelectorAll('.ayblk');if(!els.length)els=document.querySelectorAll('.ayat .a');var el=els[a-1];if(el){el.classList.add('sel');try{el.scrollIntoView({block:'center'});}catch(e){}}},300);}
-function searchHadith(q){var res=document.getElementById('searchRes');res.innerHTML='<div class="loading">جارٍ البحث في موسوعة الدرر السنية…</div>';var cb='dcb'+Date.now(),done=false;var sc=document.createElement('script');window[cb]=function(data){done=true;try{var tmp=document.createElement('div');tmp.innerHTML=(data&&data.ahadith&&data.ahadith.result)||'';var hs=tmp.querySelectorAll('.hadith');if(!hs.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج — جرّب صياغة أخرى</div>';}else{var html='<div class="muted" style="margin-bottom:10px">'+ar(hs.length)+' نتيجة · المصدر: موسوعة الدرر السنية</div>';[].forEach.call(hs,function(h){var info=h.parentElement?h.parentElement.querySelector('.hadith-info'):null;html+='<div class="dhcard"><div style="line-height:2.1;font-size:17px;margin-bottom:8px">'+h.textContent.trim()+'</div>'+(info?'<div class="muted" style="font-size:13px;line-height:1.9">'+info.textContent.trim().replace(/\s+/g,' ')+'</div>':'')+'</div>';});res.innerHTML=html;}}catch(e){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر عرض النتائج</div>';}finally{try{delete window[cb];}catch(e){}if(sc.parentNode)sc.parentNode.removeChild(sc);}};sc.src='https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q)+'&callback='+cb;sc.onerror=function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر الاتصال — تأكد من الإنترنت</div>';};document.body.appendChild(sc);setTimeout(function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">انتهت المهلة — حاول مرة ثانية</div>';},13000);}
+function searchHadith(q){var res=document.getElementById('searchRes');res.innerHTML='<div class="loading">جارٍ البحث في موسوعة الدرر السنية…</div>';var cb='dcb'+Date.now(),done=false;var sc=document.createElement('script');window[cb]=function(data){done=true;try{var _dp=new DOMParser();var _dd=_dp.parseFromString((data&&data.ahadith&&data.ahadith.result)||'','text/html');var hs=_dd.querySelectorAll('.hadith');if(!hs.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج — جرّب صياغة أخرى</div>';}else{var html='<div class="muted" style="margin-bottom:10px">'+ar(hs.length)+' نتيجة · المصدر: موسوعة الدرر السنية</div>';[].forEach.call(hs,function(h){var info=h.parentElement?h.parentElement.querySelector('.hadith-info'):null;html+='<div class="dhcard"><div style="line-height:2.1;font-size:17px;margin-bottom:8px">'+h.textContent.trim()+'</div>'+(info?'<div class="muted" style="font-size:13px;line-height:1.9">'+info.textContent.trim().replace(/\s+/g,' ')+'</div>':'')+'</div>';});res.innerHTML=html;}}catch(e){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر عرض النتائج</div>';}finally{try{delete window[cb];}catch(e){}if(sc.parentNode)sc.parentNode.removeChild(sc);}};sc.src='https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q)+'&callback='+cb;sc.onerror=function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر الاتصال — تأكد من الإنترنت</div>';};document.body.appendChild(sc);setTimeout(function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">انتهت المهلة — حاول مرة ثانية</div>';},13000);}
 function qpIcon(p){document.getElementById('qpPlay').innerHTML=p?PAUSE_SVG:PLAY_SVG;}
 function playSurah(n,name){qpN=n;var a=document.getElementById('quranAudio');a.playbackRate=QP_SPEEDS[qpSpeedIdx];a.src=reciterBase()+pad3(n)+'.mp3';document.getElementById('qpName').textContent=name||('سورة '+ar(n));var rn=document.getElementById('qpReciter');if(rn)rn.textContent=RECITERS[recIdx].n;document.getElementById('qplayer').classList.add('on');qpBuildRecList();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}
 function qpToggle(){var a=document.getElementById('quranAudio');if(a.paused){var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}else{a.pause();qpIcon(false);}}
@@ -5679,6 +5683,65 @@ window._cancelSignOut=function(){
   var m=document.getElementById('signoutConfirm');if(m)m.style.display='none';
 };
 
+window.fbDeleteAccount=function(){
+  if(!_fb.auth||!_fb.auth.currentUser){if(typeof toast==='function')toast('لست مسجّل الدخول','info');return;}
+  var m=document.getElementById('deleteAccountConfirm');if(m)m.style.display='flex';
+};
+window._cancelDeleteAccount=function(){
+  var m=document.getElementById('deleteAccountConfirm');if(m)m.style.display='none';
+};
+window._execDeleteAccount=function(){
+  var m=document.getElementById('deleteAccountConfirm');if(m)m.style.display='none';
+  var user=_fb.auth&&_fb.auth.currentUser;
+  if(!user){if(typeof toast==='function')toast('لست مسجّل الدخول','info');return;}
+
+  function _performDelete(u){
+    var dbP=_fb.db?_fb.db.ref('users/'+u.uid).remove().catch(function(){}):Promise.resolve();
+    return dbP.then(function(){return u.delete();});
+  }
+
+  function _afterSuccess(){
+    try{
+      if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
+        var FA=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
+        if(FA&&FA.signOut)FA.signOut().catch(function(){});
+      }
+    }catch(ex){}
+    if(typeof toast==='function')toast('تم حذف حسابك نهائياً','ok');
+    setTimeout(function(){_fb.user=null;if(typeof _fbUpdateUI==='function')_fbUpdateUI(null);if(typeof showOv==='function')showOv('login');},1500);
+  }
+
+  function _reauthAndRetry(){
+    try{
+      if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
+        var _FA=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
+        if(_FA){
+          _FA.signInWithGoogle()
+            .then(function(cred){
+              var gc=firebase.auth.GoogleAuthProvider.credential(cred.idToken,cred.accessToken||null);
+              return _fb.auth.signInWithCredential(gc);
+            })
+            .then(function(){return _performDelete(_fb.auth.currentUser);})
+            .then(_afterSuccess)
+            .catch(function(e){if(typeof toast==='function')toast('تعذّر إعادة التحقق: '+(e.message||''),'error');});
+          return;
+        }
+      }
+      _fb.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+        .then(function(){return _performDelete(_fb.auth.currentUser);})
+        .then(_afterSuccess)
+        .catch(function(e){if(typeof toast==='function')toast('تعذّر إعادة التحقق: '+(e.message||''),'error');});
+    }catch(ex){if(typeof toast==='function')toast('تعذّر إعادة التحقق','error');}
+  }
+
+  _performDelete(user)
+    .then(_afterSuccess)
+    .catch(function(e){
+      if(e.code==='auth/requires-recent-login'){_reauthAndRetry();}
+      else{if(typeof toast==='function')toast('تعذّر الحذف: '+(e.message||e.code||''),'error');}
+    });
+};
+
 window.fbForceSync=function(){
   if(!_fb.user){if(typeof toast==='function') toast('سجّل الدخول أولاً','info');return;}
   _fbWriteAll(true);
@@ -6044,6 +6107,18 @@ function _fbMerge(r){
     <div style="display:flex;gap:10px">
       <button onclick="_execSignOut()" style="flex:1;background:rgba(248,119,119,.1);color:#f87777;border:1px solid rgba(248,119,119,.3);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">تسجيل الخروج</button>
       <button onclick="_cancelSignOut()" style="flex:1;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="deleteAccountConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border:1px solid rgba(248,119,119,.45);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:36px;margin-bottom:10px">🗑</div>
+    <div style="font-size:17px;font-weight:700;color:#f87777;margin-bottom:10px">حذف الحساب نهائياً</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.75">سيُحذف حسابك وجميع بياناتك المحفوظة (التقدم، الإنجازات، الإعدادات) من خوادم Firebase نهائياً.<br><br><b style="color:#f87777">هذا الإجراء لا يمكن التراجع عنه.</b></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="_execDeleteAccount()" style="flex:1;background:rgba(248,119,119,.18);color:#f87777;border:1px solid rgba(248,119,119,.45);border-radius:12px;padding:12px;font:700 14px/1 inherit;cursor:pointer">نعم، احذف نهائياً</button>
+      <button onclick="_cancelDeleteAccount()" style="flex:1;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">إلغاء</button>
     </div>
   </div>
 </div>
