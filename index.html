@@ -2599,10 +2599,9 @@ function tick(){
   var tnc=document.getElementById('timesNextCount');if(tnc)tnc.textContent=ar(hh)+' س '+ar(mm)+' د';
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
-    if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();
+    if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();showDua();
       if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
         new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
-      showDua();
       }
     }}
   });
