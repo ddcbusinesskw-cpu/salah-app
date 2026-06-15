@@ -1083,10 +1083,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="adiya" class="screen">
-    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>أدعية مأثورة</h2></div>
-    <div class="pad"><div class="cats" id="adiyaCats"></div><div id="adiyaBody"></div>
-    <button class="sect-add-btn" id="adiyaAddBtn" onclick="_adiyaAdd()">+ إضافة دعاء مخصّص</button>
-    <p class="note">أدعية من القرآن والسنّة. راجع المصادر عند الحاجة.</p></div>
+    <div class="top"><button class="back" aria-label="رجوع" id="adiyaBackBtn" onclick="adiyaBack()">→</button><h2 id="adiyaTitle">أدعية مأثورة</h2></div>
+    <div class="pad">
+      <div id="adiyaCatsView"></div>
+      <div id="adiyaListView" style="display:none">
+        <div id="adiyaBody"></div>
+        <button class="sect-add-btn" id="adiyaAddBtn" onclick="_adiyaAdd()">+ إضافة دعاء مخصّص</button>
+      </div>
+      <p class="note">أدعية من القرآن والسنّة. راجع المصادر عند الحاجة.</p>
+    </div>
   </div>
 
   <div id="search" class="screen">
@@ -2980,7 +2985,7 @@ function _fadailAdd(){
 
 /* ===== أدعية مأثورة ===== */
 var ADIYA={
-  'من القرآن':[
+  'أدعية قرآنية':[
     {x:'﴿رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ﴾',s:'البقرة ٢٠١'},
     {x:'﴿رَبَّنَا لَا تُؤَاخِذْنَا إِن نَّسِينَا أَوْ أَخْطَأْنَا﴾',s:'البقرة ٢٨٦'},
     {x:'﴿رَبِّ اشْرَحْ لِي صَدْرِي ۝ وَيَسِّرْ لِي أَمْرِي﴾',s:'طه ٢٥–٢٦'},
@@ -2988,45 +2993,107 @@ var ADIYA={
     {x:'﴿رَبِّ أَوْزِعْنِي أَنْ أَشْكُرَ نِعْمَتَكَ الَّتِي أَنْعَمْتَ عَلَيَّ وَعَلَىٰ وَالِدَيَّ﴾',s:'النمل ١٩'},
     {x:'﴿رَبَّنَا أَفْرِغْ عَلَيْنَا صَبْرًا وَثَبِّتْ أَقْدَامَنَا﴾',s:'البقرة ٢٥٠'},
     {x:'﴿رَبَّنَا تَقَبَّلْ مِنَّا ۖ إِنَّكَ أَنتَ السَّمِيعُ الْعَلِيمُ﴾',s:'البقرة ١٢٧'},
-    {x:'﴿لَّا إِلَٰهَ إِلَّا أَنتَ سُبْحَانَكَ إِنِّي كُنتُ مِنَ الظَّالِمِينَ﴾',s:'الأنبياء ٨٧'},
-    {x:'﴿حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ﴾',s:'آل عمران ١٧٣'}
+    {x:'﴿حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ﴾',s:'آل عمران ١٧٣'},
+    {x:'﴿رَبِّ إِنِّي لِمَا أَنزَلْتَ إِلَيَّ مِنْ خَيْرٍ فَقِيرٌ﴾',s:'القصص ٢٤'},
+    {x:'﴿رَبَّنَا لَا تُزِغْ قُلُوبَنَا بَعْدَ إِذْ هَدَيْتَنَا وَهَبْ لَنَا مِن لَّدُنكَ رَحْمَةً ۚ إِنَّكَ أَنتَ الْوَهَّابُ﴾',s:'آل عمران ٨'},
+    {x:'﴿رَبَّنَا اغْفِرْ لَنَا ذُنُوبَنَا وَإِسْرَافَنَا فِي أَمْرِنَا وَثَبِّتْ أَقْدَامَنَا وَانصُرْنَا عَلَى الْقَوْمِ الْكَافِرِينَ﴾',s:'آل عمران ١٤٧'}
   ],
-  'من السنّة':[
-    {x:'«اللهم إني أسألك الهدى والتقى والعفاف والغنى»',s:'رواه مسلم'},
-    {x:'«اللهم أعني على ذكرك وشكرك وحسن عبادتك»',s:'رواه أبو داود'},
-    {x:'«اللهم اغفر لي ذنبي كله، دِقَّه وجِلَّه، وأوّله وآخره، وعلانيته وسرّه»',s:'رواه مسلم'},
-    {x:'«اللهم إني أعوذ بك من الهمّ والحزن، والعجز والكسل، والبخل والجبن، وضلع الدَّين وغلبة الرجال»',s:'رواه البخاري'},
-    {x:'«اللهم آتِ نفسي تقواها، وزكّها أنت خير من زكّاها، أنت وليّها ومولاها»',s:'رواه مسلم'},
-    {x:'«اللهم إني أسألك علماً نافعاً، ورزقاً طيباً، وعملاً متقبلاً»',s:'رواه ابن ماجه'},
+  'أدعية الصباح والمساء':[
+    {x:'«اللهم بك أصبحنا، وبك أمسينا، وبك نحيا، وبك نموت، وإليك النشور»',s:'رواه أبو داود والترمذي'},
+    {x:'«أعوذ بكلمات الله التامّات من شرّ ما خلق» — ثلاث مرات مساءً',s:'رواه مسلم'},
+    {x:'«بسم الله الذي لا يضرّ مع اسمه شيء في الأرض ولا في السماء وهو السميع العليم» — ثلاث مرات',s:'رواه أبو داود والترمذي وصحّحه'},
+    {x:'«اللهم عافني في بدني، اللهم عافني في سمعي، اللهم عافني في بصري، لا إله إلا أنت» — ثلاث مرات',s:'رواه أبو داود وصحّحه'},
+    {x:'«رضيتُ بالله ربّاً، وبالإسلام ديناً، وبمحمد ﷺ نبيّاً» — ثلاث مرات',s:'رواه أبو داود والترمذي وصحّحه'},
+    {x:'«اللهم إني أسألك العفو والعافية في الدنيا والآخرة، اللهم إني أسألك العفو والعافية في ديني ودنياي وأهلي ومالي»',s:'رواه أبو داود وابن ماجه'}
+  ],
+  'الاستغفار والتوبة':[
+    {x:'سيد الاستغفار: «اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت، أعوذ بك من شرّ ما صنعت، أبوء لك بنعمتك علي وأبوء بذنبي فاغفر لي، فإنه لا يغفر الذنوب إلا أنت»',s:'رواه البخاري'},
+    {x:'«أستغفر الله العظيم الذي لا إله إلا هو الحي القيوم وأتوب إليه»',s:'رواه أبو داود والترمذي وصحّحه'},
     {x:'«ربِّ اغفر لي وتُب عليّ، إنك أنت التوّاب الرحيم»',s:'رواه أبو داود والترمذي'},
-    {x:'«اللهم اهدني وسدّدني»',s:'رواه مسلم'}
+    {x:'كفارة المجلس: «سبحانك اللهم وبحمدك، أشهد أن لا إله إلا أنت، أستغفرك وأتوب إليك»',s:'رواه الترمذي وصحّحه'}
+  ],
+  'أدعية الكرب والهمّ':[
+    {x:'«لا إله إلا الله العظيم الحليم، لا إله إلا الله ربُّ العرش العظيم، لا إله إلا الله ربُّ السموات وربُّ الأرض وربُّ العرش الكريم»',s:'متفق عليه'},
+    {x:'«اللهم إني أعوذ بك من الهمِّ والحزن، والعجز والكسل، والبخل والجبن، وضلع الدَّين وغلبة الرجال»',s:'رواه البخاري'},
+    {x:'«اللهم رحمتك أرجو فلا تكلني إلى نفسي طرفة عين، وأصلح لي شأني كله، لا إله إلا أنت»',s:'رواه أبو داود وصحّحه الألباني'},
+    {x:'دعاء يونس عليه السلام: ﴿لَّا إِلَٰهَ إِلَّا أَنتَ سُبْحَانَكَ إِنِّي كُنتُ مِنَ الظَّالِمِينَ﴾',s:'الأنبياء ٨٧'},
+    {x:'﴿حَسْبِيَ اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ ۖ عَلَيْهِ تَوَكَّلْتُ ۖ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ﴾',s:'التوبة ١٢٩'}
+  ],
+  'أدعية السفر':[
+    {x:'دعاء ركوب الدابة والمركبة: ﴿سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ ۝ وَإِنَّا إِلَىٰ رَبِّنَا لَمُنقَلِبُونَ﴾',s:'الزخرف ١٣–١٤'},
+    {x:'«اللهم إنا نسألك في سفرنا هذا البرَّ والتقوى، ومن العمل ما ترضى. اللهم هوِّن علينا سفرنا هذا، واطوِ عنّا بُعده. اللهم أنت الصاحب في السفر، والخليفة في الأهل»',s:'رواه مسلم'},
+    {x:'دعاء العودة من السفر: «آيبون، تائبون، عابدون، لربنا حامدون»',s:'رواه مسلم'}
+  ],
+  'أدعية للوالدين':[
+    {x:'﴿رَّبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا﴾',s:'الإسراء ٢٤'},
+    {x:'﴿رَبَّنَا اغْفِرْ لِي وَلِوَالِدَيَّ وَلِلْمُؤْمِنِينَ يَوْمَ يَقُومُ الْحِسَابُ﴾',s:'إبراهيم ٤١'},
+    {x:'﴿رَّبِّ اغْفِرْ لِي وَلِوَالِدَيَّ وَلِمَن دَخَلَ بَيْتِيَ مُؤْمِنًا وَلِلْمُؤْمِنِينَ وَالْمُؤْمِنَاتِ﴾',s:'نوح ٢٨'}
+  ],
+  'أدعية متنوعة':[
+    {x:'«اللهم إني أسألك الهدى والتقى والعفاف والغنى»',s:'رواه مسلم'},
+    {x:'«اللهم أعنّي على ذكرك وشكرك وحسن عبادتك»',s:'رواه أبو داود وصحّحه'},
+    {x:'«اللهم اغفر لي ذنبي كله، دِقَّه وجِلَّه، وأوّله وآخره، وعلانيته وسرّه»',s:'رواه مسلم'},
+    {x:'«اللهم آتِ نفسي تقواها، وزكِّها أنت خير من زكّاها، أنت وليّها ومولاها»',s:'رواه مسلم'},
+    {x:'«اللهم إني أسألك علماً نافعاً، ورزقاً طيباً، وعملاً متقبَّلاً»',s:'رواه ابن ماجه وصحّحه الألباني'},
+    {x:'«اللهم اهدني وسدِّدني»',s:'رواه مسلم'},
+    {x:'«اللهم إني أسألك الجنة وما قرَّب إليها من قول أو عمل، وأعوذ بك من النار وما قرَّب إليها من قول أو عمل»',s:'رواه ابن ماجه وصحّحه الألباني'}
   ]
+};
+var _ADIYA_ICONS={
+  'أدعية قرآنية':['c5','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/></svg>'],
+  'أدعية الصباح والمساء':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="1" y1="16" x2="23" y2="16"/><path d="M7 16a5 5 0 0 1 10 0"/><line x1="12" y1="5" x2="12" y2="9"/><line x1="7.2" y1="11.8" x2="5.8" y2="10.4"/><line x1="16.8" y1="11.8" x2="18.2" y2="10.4"/></svg>'],
+  'الاستغفار والتوبة':['c1','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'],
+  'أدعية الكرب والهمّ':['c4','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v4.5"/><path d="M18 8a2 2 0 1 1 4 0v5a8 8 0 0 1-16 0V9"/></svg>'],
+  'أدعية السفر':['c3','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/></svg>'],
+  'أدعية للوالدين':['c6','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'],
+  'أدعية متنوعة':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>']
 };
 function _getAdiyaCustom(cat){try{return JSON.parse(lsGet('custom_adiya_'+cat)||'[]');}catch(e){return[];}}
 function _saveAdiyaCustom(cat,arr){lsSet('custom_adiya_'+cat,JSON.stringify(arr));}
 var _adiyaCat='';
-function initAdiya(){
-  var cats=document.getElementById('adiyaCats');
-  if(!cats.children.length){
-    Object.keys(ADIYA).forEach(function(k,i){
-      var b=document.createElement('button');b.textContent=k;if(i===0)b.classList.add('on');
-      b.onclick=function(){[].forEach.call(cats.children,function(x){x.classList.remove('on');});b.classList.add('on');_adiyaCat=k;renderAdiya(k);};
-      cats.appendChild(b);
-    });
-  }
-  _adiyaCat=Object.keys(ADIYA)[0];
-  renderAdiya(_adiyaCat);
+var _adiyaInList=false;
+function adiyaBack(){if(_adiyaInList){_adiyaShowCats();}else{go('home');}}
+function initAdiya(){_adiyaShowCats();}
+function _adiyaShowCats(){
+  _adiyaInList=false;_adiyaCat='';
+  document.getElementById('adiyaTitle').textContent='أدعية مأثورة';
+  document.getElementById('adiyaCatsView').style.display='';
+  document.getElementById('adiyaListView').style.display='none';
+  if(!document.getElementById('adiyaCatsView').children.length)_buildAdiyaCats();
+}
+function _buildAdiyaCats(){
+  var html='';
+  Object.keys(ADIYA).forEach(function(cat){
+    var ic=_ADIYA_ICONS[cat]||['c3','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>'];
+    var count=(ADIYA[cat]||[]).length+(_getAdiyaCustom(cat)||[]).length;
+    html+='<div class="acat-card" onclick="_adiyaShowList(\''+cat.replace(/'/g,"\\'")+'\')">' +
+      '<div class="acat-ic '+ic[0]+'">'+ic[1]+'</div>' +
+      '<div class="acat-info"><div class="acat-name">'+cat+'</div><div class="acat-count">'+ar(count)+' دعاء</div></div>' +
+      '<div class="acat-arr">›</div></div>';
+  });
+  document.getElementById('adiyaCatsView').innerHTML=html;
+}
+function _adiyaShowList(cat){
+  _adiyaInList=true;_adiyaCat=cat;
+  document.getElementById('adiyaTitle').textContent=cat;
+  document.getElementById('adiyaCatsView').style.display='none';
+  document.getElementById('adiyaListView').style.display='';
+  renderAdiya(cat);
 }
 function renderAdiya(cat){
   var base=ADIYA[cat]||[];
   var custom=_getAdiyaCustom(cat);
-  var all=base.concat(custom.map(function(c){return {x:c.x,s:'مخصّص'};}));
+  var all=base.concat(custom.map(function(c){return {x:c.x,s:c.s||'مخصّص'};}));
   var ord=_getOrd('adiya_ord_'+cat,all.length);
   var html='';
   ord.forEach(function(ri,pos){
     var d=all[ri];if(!d)return;
-    var ordBtns='<div style="display:flex;justify-content:flex-end;gap:4px;margin-top:6px"><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',-1)">▲</button><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',1)">▼</button></div>';
-    html+='<div class="dhcard"><div class="txt" style="line-height:2.2;font-size:20px">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px;color:var(--gold)">'+d.s+'</div>'+ordBtns+'</div>';
+    var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',1)">↓</button></span>';
+    html+='<div class="dhcard">' +
+      '<div class="txt" style="font-size:19px;line-height:2.2">'+d.x+'</div>' +
+      '<div class="dh-src">'+d.s+'</div>' +
+      '<div class="foot">'+ordBtns+'</div>' +
+    '</div>';
   });
   document.getElementById('adiyaBody').innerHTML=html;
 }
@@ -3040,11 +3107,13 @@ function _adiyaMove(cat,pos,delta){
 function _adiyaAdd(){
   var cat=_adiyaCat||Object.keys(ADIYA)[0];
   _cmShow('إضافة دعاء',[
-    {id:'x',label:'نص الدعاء',ph:'اكتب الدعاء هنا'}
+    {id:'x',label:'نص الدعاء',ph:'اكتب الدعاء هنا'},
+    {id:'s',label:'المصدر',ph:'مثال: رواه البخاري'}
   ],function(){
-    var x=_cmVal('x');
+    var x=_cmVal('x'),s=_cmVal('s')||'مخصّص';
     if(!x)return;
-    var custom=_getAdiyaCustom(cat);custom.push({x:x});_saveAdiyaCustom(cat,custom);
+    var custom=_getAdiyaCustom(cat);custom.push({x:x,s:s});_saveAdiyaCustom(cat,custom);
+    document.getElementById('adiyaCatsView').innerHTML='';
     renderAdiya(cat);
   });
 }
