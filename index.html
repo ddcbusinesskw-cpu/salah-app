@@ -1768,7 +1768,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
           • بياناتك تُخزَّن محلياً على جهازك. عند تسجيل الدخول بـ Google، تُرسَل نسخة احتياطية لخوادم Firebase (Google) محمية ومُرسَلة بأمان عبر HTTPS ومرتبطة بحسابك فقط.<br>
           • الموقع الجغرافي يُحسَب داخل التطبيق بالكامل ولا يُرسَل إلى أي خادم خارجي.<br>
           • إطارات الكاميرا (عدّاد الركعات، تتبّع الصلاة) تُعالَج محلياً على جهازك بالكامل ولا تُغادره إطلاقاً.<br>
-          • تسميع الحفظ وتأكيد القراءة في تتبّع الصلاة تستخدمان Web Speech API؛ قد تُعالَج التسجيلات عبر خدمة Google للتعرّف على الكلام — لا يُخزَّن صوت داخل التطبيق ولا يُرفَع إلى خوادمنا.<br>
+          • تسميع الحفظ يستخدم خدمة التعرّف على الكلام المدمجة في جهازك — Google Speech على أندرويد وApple Speech على iOS؛ قد يُرسَل صوتك إليها للمعالجة وفق سياسة خصوصية المنصّة — لا يُخزَّن أي صوت لدينا ولا يُرفَع لخوادمنا. على المتصفّح تُستخدم Web Speech API (Google).<br>
           • بحث الحديث يُرسِل نصَّ البحث إلى موسوعة الدرر السنية (dorar.net) للحصول على النتائج.<br>
           • يمكنك حذف حسابك وبياناتك من Firebase في أي وقت من شاشة الإعدادات.<br>
           • لا تتبَّع، لا إعلانات، لا بيع للبيانات.
@@ -1860,7 +1860,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <b>استخدام التطبيق</b>
     «المجدّد» تطبيق للمساعدة على أداء الصلاة (مواقيت، قبلة، أذكار، مصحف). المحتوى الديني للاسترشاد، ويُرجى التحقق من المصادر المعتمدة عند الحاجة.
     <b>الخصوصية والبيانات</b>
-    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. الكاميرا (عدّاد الركعات، تتبّع الصلاة) تُعالَج محلياً ولا تغادر جهازك. الميكروفون (تسميع الحفظ، تأكيد القراءة) قد يُرسَل صوتك لـ Google Speech API. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
+    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. الكاميرا (عدّاد الركعات، تتبّع الصلاة) تُعالَج محلياً ولا تغادر جهازك. تسميع الحفظ يستخدم خدمة التعرّف على الكلام في الجهاز (Google على أندرويد، Apple على iOS) — قد يُرسَل صوتك إليها للمعالجة ولا يُخزَّن لدينا. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
     قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
     <b>الاشتراك</b>
@@ -2120,16 +2120,59 @@ function _mem2UpdateBar(){
   if(MEM2.recActive){mic.classList.add('rec');lbl.textContent='أوقف';}
   else{mic.classList.remove('rec');lbl.textContent=seg&&seg.status==='done'?'أعِد':'سمّع';}
 }
+function _isNative(){
+  return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+}
 function mem2ToggleRec(){
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){toast('التعرّف الصوتي غير مدعوم — جرّب Chrome','error');return;}
-  // Secure context required (HTTPS / localhost) — Capacitor is always secure
-  if(!window.isSecureContext&&!window.Capacitor){toast('يلزم اتصال آمن (HTTPS) للتعرّف الصوتي','error');return;}
   if(MEM2.recActive){_mem2StopAndEval();return;}
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
-  MEM2._tr='';MEM2.rec=new SR();
+  MEM2._tr='';
+  if(_isNative())_mem2StartNative();else _mem2StartWeb();
+}
+function _mem2StartNative(){
+  var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+  if(!nsr){toast('إضافة التعرّف الصوتي غير موجودة — حدّث التطبيق','error');return;}
+  var live=document.getElementById('mem2Live');
+  nsr.removeAllListeners().catch(function(){});
+  nsr.addListener('partialResults',function(data){
+    if(live&&data&&data.matches)live.textContent=data.matches[0]||'';
+  });
+  nsr.requestPermissions().then(function(perm){
+    var micOk=!perm.microphone||perm.microphone==='granted';
+    var srOk=!perm.speechRecognition||perm.speechRecognition==='granted';
+    if(!micOk||!srOk){
+      toast('يرجى منح إذن الميكروفون والتعرّف الصوتي في إعدادات التطبيق','error');
+      return;
+    }
+    MEM2.recActive=true;
+    toast('اقرأ المقطع بصوت واضح…');
+    _mem2UpdateBar();
+    (function loop(){
+      if(!MEM2.recActive)return;
+      nsr.start({language:'ar-SA',maxResults:1,partialResults:true,popup:false})
+        .then(function(r){
+          if(r&&r.matches&&r.matches[0])MEM2._tr+=r.matches[0]+' ';
+          if(MEM2.recActive)loop();
+        })
+        .catch(function(e){
+          var msg=(e&&e.message)||'';
+          if(MEM2.recActive&&!msg.toLowerCase().includes('cancel')&&!msg.toLowerCase().includes('stop')){
+            toast('خطأ في التعرّف الصوتي: '+msg,'error');
+          }
+          _mem2StopRec();
+        });
+    })();
+  }).catch(function(){
+    toast('تعذّر طلب إذن الميكروفون','error');
+  });
+}
+function _mem2StartWeb(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('التعرّف الصوتي غير مدعوم — جرّب Chrome','error');return;}
+  if(!window.isSecureContext){toast('يلزم اتصال آمن (HTTPS) للتعرّف الصوتي','error');return;}
+  MEM2.rec=new SR();
   MEM2.rec.lang='ar-SA';MEM2.rec.continuous=true;MEM2.rec.interimResults=true;
   var live=document.getElementById('mem2Live');
   MEM2.rec.onresult=function(e){
@@ -2139,33 +2182,17 @@ function mem2ToggleRec(){
     MEM2._tr+=fin;
   };
   MEM2.rec.onerror=function(ev){
-    var msgs={
-      'not-allowed':'لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن',
-      'service-not-allowed':'يلزم اتصال آمن (HTTPS) للتعرّف الصوتي',
-      'audio-capture':'لم يُعثر على ميكروفون',
-      'network':'يلزم إنترنت للتعرّف الصوتي'
-    };
+    var msgs={'not-allowed':'لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن','service-not-allowed':'يلزم اتصال آمن (HTTPS) للتعرّف الصوتي','audio-capture':'لم يُعثر على ميكروفون','network':'يلزم إنترنت للتعرّف الصوتي'};
     toast(msgs[ev.error]||'خطأ في التعرّف الصوتي ('+ev.error+')','error');
     _mem2StopRec();
   };
-  // If recognition ends while still active, restart (continuous mode);
-  // if restart throws, stop cleanly so we don't loop silently.
   MEM2.rec.onend=function(){
     if(MEM2.recActive&&MEM2.rec){try{MEM2.rec.start();}catch(e){_mem2StopRec();}}
   };
   function _doStart(){
-    try{
-      MEM2.rec.start();
-      MEM2.recActive=true;
-      toast('اقرأ المقطع بصوت واضح…');
-      _mem2UpdateBar();
-    }catch(e){
-      toast('تعذّر بدء التعرّف — حاول مجدداً','error');
-      _mem2StopRec();
-    }
+    try{MEM2.rec.start();MEM2.recActive=true;toast('اقرأ المقطع بصوت واضح…');_mem2UpdateBar();}
+    catch(e){toast('تعذّر بدء التعرّف — حاول مجدداً','error');_mem2StopRec();}
   }
-  /* طلب إذن الميكروفون صراحةً عبر getUserMedia — يُظهر نافذة المتصفح دائماً
-     عند الحالة "prompt". بعد المنح نُطلق المسار ونبدأ SR مباشرة. */
   if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
     navigator.mediaDevices.getUserMedia({audio:true,video:false})
       .then(function(stream){stream.getTracks().forEach(function(t){t.stop();});_doStart();})
@@ -2173,13 +2200,9 @@ function mem2ToggleRec(){
         if(e&&(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'||e.name==='SecurityError')){
           toast('لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن','error');
           _mem2StopRec();
-        }else{
-          _doStart(); // خطأ آخر (لا ميكروفون) — دع SR يتعامل معه
-        }
+        }else{_doStart();}
       });
-  }else{
-    _doStart();
-  }
+  }else{_doStart();}
 }
 function _mem2StopAndEval(){
   var tr=MEM2._tr;
@@ -2199,8 +2222,15 @@ function _mem2StopAndEval(){
   _mem2UpdateBar();
 }
 function _mem2StopRec(){
-  if(MEM2.rec){MEM2.rec.onend=null;try{MEM2.rec.stop();}catch(e){}}
-  MEM2.rec=null;MEM2.recActive=false;_mem2UpdateBar();
+  MEM2.recActive=false;
+  if(_isNative()){
+    var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+    if(nsr){nsr.stop().catch(function(){});nsr.removeAllListeners().catch(function(){});}
+  }else{
+    if(MEM2.rec){MEM2.rec.onend=null;try{MEM2.rec.stop();}catch(e){}}
+    MEM2.rec=null;
+  }
+  _mem2UpdateBar();
 }
 /* Levenshtein distance */
 function _memED(a,b){if(a===b)return 0;if(!a.length)return b.length;if(!b.length)return a.length;var p=[],r=[];for(var j=0;j<=b.length;j++)p[j]=j;for(var i=1;i<=a.length;i++){r=[i];for(var j=1;j<=b.length;j++)r[j]=a[i-1]===b[j-1]?p[j-1]:1+Math.min(p[j-1],p[j],r[j-1]);p=r.slice();}return p[b.length];}
