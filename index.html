@@ -1720,6 +1720,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
           • بياناتك تُخزَّن محلياً على جهازك ولا تُشارَك مع أي طرف ثالث.<br>
           • عند تسجيل الدخول بحساب Google، تُرفَع نسخة احتياطية مشفَّرة إلى Firebase مرتبطة بحسابك فقط.<br>
           • المواقيت والقبلة تُحسَب داخل التطبيق بدون إرسال موقعك لأي خادم خارجي.<br>
+          • ميزة تسميع الحفظ تستخدم واجهة التعرّف الصوتي في جهازك (Web Speech API)، وقد تُعالَج التسجيلات عبر خدمة Google للتعرّف على الكلام — لا يُخزَّن أي صوت داخل التطبيق ولا يُرفَع إلى خوادمنا.<br>
           • لا تتبَّع، لا إعلانات، لا بيع للبيانات.
         </p>
       </div>
@@ -1874,6 +1875,23 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
 
 <script>
+(function(){
+  function _showCrashToast(msg){
+    try{
+      var t=document.getElementById('toast');
+      if(t){t.textContent='حدث خطأ غير متوقع — أعِد تشغيل التطبيق';t.className='toast show';setTimeout(function(){t.className='toast';},5000);}
+    }catch(e){}
+    console.error('[App Error]',msg);
+  }
+  window.onerror=function(msg,src,line,col,err){
+    _showCrashToast(err?err.message:msg);
+    return false;
+  };
+  window.addEventListener('unhandledrejection',function(e){
+    _showCrashToast(e.reason&&e.reason.message?e.reason.message:String(e.reason));
+  });
+})();
+
 /* ====== لصق الأذان الحقيقي (اختياري) ======
    حوّل adhan.mp3 إلى base64 وألصقه بين علامتي التنصيص.
    إن تركته فارغًا يُشغَّل نداء صوتي مولّد داخل التطبيق. */
@@ -4071,10 +4089,10 @@ function achvShare(){
   /* footer */
   ctx.fillStyle='rgba(234,204,126,.35)';ctx.font='18px sans-serif';ctx.fillText('تطبيق المجدّد · للقرآن والذِكر والصلاة',540,1168);
   c.toBlob(function(blob){
-    var f=new File([blob],'noor-achievements.png',{type:'image/png'});
+    var f=new File([blob],'mujaddid-achievements.png',{type:'image/png'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){
       navigator.share({title:'إنجازاتي في المجدّد',files:[f]}).catch(function(){});
-    }else{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='noor-achievements.png';a.click();}
+    }else{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';a.click();}
   },'image/png');
 }
 
@@ -4314,9 +4332,9 @@ function ayImage(){
   ctx.fillStyle='rgba(234,204,126,0.6)';ctx.font='24px serif';ctx.fillText(text,540,900);
   ctx.fillStyle='rgba(63,174,142,0.6)';ctx.font='18px sans-serif';ctx.fillText('المجدّد — طريق الأتقياء',540,960);
   c.toBlob(function(blob){
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File([blob],'noor_ayah.png',{type:'image/png'})]})){
-      navigator.share({files:[new File([blob],'noor_ayah.png',{type:'image/png'})],title:'آية من القرآن الكريم'});
-    }else{var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='noor_ayah.png';a.click();URL.revokeObjectURL(url);}
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File([blob],'mujaddid_ayah.png',{type:'image/png'})]})){
+      navigator.share({files:[new File([blob],'mujaddid_ayah.png',{type:'image/png'})],title:'آية من القرآن الكريم'});
+    }else{var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='mujaddid_ayah.png';a.click();URL.revokeObjectURL(url);}
   },'image/png');
 }
 

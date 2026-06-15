@@ -60,9 +60,9 @@
 	<key>NSMotionUsageDescription</key>
 	<string>يستخدم عدّاد الركعات مستشعر الحركة للكشف عن الأوضاع أثناء الصلاة.</string>
 
-	<!-- Microphone: tasmee (memorization test) speech recognition — processed on-device -->
+	<!-- Microphone: tasmee (memorization test) speech recognition via Web Speech API -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>يُستخدم الميكروفون لميزة تسميع الحفظ، والمعالجة تتم على الجهاز بدون تسجيل أو رفع.</string>
+	<string>يُستخدم الميكروفون لميزة تسميع الحفظ عبر واجهة التعرّف الصوتي. قد تُعالَج التسجيلات عبر خدمة Google للتعرّف على الكلام — لا يُخزَّن أي صوت في التطبيق ولا يُرفَع إلى خوادمنا.</string>
 
 	<!-- Google Sign-In redirect URL (REVERSED_CLIENT_ID from GoogleService-Info.plist) -->
 	<key>CFBundleURLTypes</key>
