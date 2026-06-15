@@ -4383,8 +4383,8 @@ function _rakAIOnDetReady(det){
   if(load)load.style.display='none';if(active)active.style.display='';
   // Restore saved calibration
   var stored=lsGet('rak_ai_cal');
-  if(stored){try{ai.cal=JSON.parse(stored);}catch(e){}}
-  var hasCal=ai.cal&&ai.cal.qiyam&&ai.cal.ruku&&ai.cal.sujud;
+  if(stored&&lsGet('rak_ai_cal_v')==='2'){try{ai.cal=JSON.parse(stored);}catch(e){}}
+  var hasCal=ai.cal&&ai.cal.qiyam&&ai.cal.ruku&&ai.cal.sujud&&ai.cal.jalsa;
   if(hasCal){_rakAIBeginTracking();}else{_rakAIStartCal();}
   rakWakeLock(true);
   _rakAILoop();
@@ -4413,9 +4413,10 @@ function rakAIRecal(){
   _rakAIStartCal();
 }
 var _AI_CAL_POSES=[
-  {key:'qiyam',lbl:'القيام',hint:'قف مستقيماً — جذعك يجب أن يظهر كاملاً في الكاميرا'},
+  {key:'qiyam',lbl:'القيام',hint:'قف مستقيماً — يجب أن يظهر جذعك كاملاً في الكاميرا'},
   {key:'ruku', lbl:'الركوع', hint:'انحنِ للركوع وأمسك الوضعية ثلاث ثوانٍ'},
-  {key:'sujud',lbl:'السجود', hint:'اسجد وأمسك الوضعية — ضع الجهاز بحيث يرى جسمك'}
+  {key:'sujud',lbl:'السجود', hint:'اسجد وأمسك الوضعية — ضع الجهاز بحيث يرى جسمك'},
+  {key:'jalsa',lbl:'الجلوس', hint:'اجلس بين السجدتين وأمسك الوضعية ثلاث ثوانٍ'}
 ];
 function _rakAIStartCal(){
   var ai=RAK._ai;
@@ -4432,6 +4433,7 @@ function _rakAICalStep(){
   if(step>=_AI_CAL_POSES.length){
     var calSec=document.getElementById('rakAICalSec');
     if(calSec)calSec.style.display='none';
+    lsSet('rak_ai_cal_v','2');
     _rakAIBeginTracking();
     return;
   }
@@ -4443,7 +4445,7 @@ function _rakAICalStep(){
   if(lbl)lbl.textContent='أمسك وضعية: '+pd.lbl;
   if(hint)hint.textContent=pd.hint;
   if(fill)fill.style.width='0%';
-  if(dots)dots.textContent=[0,1,2].map(function(i){return i<step?'●':'○';}).join(' ');
+  if(dots)dots.textContent=[0,1,2,3].map(function(i){return i<step?'●':'○';}).join(' ');
   ai.calBuf=[];
   var COUNT=6,n=0;
   if(ai.calTimer)clearInterval(ai.calTimer);
@@ -4454,7 +4456,7 @@ function _rakAICalStep(){
       var p=poses&&poses[0];
       if(!p)return;
       var feat=_rakAIExtract(p,v.videoWidth||320,v.videoHeight||240);
-      if(feat&&feat[2]>0.12){
+      if(feat&&feat[3]>0.12){
         ai.calBuf.push(feat);
         n++;
         if(fill)fill.style.width=Math.min(100,Math.round((n/COUNT)*100))+'%';
@@ -4491,33 +4493,29 @@ function _rakAIExtract(pose,W,H){
     if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}
   }
   if(vis<3)return null;
-  var bboxH=(maxY-minY)/H;
-  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  var torso=0;
-  if(Math.max(lS.score,rS.score)>0.15&&Math.max(lH.score,rH.score)>0.15){
-    var sY=(lS.score>rS.score?lS:rS).y;
-    var hY=(lH.score>rH.score?lH:rH).y;
-    torso=(hY-sY)/H;
-  }
-  var shoulderY=Math.max(lS.score>0.10?lS.y:0,rS.score>0.10?rS.y:0)/H;
-  return [torso,bboxH,avg,shoulderY];
+  // [centerY, bboxTop, bboxBot, avgConf] — derived from real labeled data
+  var centerY=((minY+maxY)/2)/H;
+  var bboxTop=minY/H;
+  var bboxBot=maxY/H;
+  return [centerY,bboxTop,bboxBot,avg];
 }
 function _rakAIClassifyCal(feat){
   var ai=RAK._ai;
   var cal=ai.cal;
   if(!cal||!cal.qiyam||!cal.ruku||!cal.sujud)return null;
-  if(feat[2]<0.10)return 'unknown';
+  if(feat[3]<0.10)return 'unknown';  // feat[3]=avgConf
   var best='unknown',bestD=Infinity;
-  var POSES=['qiyam','ruku','sujud'];
-  var W=[4,3,1,2];
+  var POSES=['qiyam','ruku','sujud','jalsa'];
+  // weights: centerY×5 (primary), bboxTop×3 (qiyam/ruku separator), bboxBot×2, conf×0
+  var WW=[5,3,2,0];
   for(var p=0;p<POSES.length;p++){
     var c=cal[POSES[p]];if(!c)continue;
     var d=0;
-    for(var j=0;j<Math.min(feat.length,c.length,W.length);j++)d+=W[j]*Math.pow(feat[j]-c[j],2);
+    for(var j=0;j<Math.min(feat.length,c.length,WW.length);j++)d+=WW[j]*Math.pow(feat[j]-c[j],2);
     d=Math.sqrt(d);
     if(d<bestD){bestD=d;best=POSES[p];}
   }
-  return bestD<0.60?best:'unknown';
+  return bestD<0.45?best:'unknown';
 }
 function _rakAILoop(){
   var ai=RAK._ai;
@@ -4531,7 +4529,7 @@ function _rakAILoop(){
     if(RAK.mode!=='ai')return;
     var pose=poses&&poses[0];
     var feat=pose?_rakAIExtract(pose,v.videoWidth||320,v.videoHeight||240):null;
-    var conf=feat?feat[2]:0;
+    var conf=feat?feat[3]:0;
     var fill=document.getElementById('rakAIConfFill');
     if(fill)fill.style.width=Math.round(conf*100)+'%';
     _rakAIDraw(pose,v.videoWidth||320,v.videoHeight||240);
@@ -4540,7 +4538,7 @@ function _rakAILoop(){
     // Live diagnostics (only during tracking)
     if(isTracking&&feat){
       var diag=document.getElementById('rakAIDiag');
-      if(diag)diag.textContent='جذع:'+feat[0].toFixed(2)+' صندوق:'+feat[1].toFixed(2)+' كتف:'+feat[3].toFixed(2)+' ثقة:'+Math.round(conf*100)+'%';
+      if(diag)diag.textContent='مركز:'+feat[0].toFixed(2)+' أعلى:'+feat[1].toFixed(2)+' أسفل:'+feat[2].toFixed(2)+' ثقة:'+Math.round(conf*100)+'%';
     }
     // Low-confidence guard: pause counting, show warning
     var lowConf=conf<0.10||!feat;
@@ -4565,7 +4563,7 @@ function _rakAILoop(){
       var _minY2=_H2,_maxY2=0;
       for(var _ki=0;_ki<_kp2.length;_ki++){if(_kp2[_ki].score>0.10){_minY2=Math.min(_minY2,_kp2[_ki].y);_maxY2=Math.max(_maxY2,_kp2[_ki].y);}}
       var _bkT=(_minY2/_H2).toFixed(3),_bkB=(_maxY2/_H2).toFixed(3),_cY=((_minY2+_maxY2)/(2*_H2)).toFixed(3);
-      _diagLog.push([_dn,_diagLabel,label,feat[0].toFixed(3),feat[1].toFixed(3),_bkT,_bkB,_cY,_shVis,_hpVis,Math.round(conf*100)].join(','));
+      _diagLog.push([_dn,_diagLabel,label,feat[0].toFixed(3),feat[1].toFixed(3),feat[2].toFixed(3),Math.round(conf*100),_shVis,_hpVis].join(','));
       var _dst=document.getElementById('rakDiagStatus');
       if(_dst)_dst.textContent='⏺ '+_diagLog.length+' صف | '+_diagLabel;
     }
@@ -4576,12 +4574,12 @@ function _rakAILoop(){
     var votes={};
     for(var i=0;i<ai.history.length;i++){var k=ai.history[i];votes[k]=(votes[k]||0)+1;}
     var smoothed=label,maxV=0;
-    ['qiyam','ruku','sujud','unknown'].forEach(function(k){if((votes[k]||0)>maxV){maxV=votes[k];smoothed=k;}});
-    var ns=smoothed==='sujud'?2:smoothed==='ruku'?1:smoothed==='qiyam'?0:-1;
+    ['qiyam','ruku','sujud','jalsa','unknown'].forEach(function(k){if((votes[k]||0)>maxV){maxV=votes[k];smoothed=k;}});
+    var ns=smoothed==='sujud'?2:smoothed==='ruku'?1:smoothed==='qiyam'?0:smoothed==='jalsa'?3:-1;
     if(ns<0)return;
     var t=Date.now();
     if(ns!==ai.pendState){ai.pendState=ns;ai.pendTime=t;}
-    else if(t-ai.pendTime>600&&ns!==ai.posState){
+    else if(t-ai.pendTime>1500&&ns!==ai.posState){
       var prev=ai.posState;ai.posState=ns;
       if(ns===2&&!ai.inSujud){ai.inSujud=true;if(RAK.hap)buzz(12);}
       if(prev===2&&ns!==2&&ai.inSujud){ai.inSujud=false;ai.sujudTotal++;rakFeed('sujud');}
@@ -4593,14 +4591,16 @@ function _rakAIClassify(pose,W,H){
   var kp=pose.keypoints,avg=0;
   for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
   if(avg<0.10)return 'unknown';
-  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  if(Math.max(lS.score,rS.score)<0.20||Math.max(lH.score,rH.score)<0.20)return 'unknown';
-  var sY=(lS.score>rS.score?lS:rS).y;
-  var hY=(lH.score>rH.score?lH:rH).y;
-  var ratio=(hY-sY)/H;
-  if(ratio>0.20)return 'qiyam';
-  if(ratio<0.04)return 'sujud';
-  return 'ruku';
+  var minY=H,maxY=0,vis=0;
+  for(var i=0;i<kp.length;i++){if(kp[i].score>0.10){minY=Math.min(minY,kp[i].y);maxY=Math.max(maxY,kp[i].y);vis++;}}
+  if(vis<3)return 'unknown';
+  // Thresholds derived from real labeled-data analysis
+  var centerY=((minY+maxY)/2)/H;
+  var bboxTop=minY/H;
+  if(centerY>0.66)return 'sujud';
+  if(centerY>0.53)return 'jalsa';
+  if(bboxTop>0.13)return 'ruku';
+  return 'qiyam';
 }
 function _rakAIDraw(pose,W,H){
   var ai=RAK._ai;if(!ai.cvs||!pose||!pose.keypoints)return;
@@ -4671,7 +4671,7 @@ function rakDiagCopy(){
     if(st)st.textContent='لا توجد بيانات — سجّل أولاً';
     return;
   }
-  var csv='time_ms,label,model_cls,torso,bboxH,bboxTop,bboxBot,centerY,shoulder_vis,hip_vis,conf_pct\n'+_diagLog.join('\n');
+  var csv='time_ms,label,model_cls,centerY,bboxTop,bboxBot,conf_pct,shoulder_vis,hip_vis\n'+_diagLog.join('\n');
   function _doCopy(txt){
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(txt).then(function(){
