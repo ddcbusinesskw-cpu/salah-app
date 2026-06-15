@@ -308,6 +308,7 @@
   .dhcard .ord-btns{display:flex;gap:4px;}
   .dhcard .ord-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;line-height:1;min-height:32px;}
   .dhcard .ord-btn:active{background:rgba(255,255,255,.14);}
+  .fad-title{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px;letter-spacing:.02em;}
   .counter-btn.tasbih-done{border-color:var(--green);background:rgba(78,202,168,.08);}
   .counter-btn.tasbih-done .cnum{color:var(--green);}
   .dhikr-pill{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
@@ -1070,10 +1071,15 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
 
   <div id="fadail" class="screen">
-    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>فضائل الأعمال</h2></div>
-    <div class="pad"><div id="fadailBody"></div>
-    <button class="sect-add-btn" onclick="_fadailAdd()">+ إضافة فضيلة مخصّصة</button>
-    <p class="note">الأحاديث منسوبة لمصادرها. يُرجى التثبّت من كتب السنة المعتمدة عند النقل.</p></div>
+    <div class="top"><button class="back" aria-label="رجوع" id="fadailBackBtn" onclick="fadailBack()">→</button><h2 id="fadailTitle">فضائل الأعمال</h2></div>
+    <div class="pad">
+      <div id="fadailCatsView"></div>
+      <div id="fadailListView" style="display:none">
+        <div id="fadailBody"></div>
+        <button class="sect-add-btn" id="fadailAddBtn" onclick="_fadailAdd()">+ إضافة فضيلة مخصّصة</button>
+      </div>
+      <p class="note">الأحاديث منسوبة لمصادرها. يُرجى التثبّت من كتب السنة المعتمدة عند النقل.</p>
+    </div>
   </div>
 
   <div id="adiya" class="screen">
@@ -2827,51 +2833,148 @@ function _adhkarAdd(){
 function dhCount(el,total){var left=+el.getAttribute('data-left')-1;if(left<0)left=total;el.setAttribute('data-left',left);el.textContent=left===0?'✓':ar(left);el.style.background=left===0?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';el.style.color=left===0?'var(--green)':'var(--gold)';if(navigator.vibrate)try{navigator.vibrate(25);}catch(e){}}
 
 /* ===== فضائل الأعمال ===== */
-var FADAIL=[
-  {t:'الإخلاص في النية',x:'«إنما الأعمالُ بالنيّات، وإنما لكل امرئٍ ما نوى»',s:'متفق عليه'},
-  {t:'فضل لا إله إلا الله',x:'«من كان آخرُ كلامِه لا إله إلا الله دخل الجنة»',s:'رواه أبو داود'},
-  {t:'فضل التسبيح',x:'«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»',s:'متفق عليه'},
-  {t:'فضل الذكر',x:'«مثلُ الذي يذكر ربَّه والذي لا يذكر ربَّه مثلُ الحيّ والميّت»',s:'رواه البخاري'},
-  {t:'فضل الصدقة',x:'«ما نقصت صدقةٌ من مال». وقال تعالى: ﴿مَّثَلُ الَّذِينَ يُنفِقُونَ أَمْوَالَهُمْ فِي سَبِيلِ اللَّهِ كَمَثَلِ حَبَّةٍ أَنبَتَتْ سَبْعَ سَنَابِلَ﴾',s:'رواه مسلم — البقرة ٢٦١'},
-  {t:'فضل بر الوالدين',x:'«رضا الربِّ في رضا الوالد، وسخط الربِّ في سخط الوالد»',s:'رواه الترمذي'},
-  {t:'فضل طلب العلم',x:'«من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة»',s:'رواه مسلم'},
-  {t:'فضل الصلاة على النبي ﷺ',x:'«من صلّى عليّ صلاةً صلّى الله عليه بها عشراً»',s:'رواه مسلم'},
-  {t:'فضل قراءة القرآن',x:'«اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»',s:'رواه مسلم'},
-  {t:'فضل المحافظة على الصلوات',x:'«الصلواتُ الخمس، والجمعةُ إلى الجمعة، كفّاراتٌ لما بينهنّ ما اجتُنبت الكبائر»',s:'رواه مسلم'},
-  {t:'فضل الصدق',x:'«عليكم بالصدق، فإن الصدق يهدي إلى البِرّ، وإن البِرّ يهدي إلى الجنة»',s:'متفق عليه'},
-  {t:'فضل حسن الخلق',x:'«ما من شيءٍ أثقلُ في ميزان المؤمن يوم القيامة من حُسن الخُلُق»',s:'رواه أبو داود والترمذي'},
-  {t:'الحسنات تمحو السيئات',x:'﴿إِنَّ الْحَسَنَاتِ يُذْهِبْنَ السَّيِّئَاتِ﴾',s:'هود ١١٤'},
-  {t:'فضل التقوى',x:'﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ۝ وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾',s:'الطلاق ٢–٣'}
-];
-function _getFadailCustom(){try{return JSON.parse(lsGet('custom_fadail')||'[]');}catch(e){return[];}}
-function initFadail(){renderFadail();}
-function renderFadail(){
-  var custom=_getFadailCustom();
-  var all=FADAIL.concat(custom.map(function(c){return {t:c.t,x:c.x,s:'مخصّص'};}));
-  var ord=_getOrd('fadail_ord',all.length);
+var FADAIL={
+  'الصلاة':[
+    {t:'فضل المحافظة على الصلوات',x:'«الصلواتُ الخمس، والجمعةُ إلى الجمعة، كفّاراتٌ لما بينهنّ ما اجتُنبت الكبائر»',s:'رواه مسلم'},
+    {t:'فضل صلاة الجماعة',x:'«صلاةُ الجماعة أفضلُ من صلاة الفذِّ بسبعٍ وعشرين درجة»',s:'متفق عليه'},
+    {t:'فضل صلاتَي الفجر والعصر',x:'«من صلّى البَردَيْن دخل الجنة»',s:'متفق عليه'},
+    {t:'فضل السنن الرواتب',x:'«ما من عبد مسلم يصلّي لله كلَّ يوم ثنتي عشرةَ ركعةً تطوُّعاً غيرَ فريضة، إلا بنى الله له بيتاً في الجنة»',s:'رواه مسلم'},
+    {t:'فضل الوضوء',x:'«من توضّأ فأحسن الوضوء خرجت خطاياه من جسده حتى تخرج من تحت أظفاره»',s:'رواه مسلم'},
+    {t:'فضل انتظار الصلاة',x:'«لا يزال أحدكم في صلاة ما كانت الصلاةُ تحبسه، لا يمنعه أن ينقلب إلى أهله إلا الصلاة»',s:'متفق عليه'}
+  ],
+  'الذكر والتسبيح':[
+    {t:'أفضل الكلام',x:'«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»',s:'متفق عليه'},
+    {t:'فضل مئة تسبيحة في اليوم',x:'«من قال سبحان الله وبحمده في يوم مائةَ مرة، حُطَّت خطاياه وإن كانت مثل زبد البحر»',s:'متفق عليه'},
+    {t:'فضل لا إله إلا الله مئة مرة',x:'«من قال لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير، مائةَ مرة في يوم، كانت له عدلَ عشر رقاب، وكُتبت له مائةُ حسنة»',s:'متفق عليه'},
+    {t:'لا حول ولا قوة إلا بالله',x:'«ألا أدلّك على كنزٍ من كنوز الجنة؟ لا حول ولا قوة إلا بالله»',s:'متفق عليه'},
+    {t:'فضل الذكر',x:'«مثَلُ الذي يذكر ربَّه والذي لا يذكر ربَّه مثَلُ الحيِّ والميِّت»',s:'رواه البخاري'},
+    {t:'فضل الصلاة على النبي ﷺ',x:'«من صلّى عليّ واحدةً صلّى الله عليه بها عشراً»',s:'رواه مسلم'}
+  ],
+  'قراءة القرآن':[
+    {t:'القرآن شفيع لأصحابه',x:'«اقرؤوا القرآن، فإنه يأتي يوم القيامة شفيعاً لأصحابه»',s:'رواه مسلم'},
+    {t:'خير الناس',x:'«خيركم من تعلّم القرآن وعلّمه»',s:'رواه البخاري'},
+    {t:'الماهر والمتعتع',x:'«الذي يقرأ القرآن وهو ماهرٌ به مع السفرة الكرام البررة، والذي يقرأه وهو عليه شاقٌّ فله أجران»',s:'متفق عليه'},
+    {t:'الحرف بعشر حسنات',x:'«من قرأ حرفاً من كتاب الله فله به حسنة، والحسنةُ بعشر أمثالها»',s:'رواه الترمذي وصحّحه'},
+    {t:'فضل سورة البقرة',x:'«اقرؤوا سورة البقرة، فإن أخذها بركة، وتركها حسرة، ولا تستطيعها البَطَلة»',s:'رواه مسلم'}
+  ],
+  'الصدقة والإنفاق':[
+    {t:'الصدقة لا تنقص المال',x:'«ما نقصت صدقةٌ من مال»',s:'رواه مسلم'},
+    {t:'التصدّق بالقليل',x:'«اتّقوا النار ولو بشقِّ تمرة»',s:'متفق عليه'},
+    {t:'الصدقة الجارية',x:'«إذا مات ابن آدم انقطع عمله إلا من ثلاثة: صدقةٍ جارية، أو علمٍ يُنتفع به، أو ولدٍ صالح يدعو له»',s:'رواه مسلم'},
+    {t:'مثل المنفق في سبيل الله',x:'﴿مَّثَلُ الَّذِينَ يُنفِقُونَ أَمْوَالَهُمْ فِي سَبِيلِ اللَّهِ كَمَثَلِ حَبَّةٍ أَنبَتَتْ سَبْعَ سَنَابِلَ فِي كُلِّ سُنبُلَةٍ مِّائَةُ حَبَّةٍ﴾',s:'البقرة ٢٦١'},
+    {t:'الله يخلف النفقة',x:'﴿وَمَا أَنفَقْتُم مِّن شَيْءٍ فَهُوَ يُخْلِفُهُ ۖ وَهُوَ خَيْرُ الرَّازِقِينَ﴾',s:'سبأ ٣٩'},
+    {t:'فضل الصدقة السر',x:'﴿إِن تُبْدُوا الصَّدَقَاتِ فَنِعِمَّا هِيَ ۖ وَإِن تُخْفُوهَا وَتُؤْتُوهَا الْفُقَرَاءَ فَهُوَ خَيْرٌ لَّكُمْ﴾',s:'البقرة ٢٧١'}
+  ],
+  'الصيام':[
+    {t:'فضل صيام رمضان',x:'«من صام رمضان إيماناً واحتساباً غُفر له ما تقدّم من ذنبه»',s:'متفق عليه'},
+    {t:'الصيام جُنّة',x:'«الصيامُ جُنّةٌ، فلا يرفُث ولا يجهل»',s:'متفق عليه'},
+    {t:'الله يجزي بالصيام',x:'«كلُّ عمل ابن آدم له إلا الصيام، فإنه لي وأنا أجزي به»',s:'متفق عليه'},
+    {t:'صوم يوم في سبيل الله',x:'«من صام يوماً في سبيل الله باعَد الله وجهَه عن النار سبعين خريفاً»',s:'متفق عليه'},
+    {t:'فضل ست من شوال',x:'«من صام رمضان ثم أتبعه ستاً من شوّال كان كصيام الدهر»',s:'رواه مسلم'}
+  ],
+  'بر الوالدين':[
+    {t:'رضا الله في رضا الوالدين',x:'«رضا الرّبِّ في رضا الوالد، وسخط الرّبِّ في سخط الوالد»',s:'رواه الترمذي وصحّحه'},
+    {t:'وصية القرآن بالوالدين',x:'﴿وَقَضَىٰ رَبُّكَ أَلَّا تَعْبُدُوا إِلَّا إِيَّاهُ وَبِالْوَالِدَيْنِ إِحْسَانًا﴾',s:'الإسراء ٢٣'},
+    {t:'الوالد باب الجنة',x:'«الوالدُ أوسطُ أبواب الجنة، فإن شئتَ فأضِع ذلك الباب أو احفظه»',s:'رواه الترمذي وصحّحه'},
+    {t:'الأم أحق بالصحبة',x:'قيل: يا رسول الله، من أحقُّ الناس بحسن صحابتي؟ قال: «أمُّك»، قالها ثلاثاً، ثم قال: «أبوك»',s:'متفق عليه'}
+  ],
+  'حسن الخلق':[
+    {t:'أكمل المؤمنين إيماناً',x:'«أكملُ المؤمنين إيماناً أحسنُهم خُلُقاً»',s:'رواه أبو داود والترمذي وصحّحه'},
+    {t:'أثقل ما في الميزان',x:'«ما من شيء أثقلُ في ميزان المؤمن يوم القيامة من حُسن الخُلُق»',s:'رواه أبو داود والترمذي'},
+    {t:'حب الخير للآخرين',x:'«لا يؤمن أحدُكم حتى يحبَّ لأخيه ما يحبّ لنفسه»',s:'متفق عليه'},
+    {t:'المسلم الكامل',x:'«المسلمُ من سلِم المسلمون من لسانه ويده»',s:'متفق عليه'},
+    {t:'فضل الصدق',x:'«عليكم بالصدق، فإن الصدق يهدي إلى البِرّ، وإن البِرّ يهدي إلى الجنة»',s:'متفق عليه'},
+    {t:'ذمّ الكذب',x:'«وإيّاكم والكذبَ، فإن الكذب يهدي إلى الفجور، وإن الفجور يهدي إلى النار»',s:'متفق عليه'}
+  ],
+  'فضائل عامة':[
+    {t:'الأعمال بالنيات',x:'«إنّما الأعمالُ بالنيّات، وإنّما لكلّ امرئ ما نوى»',s:'متفق عليه'},
+    {t:'فضل طلب العلم',x:'«من سلك طريقاً يلتمس فيه علماً سهَّل الله له به طريقاً إلى الجنة»',s:'رواه مسلم'},
+    {t:'الحسنات يُذهبن السيئات',x:'﴿إِنَّ الْحَسَنَاتِ يُذْهِبْنَ السَّيِّئَاتِ ۚ ذَٰلِكَ ذِكْرَىٰ لِلذَّاكِرِينَ﴾',s:'هود ١١٤'},
+    {t:'فضل التقوى',x:'﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ۝ وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾',s:'الطلاق ٢–٣'},
+    {t:'التقوى ملاك الكرامة',x:'﴿إِنَّ أَكْرَمَكُمْ عِندَ اللَّهِ أَتْقَاكُمْ﴾',s:'الحجرات ١٣'},
+    {t:'من كان آخر كلامه لا إله إلا الله',x:'«من كان آخرُ كلامِه لا إله إلا الله دخل الجنة»',s:'رواه أبو داود، وصحّحه الألباني'}
+  ]
+};
+var _FAD_ICONS={
+  'الصلاة':['c1','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 20h18"/><path d="M5 20v-8"/><path d="M19 20v-8"/><path d="M5 12c0-4 7-9 7-9s7 5 7 9"/></svg>'],
+  'الذكر والتسبيح':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'],
+  'قراءة القرآن':['c5','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/></svg>'],
+  'الصدقة والإنفاق':['c4','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v4.5"/><path d="M18 8a2 2 0 1 1 4 0v5a8 8 0 0 1-16 0V9"/></svg>'],
+  'الصيام':['c3','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'],
+  'بر الوالدين':['c6','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'],
+  'حسن الخلق':['c1','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>'],
+  'فضائل عامة':['c2','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>']
+};
+function _getFadailCustom(cat){try{return JSON.parse(lsGet('custom_fadail_'+(cat||''))||'[]');}catch(e){return[];}}
+var _fadailCat='';
+var _fadailInList=false;
+function fadailBack(){if(_fadailInList){_fadailShowCats();}else{go('home');}}
+function initFadail(){_fadailShowCats();}
+function _fadailShowCats(){
+  _fadailInList=false;_fadailCat='';
+  document.getElementById('fadailTitle').textContent='فضائل الأعمال';
+  document.getElementById('fadailCatsView').style.display='';
+  document.getElementById('fadailListView').style.display='none';
+  if(!document.getElementById('fadailCatsView').children.length)_buildFadailCats();
+}
+function _buildFadailCats(){
+  var html='';
+  Object.keys(FADAIL).forEach(function(cat){
+    var ic=_FAD_ICONS[cat]||['c3','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>'];
+    var count=(FADAIL[cat]||[]).length+(_getFadailCustom(cat)||[]).length;
+    html+='<div class="acat-card" onclick="_fadailShowList(\''+cat.replace(/'/g,"\\'")+'\')">' +
+      '<div class="acat-ic '+ic[0]+'">'+ic[1]+'</div>' +
+      '<div class="acat-info"><div class="acat-name">'+cat+'</div><div class="acat-count">'+ar(count)+' فضيلة</div></div>' +
+      '<div class="acat-arr">›</div></div>';
+  });
+  document.getElementById('fadailCatsView').innerHTML=html;
+}
+function _fadailShowList(cat){
+  _fadailInList=true;_fadailCat=cat;
+  document.getElementById('fadailTitle').textContent=cat;
+  document.getElementById('fadailCatsView').style.display='none';
+  document.getElementById('fadailListView').style.display='';
+  renderFadail(cat);
+}
+function renderFadail(cat){
+  var base=FADAIL[cat]||[];
+  var custom=_getFadailCustom(cat);
+  var all=base.concat(custom.map(function(c){return {t:c.t,x:c.x,s:c.s||'مخصّص'};}));
+  var ord=_getOrd('fadail_ord_'+cat,all.length);
   var html='';
   ord.forEach(function(ri,pos){
     var d=all[ri];if(!d)return;
-    var ordBtns='<div style="display:flex;justify-content:flex-end;gap:4px;margin-top:8px"><button class="ord-btn" onclick="_fadailMove('+pos+',-1)">▲</button><button class="ord-btn" onclick="_fadailMove('+pos+',1)">▼</button></div>';
-    html+='<div class="dhcard"><div class="muted" style="margin-bottom:6px;color:var(--gold);font-weight:600">'+d.t+'</div><div class="txt" style="line-height:2.1">'+d.x+'</div><div class="muted" style="margin-top:8px;font-size:13px">'+d.s+'</div>'+ordBtns+'</div>';
+    var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_fadailMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_fadailMove(\''+cat+'\','+pos+',1)">↓</button></span>';
+    html+='<div class="dhcard">' +
+      '<div class="fad-title">'+d.t+'</div>' +
+      '<div class="txt" style="font-size:18px">'+d.x+'</div>' +
+      '<div class="dh-src">'+d.s+'</div>' +
+      '<div class="foot">'+ordBtns+'</div>' +
+    '</div>';
   });
   document.getElementById('fadailBody').innerHTML=html;
 }
-function _fadailMove(pos,delta){
-  var all=FADAIL.concat(_getFadailCustom());
-  var ord=_getOrd('fadail_ord',all.length);
-  _moveOrd('fadail_ord',ord,pos,delta);
-  renderFadail();
+function _fadailMove(cat,pos,delta){
+  var base=FADAIL[cat]||[];
+  var custom=_getFadailCustom(cat);
+  var all=base.concat(custom);
+  var ord=_getOrd('fadail_ord_'+cat,all.length);
+  _moveOrd('fadail_ord_'+cat,ord,pos,delta);
+  renderFadail(cat);
 }
 function _fadailAdd(){
+  var cat=_fadailCat||Object.keys(FADAIL)[0];
   _cmShow('إضافة فضيلة',[
     {id:'t',label:'العنوان',ph:'مثال: فضل الصيام'},
-    {id:'x',label:'النص',ph:'أدخل الحديث أو الآية'}
+    {id:'x',label:'النص',ph:'أدخل الحديث أو الآية'},
+    {id:'s',label:'المصدر',ph:'مثال: رواه البخاري'}
   ],function(){
-    var t=_cmVal('t'),x=_cmVal('x');
+    var t=_cmVal('t'),x=_cmVal('x'),s=_cmVal('s')||'مخصّص';
     if(!t||!x)return;
-    var custom=_getFadailCustom();custom.push({t:t,x:x});lsSet('custom_fadail',JSON.stringify(custom));
-    renderFadail();
+    var custom=_getFadailCustom(cat);custom.push({t:t,x:x,s:s});
+    lsSet('custom_fadail_'+cat,JSON.stringify(custom));
+    document.getElementById('fadailCatsView').innerHTML='';
+    renderFadail(cat);
   });
 }
 
