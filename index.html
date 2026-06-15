@@ -1807,6 +1807,7 @@ function go(id){
   if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times')renderTimesScreen();if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='home'){renderVotd();renderDailyCards();}
   if(id==='quran'){var _qd=todayKey(),_qk='quran_opens_'+_qd;if(!lsGet(_qk)){lsSet(_qk,'1');var _qn=+(lsGet('quran_opens')||0)+1;lsSet('quran_opens',String(_qn));if(_qn>=10)checkBadge('quran_10');}}
   if(id==='adiya'){var _ad=todayKey(),_ak='adiya_opens_'+_ad;if(!lsGet(_ak)){lsSet(_ak,'1');var _an=+(lsGet('adiya_opens')||0)+1;lsSet('adiya_opens',String(_an));if(_an>=20)checkBadge('adiya_20');}}
+  if(id==='account'){setTimeout(function(){_renderThemeBtn();_updateSubCard();},60);}
   // تحديث تبويب شريط التنقّل
   document.querySelectorAll('.bnav-tab').forEach(function(t){t.classList.remove('on');});
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
@@ -5123,5 +5124,5 @@ function _fbMerge(r){
   </div>
 </div>
 </body>
-</html>  if(id==='account'){setTimeout(function(){_renderThemeBtn();_updateSubCard();},60);}
+</html>
 
