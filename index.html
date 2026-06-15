@@ -2876,11 +2876,19 @@ if(!navigator.onLine){var _ob=document.getElementById('offlineBadge');if(_ob)_ob
 /* ===== البحث ===== */
 var QFLAT=null,SEARCH_TAB='q';
 function snorm(x){return x.replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
-function buildQFlat(){if(QFLAT)return;QFLAT=[];if(!QURAN_EMBED||!QURAN_EMBED.surahs)return;for(var s=1;s<=114;s++){var arr=QURAN_EMBED.surahs[String(s)];if(!arr)continue;for(var i=0;i<arr.length;i++){QFLAT.push({s:s,a:i+1,t:arr[i],n:snorm(arr[i])});}}}
+function buildQFlat(cb){
+  if(QFLAT){if(cb)cb();return;}
+  var fn=function(){
+    QFLAT=[];
+    if(QURAN_EMBED&&QURAN_EMBED.surahs){for(var s=1;s<=114;s++){var arr=QURAN_EMBED.surahs[String(s)];if(!arr)continue;for(var i=0;i<arr.length;i++){QFLAT.push({s:s,a:i+1,t:arr[i],n:snorm(arr[i])});}}}
+    if(cb)cb();
+  };
+  if('requestIdleCallback' in window)requestIdleCallback(fn,{timeout:3000});else setTimeout(fn,200);
+}
 function initSearch(){var inp=document.getElementById('searchInput');if(inp)inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();doSearch();}};}
 function searchTab(t){SEARCH_TAB=t;document.getElementById('tabQ').classList.toggle('on',t==='q');document.getElementById('tabH').classList.toggle('on',t==='h');document.getElementById('searchRes').innerHTML='';document.getElementById('searchNote').textContent=(t==='q')?'بحث القرآن يعمل بدون إنترنت — ابحث بأي كلمة.':'بحث الحديث من «موسوعة الدرر السنية» (يلزمه إنترنت).';}
 function doSearch(){var q=document.getElementById('searchInput').value.trim();if(q.length<2){toast('اكتب كلمتين على الأقل');return;}if(SEARCH_TAB==='q')searchQuran(q);else searchHadith(q);}
-function searchQuran(q){buildQFlat();var nq=snorm(q),res=document.getElementById('searchRes'),out=[];for(var i=0;i<QFLAT.length&&out.length<100;i++){if(QFLAT[i].n.indexOf(nq)>=0)out.push(QFLAT[i]);}if(!out.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج</div>';return;}res.innerHTML='<div class="muted" style="margin-bottom:10px">'+ar(out.length)+(out.length>=100?'+':'')+' نتيجة</div>'+out.map(function(r){return '<div class="dhcard" style="cursor:pointer" onclick="goAyah('+r.s+','+r.a+')"><div class="muted" style="color:var(--gold);margin-bottom:6px">'+nameFor(r.s)+' · آية '+ar(r.a)+'</div><div class="ayat" style="font-size:20px;line-height:2;margin:0">'+r.t+'</div></div>';}).join('');}
+function searchQuran(q){var res=document.getElementById('searchRes');if(!QFLAT){res.innerHTML='<div class="loading">يُحضَّر فهرس القرآن…</div>';}buildQFlat(function(){var nq=snorm(q),out=[];for(var i=0;i<QFLAT.length&&out.length<100;i++){if(QFLAT[i].n.indexOf(nq)>=0)out.push(QFLAT[i]);}if(!out.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج</div>';return;}res.innerHTML='<div class="muted" style="margin-bottom:10px">'+ar(out.length)+(out.length>=100?'+':'')+' نتيجة</div>'+out.map(function(r){return '<div class="dhcard" style="cursor:pointer" onclick="goAyah('+r.s+','+r.a+')"><div class="muted" style="color:var(--gold);margin-bottom:6px">'+nameFor(r.s)+' · آية '+ar(r.a)+'</div><div class="ayat" style="font-size:20px;line-height:2;margin:0">'+r.t+'</div></div>';}).join('');});}
 function goAyah(s,a){go('quran');openSurah(s,nameFor(s));setTimeout(function(){var els=document.querySelectorAll('.ayblk');if(!els.length)els=document.querySelectorAll('.ayat .a');var el=els[a-1];if(el){el.classList.add('sel');try{el.scrollIntoView({block:'center'});}catch(e){}}},300);}
 function searchHadith(q){var res=document.getElementById('searchRes');res.innerHTML='<div class="loading">جارٍ البحث في موسوعة الدرر السنية…</div>';var cb='dcb'+Date.now(),done=false;var sc=document.createElement('script');window[cb]=function(data){done=true;try{var _dp=new DOMParser();var _dd=_dp.parseFromString((data&&data.ahadith&&data.ahadith.result)||'','text/html');var hs=_dd.querySelectorAll('.hadith');if(!hs.length){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">لا نتائج — جرّب صياغة أخرى</div>';}else{var html='<div class="muted" style="margin-bottom:10px">'+ar(hs.length)+' نتيجة · المصدر: موسوعة الدرر السنية</div>';[].forEach.call(hs,function(h){var info=h.parentElement?h.parentElement.querySelector('.hadith-info'):null;html+='<div class="dhcard"><div style="line-height:2.1;font-size:17px;margin-bottom:8px">'+h.textContent.trim()+'</div>'+(info?'<div class="muted" style="font-size:13px;line-height:1.9">'+info.textContent.trim().replace(/\s+/g,' ')+'</div>':'')+'</div>';});res.innerHTML=html;}}catch(e){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر عرض النتائج</div>';}finally{try{delete window[cb];}catch(e){}if(sc.parentNode)sc.parentNode.removeChild(sc);}};sc.src='https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q)+'&callback='+cb;sc.onerror=function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر الاتصال — تأكد من الإنترنت</div>';};document.body.appendChild(sc);setTimeout(function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">انتهت المهلة — حاول مرة ثانية</div>';},13000);}
 function qpIcon(p){document.getElementById('qpPlay').innerHTML=p?PAUSE_SVG:PLAY_SVG;}
@@ -3698,6 +3706,7 @@ function enterApp(){
   updateStreak();
   updateRamadanBanner();
   checkWeeklyReport();
+  buildQFlat(); /* warm-up: build index in idle time so first search is instant */
 }
 
 /* ===== v18: أسماء الله الحسنى ===== */
