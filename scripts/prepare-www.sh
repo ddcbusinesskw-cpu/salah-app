@@ -13,6 +13,12 @@ for f in favicon.png apple-touch-icon.png icon-192.png icon-512.png icon-maskabl
   [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$ROOT/www/$f"
 done
 
+echo "→ Copying firebase/ SDK to www/"
+cp -r "$ROOT/firebase" "$ROOT/www/firebase"
+
+echo "→ Copying models/ to www/"
+cp -r "$ROOT/models" "$ROOT/www/models"
+
 echo "→ Injecting native-bridge.js into www/index.html"
 # Append script tag before </body> — only if not already present
 if ! grep -q 'native-bridge.js' "$ROOT/www/index.html"; then
