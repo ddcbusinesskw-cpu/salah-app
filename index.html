@@ -1577,6 +1577,8 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <span class="fsz" id="fontSzLabel">٢٢</span>
       </div>
       <p class="note">يؤثر على نص المصحف والأذكار والقرآن المسموع.</p>
+      <h3 style="color:var(--gold);margin:20px 0 10px">تذكير ذِكر يومي</h3>
+      <div id="reminderSection"><!-- تُملأ بـ loadCalcSettings() --></div>
       <h3 style="color:var(--gold);margin:20px 0 10px">تعديل المواقيت (دقائق)</h3>
       <div class="font-slider-row">
         <span style="font-size:13px;color:var(--muted)">-١٠</span>
@@ -2579,6 +2581,33 @@ function scheduleNoorPrayerAlerts(){
 function toggleNotifPrayer(k){
   notifPrefs[k]=!notifPrefs[k];lsSet('notif_'+k.toLowerCase(),notifPrefs[k]?'1':'0');
   renderTimesScreen();scheduleNoorPrayerAlerts();
+}
+/* ─── تذكير ذِكر يومي ─── */
+var DAILY_DHIKR=[
+  'اللهم صلِّ على محمد','الحمد لله على كل حال','فوّضت أمري إلى الله',
+  'إن الله مع الصابرين','سبحان الله وبحمده','الله أكبر كبيراً',
+  'لا إله إلا الله','حسبي الله ونعم الوكيل','لا حول ولا قوة إلا بالله',
+  'سبحان الله العظيم','أستغفر الله وأتوب إليه','توكّلت على الله',
+  'اللهم أعِنّي على ذِكرك وشُكرك','يا مقلّب القلوب ثبّت قلبي على دينك'
+];
+var reminderOn=false;try{reminderOn=lsGet('reminder_on')==='1';}catch(e){}
+var reminderTime='08:00';try{var _rt2=lsGet('reminder_time');if(_rt2)reminderTime=_rt2;}catch(e){}
+function _todayDhikr(){var d=Math.floor(Date.now()/86400000);return DAILY_DHIKR[d%DAILY_DHIKR.length];}
+function scheduleReminder(){
+  if(!reminderOn){if(typeof window.cancelDhikrReminder==='function')window.cancelDhikrReminder();return;}
+  if(typeof window.scheduleDhikrReminder==='function'){
+    var p=reminderTime.split(':');window.scheduleDhikrReminder(+p[0],+p[1],DAILY_DHIKR);
+  }
+}
+function toggleReminder(){
+  reminderOn=!reminderOn;lsSet('reminder_on',reminderOn?'1':'0');
+  scheduleReminder();loadCalcSettings();
+  toast(reminderOn?'التذكير اليومي مفعّل':'التذكير اليومي متوقف',reminderOn?'success':'warning');
+}
+function setReminderTime(v){
+  if(!v)return;reminderTime=v;lsSet('reminder_time',v);
+  scheduleReminder();loadCalcSettings();
+  toast('وقت التذكير: '+v);
 }
 // تعديل المواقيت يدوياً
 var timeOffset=+(lsGet('time_offset')||0);
@@ -4023,6 +4052,27 @@ function loadCalcSettings(){
   var ov=+(lsGet('time_offset')||0);
   var os2=document.getElementById('offsetSlider');if(os2)os2.value=ov;
   var ol2=document.getElementById('offsetLabel');if(ol2)ol2.textContent=(ov>0?'+':'')+ar(ov)+' د';
+  /* تذكير الذِكر اليومي */
+  var rs=document.getElementById('reminderSection');
+  if(rs){
+    var bs2='border:0;font-family:inherit;font-weight:700;font-size:13px;padding:7px 16px;border-radius:999px;cursor:pointer;';
+    var todayTxt=_todayDhikr();
+    rs.innerHTML=
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      +'<button onclick="toggleReminder()" style="'+bs2+'background:'+(reminderOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.12)')+';color:'+(reminderOn?'var(--green)':'var(--gold)')+'">'+( reminderOn?'مفعّل ✓':'متوقف')+'</button>'
+      +'<span style="font-size:13px;color:var(--muted);flex:1">إشعار يومي على شاشة القفل</span>'
+      +'</div>'
+      +(reminderOn
+        ?'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+          +'<span style="font-size:13px;color:var(--muted)">الوقت:</span>'
+          +'<input type="time" value="'+reminderTime+'" onchange="setReminderTime(this.value)" '
+          +'style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;'
+          +'color:var(--text);font-family:inherit;font-size:14px;flex:1">'
+          +'</div>'
+          +'<p class="note" style="margin:0 0 4px">ذِكر اليوم: <b style="color:var(--gold)">'+todayTxt+'</b><br>'
+          +'<span style="font-size:11px">يتغيّر النص كل يوم من قائمة 14 ذِكراً.</span></p>'
+        :'<p class="note" style="margin:0">فعّل ليظهر ذِكر مختلف كل يوم على شاشة قفل هاتفك.</p>');
+  }
 }
 function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
 function setMadhhab(n){lsSet('calc_madhhab',String(n));var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث المذهب');}
@@ -5467,6 +5517,8 @@ function _fbReadLocal(){
       notif_asr:ls.getItem('notif_asr')||null,
       notif_maghrib:ls.getItem('notif_maghrib')||null,
       notif_isha:ls.getItem('notif_isha')||null,
+      reminder_on:ls.getItem('reminder_on')||null,
+      reminder_time:ls.getItem('reminder_time')||null,
       time_offset:ls.getItem('time_offset')||null,
       updatedAt:now
     },
@@ -5619,7 +5671,7 @@ function _fbMerge(r){
       var lUpdated=parseInt(localStorage.getItem('settings_updatedAt'))||0;
       var rUpdated=rs.updatedAt||0;
       var preferRemote=rUpdated>lUpdated;
-      ['calc_method','calc_madhhab','rak_mode','rak_hap','adhanOn','adhanIdx','notifOn','notif_fajr','notif_dhuhr','notif_asr','notif_maghrib','notif_isha','time_offset'].forEach(function(k){
+      ['calc_method','calc_madhhab','rak_mode','rak_hap','adhanOn','adhanIdx','notifOn','notif_fajr','notif_dhuhr','notif_asr','notif_maghrib','notif_isha','reminder_on','reminder_time','time_offset'].forEach(function(k){
         var lv=localStorage.getItem(k);
         var rv=rs[k];
         if(rv&&rv!=='null'&&(!lv||lv==='null'||preferRemote)) _ls(k,rv);
