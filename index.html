@@ -2072,7 +2072,7 @@ function mem2ToggleRec(){
   };
   MEM2.rec.onerror=function(ev){
     var msgs={
-      'not-allowed':'لم تُمنح صلاحية الميكروفون',
+      'not-allowed':'لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن',
       'service-not-allowed':'يلزم اتصال آمن (HTTPS) للتعرّف الصوتي',
       'audio-capture':'لم يُعثر على ميكروفون',
       'network':'يلزم إنترنت للتعرّف الصوتي'
@@ -2085,14 +2085,32 @@ function mem2ToggleRec(){
   MEM2.rec.onend=function(){
     if(MEM2.recActive&&MEM2.rec){try{MEM2.rec.start();}catch(e){_mem2StopRec();}}
   };
-  try{
-    MEM2.rec.start();
-    MEM2.recActive=true;
-    toast('اقرأ المقطع بصوت واضح…');
-    _mem2UpdateBar();
-  }catch(e){
-    toast('تعذّر بدء التعرّف — حاول مجدداً','error');
-    _mem2StopRec();
+  function _doStart(){
+    try{
+      MEM2.rec.start();
+      MEM2.recActive=true;
+      toast('اقرأ المقطع بصوت واضح…');
+      _mem2UpdateBar();
+    }catch(e){
+      toast('تعذّر بدء التعرّف — حاول مجدداً','error');
+      _mem2StopRec();
+    }
+  }
+  /* طلب إذن الميكروفون صراحةً عبر getUserMedia — يُظهر نافذة المتصفح دائماً
+     عند الحالة "prompt". بعد المنح نُطلق المسار ونبدأ SR مباشرة. */
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true,video:false})
+      .then(function(stream){stream.getTracks().forEach(function(t){t.stop();});_doStart();})
+      .catch(function(e){
+        if(e&&(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'||e.name==='SecurityError')){
+          toast('لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن','error');
+          _mem2StopRec();
+        }else{
+          _doStart(); // خطأ آخر (لا ميكروفون) — دع SR يتعامل معه
+        }
+      });
+  }else{
+    _doStart();
   }
 }
 function _mem2StopAndEval(){
