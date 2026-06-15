@@ -1,4 +1,4 @@
-const CACHE='mujaddid-v43';
+const CACHE='mujaddid-v44';
 const CORE=[
   './','./index.html','./manifest.json',
   './favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png','./icon-maskable-512.png',
@@ -20,7 +20,7 @@ self.addEventListener('fetch',e=>{
       return resp;
     }).catch(()=>{
       // Only fall back to index.html for HTML navigation requests — never for scripts/assets
-      if(req.destination==='document'||req.headers.get('accept')||''.includes('text/html')){
+      if(req.destination==='document'||(req.headers.get('accept')||'').includes('text/html')){
         return caches.match('./index.html');
       }
       return new Response('',{status:503,statusText:'Offline'});
