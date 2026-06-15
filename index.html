@@ -551,6 +551,24 @@
 .kt-pages-in{width:64px;text-align:center;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--text);font:inherit;font-size:20px;border-radius:10px;padding:8px 0;}
 .streak-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.3);border-radius:20px;padding:4px 10px;font-size:13px;color:#ff8c00;margin-right:8px;}
 .badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:4px 0;}
+/* ─── Achievement System ─── */
+.achv-tabs{display:flex;gap:8px;margin-bottom:18px;}
+.achv-tab{flex:1;padding:10px 6px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;}
+.achv-tab.active{border-color:var(--gold);color:var(--gold);background:rgba(234,204,126,.1);}
+.achv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+.achv-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px 12px;position:relative;overflow:visible;transition:.25s;}
+.achv-card.done{border-color:rgba(234,204,126,.45);background:rgba(234,204,126,.03);}
+.achv-crown{position:absolute;top:-9px;inset-inline-end:-4px;font-size:17px;filter:drop-shadow(0 1px 4px rgba(234,204,126,.6));}
+.achv-icon{font-size:28px;margin-bottom:6px;}
+.achv-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.3;}
+.achv-bar-wrap{background:rgba(255,255,255,.06);border-radius:6px;height:7px;overflow:hidden;margin-bottom:5px;}
+.achv-bar{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.16,1,.3,1);}
+.achv-frac{font-size:11px;color:var(--muted);}
+.achv-summary-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;}
+.achv-summary-pct{font-size:38px;font-weight:800;color:var(--gold);min-width:72px;}
+.achv-share-btn{width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(234,204,126,.3);background:rgba(234,204,126,.07);color:var(--gold);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;transition:.15s;}
+.achv-share-btn:active{opacity:.7;}
+.achv-legacy-head{font-size:12px;color:var(--muted);margin:0 0 10px;font-weight:600;letter-spacing:.5px;}
 .badge-card{background:var(--card);border-radius:14px;padding:14px 8px;text-align:center;border:1px solid var(--line);}
 .badge-card.earned{border-color:var(--gold);background:rgba(234,204,126,.12);}
 .badge-card.earned .badge-icon{opacity:1;filter:none;}
@@ -1541,8 +1559,22 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
   <!-- ===== شاشة الشارات ===== -->
   <div id="badges" class="screen">
-    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الإنجازات والشارات</h2></div>
-    <div class="pad"><div class="badges-grid" id="badgesGrid"></div></div>
+    <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>الإنجازات</h2></div>
+    <div class="pad">
+      <div class="achv-tabs">
+        <button class="achv-tab active" id="achvTab_daily"  onclick="achvTab('daily')">يومي</button>
+        <button class="achv-tab"        id="achvTab_weekly" onclick="achvTab('weekly')">أسبوعي</button>
+        <button class="achv-tab"        id="achvTab_monthly" onclick="achvTab('monthly')">شهري</button>
+      </div>
+      <div id="achvSummary"></div>
+      <div id="achvGrid" class="achv-grid"></div>
+      <button class="achv-share-btn" onclick="achvShare()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        مشاركة إنجازاتك
+      </button>
+      <div class="achv-legacy-head">الشارات المكتسبة</div>
+      <div class="badges-grid" id="badgesGrid"></div>
+    </div>
   </div>
 
   <!-- ===== شاشة رمضان ===== -->
@@ -2168,6 +2200,7 @@ function mem2Back(){
 function mem2Finish(){
   if(MEM2.recActive)_mem2StopRec();
   checkBadge('memorize_done');
+  lsSet('tasmee_done_'+todayKey(),'1');_achvSaveSnap();
   document.getElementById('mem2SessionPane').style.display='none';
   document.getElementById('mem2Bar').style.display='none';
   document.getElementById('mem2RevealBtn').style.display='none';
@@ -3361,6 +3394,8 @@ function tap(){
   if(navigator.vibrate)try{navigator.vibrate(dCount%item.m===0?[40,30,40]:18);}catch(e){}
   renderTasbih();
   var _tt=+(lsGet('tasbih_total')||0)+1;lsSet('tasbih_total',String(_tt));
+  var _td=+(lsGet('tasbih_today_'+todayKey())||0)+1;lsSet('tasbih_today_'+todayKey(),String(_td));
+  if(_td%10===0)_achvSaveSnap();
   if(_tt===1000)checkBadge('tasbih_1000');if(_tt===3000)checkBadge('tasbih_3000');
 }
 function tasbihReset(){dCount=0;renderTasbih();}
@@ -3778,6 +3813,7 @@ function khatmahSaveToday(){
   if(newPagesRead>(data.pagesRead||0))data.pagesRead=newPagesRead;
   _khatmahCheckComplete(data);
   lsSet('khatmah_data',JSON.stringify(data));
+  lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
   loadKhatmah();
 }
 function khatmahReadToday(){
@@ -3787,6 +3823,7 @@ function khatmahReadToday(){
   data.pagesRead=Math.min(604,(data.pagesRead||0)+pagesDay);
   _khatmahCheckComplete(data);
   lsSet('khatmah_data',JSON.stringify(data));
+  lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
   loadKhatmah();
 }
 function resetKhatmah(){lsSet('khatmah_data','');loadKhatmah();}
@@ -3836,21 +3873,184 @@ function checkBadge(id){
   var b=BADGES.filter(function(x){return x.id===id;})[0];
   if(b)setTimeout(function(){toast(b.icon+' شارة جديدة: '+b.name+' 🎉');},300);
 }
+/* ─── نظام الإنجازات ─── */
+var ACHV_DEFS=[
+  {id:'prayers',icon:'🕌',name:'الصلوات الخمس',max_d:5},
+  {id:'morning',icon:'🌅',name:'أذكار الصباح',max_d:1},
+  {id:'evening',icon:'🌆',name:'أذكار المساء',max_d:1},
+  {id:'khatmah',icon:'📖',name:'الختمة',max_d:1},
+  {id:'tasmee', icon:'🧠',name:'التسميع',max_d:1},
+  {id:'tasbih', icon:'📿',name:'التسبيح',max_d:100}
+];
+var _achvTabSel='daily';
+function achvTab(t){
+  _achvTabSel=t;
+  ['daily','weekly','monthly'].forEach(function(x){var b=document.getElementById('achvTab_'+x);if(b)b.classList.toggle('active',x===t);});
+  loadBadges();
+}
+function _achvAdhkarFrac(cat){
+  var base=(typeof ADHKAR!=='undefined'&&ADHKAR[cat])||[];
+  var custom=_getAdhkarCustom(cat);
+  var all=base.concat(custom.map(function(c){return{r:c.r||1};}));
+  if(!all.length)return 0;
+  var prog=_getAdhkarProg(cat,all.length);
+  var need=0,done=0;
+  all.forEach(function(d,i){need+=d.r;var left=(prog[i]!==null&&prog[i]!==undefined)?prog[i]:d.r;done+=d.r-left;});
+  return need>0?done/need:0;
+}
+function _achvTodayVals(){
+  var ds=getDailyState(),t=todayKey();
+  return{
+    prayers:['Fajr','Dhuhr','Asr','Maghrib','Isha'].filter(function(k){return!!ds['prayer_'+k];}).length,
+    morning:_achvAdhkarFrac('صباح'),
+    evening:_achvAdhkarFrac('مساء'),
+    khatmah:lsGet('khatmah_today_'+t)==='1'?1:0,
+    tasmee:lsGet('tasmee_done_'+t)==='1'?1:0,
+    tasbih:+(lsGet('tasbih_today_'+t)||0)
+  };
+}
+function _achvSaveSnap(){try{lsSet('achv_snap_'+todayKey(),JSON.stringify(_achvTodayVals()));}catch(e){}}
+function _achvDayKey(ago){var d=new Date(Date.now()-ago*86400000);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function _achvGetSnap(dk){
+  if(dk===todayKey())return _achvTodayVals();
+  var r=lsGet('achv_snap_'+dk);if(r){try{return JSON.parse(r);}catch(e){}}
+  return{prayers:0,morning:0,evening:0,khatmah:0,tasmee:0,tasbih:0};
+}
+function _achvAgg(dayOffsets){
+  var acc={prayers:0,morning:0,evening:0,khatmah:0,tasmee:0,tasbih:0};
+  dayOffsets.forEach(function(a){
+    var s=_achvGetSnap(_achvDayKey(a));
+    acc.prayers+=s.prayers;acc.morning+=s.morning;acc.evening+=s.evening;
+    acc.khatmah+=s.khatmah;acc.tasmee+=s.tasmee;acc.tasbih+=Math.min(s.tasbih,100);
+  });
+  var n=dayOffsets.length;
+  return{v:acc,max:{prayers:n*5,morning:n,evening:n,khatmah:n,tasmee:n,tasbih:n*100},n:n};
+}
+function _achvCurrentData(){
+  if(_achvTabSel==='daily'){
+    var v=_achvTodayVals();
+    return{v:v,max:{prayers:5,morning:1,evening:1,khatmah:1,tasmee:1,tasbih:100},n:1};
+  }
+  if(_achvTabSel==='weekly'){
+    return _achvAgg([0,1,2,3,4,5,6]);
+  }
+  var now=new Date();var de=now.getDate();var offs=[];for(var i=0;i<de;i++)offs.push(i);
+  return _achvAgg(offs);
+}
+function _achvFmtVal(v,mx,id){
+  if(id==='prayers')return ar(Math.round(v))+' / '+ar(mx);
+  if(id==='tasbih')return ar(Math.min(Math.round(v),mx))+' / '+ar(mx);
+  if(mx===0)return '٠٪';
+  return ar(Math.min(100,Math.round(v/mx*100)))+'٪';
+}
 function loadBadges(){
+  /* save today's snapshot whenever the user views the screen */
+  _achvSaveSnap();
+  var screen=document.getElementById('badges');if(!screen)return;
+  var data=_achvCurrentData();var v=data.v,mx=data.max;
+  /* overall % */
+  var total=0;
+  ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
+  var ovPct=Math.round(total/ACHV_DEFS.length*100);
+  var period=_achvTabSel==='daily'?'اليوم':_achvTabSel==='weekly'?'هذا الأسبوع':'هذا الشهر';
+  var medal=ovPct>=100?'🌟':ovPct>=75?'⭐':ovPct>=50?'🏅':'🎯';
+  var subTxt='';
+  try{subTxt=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});}catch(e){}
+  var sumEl=document.getElementById('achvSummary');
+  if(sumEl)sumEl.innerHTML='<div class="achv-summary-box">'
+    +'<div class="achv-summary-pct">'+ar(ovPct)+'٪</div>'
+    +'<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px">إنجاز '+period+'</div>'
+    +(subTxt?'<div style="font-size:11px;color:var(--muted)">'+subTxt+'</div>':'')
+    +'</div><div style="font-size:30px">'+medal+'</div></div>';
+  /* achievement cards */
+  var grid=document.getElementById('achvGrid');
+  if(grid)grid.innerHTML=ACHV_DEFS.map(function(d){
+    var val=v[d.id]||0;var mxv=mx[d.id]||1;
+    var pct=Math.min(100,Math.round(val/mxv*100));
+    var done=pct>=100;
+    var barCol=done?'var(--gold)':pct>=60?'var(--green)':'rgba(78,202,168,.55)';
+    return '<div class="achv-card'+(done?' done':'')+'">'+
+      (done?'<div class="achv-crown">👑</div>':'')+
+      '<div class="achv-icon">'+d.icon+'</div>'+
+      '<div class="achv-name">'+d.name+'</div>'+
+      '<div class="achv-bar-wrap"><div class="achv-bar" style="width:'+pct+'%;background:'+barCol+'"></div></div>'+
+      '<div class="achv-frac">'+_achvFmtVal(val,mxv,d.id)+'</div></div>';
+  }).join('');
+  /* legacy badges */
   var g=document.getElementById('badgesGrid');if(!g)return;
   var earned=[];try{var e=lsGet('badges_earned');if(e)earned=JSON.parse(e);}catch(ex){}
-  var header='<div style="text-align:center;padding:8px 0 16px;color:var(--muted);font-size:13px;">'
-    +(earned.length===0
-      ? '<div style="font-size:36px;margin-bottom:10px;opacity:.5">🏅</div><div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:6px">ابدأ رحلتك</div><div>أكمل صلواتك وأذكارك يومياً لتحقيق الشارات</div>'
-      : '<span style="color:var(--gold);font-weight:700;font-size:16px">'+earned.length+'</span> / '+BADGES.length+' شارة محقَّقة')
-    +'</div>';
-  g.innerHTML=header+BADGES.map(function(b){
+  g.innerHTML=BADGES.map(function(b){
     var ok=earned.indexOf(b.id)>-1;
     return '<div class="badge-card'+(ok?' earned':'')+'">'+
       '<div class="badge-icon">'+b.icon+'</div>'+
       '<div class="badge-name">'+b.name+'</div>'+
       '<div class="badge-desc">'+b.desc+'</div></div>';
   }).join('');
+}
+/* ─── مشاركة الإنجازات ─── */
+function _rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+function achvShare(){
+  var data=_achvCurrentData();var v=data.v,mx=data.max;
+  var c=document.createElement('canvas');c.width=1080;c.height=1200;
+  var ctx=c.getContext('2d');
+  /* bg */
+  ctx.fillStyle='#051a16';ctx.fillRect(0,0,1080,1200);
+  /* border */
+  ctx.strokeStyle='rgba(234,204,126,.22)';ctx.lineWidth=3;_rrect(ctx,24,24,1032,1152,28);ctx.stroke();
+  /* top band */
+  var grad=ctx.createLinearGradient(0,0,0,200);
+  grad.addColorStop(0,'rgba(234,204,126,.08)');grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=grad;ctx.fillRect(24,24,1032,180);
+  /* app name */
+  ctx.fillStyle='#eacc7e';ctx.font='bold 64px serif';ctx.textAlign='center';ctx.direction='rtl';
+  ctx.fillText('نور',540,112);
+  /* period */
+  var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
+  ctx.fillStyle='#eaf3ee';ctx.font='bold 32px sans-serif';ctx.fillText(period,540,160);
+  /* date */
+  var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e){}
+  ctx.fillStyle='rgba(234,204,126,.55)';ctx.font='22px sans-serif';ctx.fillText(dateStr,540,196);
+  /* separator */
+  ctx.strokeStyle='rgba(234,204,126,.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(100,218);ctx.lineTo(980,218);ctx.stroke();
+  /* overall pct */
+  var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
+  var ovPct=Math.round(total/ACHV_DEFS.length*100);
+  ctx.fillStyle='#eacc7e';ctx.font='bold 90px sans-serif';ctx.fillText(ovPct+'%',540,320);
+  ctx.fillStyle='rgba(234,204,126,.5)';ctx.font='24px sans-serif';ctx.fillText('إنجاز إجمالي',540,358);
+  /* cards: 2×3 grid */
+  var cols=2,rows=3,padX=60,startY=400,gX=30,gY=24;
+  var cW=(1080-padX*2-gX)/cols,cH=(1200-startY-80-gY*2)/rows;
+  ACHV_DEFS.forEach(function(d,i){
+    var col=i%cols,row=Math.floor(i/cols);
+    var x=padX+col*(cW+gX),y=startY+row*(cH+gY);
+    var val=v[d.id]||0;var mxv=mx[d.id]||1;
+    var pct=Math.min(1,val/mxv);var done=pct>=1;
+    /* card bg */
+    ctx.fillStyle=done?'rgba(234,204,126,.07)':'rgba(12,46,43,.85)';
+    _rrect(ctx,x,y,cW,cH,18);ctx.fill();
+    if(done){ctx.strokeStyle='rgba(234,204,126,.4)';ctx.lineWidth=1.5;_rrect(ctx,x,y,cW,cH,18);ctx.stroke();}
+    /* icon */
+    ctx.font=(done?'30px':'28px')+' serif';ctx.textAlign='center';ctx.fillStyle='#eaf3ee';
+    ctx.fillText(d.icon+(done?' 👑':''),x+cW/2,y+46);
+    /* name */
+    ctx.font='bold 20px sans-serif';ctx.fillStyle=done?'#eacc7e':'#eaf3ee';
+    ctx.fillText(d.name,x+cW/2,y+80);
+    /* bar bg */
+    ctx.fillStyle='rgba(255,255,255,.07)';_rrect(ctx,x+20,y+92,cW-40,10,5);ctx.fill();
+    /* bar fill */
+    if(pct>0){ctx.fillStyle=done?'#eacc7e':'#4ecaa8';_rrect(ctx,x+20,y+92,(cW-40)*pct,10,5);ctx.fill();}
+    /* pct label */
+    ctx.font='bold 16px sans-serif';ctx.fillStyle='rgba(234,204,126,.75)';
+    ctx.fillText(Math.round(pct*100)+'%',x+cW/2,y+122);
+  });
+  /* footer */
+  ctx.fillStyle='rgba(234,204,126,.35)';ctx.font='18px sans-serif';ctx.fillText('تطبيق نور · للقرآن والذِكر والصلاة',540,1168);
+  c.toBlob(function(blob){
+    var f=new File([blob],'noor-achievements.png',{type:'image/png'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){
+      navigator.share({title:'إنجازاتي في نور',files:[f]}).catch(function(){});
+    }else{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='noor-achievements.png';a.click();}
+  },'image/png');
 }
 
 /* ===== v18: Ramadan Mode ===== */
@@ -5465,12 +5665,11 @@ function _fbReadLocal(){
   var ls=localStorage;
   var now=Date.now();
 
-  // Hifz prefix keys (q_s_N, allgoal_N)
+  // Hifz prefix keys (q_s_N, allgoal_N) + achv snapshot keys
   var hifzKeys={};
   for(var i=0;i<ls.length;i++){
     var k=ls.key(i);
-    if(k&&(k.slice(0,4)==='q_s_'||k.slice(0,8)==='allgoal_')){
-      // Firebase key: replace chars not allowed with __
+    if(k&&(k.slice(0,4)==='q_s_'||k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today')){
       var fk=k.replace(/[.#$/[\]]/g,'_');
       hifzKeys[fk]=ls.getItem(k);
     }
