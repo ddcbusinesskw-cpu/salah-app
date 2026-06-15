@@ -59,5 +59,9 @@
 	<!-- Motion: orientation mode in rakaat counter -->
 	<key>NSMotionUsageDescription</key>
 	<string>يستخدم عدّاد الركعات مستشعر الحركة للكشف عن الأوضاع أثناء الصلاة.</string>
+
+	<!-- Microphone: tasmee (memorization test) speech recognition — processed on-device -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>يُستخدم الميكروفون لميزة تسميع الحفظ، والمعالجة تتم على الجهاز بدون تسجيل أو رفع.</string>
 </dict>
 </plist>

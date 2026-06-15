@@ -40,9 +40,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Camera: rakaat counter brightness detection -->
+    <!-- Camera: rakaat counter brightness detection + salah tracking -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Microphone: tasmee (memorization test) speech recognition -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Proximity sensor: rakaat counter prox mode -->
     <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
@@ -56,7 +59,4 @@
 
     <!-- Vibration for haptics -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- Keeps screen on during prayer (rakaat counter) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 </manifest>
