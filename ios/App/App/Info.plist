@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>نور</string>
+        <string>المجدّد</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -48,9 +48,9 @@
 
 	<!-- Geolocation: prayer times + Qibla direction -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>يستخدم تطبيق نور موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
+	<string>يستخدم تطبيق المجدّد موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>يستخدم تطبيق نور موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
+	<string>يستخدم تطبيق المجدّد موقعك لحساب مواقيت الصلاة واتجاه القبلة.</string>
 
 	<!-- Camera: rakaat counter brightness detection -->
 	<key>NSCameraUsageDescription</key>

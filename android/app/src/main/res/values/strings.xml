@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">نور</string>
-    <string name="title_activity_main">نور</string>
+    <string name="app_name">المجدّد</string>
+    <string name="title_activity_main">المجدّد</string>
     <string name="package_name">com.ddcbusiness.noor</string>
     <string name="custom_url_scheme">com.ddcbusiness.noor</string>
     <!-- Facebook SDK placeholder — classes needed at runtime; we don't use Facebook login -->

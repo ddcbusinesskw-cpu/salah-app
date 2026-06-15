@@ -204,7 +204,7 @@
             if (dt <= now) continue;
             notifs.push({
               id:        3000 + notifs.length,
-              title:     'نور · ذِكر',
+              title:     'المجدّد · ذِكر',
               body:      dhikrList[idx++ % dhikrList.length],
               schedule:  { at: dt, allowWhileIdle: true },
               channelId: 'reminder',
