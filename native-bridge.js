@@ -119,51 +119,37 @@
 
     /* ════════════════════════════════════════════
        4. Local Notifications
-          - قناة 'adhan'   : صوت adhan_alert.wav، أولوية عالية
-          - قناة 'reminder': تذكير ذِكر يومي، صوت افتراضي هادئ
-          - scheduleNoorNotifications / scheduleAdhanAlerts
-          - scheduleDhikrReminder(h, m, list)  / cancelDhikrReminder()
+          - قناة 'adhan'   : صوت adhan_alert.wav، أولوية عالية (IDs 2000‑2019)
+          - قناة 'reminder': ذِكر ساعي هادئ، بدون صوت (IDs 3000‑3199)
     ════════════════════════════════════════════ */
     if (LocalNotif) {
 
-      /* قناة الأذان */
+      /* إنشاء القنوات */
       if (LocalNotif.createChannel) {
         LocalNotif.createChannel({
-          id:          'adhan',
-          name:        'أذان الصلاة',
+          id: 'adhan', name: 'أذان الصلاة',
           description: 'تنبيه عند دخول وقت الصلاة',
-          importance:  5,
-          sound:       'adhan_alert.wav',
-          vibration:   true,
-          visibility:  1
+          importance: 5, sound: 'adhan_alert.wav', vibration: true, visibility: 1
         }).catch(function () {});
 
-        /* قناة التذكير اليومي — هادئة (importance=3، صوت افتراضي) */
         LocalNotif.createChannel({
-          id:          'reminder',
-          name:        'تذكير ذِكر يومي',
-          description: 'تذكير بذِكر من أذكار الصباح والمساء',
-          importance:  3,
-          vibration:   false,
-          visibility:  1
+          id: 'reminder', name: 'تذكير ذِكر',
+          description: 'ذِكر ساعي خفيف على شاشة القفل',
+          importance: 3, vibration: false, visibility: 1
         }).catch(function () {});
       }
 
-      /* طلب الإذن — يُعيد جدولة كل التنبيهات فور المنح */
+      /* طلب الإذن — يُعيد جدولة الصلاة والذِكر فور المنح */
       LocalNotif.requestPermissions().then(function (r) {
         window._nativeNotifGranted = r.display === 'granted';
         if (window._nativeNotifGranted) {
-          if (typeof window.scheduleNoorPrayerAlerts === 'function') {
-            window.scheduleNoorPrayerAlerts();
-          }
-          if (typeof window.scheduleReminder === 'function') {
-            window.scheduleReminder();
-          }
+          if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
+          if (typeof window.scheduleHourlyDhikr === 'function') window.scheduleHourlyDhikr();
         }
       });
 
       /**
-       * scheduleNoorNotifications(times)
+       * scheduleNoorNotifications(times) — لإشعارات الأذان
        * times: [{ id, title, body, date }]
        */
       window.scheduleNoorNotifications = function (times) {
@@ -172,83 +158,67 @@
         LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
         var notifications = times.map(function (t) {
           return {
-            id:        t.id,
-            title:     t.title,
-            body:      t.body,
-            schedule:  { at: new Date(t.date), allowWhileIdle: true },
-            channelId: 'adhan',
-            sound:     'adhan_alert.wav',
-            smallIcon: 'ic_stat_noor',
-            iconColor: '#3fae8e'
+            id: t.id, title: t.title, body: t.body,
+            schedule: { at: new Date(t.date), allowWhileIdle: true },
+            channelId: 'adhan', sound: 'adhan_alert.wav',
+            smallIcon: 'ic_stat_noor', iconColor: '#3fae8e'
           };
         });
         LocalNotif.schedule({ notifications: notifications }).catch(function () {});
       };
 
-      /**
-       * scheduleAdhanAlerts(todayMap, tomorrowMap)
-       * todayMap/tomorrowMap: { fajr:Date, dhuhr:Date, asr:Date, maghrib:Date, isha:Date }
-       * ضع في الـ map الصلوات المُفعَّلة فقط.
-       */
+      /* scheduleAdhanAlerts / scheduleTodayPrayers */
       var _ADHAN_LABELS = { fajr:'الفجر', dhuhr:'الظهر', asr:'العصر', maghrib:'المغرب', isha:'العشاء' };
       var _ADHAN_KEYS   = ['fajr','dhuhr','asr','maghrib','isha'];
       window.scheduleAdhanAlerts = function (todayMap, tomorrowMap) {
-        var now = new Date();
-        var notifs = [];
+        var now = new Date(), notifs = [];
         _ADHAN_KEYS.forEach(function (k, i) {
-          if (todayMap && todayMap[k] && new Date(todayMap[k]) > now) {
+          if (todayMap && todayMap[k] && new Date(todayMap[k]) > now)
             notifs.push({ id: 2000 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: todayMap[k] });
-          }
-          if (tomorrowMap && tomorrowMap[k] && new Date(tomorrowMap[k]) > now) {
+          if (tomorrowMap && tomorrowMap[k] && new Date(tomorrowMap[k]) > now)
             notifs.push({ id: 2010 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: tomorrowMap[k] });
-          }
         });
         if (notifs.length) window.scheduleNoorNotifications(notifs);
       };
-
-      /* backwards-compatible helper */
-      window.scheduleTodayPrayers = function (prayerMap) {
-        window.scheduleAdhanAlerts(prayerMap, null);
-      };
+      window.scheduleTodayPrayers = function (prayerMap) { window.scheduleAdhanAlerts(prayerMap, null); };
 
       /**
-       * scheduleDhikrReminder(hour, min, dhikrList)
-       * يُجدوِل 30 إشعاراً يومياً (IDs 3000-3029)، كل يوم ذِكر مختلف.
+       * _nativeHourlyDhikr(dhikrList)
+       * يُجدِّل 48 إشعاراً ساعياً (IDs 3000‑3199) ضمن ساعات 7 ص–11 م
+       * يستخدم قناة 'reminder' الهادئة.
        */
-      window.scheduleDhikrReminder = function (hour, min, dhikrList) {
-        if (!window._nativeNotifGranted) return;
-        var cancelIds = [];
-        for (var ci = 0; ci < 30; ci++) cancelIds.push({ id: 3000 + ci });
-        LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
-        var now = new Date();
-        var notifs = [];
-        for (var d = 0; d < 30; d++) {
-          var date = new Date();
-          date.setDate(date.getDate() + d);
-          date.setHours(hour, min, 0, 0);
-          if (date <= now) continue;
-          var dayIdx = Math.floor(date.getTime() / 86400000);
-          var dhikr = dhikrList[dayIdx % dhikrList.length];
-          notifs.push({
-            id:        3000 + d,
-            title:     '🤲 ' + dhikr,
-            body:      'تذكير يومي · نور',
-            schedule:  { at: date, allowWhileIdle: true },
-            channelId: 'reminder',
-            smallIcon: 'ic_stat_noor',
-            iconColor: '#3fae8e'
-          });
-        }
-        if (notifs.length) {
-          LocalNotif.schedule({ notifications: notifs }).catch(function () {});
-        }
+      window._cancelNativeHourlyDhikr = function () {
+        var ids = [];
+        for (var i = 3000; i < 3200; i++) ids.push({ id: i });
+        LocalNotif.cancel({ notifications: ids }).catch(function () {});
       };
 
-      /** cancelDhikrReminder() — يُلغي كل تذكيرات الذِكر */
-      window.cancelDhikrReminder = function () {
+      window._nativeHourlyDhikr = function (dhikrList) {
+        if (!window._nativeNotifGranted || !dhikrList || !dhikrList.length) return;
+        var now = new Date(), notifs = [], idx = 0;
+        outerDhikr: for (var d = 0; d < 4; d++) {
+          for (var h = 7; h <= 22; h++) {
+            var dt = new Date(now);
+            dt.setDate(dt.getDate() + d);
+            dt.setHours(h, 0, 0, 0);
+            if (dt <= now) continue;
+            notifs.push({
+              id:        3000 + notifs.length,
+              title:     'نور · ذِكر',
+              body:      dhikrList[idx++ % dhikrList.length],
+              schedule:  { at: dt, allowWhileIdle: true },
+              channelId: 'reminder',
+              smallIcon: 'ic_stat_noor',
+              iconColor: '#3fae8e'
+            });
+            if (notifs.length >= 48) break outerDhikr;
+          }
+        }
+        if (!notifs.length) return;
         var cancelIds = [];
-        for (var ci = 0; ci < 30; ci++) cancelIds.push({ id: 3000 + ci });
+        for (var ci = 3000; ci < 3200; ci++) cancelIds.push({ id: ci });
         LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
+        LocalNotif.schedule({ notifications: notifs }).catch(function (e) { console.warn('[NoorDhikr]', e); });
       };
     }
 

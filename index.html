@@ -2607,23 +2607,27 @@ var DAILY_DHIKR=[
   'اللهم أعِنّي على ذِكرك وشُكرك','يا مقلّب القلوب ثبّت قلبي على دينك'
 ];
 var reminderOn=false;try{reminderOn=lsGet('reminder_on')==='1';}catch(e){}
-var reminderTime='08:00';try{var _rt2=lsGet('reminder_time');if(_rt2)reminderTime=_rt2;}catch(e){}
-function _todayDhikr(){var d=Math.floor(Date.now()/86400000);return DAILY_DHIKR[d%DAILY_DHIKR.length];}
-function scheduleReminder(){
-  if(!reminderOn){if(typeof window.cancelDhikrReminder==='function')window.cancelDhikrReminder();return;}
-  if(typeof window.scheduleDhikrReminder==='function'){
-    var p=reminderTime.split(':');window.scheduleDhikrReminder(+p[0],+p[1],DAILY_DHIKR);
-  }
+/* ─── ذِكر ساعي — delegates to native bridge ─── */
+function cancelHourlyDhikr(){
+  if(typeof window._cancelNativeHourlyDhikr==='function')window._cancelNativeHourlyDhikr();
+}
+function scheduleHourlyDhikr(){
+  if(!reminderOn){cancelHourlyDhikr();return;}
+  if(typeof window._nativeHourlyDhikr==='function')window._nativeHourlyDhikr(DAILY_DHIKR);
 }
 function toggleReminder(){
   reminderOn=!reminderOn;lsSet('reminder_on',reminderOn?'1':'0');
-  scheduleReminder();loadCalcSettings();
-  toast(reminderOn?'التذكير اليومي مفعّل':'التذكير اليومي متوقف',reminderOn?'success':'warning');
-}
-function setReminderTime(v){
-  if(!v)return;reminderTime=v;lsSet('reminder_time',v);
-  scheduleReminder();loadCalcSettings();
-  toast('وقت التذكير: '+v);
+  if(reminderOn&&!window._nativeNotifGranted){
+    var _LN=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+    if(_LN){
+      _LN.requestPermissions().then(function(r){
+        if(r.display!=='granted'){reminderOn=false;lsSet('reminder_on','0');toast('يلزم منح إذن الإشعارات من إعدادات الجهاز','error');loadCalcSettings();return;}
+        window._nativeNotifGranted=true;scheduleHourlyDhikr();toast('التذكير الساعي مفعّل ✓','success');loadCalcSettings();
+      });return;
+    }
+  }
+  scheduleHourlyDhikr();loadCalcSettings();
+  toast(reminderOn?'التذكير الساعي مفعّل ✓':'التذكير الساعي متوقف',reminderOn?'success':'warning');
 }
 // تعديل المواقيت يدوياً
 var timeOffset=+(lsGet('time_offset')||0);
@@ -4255,26 +4259,16 @@ function loadCalcSettings(){
   var ov=+(lsGet('time_offset')||0);
   var os2=document.getElementById('offsetSlider');if(os2)os2.value=ov;
   var ol2=document.getElementById('offsetLabel');if(ol2)ol2.textContent=(ov>0?'+':'')+ar(ov)+' د';
-  /* تذكير الذِكر اليومي */
+  /* تذكير ذِكر ساعي */
   var rs=document.getElementById('reminderSection');
   if(rs){
     var bs2='border:0;font-family:inherit;font-weight:700;font-size:13px;padding:7px 16px;border-radius:999px;cursor:pointer;';
-    var todayTxt=_todayDhikr();
     rs.innerHTML=
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
       +'<button onclick="toggleReminder()" style="'+bs2+'background:'+(reminderOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.12)')+';color:'+(reminderOn?'var(--green)':'var(--gold)')+'">'+( reminderOn?'مفعّل ✓':'متوقف')+'</button>'
-      +'<span style="font-size:13px;color:var(--muted);flex:1">إشعار يومي على شاشة القفل</span>'
+      +'<span style="font-size:13px;color:var(--muted);flex:1">ذِكر مختلف كل ساعة (٧ ص – ١١ م)</span>'
       +'</div>'
-      +(reminderOn
-        ?'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-          +'<span style="font-size:13px;color:var(--muted)">الوقت:</span>'
-          +'<input type="time" value="'+reminderTime+'" onchange="setReminderTime(this.value)" '
-          +'style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;'
-          +'color:var(--text);font-family:inherit;font-size:14px;flex:1">'
-          +'</div>'
-          +'<p class="note" style="margin:0 0 4px">ذِكر اليوم: <b style="color:var(--gold)">'+todayTxt+'</b><br>'
-          +'<span style="font-size:11px">يتغيّر النص كل يوم من قائمة 14 ذِكراً.</span></p>'
-        :'<p class="note" style="margin:0">فعّل ليظهر ذِكر مختلف كل يوم على شاشة قفل هاتفك.</p>');
+      +'<p class="note" style="margin:0">'+(reminderOn?'يُجدَّد تلقائياً كلما فُتح التطبيق · '+DAILY_DHIKR.length+' ذِكراً بالتناوب.':'فعّل لتلقّي ذِكر مختلف كل ساعة على شاشة قفل هاتفك.')+'</p>';
   }
 }
 function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
