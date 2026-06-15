@@ -4233,7 +4233,7 @@ function updateRamadanBanner(){
     var cd=document.getElementById('ramadanCountdown');
     if(cd){
       var mgh='';
-      try{if(typeof TIMES!=='undefined'&&TIMES&&TIMES.Maghrib)mgh=TIMES.Maghrib;}catch(ex){}
+      try{if(PT&&PT.data&&PT.data.timings&&PT.data.timings.Maghrib)mgh=PT.data.timings.Maghrib;}catch(ex){}
       if(mgh){var now=new Date();var h=now.getHours(),m=now.getMinutes();var nowMins=h*60+m;
         var parts=mgh.split(':');
         if(parts.length===2){var mghMins=parseInt(parts[0])*60+parseInt(parts[1]);var diff=mghMins-nowMins;
