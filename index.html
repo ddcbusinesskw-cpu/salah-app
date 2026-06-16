@@ -2136,38 +2136,86 @@ function _mem2StartNative(){
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr){toast('إضافة التعرّف الصوتي غير موجودة — حدّث التطبيق','error');return;}
   var live=document.getElementById('mem2Live');
+  var _curPartial=''; // latest partial within the current recognition session
+
   nsr.removeAllListeners().catch(function(){});
+
   nsr.addListener('partialResults',function(data){
-    if(live&&data&&data.matches)live.textContent=data.matches[0]||'';
-  });
-  nsr.requestPermissions().then(function(perm){
-    var micOk=!perm.microphone||perm.microphone==='granted';
-    var srOk=!perm.speechRecognition||perm.speechRecognition==='granted';
-    if(!micOk||!srOk){
-      toast('يرجى منح إذن الميكروفون والتعرّف الصوتي في إعدادات التطبيق','error');
-      return;
-    }
-    MEM2.recActive=true;
-    toast('اقرأ المقطع بصوت واضح…');
-    _mem2UpdateBar();
-    (function loop(){
-      if(!MEM2.recActive)return;
-      nsr.start({language:'ar-SA',maxResults:1,partialResults:true,popup:false})
-        .then(function(r){
-          if(r&&r.matches&&r.matches[0])MEM2._tr+=r.matches[0]+' ';
-          if(MEM2.recActive)loop();
-        })
-        .catch(function(e){
-          var msg=(e&&e.message)||'';
-          if(MEM2.recActive&&!msg.toLowerCase().includes('cancel')&&!msg.toLowerCase().includes('stop')){
-            toast('خطأ في التعرّف الصوتي: '+msg,'error');
-          }
-          _mem2StopRec();
-        });
-    })();
-  }).catch(function(){
-    toast('تعذّر طلب إذن الميكروفون','error');
-  });
+    if(!MEM2.recActive||!data||!data.matches)return;
+    _curPartial=(data.matches[0]||'').trim();
+    console.log('[tasmee] partial:',_curPartial);
+    if(live)live.textContent=_curPartial;
+  }).catch(function(){});
+
+  nsr.addListener('listeningState',function(data){
+    console.log('[tasmee] listeningState:',data&&data.status);
+  }).catch(function(){});
+
+  // Check permissions first; only call requestPermissions if not yet granted
+  nsr.checkPermissions()
+    .then(function(perm){
+      console.log('[tasmee] checkPermissions:',JSON.stringify(perm));
+      if(perm.speechRecognition==='granted')return;
+      return nsr.requestPermissions().then(function(p2){
+        console.log('[tasmee] requestPermissions:',JSON.stringify(p2));
+        if(p2.speechRecognition!=='granted')throw {_denied:true};
+      });
+    })
+    .then(function(){
+      // Verify Arabic is available; fall back to any 'ar' locale if needed
+      return nsr.getSupportedLanguages().then(function(res){
+        var langs=(res&&res.languages)||[];
+        console.log('[tasmee] supportedLanguages:',langs);
+        if(!langs.length)return 'ar-SA';
+        if(langs.some(function(l){return l==='ar-SA'||l.toLowerCase()==='ar-sa';}))return 'ar-SA';
+        var arAny=langs.filter(function(l){return l.toLowerCase().startsWith('ar');});
+        if(arAny.length){console.log('[tasmee] ar-SA unavailable, using:',arAny[0]);return arAny[0];}
+        toast('اللغة العربية قد لا تكون مدعومة على هذا الجهاز','warning');
+        return 'ar-SA';
+      }).catch(function(){return 'ar-SA';});
+    })
+    .then(function(lang){
+      MEM2.recActive=true;
+      MEM2._tr='';
+      _curPartial='';
+      toast('اقرأ المقطع بصوت واضح…');
+      _mem2UpdateBar();
+
+      (function loop(){
+        if(!MEM2.recActive)return;
+        _curPartial='';
+        console.log('[tasmee] start() lang:',lang);
+        nsr.start({language:lang,maxResults:5,partialResults:true,popup:false})
+          .then(function(r){
+            // Use final matches if available; fall back to last partial event result
+            var finalText=(r&&r.matches&&r.matches[0]?r.matches[0]:_curPartial||'').trim();
+            console.log('[tasmee] session ended — matches:',JSON.stringify(r&&r.matches),'curPartial:',_curPartial,'using:',finalText);
+            if(finalText)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+finalText;
+            _curPartial='';
+            if(MEM2.recActive)loop();
+          })
+          .catch(function(e){
+            var msg=(e&&(e.message||e.code))||String(e);
+            console.warn('[tasmee] start() error:',msg);
+            if(MEM2.recActive){
+              var lc=msg.toLowerCase();
+              if(!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
+                toast('خطأ في التعرّف الصوتي: '+msg,'error');
+              }
+            }
+            _mem2StopRec();
+          });
+      })();
+    })
+    .catch(function(e){
+      if(e&&e._denied){
+        toast('يرجى منح إذن الميكروفون والتعرّف الصوتي في إعدادات التطبيق','error');
+      }else{
+        var msg=(e&&e.message)||String(e);
+        console.warn('[tasmee] init error:',msg);
+        if(!msg.includes('denied'))toast('تعذّر بدء التعرّف: '+msg,'error');
+      }
+    });
 }
 function _mem2StartWeb(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
