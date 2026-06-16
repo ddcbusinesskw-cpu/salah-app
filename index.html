@@ -2174,10 +2174,11 @@ var _W2_WSRC=[
   '    try{var m=await import(P);pip=m.pipeline;env=m.env;}',
   '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
   '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
-  '    env.allowLocalModels=false;env.useBrowserCache=true;',
-  '    try{asr=await pip("automatic-speech-recognition","onnx-community/whisper-base",',
+  '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
+  '    var _loadT0=Date.now();',
+  '    try{asr=await pip("automatic-speech-recognition","Oa-4/whisper-base-ar-quran-ONNX-tjs",',
   '      {dtype:"q8",progress_callback:function(p){self.postMessage({type:"progress",data:p});}});',
-  '      self.postMessage({type:"ready"});}',
+  '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0});}',
   '    catch(err){self.postMessage({type:"error",text:"فشل تحميل النموذج: "+(err&&err.message||String(err))});}',
   '    return;}',
   '  if(t==="transcribe"){',
@@ -2185,8 +2186,9 @@ var _W2_WSRC=[
   '    try{',
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=new Float32Array(raw);',
+  '      var _procT0=Date.now();',
   '      var r=await asr(audio,{language:"arabic",task:"transcribe"});',
-  '      self.postMessage({type:"result",text:r.text||""});}',
+  '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
   '};'
 ].join('\n');
@@ -2222,16 +2224,19 @@ function _w2Msg(m){
     }
   }else if(m.type==='ready'){
     W2.modelReady=true;W2.loading=false;
-    console.log('[w2] model ready');
-    if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
+    var _ldSec=m.loadMs?(Math.round(m.loadMs/100)/10)+'ث':'';
+    console.log('[w2] model ready loadTime='+(_ldSec||'?'));
+    if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…'+(_ldSec?' (تحميل: '+_ldSec+')':'');
     if(W2.pendingAudio){
       var pa=W2.pendingAudio;W2.pendingAudio=null;
       if(live)live.textContent='جارٍ التحليل…';
       W2.worker.postMessage({type:'transcribe',buffer:pa.buffer,length:pa.length},[pa.buffer]);
     }
   }else if(m.type==='result'){
-    console.log('[w2] result:',m.text);
+    var _prSec=m.procMs?(Math.round(m.procMs/100)/10)+'ث':'';
+    console.log('[w2] result procTime='+(_prSec||'?')+' text:',m.text);
     W2.analyzing=false;
+    if(live&&_prSec)live.textContent='معالجة: '+_prSec;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
     _mem2StopAndEval();
