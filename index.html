@@ -2108,6 +2108,12 @@ function _mem2Render(){
       html+='<span class="mem2-ayend">'+ar(ayah.num)+'</span> ';
     });
     html+='</div>';
+    // Raw Whisper output — shown after result for tuning/diagnosis
+    if(seg.status==='done'&&seg.result&&seg.result.raw){
+      html+='<div class="mem2-raw-whisper" dir="rtl" style="font-size:12px;opacity:.55;padding:4px 6px;margin-top:-2px;line-height:1.6;word-break:break-word">'+
+        '<span style="font-size:10px;opacity:.7;font-family:monospace;direction:ltr;display:inline-block;margin-left:4px">[whisper]</span>'+
+        seg.result.raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>';
+    }
   });
   mush.innerHTML=html;
   var curEl=document.getElementById('m2s'+MEM2.cur);
@@ -2655,6 +2661,7 @@ function _mem2StopAndEval(){
   MEM2._retried=false;
   var seg=MEM2.segs[MEM2.cur];
   _mem2Eval(seg,words);
+  seg.result.raw=tr; // keep raw Whisper text for display/diagnosis
   _mem2Render();
   var allDone=MEM2.segs.every(function(s){return s.status==='done';});
   if(allDone)setTimeout(mem2Finish,500);
@@ -2690,11 +2697,25 @@ function _memED(a,b){if(a===b)return 0;if(!a.length)return b.length;if(!b.length
 function _memFuz(rec,tgt){
   if(rec===tgt)return true;
   var d=_memED(rec,tgt);
-  // 1-char edit accepted for words ≥3 (was ≥4) — helps 3-char Quranic words
+  // d=1 for words ≥3 chars
   if(d===1&&tgt.length>=3)return true;
+  // d=2 for words ≥7 chars (unchanged)
   if(d===2&&tgt.length>=7)return true;
-  // single trailing-char difference (ا↔ي↔و at end) — alef-maqsura/waw confusion
+  // d=2 for 5-6 char words where difference is ONLY in the final 1-2 chars
+  // (Whisper suffix/inflection variation on same stem; safe because we require
+  // a long shared leading portion — guards against الرحمن↔الرحيم which differ
+  // at position 5, not just at the end)
+  if(d===2&&tgt.length>=5&&tgt.length<=6){
+    var pfx=tgt.length-1; // must match all but last char
+    if(rec.length>=pfx&&tgt.length>=pfx&&rec.slice(0,pfx)===tgt.slice(0,pfx))return true;
+  }
+  // d=3 for very long words (≥9 chars) with relative distance ≤ 30%
+  // covers rare Quranic words where Whisper makes multiple small errors
+  if(tgt.length>=9&&d===3&&d/tgt.length<=0.30)return true;
+  // Trailing single-char difference (ا↔ي↔و at end — alef-maqsura/waw confusion)
   if(rec.length===tgt.length&&rec.length>=2&&rec.slice(0,-1)===tgt.slice(0,-1))return true;
+  // Leading single-char difference (same word with different prefixed particle)
+  if(rec.length===tgt.length&&rec.length>=4&&rec.slice(1)===tgt.slice(1))return true;
   return false;
 }
 /* Needleman–Wunsch global alignment */
@@ -3397,11 +3418,31 @@ if(!navigator.onLine){var _ob=document.getElementById('offlineBadge');if(_ob)_ob
 var QFLAT=null,SEARCH_TAB='q';
 function snorm(x){return x.replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
 function _normRec(x){
-  x=x
-    .replace(/اللاه/g,'الله').replace(/الاه/g,'الله').replace(/اللاة/g,'الله')
-    .replace(/نن$/,'ن')
-    .replace(/(.)(\1){2,}/g,'$1');
+  // ── الله variants (Whisper corrupts this word in several ways) ──
+  x=x.replace(/اللاه/g,'الله').replace(/الاه/g,'الله').replace(/اللاة/g,'الله');
+  x=x.replace(/لاله/g,'لله');
+  // Word-level truncated form
+  if(x==='اللا'||x==='اللاا')x='الله';
+
+  // ── Very common Whisper insertion: extra alef in الرحمن ──
+  x=x.replace(/الرحمان/g,'الرحمن');
+
+  // ── Standalone hamza (ء U+0621): Whisper often drops it; snorm doesn't ──
+  // Removing from both sides normalises the mismatch away
+  x=x.replace(/ء/g,'');
+
+  // ── Whisper phonetic confusions that produce 2-char distance ──
+  // Taa-marbuta written as open taa at non-final position
+  x=x.replace(/ت(?=[ها]$)/g,'ه'); // e.g. رحمتها → رحمهها then snorm ه stays
+  // Alef written as waw at word end (واو الجماعة confusion)
+  // handled downstream by snorm + trailing ا→ي
+
+  // ── Repeated chars ──
+  x=x.replace(/نن$/,'ن');
+  x=x.replace(/(.)(\1){2,}/g,'$1');
+
   x=snorm(x);
+  // Trailing bare alef → ya (covers هدى/يهدا/كفوا variations)
   if(x.length>=3)x=x.replace(/ا$/,'ي');
   return x;
 }
