@@ -5713,17 +5713,19 @@ function dismissPWA(){
   /* Android hardware back button — dismiss overlays in priority order */
   if(_isAndroid()&&_cap.Plugins&&_cap.Plugins.App){
     _cap.Plugins.App.addListener('backButton',function(){
-      var _dlg=['deleteAccountConfirm','signoutConfirm','exitAppConfirm'];
+      var _dlg=['deleteAccountConfirm','signoutConfirm','exitAppConfirm','customModal','nameModal'];
       for(var i=0;i<_dlg.length;i++){
         var el=document.getElementById(_dlg[i]);
         if(el&&el.style.display==='flex'){el.style.display='none';return;}
       }
+      var oc=document.getElementById('ov_city');
+      if(oc&&oc.classList.contains('on')){oc.classList.remove('on');return;}
       var sh=document.getElementById('ayahSheet');
       if(sh&&sh.classList.contains('on')){if(typeof closeSheet==='function')closeSheet();return;}
       var ws=document.getElementById('weeklySheet');
-      if(ws&&ws.classList.contains('on')){if(typeof closeWeeklySheet==='function')closeWeeklySheet();return;}
+      if(ws&&ws.classList.contains('show')){if(typeof closeWeeklySheet==='function')closeWeeklySheet();return;}
       var dc=document.getElementById('duaCard');
-      if(dc&&dc.classList.contains('on')){if(typeof closeDua==='function')closeDua();return;}
+      if(dc&&dc.classList.contains('show')){if(typeof closeDua==='function')closeDua();return;}
       var dw=document.getElementById('drawer');
       if(dw&&dw.classList.contains('on')){if(typeof closeDrawer==='function')closeDrawer();return;}
       if(typeof window._showExitConfirm==='function')window._showExitConfirm();
