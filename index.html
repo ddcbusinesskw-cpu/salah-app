@@ -2332,7 +2332,16 @@ function _mem2StopRec(){
 }
 /* Levenshtein distance */
 function _memED(a,b){if(a===b)return 0;if(!a.length)return b.length;if(!b.length)return a.length;var p=[],r=[];for(var j=0;j<=b.length;j++)p[j]=j;for(var i=1;i<=a.length;i++){r=[i];for(var j=1;j<=b.length;j++)r[j]=a[i-1]===b[j-1]?p[j-1]:1+Math.min(p[j-1],p[j],r[j-1]);p=r.slice();}return p[b.length];}
-function _memFuz(rec,tgt){if(rec===tgt)return true;var d=_memED(rec,tgt);if(d===1&&tgt.length>=4)return true;if(d===2&&tgt.length>=7)return true;return false;}
+function _memFuz(rec,tgt){
+  if(rec===tgt)return true;
+  var d=_memED(rec,tgt);
+  // 1-char edit accepted for words ≥3 (was ≥4) — helps 3-char Quranic words
+  if(d===1&&tgt.length>=3)return true;
+  if(d===2&&tgt.length>=7)return true;
+  // single trailing-char difference (ا↔ي↔و at end) — alef-maqsura/waw confusion
+  if(rec.length===tgt.length&&rec.length>=2&&rec.slice(0,-1)===tgt.slice(0,-1))return true;
+  return false;
+}
 /* Needleman–Wunsch global alignment */
 function _mem2Align(refW,recW){
   var m=refW.length,n=recW.length,S=2,F=1,X=-1,G=-1;
