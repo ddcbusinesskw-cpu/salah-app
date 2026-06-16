@@ -2012,7 +2012,7 @@ function go(id){
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
 }
 /* ===== تسميع الحفظ v2 ===== */
-var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:''};
+var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false};
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2309,7 +2309,19 @@ function _mem2StopAndEval(){
   _mem2StopRec();
   var live=document.getElementById('mem2Live');if(live)live.textContent='';
   var words=tr.trim().split(/\s+/).filter(Boolean);
-  if(!words.length){toast('لم يُسمع شيء — حاول مجدداً');return;}
+  if(!words.length){
+    if(!MEM2._retried){
+      MEM2._retried=true;
+      toast('لم أسمع — أعيد المحاولة…');
+      MEM2._tr='';MEM2._partial='';
+      if(_isNative())_mem2StartNative();else _mem2StartWeb();
+    }else{
+      MEM2._retried=false;
+      toast('لم يُسمع شيء — حاول مجدداً');
+    }
+    return;
+  }
+  MEM2._retried=false;
   var seg=MEM2.segs[MEM2.cur];
   _mem2Eval(seg,words);
   _mem2Render();
