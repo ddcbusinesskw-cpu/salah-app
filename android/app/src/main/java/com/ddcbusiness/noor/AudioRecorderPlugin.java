@@ -4,6 +4,7 @@ import android.Manifest;
 import android.media.MediaRecorder;
 import android.util.Base64;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -24,17 +25,53 @@ public class AudioRecorderPlugin extends Plugin {
     private MediaRecorder recorder = null;
     private String outputPath = null;
 
+    /* ── Permission helpers ── */
+
+    @PluginMethod
+    public void checkPermissions(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("microphone", permStateText());
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestPermissions(PluginCall call) {
+        if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            requestPermissionForAlias("microphone", call, "onReqPermResult");
+        } else {
+            JSObject result = new JSObject();
+            result.put("microphone", "granted");
+            call.resolve(result);
+        }
+    }
+
+    @PermissionCallback
+    private void onReqPermResult(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("microphone", permStateText());
+        call.resolve(result);
+    }
+
+    private String permStateText() {
+        PermissionState s = getPermissionState("microphone");
+        if (s == PermissionState.GRANTED) return "granted";
+        if (s == PermissionState.DENIED) return "denied";
+        return "prompt";
+    }
+
+    /* ── Recording ── */
+
     @PluginMethod
     public void start(PluginCall call) {
         if (!hasPermission("microphone")) {
-            requestPermissionForAlias("microphone", call, "micPermCallback");
+            requestPermissionForAlias("microphone", call, "onStartPermResult");
             return;
         }
         doStart(call);
     }
 
     @PermissionCallback
-    private void micPermCallback(PluginCall call) {
+    private void onStartPermResult(PluginCall call) {
         if (hasPermission("microphone")) {
             doStart(call);
         } else {
