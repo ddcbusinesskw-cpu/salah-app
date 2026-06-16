@@ -2328,7 +2328,7 @@ function _w2StopCapture(){
     }
     ar.stop().then(function(data){
       var b64=data&&data.recordDataBase64;
-      var mime=data&&data.mimeType||'audio/aac';
+      var mime=data&&data.mimeType||'audio/mp4';
       if(!b64||b64.length<100){
         toast('لم يُسجَّل صوت — حاول مجدداً','error');
         W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;

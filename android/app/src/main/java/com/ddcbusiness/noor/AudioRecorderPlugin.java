@@ -1,8 +1,10 @@
 package com.ddcbusiness.noor;
 
 import android.Manifest;
+import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.util.Base64;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -25,7 +27,7 @@ public class AudioRecorderPlugin extends Plugin {
     private MediaRecorder recorder = null;
     private String outputPath = null;
 
-    /* ── Permission helpers ── */
+    /* ── Permission bridge methods ── */
 
     @PluginMethod
     public void checkPermissions(PluginCall call) {
@@ -36,12 +38,12 @@ public class AudioRecorderPlugin extends Plugin {
 
     @PluginMethod
     public void requestPermissions(PluginCall call) {
-        if (getPermissionState("microphone") != PermissionState.GRANTED) {
-            requestPermissionForAlias("microphone", call, "onReqPermResult");
-        } else {
+        if (sysPermGranted()) {
             JSObject result = new JSObject();
             result.put("microphone", "granted");
             call.resolve(result);
+        } else {
+            requestPermissionForAlias("microphone", call, "onReqPermResult");
         }
     }
 
@@ -52,18 +54,12 @@ public class AudioRecorderPlugin extends Plugin {
         call.resolve(result);
     }
 
-    private String permStateText() {
-        PermissionState s = getPermissionState("microphone");
-        if (s == PermissionState.GRANTED) return "granted";
-        if (s == PermissionState.DENIED) return "denied";
-        return "prompt";
-    }
-
     /* ── Recording ── */
 
     @PluginMethod
     public void start(PluginCall call) {
-        if (!hasPermission("microphone")) {
+        if (!sysPermGranted()) {
+            // Only request from OS if the system layer says it's not granted
             requestPermissionForAlias("microphone", call, "onStartPermResult");
             return;
         }
@@ -72,34 +68,46 @@ public class AudioRecorderPlugin extends Plugin {
 
     @PermissionCallback
     private void onStartPermResult(PluginCall call) {
-        if (hasPermission("microphone")) {
+        if (sysPermGranted()) {
             doStart(call);
         } else {
-            call.reject("PERMISSION_DENIED");
+            call.reject("PERMISSION_DENIED: ContextCompat.checkSelfPermission returned DENIED after dialog");
         }
     }
 
     private void doStart(PluginCall call) {
+        // Double-check with the OS — never trust only Capacitor's cached state
+        if (!sysPermGranted()) {
+            call.reject("PERMISSION_DENIED: ContextCompat.checkSelfPermission returned DENIED in doStart");
+            return;
+        }
+
+        // Release any previous recorder
+        if (recorder != null) {
+            try { recorder.stop(); } catch (Exception ignored) {}
+            try { recorder.release(); } catch (Exception ignored) {}
+            recorder = null;
+        }
+
         try {
-            if (recorder != null) {
-                try { recorder.stop(); } catch (Exception ignored) {}
-                recorder.release();
-                recorder = null;
-            }
-            outputPath = getContext().getCacheDir().getAbsolutePath() + "/tasmee_rec.aac";
+            outputPath = getContext().getCacheDir().getAbsolutePath() + "/tasmee_rec.m4a";
             recorder = new MediaRecorder();
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            recorder.setAudioSamplingRate(16000);
-            recorder.setAudioEncodingBitRate(64000);
+            // No setAudioSamplingRate — use device default; JS resamples to 16kHz
+            recorder.setAudioEncodingBitRate(128000);
             recorder.setOutputFile(outputPath);
             recorder.prepare();
             recorder.start();
             call.resolve();
         } catch (Exception e) {
-            recorder = null;
-            call.reject("START_ERROR: " + e.getMessage());
+            if (recorder != null) {
+                try { recorder.reset(); } catch (Exception ignored) {}
+                try { recorder.release(); } catch (Exception ignored) {}
+                recorder = null;
+            }
+            call.reject(buildExceptionDetail(e));
         }
     }
 
@@ -123,13 +131,12 @@ public class AudioRecorderPlugin extends Plugin {
             }
             fis.close();
             file.delete();
-            String b64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
             JSObject result = new JSObject();
-            result.put("recordDataBase64", b64);
-            result.put("mimeType", "audio/aac");
+            result.put("recordDataBase64", Base64.encodeToString(bytes, Base64.NO_WRAP));
+            result.put("mimeType", "audio/mp4");
             call.resolve(result);
         } catch (Exception e) {
-            call.reject("STOP_ERROR: " + e.getMessage());
+            call.reject(buildExceptionDetail(e));
         }
     }
 
@@ -137,10 +144,38 @@ public class AudioRecorderPlugin extends Plugin {
     public void cancel(PluginCall call) {
         if (recorder != null) {
             try { recorder.stop(); } catch (Exception ignored) {}
-            recorder.release();
+            try { recorder.release(); } catch (Exception ignored) {}
             recorder = null;
             if (outputPath != null) new File(outputPath).delete();
         }
         call.resolve();
+    }
+
+    /* ── Helpers ── */
+
+    private boolean sysPermGranted() {
+        return ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private String permStateText() {
+        if (sysPermGranted()) return "granted";
+        PermissionState s = getPermissionState("microphone");
+        return s == PermissionState.DENIED ? "denied" : "prompt";
+    }
+
+    private String buildExceptionDetail(Exception e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(e.getClass().getName()).append(": ").append(e.getMessage());
+        StackTraceElement[] st = e.getStackTrace();
+        for (int i = 0; i < Math.min(st.length, 6); i++) {
+            sb.append("\n  at ").append(st[i]);
+        }
+        Throwable cause = e.getCause();
+        if (cause != null) {
+            sb.append("\nCaused by: ").append(cause.getClass().getName())
+              .append(": ").append(cause.getMessage());
+        }
+        return sb.toString();
     }
 }
