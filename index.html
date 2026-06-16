@@ -1983,6 +1983,8 @@ function go(id){
   var db=document.getElementById('drawerBk');if(db)db.classList.remove('on');
   var prev=document.querySelector('.screen.on');
   if(prev&&prev.id==='rakaat'){try{rakCamStop();}catch(ex){}try{rakAIStop();}catch(ex){}try{rakProxStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
+  if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
+  if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);}
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
@@ -2847,6 +2849,7 @@ function bearingTo(lat,lng){var dL=toRad(KAABA.lng-lng),l1=toRad(lat),l2=toRad(K
 function setQibla(lat,lng){qiblaBearing=bearingTo(lat,lng);document.getElementById('qdeg').textContent=ar(Math.round(qiblaBearing))+'°';document.getElementById('qlbl').textContent='اتجاه القبلة من الشمال — حرّك الهاتف';enableCompass();}
 function startQibla(){var c=lsGet('coords');if(c){try{var o=JSON.parse(c);setQibla(o.lat,o.lng);return;}catch(e){}}if(!navigator.geolocation){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';navigator.geolocation.getCurrentPosition(function(p){lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));setQibla(p.coords.latitude,p.coords.longitude);},function(){document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';},{enableHighAccuracy:true,timeout:8000,maximumAge:600000});}
 function enableCompass(){function add(){window.addEventListener('deviceorientationabsolute',onHeading);window.addEventListener('deviceorientation',onHeading);}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')add();}).catch(function(){});}else add();}
+function disableCompass(){window.removeEventListener('deviceorientationabsolute',onHeading);window.removeEventListener('deviceorientation',onHeading);}
 function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
 
 /* ===== المصحف (تصفّح ثم حفظ للأوفلاين) ===== */
