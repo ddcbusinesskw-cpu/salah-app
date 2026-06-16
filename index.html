@@ -2221,28 +2221,36 @@ function _w2StartCapture(){
     toast('التسجيل الصوتي غير مدعوم (يلزم HTTPS)','error');return;
   }
   if(live)live.textContent='جارٍ طلب الميكروفون…';
-  navigator.mediaDevices.getUserMedia({audio:true,video:false})
-    .then(function(stream){
-      W2.stream=stream;W2.chunks=[];
-      W2.recMime=['audio/webm;codecs=opus','audio/webm','audio/ogg']
-        .find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
-      W2.recorder=new MediaRecorder(stream,W2.recMime?{mimeType:W2.recMime}:{});
-      W2.recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)W2.chunks.push(e.data);};
-      W2.recorder.onstop=function(){_w2ProcessAudio();};
-      W2.recorder.start(300);
-      MEM2.recActive=true;
-      if(live)live.textContent=W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل المحرّك… اقرأ بصوت';
-      toast(W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل محرّك الذكاء الاصطناعي…');
-      _mem2UpdateBar();
-    })
-    .catch(function(err){
-      var msg=(err&&(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'))
-        ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن'
-        :'تعذّر الوصول للميكروفون: '+(err&&err.message||String(err));
-      toast(msg,'error');
-      MEM2.recActive=false;_mem2UpdateBar();
-      if(live)live.textContent='';
-    });
+  function doCapture(){
+    navigator.mediaDevices.getUserMedia({audio:true,video:false})
+      .then(function(stream){
+        W2.stream=stream;W2.chunks=[];
+        W2.recMime=['audio/webm;codecs=opus','audio/webm','audio/ogg']
+          .find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+        W2.recorder=new MediaRecorder(stream,W2.recMime?{mimeType:W2.recMime}:{});
+        W2.recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)W2.chunks.push(e.data);};
+        W2.recorder.onstop=function(){_w2ProcessAudio();};
+        W2.recorder.start(300);
+        MEM2.recActive=true;
+        if(live)live.textContent=W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل المحرّك… اقرأ بصوت';
+        toast(W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل محرّك الذكاء الاصطناعي…');
+        _mem2UpdateBar();
+      })
+      .catch(function(err){
+        var msg=(err&&(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'))
+          ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الجهاز وأعطِ الإذن للتطبيق'
+          :'تعذّر الوصول للميكروفون: '+(err&&err.message||String(err));
+        toast(msg,'error');
+        MEM2.recActive=false;_mem2UpdateBar();
+        if(live)live.textContent='';
+      });
+  }
+  if(_isNative()){
+    var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+    if(nsr&&nsr.requestPermissions){
+      nsr.requestPermissions().then(doCapture).catch(doCapture);
+    }else{doCapture();}
+  }else{doCapture();}
 }
 function _w2StopCapture(){
   if(!W2.recorder||W2.recorder.state==='inactive'){
