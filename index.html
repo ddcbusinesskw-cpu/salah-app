@@ -2220,13 +2220,19 @@ function _w2Msg(m){
 function _w2StartCapture(){
   if(!W2.worker)_w2Init();
   var live=document.getElementById('mem2Live');
-  if(live)live.textContent='جارٍ طلب الميكروفون…';
-  if(_isAndroidNative()){_w2StartNativeCapture(live);return;}
-  // Web path
+  var isAnd=_isAndroidNative();
+  var isNat=_isNative();
+  var plat=(window.Capacitor&&window.Capacitor.getPlatform)?window.Capacitor.getPlatform():'n/a';
+  var d1='[dbg] isAndroidNative='+isAnd+' isNative='+isNat+' platform='+plat;
+  console.log(d1);
+  if(live)live.textContent=d1;
+  if(isAnd){_w2StartNativeCapture(live);return;}
+  // Web / iOS path
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     toast('التسجيل الصوتي غير مدعوم (يلزم HTTPS)','error');
     if(live)live.textContent='';return;
   }
+  if(live)live.textContent=d1+'\n[dbg] مسار getUserMedia…';
   navigator.mediaDevices.getUserMedia({audio:true,video:false})
     .then(function(stream){
       W2.stream=stream;W2.chunks=[];
@@ -2242,20 +2248,24 @@ function _w2StartCapture(){
       _mem2UpdateBar();
     })
     .catch(function(err){
-      var msg=(err&&(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'))
-        ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الجهاز وأعطِ الإذن للتطبيق'
-        :'تعذّر الوصول للميكروفون: '+(err&&err.message||String(err));
-      toast(msg,'error');
+      var details='[dbg] getUserMedia فشل\nname:'+( err&&err.name||'?')+'\nmessage:'+(err&&err.message||'?')+'\n'+String(err);
+      console.error(details);
+      if(live)live.textContent=details;
+      toast(details.slice(0,120),'error');
       MEM2.recActive=false;_mem2UpdateBar();
-      if(live)live.textContent='';
     });
 }
 function _w2StartNativeCapture(live){
+  var pluginNames=Object.keys((window.Capacitor&&window.Capacitor.Plugins)||{}).sort().join(', ');
   var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
+  var d2='[dbg] Plugins: '+pluginNames+'\n[dbg] AudioRecorder: '+(ar?'موجود ✓':'مفقود ✗');
+  console.log(d2);
+  if(live)live.textContent=d2;
   if(!ar){
-    toast('مكوّن التسجيل غير متاح — حدّث التطبيق','error');
-    if(live)live.textContent='';return;
+    toast('AudioRecorder مفقود. Plugins='+pluginNames.slice(0,80),'error');
+    return;
   }
+  if(live)live.textContent=d2+'\n[dbg] يستدعي ar.start()…';
   ar.start().then(function(){
     W2.nativeRec=true;
     MEM2.recActive=true;
@@ -2264,11 +2274,10 @@ function _w2StartNativeCapture(live){
     _mem2UpdateBar();
   }).catch(function(err){
     W2.nativeRec=false;MEM2.recActive=false;
-    var msg=(err&&err.message==='PERMISSION_DENIED')
-      ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الجهاز وأعطِ الإذن للتطبيق'
-      :'تعذّر بدء التسجيل: '+(err&&err.message||String(err));
-    toast(msg,'error');
-    if(live)live.textContent='';
+    var details=d2+'\n[dbg] ar.start() فشل\ncode:'+(err&&err.code||'none')+'\nmessage:'+(err&&err.message||'none')+'\n'+String(err);
+    console.error(details);
+    if(live)live.textContent=details;
+    toast(details.slice(0,140),'error');
     _mem2UpdateBar();
   });
 }
