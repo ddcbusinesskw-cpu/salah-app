@@ -2193,7 +2193,7 @@ var _W2_WSRC=[
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=new Float32Array(raw);',
   '      var _procT0=Date.now();',
-  '      var r=await asr(audio,{language:"arabic",task:"transcribe"});',
+  '      var r=await asr(audio,{});',
   '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
   '};'
