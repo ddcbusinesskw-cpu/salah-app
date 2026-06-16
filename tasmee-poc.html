@@ -249,9 +249,12 @@ var WORKER_SRC = [
   '  if (type === "transcribe") {',
   '    if (!asr) { self.postMessage({ type: "error", text: "النموذج غير محمَّل" }); return; }',
   '    try {',
+  '      // إعادة تغليف ArrayBuffer المُنقَل كـ Float32Array (zero-copy transfer يُفقد الـ view الأصلي)',
+  '      var audio = new Float32Array(payload.buffer, 0, payload.length);',
+  '      self.postMessage({ type: "log", text: "audio: " + audio.constructor.name + " length=" + audio.length });',
   '      var t0  = performance.now();',
   '      var res = await asr(',
-  '        { array: payload.audio, sampling_rate: 16000 },',
+  '        { array: audio, sampling_rate: 16000 },',
   '        { language: "arabic", task: "transcribe",',
   '          chunk_length_s: 30, stride_length_s: 5, return_timestamps: false }',
   '      );',
@@ -562,6 +565,7 @@ window.stopRec = async function() {
 
   if (usingFallback && asrMain) {
     log('تشغيل التعرّف على Main Thread…', 'w');
+    log('audio: ' + float32.constructor.name + ' length=' + float32.length);
     try {
       var t0  = performance.now();
       var res = await asrMain(
@@ -576,7 +580,12 @@ window.stopRec = async function() {
       UI.btnStart.disabled = false;
     }
   } else if (worker) {
-    worker.postMessage({ type: 'transcribe', payload: { audio: float32 } }, [float32.buffer]);
+    // نرسل buffer + length بشكل صريح — المستقبِل يُعيد تغليف الـ ArrayBuffer كـ Float32Array
+    var xferBuf = float32.buffer;
+    worker.postMessage(
+      { type: 'transcribe', payload: { buffer: xferBuf, length: float32.length } },
+      [xferBuf]
+    );
     log('أُرسلت البيانات للـ Worker (' + float32.length + ' عينة)');
   } else {
     showErr('لا Worker ولا نموذج محمَّل — اضغط "تحميل النموذج" أولاً');
