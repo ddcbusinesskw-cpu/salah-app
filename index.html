@@ -2281,10 +2281,22 @@ function _mem2StartWeb(){
   if(!window.isSecureContext){toast('يلزم اتصال آمن (HTTPS) للتعرّف الصوتي','error');return;}
   MEM2.rec=new SR();
   MEM2.rec.lang='ar-SA';MEM2.rec.continuous=true;MEM2.rec.interimResults=true;
+  MEM2.rec.maxAlternatives=5;
   var live=document.getElementById('mem2Live');
   MEM2.rec.onresult=function(e){
     var fin='',intr='';
-    for(var i=e.resultIndex;i<e.results.length;i++){var t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else intr+=t;}
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){
+        // [أ-٣] pick best alternative from up to 5 candidates
+        var seg=MEM2.segs[MEM2.cur];var bestAlt='',bestAltSc=-1;
+        for(var k=0;k<e.results[i].length;k++){
+          var alt=(e.results[i][k].transcript||'').trim();if(!alt)continue;
+          var sc=_mem2Score(seg,alt);
+          if(sc>bestAltSc){bestAltSc=sc;bestAlt=alt;}
+        }
+        fin+=(bestAlt||e.results[i][0].transcript||'')+' ';
+      }else{intr+=e.results[i][0].transcript;}
+    }
     if(live)live.textContent=intr;
     MEM2._tr+=fin;
   };
