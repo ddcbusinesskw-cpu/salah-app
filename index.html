@@ -4727,67 +4727,98 @@ function loadBadges(){
 /* ─── مشاركة الإنجازات ─── */
 function _rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
 function achvShare(){
-  var data=_achvCurrentData();var v=data.v,mx=data.max;
-  var c=document.createElement('canvas');c.width=1080;c.height=1200;
-  var ctx=c.getContext('2d');
-  /* bg */
-  ctx.fillStyle='#051a16';ctx.fillRect(0,0,1080,1200);
-  /* border */
-  ctx.strokeStyle='rgba(234,204,126,.22)';ctx.lineWidth=3;_rrect(ctx,24,24,1032,1152,28);ctx.stroke();
-  /* top band */
-  var grad=ctx.createLinearGradient(0,0,0,200);
-  grad.addColorStop(0,'rgba(234,204,126,.08)');grad.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=grad;ctx.fillRect(24,24,1032,180);
-  /* app name */
-  ctx.fillStyle='#eacc7e';ctx.font='bold 64px serif';ctx.textAlign='center';ctx.direction='rtl';
-  ctx.fillText('المجدّد',540,112);
-  /* period */
-  var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
-  ctx.fillStyle='#eaf3ee';ctx.font='bold 32px sans-serif';ctx.fillText(period,540,160);
-  /* date */
-  var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e){}
-  ctx.fillStyle='rgba(234,204,126,.55)';ctx.font='22px sans-serif';ctx.fillText(dateStr,540,196);
-  /* separator */
-  ctx.strokeStyle='rgba(234,204,126,.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(100,218);ctx.lineTo(980,218);ctx.stroke();
-  /* overall pct */
-  var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
-  var ovPct=Math.round(total/ACHV_DEFS.length*100);
-  ctx.fillStyle='#eacc7e';ctx.font='bold 90px sans-serif';ctx.fillText(ovPct+'%',540,320);
-  ctx.fillStyle='rgba(234,204,126,.5)';ctx.font='24px sans-serif';ctx.fillText('إنجاز إجمالي',540,358);
-  /* cards: 2×3 grid */
-  var cols=2,rows=3,padX=60,startY=400,gX=30,gY=24;
-  var cW=(1080-padX*2-gX)/cols,cH=(1200-startY-80-gY*2)/rows;
-  ACHV_DEFS.forEach(function(d,i){
-    var col=i%cols,row=Math.floor(i/cols);
-    var x=padX+col*(cW+gX),y=startY+row*(cH+gY);
-    var val=v[d.id]||0;var mxv=mx[d.id]||1;
-    var pct=Math.min(1,val/mxv);var done=pct>=1;
-    /* card bg */
-    ctx.fillStyle=done?'rgba(234,204,126,.07)':'rgba(12,46,43,.85)';
-    _rrect(ctx,x,y,cW,cH,18);ctx.fill();
-    if(done){ctx.strokeStyle='rgba(234,204,126,.4)';ctx.lineWidth=1.5;_rrect(ctx,x,y,cW,cH,18);ctx.stroke();}
-    /* icon */
-    ctx.font=(done?'30px':'28px')+' serif';ctx.textAlign='center';ctx.fillStyle='#eaf3ee';
-    ctx.fillText(d.icon+(done?' 👑':''),x+cW/2,y+46);
-    /* name */
-    ctx.font='bold 20px sans-serif';ctx.fillStyle=done?'#eacc7e':'#eaf3ee';
-    ctx.fillText(d.name,x+cW/2,y+80);
-    /* bar bg */
-    ctx.fillStyle='rgba(255,255,255,.07)';_rrect(ctx,x+20,y+92,cW-40,10,5);ctx.fill();
-    /* bar fill */
-    if(pct>0){ctx.fillStyle=done?'#eacc7e':'#4ecaa8';_rrect(ctx,x+20,y+92,(cW-40)*pct,10,5);ctx.fill();}
-    /* pct label */
-    ctx.font='bold 16px sans-serif';ctx.fillStyle='rgba(234,204,126,.75)';
-    ctx.fillText(Math.round(pct*100)+'%',x+cW/2,y+122);
-  });
-  /* footer */
-  ctx.fillStyle='rgba(234,204,126,.35)';ctx.font='18px sans-serif';ctx.fillText('تطبيق المجدّد · للقرآن والذِكر والصلاة',540,1168);
-  c.toBlob(function(blob){
-    var f=new File([blob],'mujaddid-achievements.png',{type:'image/png'});
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){
-      navigator.share({title:'إنجازاتي في المجدّد',files:[f]}).catch(function(){});
-    }else{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';a.click();}
-  },'image/png');
+  console.log('[achvShare] fired');
+  var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+  try{
+    var data=_achvCurrentData();var v=data.v,mx=data.max;
+
+    if(_isNative){
+      var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
+      var ovPct=Math.round(total/ACHV_DEFS.length*100);
+      var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
+      var shareTxt=period+'\n'+ACHV_DEFS.map(function(d){
+        var val=v[d.id]||0;var mxv=mx[d.id]||1;
+        return d.icon+' '+d.name+': '+Math.round(Math.min(1,val/mxv)*100)+'%';
+      }).join('\n')+'\nإنجاز إجمالي: '+ovPct+'%\n—\nتطبيق المجدّد';
+      var Sh=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
+      if(!Sh){alert('خاصية المشاركة غير متوفرة على هذا الجهاز');return;}
+      Sh.share({title:'إنجازاتي في المجدّد',text:shareTxt,dialogTitle:'مشاركة إنجازاتك'})
+        .catch(function(e){if(!e||e.name!=='AbortError'){console.error('[achvShare]',e);alert('تعذّرت المشاركة');}});
+      return;
+    }
+
+    var c=document.createElement('canvas');c.width=1080;c.height=1200;
+    var ctx=c.getContext('2d');
+    /* bg */
+    ctx.fillStyle='#051a16';ctx.fillRect(0,0,1080,1200);
+    /* border */
+    ctx.strokeStyle='rgba(234,204,126,.22)';ctx.lineWidth=3;_rrect(ctx,24,24,1032,1152,28);ctx.stroke();
+    /* top band */
+    var grad=ctx.createLinearGradient(0,0,0,200);
+    grad.addColorStop(0,'rgba(234,204,126,.08)');grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=grad;ctx.fillRect(24,24,1032,180);
+    /* app name */
+    ctx.fillStyle='#eacc7e';ctx.font='bold 64px serif';ctx.textAlign='center';ctx.direction='rtl';
+    ctx.fillText('المجدّد',540,112);
+    /* period */
+    var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
+    ctx.fillStyle='#eaf3ee';ctx.font='bold 32px sans-serif';ctx.fillText(period,540,160);
+    /* date */
+    var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e2){}
+    ctx.fillStyle='rgba(234,204,126,.55)';ctx.font='22px sans-serif';ctx.fillText(dateStr,540,196);
+    /* separator */
+    ctx.strokeStyle='rgba(234,204,126,.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(100,218);ctx.lineTo(980,218);ctx.stroke();
+    /* overall pct */
+    var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
+    var ovPct=Math.round(total/ACHV_DEFS.length*100);
+    ctx.fillStyle='#eacc7e';ctx.font='bold 90px sans-serif';ctx.fillText(ovPct+'%',540,320);
+    ctx.fillStyle='rgba(234,204,126,.5)';ctx.font='24px sans-serif';ctx.fillText('إنجاز إجمالي',540,358);
+    /* cards: 2×3 grid */
+    var cols=2,rows=3,padX=60,startY=400,gX=30,gY=24;
+    var cW=(1080-padX*2-gX)/cols,cH=(1200-startY-80-gY*2)/rows;
+    ACHV_DEFS.forEach(function(d,i){
+      var col=i%cols,row=Math.floor(i/cols);
+      var x=padX+col*(cW+gX),y=startY+row*(cH+gY);
+      var val=v[d.id]||0;var mxv=mx[d.id]||1;
+      var pct=Math.min(1,val/mxv);var done=pct>=1;
+      /* card bg */
+      ctx.fillStyle=done?'rgba(234,204,126,.07)':'rgba(12,46,43,.85)';
+      _rrect(ctx,x,y,cW,cH,18);ctx.fill();
+      if(done){ctx.strokeStyle='rgba(234,204,126,.4)';ctx.lineWidth=1.5;_rrect(ctx,x,y,cW,cH,18);ctx.stroke();}
+      /* icon */
+      ctx.font=(done?'30px':'28px')+' serif';ctx.textAlign='center';ctx.fillStyle='#eaf3ee';
+      ctx.fillText(d.icon+(done?' 👑':''),x+cW/2,y+46);
+      /* name */
+      ctx.font='bold 20px sans-serif';ctx.fillStyle=done?'#eacc7e':'#eaf3ee';
+      ctx.fillText(d.name,x+cW/2,y+80);
+      /* bar bg */
+      ctx.fillStyle='rgba(255,255,255,.07)';_rrect(ctx,x+20,y+92,cW-40,10,5);ctx.fill();
+      /* bar fill */
+      if(pct>0){ctx.fillStyle=done?'#eacc7e':'#4ecaa8';_rrect(ctx,x+20,y+92,(cW-40)*pct,10,5);ctx.fill();}
+      /* pct label */
+      ctx.font='bold 16px sans-serif';ctx.fillStyle='rgba(234,204,126,.75)';
+      ctx.fillText(Math.round(pct*100)+'%',x+cW/2,y+122);
+    });
+    /* footer */
+    ctx.fillStyle='rgba(234,204,126,.35)';ctx.font='18px sans-serif';ctx.fillText('تطبيق المجدّد · للقرآن والذِكر والصلاة',540,1168);
+    c.toBlob(function(blob){
+      if(!blob){alert('تعذّر إنشاء صورة الإنجازات');return;}
+      try{
+        var f=new File([blob],'mujaddid-achievements.png',{type:'image/png'});
+        if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){
+          navigator.share({title:'إنجازاتي في المجدّد',files:[f]})
+            .catch(function(eShare){
+              if(eShare&&eShare.name==='AbortError')return;
+              var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';
+              document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+            });
+        }else{
+          var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';
+          document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+        }
+      }catch(eBlob){alert('خطأ في المشاركة: '+eBlob.message);}
+    },'image/png');
+  }catch(e){console.error('[achvShare]',e);alert('خطأ: '+e.message);}
 }
 
 /* ===== v18: Ramadan Mode ===== */
