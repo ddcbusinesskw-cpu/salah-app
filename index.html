@@ -2179,7 +2179,13 @@ var _W2_WSRC=[
   '    try{asr=await pip("automatic-speech-recognition","Oa-4/whisper-base-ar-quran-ONNX-tjs",',
   '      {dtype:"q8",progress_callback:function(p){self.postMessage({type:"progress",data:p});}});',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0});}',
-  '    catch(err){self.postMessage({type:"error",text:"فشل تحميل النموذج: "+(err&&err.message||String(err))});}',
+  '    catch(err){',
+  '      var _ed="";try{',
+  '        ["message","name","status","statusCode","url"].forEach(function(k){if(err[k]!=null)_ed+=k+": "+String(err[k]).slice(0,300)+"\\n";});',
+  '        if(err.cause)_ed+="cause: "+String(err.cause&&(err.cause.message||err.cause)).slice(0,300)+"\\n";',
+  '        if(err.stack)_ed+="stack: "+String(err.stack).slice(0,500);',
+  '      }catch(ex){}',
+  '      self.postMessage({type:"error",text:"فشل تحميل النموذج: "+(err&&err.message||String(err)),detail:_ed});}',
   '    return;}',
   '  if(t==="transcribe"){',
   '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
@@ -2241,9 +2247,11 @@ function _w2Msg(m){
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
     _mem2StopAndEval();
   }else if(m.type==='error'){
-    console.error('[w2] error:',m.text);
+    var _fullErr=(m.text||'')+(m.detail?'\n'+m.detail:'');
+    console.error('[w2] error:\n'+_fullErr);
+    _w2ShowDbg('[ERR model]\n'+_fullErr);
     W2.analyzing=false;W2.loading=false;
-    toast('خطأ في التعرّف: '+(m.text||'').slice(0,80),'error');
+    toast('خطأ: '+(m.text||'').slice(0,100),'error');
     MEM2.recActive=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     if(live)live.textContent='';
