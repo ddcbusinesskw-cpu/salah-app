@@ -2168,7 +2168,9 @@ var _W2_WSRC=[
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=new Float32Array(raw);',
   '      var _procT0=Date.now();',
-  '      var r=await asr(audio,{});',
+  '      var _dur=ev.data.length/16000;',
+  '      var _opts=_dur>25?{chunk_length_s:30,stride_length_s:5}:{};',
+  '      var r=await asr(audio,_opts);',
   '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
   '};'
@@ -2666,17 +2668,53 @@ function _mem2Align(refW,recW){
   while(i>0||j>0){
     if(i>0&&j>0){
       var sc=refW[i-1]===recW[j-1]?S:_memFuz(recW[j-1],refW[i-1])?F:X;
-      if(dp[i][j]===dp[i-1][j-1]+sc){res.unshift({ref:refW[i-1],ok:sc>=F});i--;j--;continue;}
+      if(sc>=F&&dp[i][j]===dp[i-1][j-1]+sc){res.unshift({ref:refW[i-1],ok:true});i--;j--;continue;}
     }
     if(i>0&&(j===0||dp[i][j]===dp[i-1][j]+G)){res.unshift({ref:refW[i-1],ok:false});i--;}
     else{j--;}
   }
   return res;
 }
+var _MUQEXP={
+  'الم':['الف','لام','ميم'],
+  'الر':['الف','لام','را'],
+  'المر':['الف','لام','ميم','را'],
+  'المص':['الف','لام','ميم','صاد'],
+  'كهيعص':['كاف','ها','يا','عين','صاد'],
+  'طه':['طا','ها'],
+  'يس':['يا','سين'],
+  'ص':['صاد'],
+  'حم':['حا','ميم'],
+  'عسق':['عين','سين','قاف'],
+  'ق':['قاف'],
+  'ن':['نون'],
+  'طس':['طا','سين'],
+  'طسم':['طا','سين','ميم'],
+  'حمعسق':['حا','ميم','عين','سين','قاف']
+};
+function _collapseMuq(arr){
+  var out=[],i=0;
+  var keys=Object.keys(_MUQEXP).sort(function(a,b){return _MUQEXP[b].length-_MUQEXP[a].length;});
+  while(i<arr.length){
+    var matched=false;
+    for(var ki=0;ki<keys.length;ki++){
+      var k=keys[ki],exp=_MUQEXP[k];
+      if(i+exp.length>arr.length)continue;
+      var ok2=true;
+      for(var ei=0;ei<exp.length;ei++){
+        if(arr[i+ei]!==exp[ei]&&_memED(arr[i+ei],exp[ei])>1){ok2=false;break;}
+      }
+      if(ok2){out.push(k);i+=exp.length;matched=true;break;}
+    }
+    if(!matched){out.push(arr[i]);i++;}
+  }
+  return out;
+}
 function _mem2Eval(seg,recWords){
   var refW=[];
   seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var recN=recWords.map(function(w){return _normRec(w);});
+  recN=_collapseMuq(recN);
   var pairs=_mem2Align(refW,recN);
   var ok=0,err=0;
   pairs.forEach(function(p){if(p.ok)ok++;else err++;});
@@ -2687,7 +2725,7 @@ function _mem2Score(seg,text){
   if(!text||!seg)return 0;
   var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
-  var recN=words.map(function(w){return _normRec(w);});
+  var recN=_collapseMuq(words.map(function(w){return _normRec(w);}));
   var pairs=_mem2Align(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
@@ -3374,6 +3412,9 @@ function _normRec(x){
   // ── Repeated chars ──
   x=x.replace(/نن$/,'ن');
   x=x.replace(/(.)(\1){2,}/g,'$1');
+
+  // ── Madd: collapse duplicate vowels (prolongation artifacts) ──
+  x=x.replace(/اا+/g,'ا').replace(/وو+/g,'و').replace(/يي+/g,'ي');
 
   x=snorm(x);
   // Trailing bare alef → ya (covers هدى/يهدا/كفوا variations)
