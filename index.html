@@ -2357,7 +2357,7 @@ function _mem2Align(refW,recW){
 function _mem2Eval(seg,recWords){
   var refW=[];
   seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
-  var recN=recWords.map(function(w){return snorm(w);});
+  var recN=recWords.map(function(w){return _normRec(w);});
   var pairs=_mem2Align(refW,recN);
   var ok=0,err=0;
   pairs.forEach(function(p){if(p.ok)ok++;else err++;});
@@ -3032,6 +3032,15 @@ if(!navigator.onLine){var _ob=document.getElementById('offlineBadge');if(_ob)_ob
 /* ===== البحث ===== */
 var QFLAT=null,SEARCH_TAB='q';
 function snorm(x){return x.replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
+function _normRec(x){
+  x=x
+    .replace(/اللاه/g,'الله').replace(/الاه/g,'الله').replace(/اللاة/g,'الله')
+    .replace(/نن$/,'ن')
+    .replace(/(.)(\1){2,}/g,'$1');
+  x=snorm(x);
+  if(x.length>=3)x=x.replace(/ا$/,'ي');
+  return x;
+}
 function buildQFlat(cb){
   if(QFLAT){if(cb)cb();return;}
   var fn=function(){
