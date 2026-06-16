@@ -2013,6 +2013,7 @@ function go(id){
 }
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
+var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false};
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2129,14 +2130,189 @@ function _mem2UpdateBar(){
 function _isNative(){
   return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 }
+// ── W2: Whisper on-device recognition (replaces Google/Apple engines) ────────
+var _W2_WSRC=[
+  'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
+  'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
+  'self.postMessage({type:"ws"});',
+  'var asr=null;',
+  'self.onmessage=async function(ev){',
+  '  var t=ev.data.type;',
+  '  if(t==="load"){',
+  '    var pip,env;',
+  '    try{var m=await import(P);pip=m.pipeline;env=m.env;}',
+  '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
+  '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
+  '    env.allowLocalModels=false;env.useBrowserCache=true;',
+  '    try{asr=await pip("automatic-speech-recognition","onnx-community/whisper-base",',
+  '      {dtype:"q8",progress_callback:function(p){self.postMessage({type:"progress",data:p});}});',
+  '      self.postMessage({type:"ready"});}',
+  '    catch(err){self.postMessage({type:"error",text:"فشل تحميل النموذج: "+(err&&err.message||String(err))});}',
+  '    return;}',
+  '  if(t==="transcribe"){',
+  '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
+  '    try{',
+  '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
+  '      var audio=new Float32Array(raw);',
+  '      var r=await asr(audio,{language:"arabic",task:"transcribe"});',
+  '      self.postMessage({type:"result",text:r.text||""});}',
+  '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
+  '};'
+].join('\n');
+function _w2Init(){
+  if(W2.worker||W2.loading)return;
+  W2.loading=true;
+  console.log('[w2] init');
+  var blob,url;
+  try{blob=new Blob([_W2_WSRC],{type:'text/javascript'});url=URL.createObjectURL(blob);}
+  catch(e){toast('فشل إنشاء محرّك التعرّف','error');W2.loading=false;return;}
+  try{W2.worker=new Worker(url,{type:'module'});}
+  catch(e){toast('Web Worker غير مدعوم','error');W2.loading=false;return;}
+  W2.worker.onmessage=function(ev){_w2Msg(ev.data);};
+  W2.worker.onerror=function(e){
+    console.error('[w2] onerror:',e&&e.message);
+    toast('فشل تحميل محرّك الذكاء الاصطناعي','error');
+    W2.loading=false;
+  };
+  W2.worker.onmessageerror=function(e){console.error('[w2] onmessageerror:',e);};
+  W2.worker.postMessage({type:'load'});
+}
+function _w2Msg(m){
+  var live=document.getElementById('mem2Live');
+  var mic=document.getElementById('mem2MicBtn');
+  var lbl=document.getElementById('mem2MicLbl');
+  if(m.type==='ws'){
+    console.log('[w2] worker started');
+  }else if(m.type==='progress'){
+    var p=m.data||{};
+    if(p.status==='downloading'&&p.progress!=null){
+      var pct=Math.round(p.progress);
+      if(live&&(MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%…';
+    }
+  }else if(m.type==='ready'){
+    W2.modelReady=true;W2.loading=false;
+    console.log('[w2] model ready');
+    if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
+    if(W2.pendingAudio){
+      var pa=W2.pendingAudio;W2.pendingAudio=null;
+      if(live)live.textContent='جارٍ التحليل…';
+      W2.worker.postMessage({type:'transcribe',buffer:pa.buffer,length:pa.length},[pa.buffer]);
+    }
+  }else if(m.type==='result'){
+    console.log('[w2] result:',m.text);
+    W2.analyzing=false;
+    if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+    MEM2._tr=(m.text||'').trim();MEM2._partial='';
+    _mem2StopAndEval();
+  }else if(m.type==='error'){
+    console.error('[w2] error:',m.text);
+    W2.analyzing=false;W2.loading=false;
+    toast('خطأ في التعرّف: '+(m.text||'').slice(0,80),'error');
+    MEM2.recActive=false;
+    if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+    if(live)live.textContent='';
+    _mem2UpdateBar();
+  }
+}
+function _w2StartCapture(){
+  if(!W2.worker)_w2Init();
+  var live=document.getElementById('mem2Live');
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('التسجيل الصوتي غير مدعوم (يلزم HTTPS)','error');return;
+  }
+  if(live)live.textContent='جارٍ طلب الميكروفون…';
+  navigator.mediaDevices.getUserMedia({audio:true,video:false})
+    .then(function(stream){
+      W2.stream=stream;W2.chunks=[];
+      W2.recMime=['audio/webm;codecs=opus','audio/webm','audio/ogg']
+        .find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+      W2.recorder=new MediaRecorder(stream,W2.recMime?{mimeType:W2.recMime}:{});
+      W2.recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)W2.chunks.push(e.data);};
+      W2.recorder.onstop=function(){_w2ProcessAudio();};
+      W2.recorder.start(300);
+      MEM2.recActive=true;
+      if(live)live.textContent=W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل المحرّك… اقرأ بصوت';
+      toast(W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل محرّك الذكاء الاصطناعي…');
+      _mem2UpdateBar();
+    })
+    .catch(function(err){
+      var msg=(err&&(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'))
+        ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الموقع وأعطِ الإذن'
+        :'تعذّر الوصول للميكروفون: '+(err&&err.message||String(err));
+      toast(msg,'error');
+      MEM2.recActive=false;_mem2UpdateBar();
+      if(live)live.textContent='';
+    });
+}
+function _w2StopCapture(){
+  if(!W2.recorder||W2.recorder.state==='inactive'){
+    MEM2.recActive=false;_mem2UpdateBar();return;
+  }
+  var live=document.getElementById('mem2Live');
+  var mic=document.getElementById('mem2MicBtn');
+  var lbl=document.getElementById('mem2MicLbl');
+  W2.analyzing=true;MEM2.recActive=false;
+  if(live)live.textContent='جارٍ التحليل…';
+  if(lbl)lbl.textContent='جارٍ…';if(mic)mic.disabled=true;
+  _mem2UpdateBar();
+  W2.recorder.stop();
+  if(W2.stream){W2.stream.getTracks().forEach(function(t){t.stop();});W2.stream=null;}
+}
+function _w2ProcessAudio(){
+  var totalBytes=W2.chunks.reduce(function(s,c){return s+c.size;},0);
+  console.log('[w2] chunks:',W2.chunks.length,'bytes:',totalBytes);
+  if(!W2.chunks.length||totalBytes<200){
+    W2.analyzing=false;
+    var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
+    if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+    MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;
+  }
+  var audioBlob=new Blob(W2.chunks,{type:W2.recMime||'audio/webm'});
+  audioBlob.arrayBuffer().then(function(ab){
+    var actx=new(window.AudioContext||window.webkitAudioContext)();
+    actx.decodeAudioData(ab,function(decoded){
+      actx.close();
+      console.log('[w2] decoded',decoded.duration.toFixed(2)+'s sr='+decoded.sampleRate);
+      var nSamp=Math.ceil(decoded.duration*16000);
+      var offCtx=new OfflineAudioContext(1,nSamp,16000);
+      var src=offCtx.createBufferSource();
+      src.buffer=decoded;src.connect(offCtx.destination);src.start(0);
+      offCtx.startRendering().then(function(rend){
+        var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
+        console.log('[w2] resampled:',float32.length,'samples @16kHz');
+        if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;_mem2UpdateBar();return;}
+        if(W2.modelReady){
+          W2.worker.postMessage({type:'transcribe',buffer:float32.buffer,length:float32.length},[float32.buffer]);
+        }else{
+          W2.pendingAudio=float32;
+          var live=document.getElementById('mem2Live');
+          if(live)live.textContent='جارٍ تحميل المحرّك… الرجاء الانتظار';
+        }
+      });
+    },function(err){
+      actx.close();
+      console.error('[w2] decode error:',err);
+      toast('فشل قراءة الصوت — حاول مجدداً','error');
+      W2.analyzing=false;MEM2.recActive=false;
+      var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
+      if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+      _mem2UpdateBar();
+    });
+  }).catch(function(err){
+    console.error('[w2] arrayBuffer:',err);
+    toast('خطأ في الصوت — حاول مجدداً','error');
+    W2.analyzing=false;MEM2.recActive=false;_mem2UpdateBar();
+  });
+}
 function mem2ToggleRec(){
-  console.log('[tasmee] mem2ToggleRec called — recActive:',MEM2.recActive);
-  if(MEM2.recActive){_mem2StopAndEval();return;}
+  console.log('[tasmee] mem2ToggleRec — recActive:',MEM2.recActive,'analyzing:',W2.analyzing);
+  if(W2.analyzing)return;
+  if(MEM2.recActive){_w2StopCapture();return;}
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
   MEM2._tr='';MEM2._partial='';MEM2._retried=false;MEM2._lang='';
-  if(_isNative())_mem2StartNative();else _mem2StartWeb();
+  _w2StartCapture();
 }
 function _mem2StartNative(){
   console.log('[tasmee] _mem2StartNative entered');
@@ -2334,12 +2510,7 @@ function _mem2StopAndEval(){
       MEM2._retried=true;
       toast('لم أسمع — أعيد المحاولة…');
       MEM2._tr='';MEM2._partial='';
-      // [أ-٢] fast retry: skip permission/language detection if lang already known
-      if(_isNative()&&MEM2._lang){
-        var _rNsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
-        if(_rNsr){_mem2NsrListen(_rNsr);_mem2NsrStart(_rNsr,MEM2._lang);return;}
-      }
-      if(_isNative())_mem2StartNative();else _mem2StartWeb();
+      _w2StartCapture();
     }else{
       MEM2._retried=false;
       toast('لم يُسمع شيء — حاول مجدداً');
@@ -2359,14 +2530,17 @@ function _mem2StopAndEval(){
   _mem2UpdateBar();
 }
 function _mem2StopRec(){
-  MEM2.recActive=false;
-  if(_isNative()){
-    var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
-    if(nsr){try{var _ss=nsr.stop();if(_ss&&_ss.catch)_ss.catch(function(){});}catch(ex){}try{var _rr=nsr.removeAllListeners();if(_rr&&_rr.catch)_rr.catch(function(){});}catch(ex){}}
-  }else{
-    if(MEM2.rec){MEM2.rec.onend=null;try{MEM2.rec.stop();}catch(e){}}
-    MEM2.rec=null;
+  MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;
+  // Stop W2 MediaRecorder if it's running (e.g. user navigated segments mid-recording)
+  // Set onstop=null first so _w2ProcessAudio() is NOT triggered — this is a discard path
+  if(W2.recorder&&W2.recorder.state!=='inactive'){
+    W2.recorder.onstop=null;
+    try{W2.recorder.stop();}catch(e){}
   }
+  if(W2.stream){W2.stream.getTracks().forEach(function(t){t.stop();});W2.stream=null;}
+  W2.recorder=null;W2.chunks=[];
+  var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
+  if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
   _mem2UpdateBar();
 }
 /* Levenshtein distance */
