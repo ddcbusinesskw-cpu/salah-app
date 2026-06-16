@@ -2010,7 +2010,7 @@ function go(id){
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
 }
 /* ===== تسميع الحفظ v2 ===== */
-var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:''};
+var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:''};
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2133,7 +2133,7 @@ function mem2ToggleRec(){
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
-  MEM2._tr='';
+  MEM2._tr='';MEM2._partial='';
   if(_isNative())_mem2StartNative();else _mem2StartWeb();
 }
 function _mem2StartNative(){
@@ -2141,7 +2141,7 @@ function _mem2StartNative(){
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr){toast('إضافة التعرّف الصوتي غير موجودة — حدّث التطبيق','error');return;}
   var live=document.getElementById('mem2Live');
-  var _curPartial='';
+  MEM2._partial='';
 
   // Cleanup previous listeners — guard against missing method
   try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(ex){console.warn('[tasmee] removeAllListeners:',ex);}
@@ -2149,9 +2149,9 @@ function _mem2StartNative(){
   try{
     var _pl=nsr.addListener('partialResults',function(data){
       if(!MEM2.recActive||!data||!data.matches)return;
-      _curPartial=(data.matches[0]||'').trim();
-      console.log('[tasmee] partial:',_curPartial);
-      if(live)live.textContent=_curPartial;
+      MEM2._partial=(data.matches[0]||'').trim();
+      console.log('[tasmee] partial:',MEM2._partial);
+      if(live)live.textContent=MEM2._partial;
     });
     if(_pl&&_pl.catch)_pl.catch(function(){});
   }catch(ex){console.warn('[tasmee] addListener partialResults:',ex);}
@@ -2165,19 +2165,19 @@ function _mem2StartNative(){
   function _doStart(lang){
     MEM2.recActive=true;
     MEM2._tr='';
-    _curPartial='';
+    MEM2._partial='';
     toast('اقرأ المقطع بصوت واضح…');
     _mem2UpdateBar();
     (function loop(){
       if(!MEM2.recActive)return;
-      _curPartial='';
+      MEM2._partial='';
       console.log('[tasmee] nsr.start() lang:',lang);
       nsr.start({language:lang,maxResults:5,partialResults:true,popup:false})
         .then(function(r){
-          var finalText=(r&&r.matches&&r.matches[0]?r.matches[0]:_curPartial||'').trim();
-          console.log('[tasmee] session ended — matches:',JSON.stringify(r&&r.matches),'curPartial:',_curPartial,'→',finalText);
+          var finalText=(r&&r.matches&&r.matches[0]?r.matches[0]:MEM2._partial||'').trim();
+          console.log('[tasmee] session ended — matches:',JSON.stringify(r&&r.matches),'partial:',MEM2._partial,'→',finalText);
           if(finalText)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+finalText;
-          _curPartial='';
+          MEM2._partial='';
           if(MEM2.recActive)loop();
         })
         .catch(function(e){
@@ -2291,7 +2291,8 @@ function _mem2StartWeb(){
   }else{_doStart();}
 }
 function _mem2StopAndEval(){
-  var tr=MEM2._tr;
+  var tr=(MEM2._tr+(MEM2._partial?' '+MEM2._partial:'')).trim();
+  MEM2._partial='';
   _mem2StopRec();
   var live=document.getElementById('mem2Live');if(live)live.textContent='';
   var words=tr.trim().split(/\s+/).filter(Boolean);
@@ -2311,7 +2312,7 @@ function _mem2StopRec(){
   MEM2.recActive=false;
   if(_isNative()){
     var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
-    if(nsr){nsr.stop().catch(function(){});nsr.removeAllListeners().catch(function(){});}
+    if(nsr){try{var _ss=nsr.stop();if(_ss&&_ss.catch)_ss.catch(function(){});}catch(ex){}try{var _rr=nsr.removeAllListeners();if(_rr&&_rr.catch)_rr.catch(function(){});}catch(ex){}}
   }else{
     if(MEM2.rec){MEM2.rec.onend=null;try{MEM2.rec.stop();}catch(e){}}
     MEM2.rec=null;
@@ -2355,6 +2356,7 @@ function _mem2Eval(seg,recWords){
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
 function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
 function mem2HearSeg(){
+  if(MEM2.recActive){MEM2._partial='';_mem2StopRec();}
   var seg=MEM2.segs[MEM2.cur];if(!seg)return;
   if(!surahMeta&&QURAN_EMBED&&QURAN_EMBED.meta)surahMeta=QURAN_EMBED.meta;
   var ed=ayEdition(),au=document.getElementById('quranAudio'),qi=0;
