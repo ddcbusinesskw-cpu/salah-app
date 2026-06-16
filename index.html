@@ -2068,7 +2068,7 @@ function mem2Start(){
   var from=Math.max(0,+(document.getElementById('memFrom').value||1)-1);
   var to=Math.min(arr.length-1,+(document.getElementById('memTo').value||arr.length)-1);
   if(from>to)to=from;
-  MEM2={surah:n,from:from,to:to,segLen:_m2sl,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:''};
+  MEM2={surah:n,from:from,to:to,segLen:_m2sl,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false};
   for(var i=from;i<=to;i+=_m2sl){
     var end=Math.min(i+_m2sl-1,to);var ayahs=[];
     for(var j=i;j<=end;j++){
@@ -2133,7 +2133,7 @@ function mem2ToggleRec(){
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
-  MEM2._tr='';MEM2._partial='';
+  MEM2._tr='';MEM2._partial='';MEM2._retried=false;
   if(_isNative())_mem2StartNative();else _mem2StartWeb();
 }
 function _mem2StartNative(){
@@ -2174,9 +2174,20 @@ function _mem2StartNative(){
       console.log('[tasmee] nsr.start() lang:',lang);
       nsr.start({language:lang,maxResults:5,partialResults:true,popup:false})
         .then(function(r){
-          var finalText=(r&&r.matches&&r.matches[0]?r.matches[0]:MEM2._partial||'').trim();
-          console.log('[tasmee] session ended — matches:',JSON.stringify(r&&r.matches),'partial:',MEM2._partial,'→',finalText);
-          if(finalText)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+finalText;
+          var matches=r&&r.matches||[];
+          var best='';
+          if(matches.length>1){
+            var seg=MEM2.segs[MEM2.cur];var bestScore=-1;
+            for(var mi=0;mi<matches.length;mi++){
+              if(!matches[mi])continue;
+              var sc=_mem2Score(seg,matches[mi]);
+              if(sc>bestScore){bestScore=sc;best=matches[mi];}
+            }
+          }
+          if(!best)best=(matches[0]||MEM2._partial||'').trim();
+          else best=best.trim();
+          console.log('[tasmee] session — best:',best,'from',matches.length,'matches');
+          if(best)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+best;
           MEM2._partial='';
           if(MEM2.recActive)loop();
         })
@@ -2352,6 +2363,14 @@ function _mem2Eval(seg,recWords){
   pairs.forEach(function(p){if(p.ok)ok++;else err++;});
   seg.status='done';seg.result={pairs:pairs,ok:ok,err:err};
   if(RAK&&RAK.hap!==undefined?RAK.hap:true)buzz(ok===pairs.length?[60,30,80]:ok>0?35:0);
+}
+function _mem2Score(seg,text){
+  if(!text||!seg)return 0;
+  var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
+  var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
+  var recN=words.map(function(w){return _normRec(w);});
+  var pairs=_mem2Align(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
+  return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
 function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
