@@ -89,8 +89,8 @@
 // ── Constants ────────────────────────────────────────────────────────────────
 // الروابط الرسمية: jsDelivr يحلّ ملف ESM تلقائياً من exports الحزمة
 // esm.sh بديل موثوق إن فشل jsDelivr
-const CDN_PRIMARY  = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
-const CDN_FALLBACK = 'https://esm.sh/@huggingface/transformers@3';
+const CDN_PRIMARY  = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0';
+const CDN_FALLBACK = 'https://esm.sh/@huggingface/transformers@3.5.0';
 const MODEL        = 'onnx-community/whisper-base';
 const WORKER_TO    = 30000; // مهلة للـ worker-started (30 ث)
 
@@ -233,7 +233,7 @@ var WORKER_SRC = [
   '      asr = await pipeline(',
   '        "automatic-speech-recognition",',
   '        MODEL,',
-  '        { dtype: "q4", progress_callback: function(p) { self.postMessage({ type: "progress", data: p }); } }',
+  '        { dtype: "q8", progress_callback: function(p) { self.postMessage({ type: "progress", data: p }); } }',
   '      );',
   '      self.postMessage({ type: "ready" });',
   '    } catch (err) {',
@@ -249,15 +249,24 @@ var WORKER_SRC = [
   '  if (type === "transcribe") {',
   '    if (!asr) { self.postMessage({ type: "error", text: "النموذج غير محمَّل" }); return; }',
   '    try {',
-  '      // إعادة تغليف ArrayBuffer المُنقَل كـ Float32Array (zero-copy transfer يُفقد الـ view الأصلي)',
-  '      var audio = new Float32Array(payload.buffer, 0, payload.length);',
-  '      self.postMessage({ type: "log", text: "audio: " + audio.constructor.name + " length=" + audio.length });',
+  '      // Fix-1: نسخة نظيفة بـ byteOffset=0 وبدون ارتباط بالـ buffer المُنقَل',
+  '      var raw   = new Float32Array(payload.buffer, 0, payload.length);',
+  '      var audio = new Float32Array(raw); // deep-copy → prototype سليم في أي realm',
+  '      var durationS = (audio.length / 16000).toFixed(2);',
+  '      self.postMessage({ type: "log",',
+  '        text: "Fix-1 audio: " + audio.constructor.name',
+  '            + " len=" + audio.length',
+  '            + " byteOffset=" + audio.byteOffset',
+  '            + " dur=" + durationS + "s" });',
+  '',
+  '      // Fix-2: الصوت كوسيط موضعي مباشر (لا كائن {array,sampling_rate})',
+  '      // Fix-3: بدون chunk_length_s/stride_length_s للمقاطع القصيرة — يتجنّب مسار subarray',
+  '      var opts = { language: "arabic", task: "transcribe" };',
+  '      self.postMessage({ type: "log",',
+  '        text: "calling asr(Float32Array, " + JSON.stringify(opts) + ")" });',
+  '',
   '      var t0  = performance.now();',
-  '      var res = await asr(',
-  '        { array: audio, sampling_rate: 16000 },',
-  '        { language: "arabic", task: "transcribe",',
-  '          chunk_length_s: 30, stride_length_s: 5, return_timestamps: false }',
-  '      );',
+  '      var res = await asr(audio, opts);',
   '      var el = ((performance.now() - t0) / 1000).toFixed(2);',
   '      self.postMessage({ type: "result", text: res.text || "", time: el });',
   '    } catch (err) {',
@@ -399,7 +408,7 @@ async function runOnMainThread() {
     asrMain = await mod.pipeline(
       'automatic-speech-recognition',
       MODEL,
-      { dtype: 'q4', progress_callback: handleProgress }
+      { dtype: 'q8', progress_callback: handleProgress }
     );
     setModelReady();
   } catch (err) {
@@ -565,14 +574,12 @@ window.stopRec = async function() {
 
   if (usingFallback && asrMain) {
     log('تشغيل التعرّف على Main Thread…', 'w');
-    log('audio: ' + float32.constructor.name + ' length=' + float32.length);
+    var audioMT = new Float32Array(float32); // نسخة نظيفة
+    log('audio: ' + audioMT.constructor.name + ' len=' + audioMT.length +
+        ' dur=' + (audioMT.length / 16000).toFixed(2) + 's');
     try {
       var t0  = performance.now();
-      var res = await asrMain(
-        { array: float32, sampling_rate: 16000 },
-        { language: 'arabic', task: 'transcribe',
-          chunk_length_s: 30, stride_length_s: 5, return_timestamps: false }
-      );
+      var res = await asrMain(audioMT, { language: 'arabic', task: 'transcribe' });
       showResult(res.text || '', ((performance.now() - t0) / 1000).toFixed(2));
     } catch (err) {
       showErr('خطأ في التعرّف:\n' + (err.message || String(err)) +
