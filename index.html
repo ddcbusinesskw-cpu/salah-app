@@ -2602,12 +2602,33 @@ var cdTimer=null,firedAdhan='';
 
 function loadHome(){
   var ln=document.getElementById('locName');ln.textContent='جارٍ التحديد…';
+  console.log('[location] loadHome — native:',_isNative());
+  if(_isNative()){
+    var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
+    if(!geo){console.warn('[location] Capacitor Geolocation plugin not found');showCityPicker();return;}
+    geo.requestPermissions({permissions:['location']})
+      .catch(function(e){console.warn('[location] requestPermissions (non-fatal):',e&&(e.message||String(e)));})
+      .then(function(){
+        return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});
+      })
+      .then(function(p){
+        console.log('[location] native coords:',p&&p.coords&&p.coords.latitude,p&&p.coords&&p.coords.longitude);
+        try{localStorage.removeItem('cityName');}catch(e){}
+        lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));
+        buildTimes(p.coords.latitude,p.coords.longitude);
+      })
+      .catch(function(e){
+        console.warn('[location] native getCurrentPosition failed:',e&&(e.message||String(e)));
+        showCityPicker();
+      });
+    return;
+  }
   if(!navigator.geolocation){showCityPicker();return;}
   navigator.geolocation.getCurrentPosition(function(p){
     try{localStorage.removeItem('cityName');}catch(e){}
     lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));
     buildTimes(p.coords.latitude,p.coords.longitude);
-  },function(){showCityPicker();},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+  },function(err){console.warn('[location] web getCurrentPosition failed:',err&&err.message);showCityPicker();},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
 }
 var CITY_PRESETS=[
   {n:'الكويت',lat:29.3759,lng:47.9774},{n:'الرياض',lat:24.7136,lng:46.6753},
@@ -2641,20 +2662,23 @@ function showCityPicker(){
     '<button class="cta" style="margin-top:16px" onclick="retryGeo()">📍 تحديد موقعي تلقائيًا</button>';
   document.getElementById('ov_city').classList.add('on');
 }
-function selectCity(i){var c=CITY_PRESETS[i];lsSet('coords',JSON.stringify({lat:c.lat,lng:c.lng}));lsSet('cityName',c.n);document.getElementById('ov_city').classList.remove('on');buildTimes(c.lat,c.lng);}
+function selectCity(i){var c=CITY_PRESETS[i];console.log('[location] selectCity:',c&&c.n,'lat:',c&&c.lat,'lng:',c&&c.lng);lsSet('coords',JSON.stringify({lat:c.lat,lng:c.lng}));lsSet('cityName',c.n);document.getElementById('ov_city').classList.remove('on');try{buildTimes(c.lat,c.lng);}catch(e){console.error('[location] buildTimes error:',e&&e.message||String(e),e&&e.stack);toast('خطأ في حساب المواقيت','error');}}
 function retryGeo(){document.getElementById('ov_city').classList.remove('on');loadHome();}
 function buildTimes(lat,lng){
-  var tz=-new Date().getTimezoneOffset()/60;
-  var t=computeTimes(new Date(),lat,lng,tz);
-  var ofs=(+(lsGet('time_offset')||0))/60;
-  if(ofs!==0){['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(k){t[k]=fixhour(t[k]+ofs);});}
-  var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
-  var timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
-  timings.Midnight=fmtH(sunset+night/2);timings.Lastthird=fmtH(sunset+night*2/3);
-  PT.data={timings:timings,raw:t};
-  document.getElementById('locName').textContent=lsGet('cityName')||tzCity();
-  renderHome();renderTimesScreen();startCountdown();
-  scheduleNoorPrayerAlerts();
+  console.log('[times] buildTimes lat:',lat,'lng:',lng);
+  try{
+    var tz=-new Date().getTimezoneOffset()/60;
+    var t=computeTimes(new Date(),lat,lng,tz);
+    var ofs=(+(lsGet('time_offset')||0))/60;
+    if(ofs!==0){['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(k){t[k]=fixhour(t[k]+ofs);});}
+    var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
+    var timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
+    timings.Midnight=fmtH(sunset+night/2);timings.Lastthird=fmtH(sunset+night*2/3);
+    PT.data={timings:timings,raw:t};
+    document.getElementById('locName').textContent=lsGet('cityName')||tzCity();
+    renderHome();renderTimesScreen();startCountdown();
+    scheduleNoorPrayerAlerts();
+  }catch(e){console.error('[times] buildTimes failed:',e&&e.message||String(e),e&&e.stack);}
 }
 function renderHome(){
   if(!PT.data)return;var t=PT.data.timings;
@@ -2881,7 +2905,31 @@ var KAABA={lat:21.4225,lng:39.8262},qiblaBearing=null;
 function toRad(d){return d*Math.PI/180;}
 function bearingTo(lat,lng){var dL=toRad(KAABA.lng-lng),l1=toRad(lat),l2=toRad(KAABA.lat);var y=Math.sin(dL)*Math.cos(l2),x=Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL);return (Math.atan2(y,x)*180/Math.PI+360)%360;}
 function setQibla(lat,lng){qiblaBearing=bearingTo(lat,lng);document.getElementById('qdeg').textContent=ar(Math.round(qiblaBearing))+'°';document.getElementById('qlbl').textContent='اتجاه القبلة من الشمال — حرّك الهاتف';enableCompass();}
-function startQibla(){var c=lsGet('coords');if(c){try{var o=JSON.parse(c);setQibla(o.lat,o.lng);return;}catch(e){}}if(!navigator.geolocation){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';navigator.geolocation.getCurrentPosition(function(p){lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));setQibla(p.coords.latitude,p.coords.longitude);},function(){document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';},{enableHighAccuracy:true,timeout:8000,maximumAge:600000});}
+function startQibla(){
+  var c=lsGet('coords');if(c){try{var o=JSON.parse(c);setQibla(o.lat,o.lng);return;}catch(e){}}
+  console.log('[location] startQibla — native:',_isNative());
+  if(_isNative()){
+    var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
+    if(!geo){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
+    document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';
+    geo.requestPermissions({permissions:['location']})
+      .catch(function(e){console.warn('[location] qibla requestPermissions (non-fatal):',e&&(e.message||String(e)));})
+      .then(function(){return geo.getCurrentPosition({enableHighAccuracy:true,timeout:10000,maximumAge:600000});})
+      .then(function(p){
+        console.log('[location] qibla native coords:',p&&p.coords&&p.coords.latitude,p&&p.coords&&p.coords.longitude);
+        lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));
+        setQibla(p.coords.latitude,p.coords.longitude);
+      })
+      .catch(function(e){
+        console.warn('[location] qibla native failed:',e&&(e.message||String(e)));
+        document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';
+      });
+    return;
+  }
+  if(!navigator.geolocation){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
+  document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';
+  navigator.geolocation.getCurrentPosition(function(p){lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));setQibla(p.coords.latitude,p.coords.longitude);},function(err){console.warn('[location] qibla web failed:',err&&err.message);document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';},{enableHighAccuracy:true,timeout:8000,maximumAge:600000});
+}
 function enableCompass(){function add(){window.addEventListener('deviceorientationabsolute',onHeading);window.addEventListener('deviceorientation',onHeading);}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')add();}).catch(function(){});}else add();}
 function disableCompass(){window.removeEventListener('deviceorientationabsolute',onHeading);window.removeEventListener('deviceorientation',onHeading);}
 function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
