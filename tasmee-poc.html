@@ -6,233 +6,446 @@
   <title>تجربة Whisper على الجهاز — POC</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;padding:28px 16px;direction:rtl}
-    .container{max-width:620px;margin:0 auto}
-    h1{font-size:22px;color:#58a6ff;margin-bottom:4px}
-    .sub{font-size:13px;color:#8b949e;margin-bottom:24px;line-height:1.6}
-    .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;margin-bottom:16px}
-    .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-    .card-hd span:first-child{font-size:13px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
-    .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
-    .badge-warn{background:#4a3700;color:#d29922}
-    .badge-ok{background:#1a4731;color:#56d364}
-    .badge-busy{background:#1c2d3f;color:#58a6ff}
-    #statusText{font-size:13px;color:#8b949e;min-height:18px;margin-bottom:10px}
-    .progress-track{background:#21262d;border-radius:4px;height:7px;overflow:hidden;margin-bottom:6px}
-    .progress-fill{height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);width:0%;transition:width .35s}
-    .progress-label{font-size:11px;color:#6e7681;min-height:16px;margin-bottom:12px;direction:ltr;text-align:left}
-    .model-info{font-size:11px;color:#484f58;margin-top:8px;direction:ltr;text-align:left}
-    .btn{padding:9px 18px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-family:inherit;transition:background .15s,opacity .15s}
-    .btn-primary{background:#1f6feb;color:#fff}
-    .btn-primary:hover:not(:disabled){background:#388bfd}
-    .btn-success{background:#238636;color:#fff}
-    .btn-success:hover:not(:disabled){background:#2ea043}
-    .btn-danger{background:#da3633;color:#fff}
-    .btn-danger:hover:not(:disabled){background:#f85149}
-    .btn:disabled{opacity:.4;cursor:not-allowed}
-    .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    #recStatus{font-size:13px;color:#8b949e;min-height:18px}
-    .rec-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#da3633;margin-right:6px;opacity:0;vertical-align:middle;transition:opacity .25s}
-    .rec-dot.on{opacity:1;animation:pulse 1.1s ease-in-out infinite}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-    .transcript{font-size:20px;line-height:1.9;color:#e6edf3;min-height:70px;padding:14px;background:#0d1117;border-radius:7px;border:1px solid #21262d;white-space:pre-wrap;direction:rtl;text-align:right;word-break:break-word}
-    #timing{font-size:12px;color:#6e7681;margin-top:8px;direction:ltr;text-align:left}
-    .err-box{margin-top:10px;padding:10px 14px;background:#2d1418;border:1px solid #6e1c23;border-radius:6px;color:#f85149;font-size:13px;display:none}
-    .note{font-size:11.5px;color:#484f58;margin-top:10px;line-height:1.6;direction:rtl}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;padding:20px 14px;direction:rtl}
+    .wrap{max-width:600px;margin:0 auto}
+    h1{font-size:20px;color:#58a6ff;margin-bottom:4px}
+    .sub{font-size:12px;color:#6e7681;margin-bottom:20px;line-height:1.5}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px;margin-bottom:14px}
+    .card-hd{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#6e7681;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .badge{padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
+    .b-warn{background:#3d2e00;color:#d29922}
+    .b-ok  {background:#1a4731;color:#56d364}
+    .b-busy{background:#0e2a4a;color:#58a6ff}
+    .b-err {background:#3d0e0e;color:#f85149}
+    #bigStatus{font-size:15px;color:#c9d1d9;min-height:22px;margin-bottom:10px;word-break:break-word}
+    .bar-track{background:#21262d;border-radius:4px;height:7px;overflow:hidden;margin-bottom:5px}
+    .bar-fill {height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);width:0%;transition:width .3s}
+    #barLabel {font-size:11px;color:#484f58;min-height:16px;direction:ltr;text-align:left;margin-bottom:10px;word-break:break-all}
+    /* Stage log — visible on-screen, no console needed on mobile */
+    #stageLog{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;max-height:200px;overflow-y:auto;font-size:11px;font-family:monospace;direction:ltr;text-align:left;margin-bottom:12px;scroll-behavior:smooth}
+    .lr{padding:1.5px 0;line-height:1.4;word-break:break-all}
+    .l-i{color:#8b949e}.l-o{color:#56d364}.l-w{color:#d29922}.l-e{color:#f85149}
+    /* Buttons */
+    .btn{padding:9px 16px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-family:inherit;transition:opacity .15s}
+    .btn:disabled{opacity:.35;cursor:not-allowed}
+    .b-blue {background:#1f6feb;color:#fff}
+    .b-green{background:#238636;color:#fff}
+    .b-red  {background:#da3633;color:#fff}
+    .b-gray {background:#21262d;color:#c9d1d9;border:1px solid #30363d;font-size:12px;padding:6px 12px}
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+    #recStatus{font-size:13px;color:#8b949e}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#da3633;margin-right:5px;opacity:0}
+    .dot.on{opacity:1;animation:pu 1.1s infinite}
+    @keyframes pu{0%,100%{opacity:1}50%{opacity:.2}}
+    /* Result */
+    .tx{font-size:20px;line-height:1.9;min-height:60px;padding:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;direction:rtl;text-align:right;word-break:break-word}
+    #timing{font-size:11px;color:#6e7681;margin-top:6px;direction:ltr;text-align:left}
+    /* Error panel — full message + stack, visible on mobile */
+    .err-panel{margin-top:10px;padding:10px 14px;background:#2d1418;border:1px solid #6e1c23;border-radius:6px;color:#f85149;font-size:12px;white-space:pre-wrap;direction:ltr;text-align:left;word-break:break-all;display:none}
+    .info{font-size:11px;color:#484f58;margin-top:8px;line-height:1.5}
   </style>
 </head>
 <body>
-<div class="container">
+<div class="wrap">
   <h1>تجربة Whisper على الجهاز</h1>
-  <p class="sub">
-    إثبات جدوى — ASR على الجهاز بدون محرّك Google ولا SpeechRecognizer<br>
-    Transformers.js · onnx-community/whisper-base · MediaRecorder + OfflineAudioContext
-  </p>
+  <p class="sub">ASR بدون محرّك Google · Transformers.js · onnx-community/whisper-base · MediaRecorder</p>
 
-  <!-- ── Model ── -->
+  <!-- ── Model card ── -->
   <div class="card">
     <div class="card-hd">
       <span>النموذج</span>
-      <span id="modelTag" class="badge badge-warn">لم يُحمَّل</span>
+      <span id="modelBadge" class="badge b-warn">لم يُحمَّل</span>
     </div>
-    <div id="statusText">اضغط زر التحميل للبدء — يستلزم اتصالاً بالإنترنت مرة واحدة فقط</div>
-    <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
-    <div id="progressLabel" class="progress-label"></div>
-    <button id="btnLoad" class="btn btn-primary" onclick="loadModel()">تحميل النموذج</button>
-    <div class="model-info">onnx-community/whisper-base · dtype q4 · ~39 MB · يُخزَّن في IndexedDB بعد التحميل</div>
+    <div id="bigStatus">اضغط "تحميل النموذج" للبدء</div>
+    <div class="bar-track"><div id="barFill" class="bar-fill"></div></div>
+    <div id="barLabel"></div>
+    <!-- Stage log — هذا الصندوق يعرض كل خطوة على الشاشة بدلاً من console -->
+    <div id="stageLog"></div>
+    <div class="btn-row">
+      <button id="btnLoad"  class="btn b-blue" onclick="loadModel()">تحميل النموذج</button>
+      <button id="btnRetry" class="btn b-gray"  onclick="retryLoad()" style="display:none">إعادة المحاولة</button>
+    </div>
+    <p class="info">onnx-community/whisper-base · q4 · ~39 MB · يُخزَّن في IndexedDB بعد أول تحميل</p>
   </div>
 
-  <!-- ── Recording ── -->
+  <!-- ── Recording card ── -->
   <div class="card">
     <div class="card-hd">
       <span>التسجيل</span>
-      <span id="recInd" class="rec-dot"></span>
+      <span class="dot" id="dot"></span>
     </div>
     <div id="recStatus">في انتظار تحميل النموذج…</div>
     <div class="btn-row">
-      <button id="btnStart" class="btn btn-success" disabled onclick="startRec()">▶ بدء التسجيل</button>
-      <button id="btnStop"  class="btn btn-danger"  disabled onclick="stopRec()">■ إيقاف وتحليل</button>
+      <button id="btnStart" class="btn b-green" disabled onclick="startRec()">▶ بدء التسجيل</button>
+      <button id="btnStop"  class="btn b-red"   disabled onclick="stopRec()">■ إيقاف وتحليل</button>
     </div>
-    <p class="note">يعمل على HTTPS أو localhost فقط · تأكد من منح إذن الميكروفون</p>
+    <p class="info">يعمل على HTTPS أو localhost · منح إذن الميكروفون مطلوب</p>
   </div>
 
-  <!-- ── Result ── -->
+  <!-- ── Result card ── -->
   <div class="card">
     <div class="card-hd"><span>النص المُعرَّف</span></div>
-    <div id="transcript" class="transcript">—</div>
+    <div id="tx" class="tx">—</div>
     <div id="timing"></div>
-    <div id="errBox" class="err-box"></div>
+    <!-- Error panel — يعرض الخطأ كاملاً (رسالة + stack) على الشاشة -->
+    <div id="errPanel" class="err-panel"></div>
   </div>
 </div>
 
 <script type="module">
-// ── Inline Web Worker (ESM blob) ─────────────────────────────────────────────
-// The worker imports Transformers.js from CDN, loads whisper, and runs inference
-// off the main thread so the UI stays responsive during the ~5-30 s decode.
-const WORKER_SRC = `
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.esm.min.js';
+// ── Constants ────────────────────────────────────────────────────────────────
+const CDN   = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.esm.min.js';
+const MODEL = 'onnx-community/whisper-base';
+const TO_MS = 30000; // مهلة 30 ثانية لاستجابة Worker الأولى
 
-env.allowLocalModels  = false;
-env.useBrowserCache   = true;   // cache model in IndexedDB after first download
+// ── UI refs ──────────────────────────────────────────────────────────────────
+const UI = {
+  badge:     document.getElementById('modelBadge'),
+  status:    document.getElementById('bigStatus'),
+  bar:       document.getElementById('barFill'),
+  barLabel:  document.getElementById('barLabel'),
+  log:       document.getElementById('stageLog'),
+  btnLoad:   document.getElementById('btnLoad'),
+  btnRetry:  document.getElementById('btnRetry'),
+  btnStart:  document.getElementById('btnStart'),
+  btnStop:   document.getElementById('btnStop'),
+  recStatus: document.getElementById('recStatus'),
+  dot:       document.getElementById('dot'),
+  tx:        document.getElementById('tx'),
+  timing:    document.getElementById('timing'),
+  errPanel:  document.getElementById('errPanel'),
+};
 
-let asr = null;
+// ── Stage log — كل خطوة تُعرض على الشاشة (مفيد على الموبايل بلا console) ──
+function log(msg, lvl) {
+  lvl = lvl || 'i';
+  console.log('[poc/' + lvl + ']', msg);
+  const now  = new Date();
+  const hms  = [now.getHours(), now.getMinutes(), now.getSeconds()]
+                 .map(function(n){return String(n).padStart(2,'0');}).join(':');
+  const row  = document.createElement('div');
+  row.className = 'lr l-' + lvl;
+  row.textContent = hms + '  ' + msg;
+  UI.log.appendChild(row);
+  UI.log.scrollTop = UI.log.scrollHeight;
+}
 
-self.onmessage = async function(ev) {
-  const { type, payload } = ev.data;
-  console.log('[worker] message:', type);
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setSt(txt)   { UI.status.textContent = txt; }
+function setBar(p, l) { UI.bar.style.width = p + '%'; if (l != null) UI.barLabel.textContent = l; }
+function setBadge(txt, cls) { UI.badge.textContent = txt; UI.badge.className = 'badge ' + cls; }
 
-  if (type === 'load') {
-    try {
-      asr = await pipeline(
-        'automatic-speech-recognition',
-        'onnx-community/whisper-base',
-        {
-          dtype: 'q4',
-          progress_callback: function(p) {
-            self.postMessage({ type: 'progress', data: p });
-          }
-        }
-      );
-      console.log('[worker] model ready');
-      self.postMessage({ type: 'ready' });
-    } catch (err) {
-      console.error('[worker] load error:', err);
-      self.postMessage({ type: 'error', text: 'فشل تحميل النموذج: ' + (err && err.message || String(err)) });
+function showErr(msg) {
+  UI.errPanel.textContent = msg;
+  UI.errPanel.style.display = '';
+  log('ERROR: ' + msg.slice(0, 200), 'e');
+}
+function hideErr() { UI.errPanel.style.display = 'none'; }
+
+// progress_callback → on-screen bar + log
+function handleProgress(p) {
+  if (!p) return;
+  if (p.status === 'initiate') {
+    setSt('جارٍ جلب إعدادات النموذج…');
+    log('initiate: ' + (p.file || p.name || ''));
+  } else if (p.status === 'downloading') {
+    const pct = p.progress != null ? Math.round(p.progress) : 0;
+    setBar(pct, (p.file || '') + '  ' + pct + '%');
+    setSt('تحميل ملفات النموذج ' + pct + '%…');
+    // سجّل كل 20% فقط لتجنّب ازدحام السجل
+    if (pct % 20 === 0) log('download ' + (p.file || '') + ' ' + pct + '%');
+  } else if (p.status === 'done') {
+    log('done: ' + (p.file || ''), 'o');
+  }
+}
+
+function setModelReady() {
+  setBadge('جاهز', 'b-ok');
+  setSt('النموذج محمَّل وجاهز ✓');
+  setBar(100, 'اكتمل التحميل ✓');
+  UI.btnLoad.disabled   = true;
+  UI.btnRetry.style.display = 'none';
+  UI.btnStart.disabled  = false;
+  UI.recStatus.textContent = 'جاهز — اضغط للتسجيل';
+  log('النموذج جاهز ✓', 'o');
+}
+
+function showResult(text, time) {
+  UI.tx.textContent     = text || '(بدون نتيجة)';
+  UI.timing.textContent = 'وقت المعالجة: ' + time + ' ث';
+  UI.btnStart.disabled  = false;
+  UI.recStatus.textContent = 'جاهز';
+  setBadge('جاهز', 'b-ok');
+  log('النص: ' + JSON.stringify(text).slice(0,120) + ' (' + time + ' ث)', 'o');
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var worker         = null;
+var workerReady    = false;  // Worker أكمل تحميل النموذج
+var usingFallback  = false;  // هل نستخدم Main Thread بدلاً من Worker
+var asrMain        = null;   // pipeline على Main Thread (fallback)
+var progressGot    = false;  // هل استقبلنا أي رد من Worker؟
+var loadTimer      = null;
+var stream         = null;
+var recorder       = null;
+var recMime        = '';
+var chunks         = [];
+
+// ── Worker source (ESM module blob) ──────────────────────────────────────────
+// ملاحظة: ${CDN} و${MODEL} يُستبدلان هنا في Main Thread قبل إنشاء blob
+var WORKER_SRC = [
+  "import { pipeline, env } from '" + CDN + "';",
+  "",
+  "// أول رسالة: تأكيد أن Module Worker يعمل + CDN import نجح",
+  "self.postMessage({ type: 'lib-ok' });",
+  "",
+  "env.allowLocalModels = false;",
+  "env.useBrowserCache  = true;",
+  "",
+  "var asr = null;",
+  "",
+  "self.onmessage = async function(ev) {",
+  "  var d = ev.data, type = d.type, payload = d.payload;",
+  "  self.postMessage({ type: 'log', text: 'worker got: ' + type });",
+  "",
+  "  if (type === 'load') {",
+  "    try {",
+  "      self.postMessage({ type: 'status', text: 'جارٍ تحميل ملفات النموذج…' });",
+  "      asr = await pipeline(",
+  "        'automatic-speech-recognition',",
+  "        '" + MODEL + "',",
+  "        {",
+  "          dtype: 'q4',",
+  "          progress_callback: function(p) {",
+  "            self.postMessage({ type: 'progress', data: p });",
+  "          }",
+  "        }",
+  "      );",
+  "      self.postMessage({ type: 'ready' });",
+  "    } catch (err) {",
+  "      self.postMessage({",
+  "        type:  'error',",
+  "        text:  'فشل تحميل النموذج: ' + (err && err.message || String(err)),",
+  "        stack: err && err.stack || ''",
+  "      });",
+  "    }",
+  "    return;",
+  "  }",
+  "",
+  "  if (type === 'transcribe') {",
+  "    if (!asr) { self.postMessage({ type: 'error', text: 'النموذج غير محمَّل' }); return; }",
+  "    try {",
+  "      var t0  = performance.now();",
+  "      var res = await asr(",
+  "        { array: payload.audio, sampling_rate: 16000 },",
+  "        { language: 'arabic', task: 'transcribe',",
+  "          chunk_length_s: 30, stride_length_s: 5, return_timestamps: false }",
+  "      );",
+  "      var elapsed = ((performance.now() - t0) / 1000).toFixed(2);",
+  "      self.postMessage({ type: 'result', text: res.text || '', time: elapsed });",
+  "    } catch (err) {",
+  "      self.postMessage({",
+  "        type:  'error',",
+  "        text:  'خطأ في التعرّف: ' + (err && err.message || String(err)),",
+  "        stack: err && err.stack || ''",
+  "      });",
+  "    }",
+  "  }",
+  "};"
+].join('\n');
+
+// ── Worker creation + event wiring ───────────────────────────────────────────
+function createWorker() {
+  log('إنشاء Module Worker (blob)…');
+  var blob, url;
+  try {
+    blob = new Blob([WORKER_SRC], { type: 'text/javascript' });
+    url  = URL.createObjectURL(blob);
+  } catch (e) {
+    log('Blob URL فشل: ' + e.message, 'e');
+    return false;
+  }
+  try {
+    worker = new Worker(url, { type: 'module' });
+  } catch (e) {
+    log('new Worker(module) غير مدعوم: ' + e.message, 'w');
+    return false;
+  }
+
+  // ── رسائل Worker ─────────────────────────────────────────────────────────
+  worker.onmessage = function(ev) {
+    var m = ev.data, type = m.type;
+
+    if (type === 'lib-ok') {
+      // أول رد = Worker نشط + مكتبة مستوردة بنجاح
+      clearTimeout(loadTimer);
+      progressGot = true;
+      log('Worker نشط · Transformers.js مُستوردة من CDN ✓', 'o');
+      setSt('جارٍ تهيئة النموذج…');
+      setBadge('يُهيَّأ…', 'b-busy');
+
+    } else if (type === 'log') {
+      log('[W] ' + m.text);
+
+    } else if (type === 'status') {
+      setSt(m.text);
+      log(m.text);
+
+    } else if (type === 'progress') {
+      progressGot = true;
+      handleProgress(m.data);
+
+    } else if (type === 'ready') {
+      workerReady = true;
+      setModelReady();
+
+    } else if (type === 'result') {
+      showResult(m.text, m.time);
+      UI.btnStop.disabled = true;
+      UI.dot.classList.remove('on');
+
+    } else if (type === 'error') {
+      var full = m.text + (m.stack ? '\n' + m.stack : '');
+      showErr(full);
+      UI.btnStart.disabled = !workerReady;
+      UI.btnStop.disabled  = true;
+      UI.dot.classList.remove('on');
+      if (!workerReady) {
+        setBadge('خطأ', 'b-err');
+        UI.btnRetry.style.display = '';
+      } else {
+        setBadge('جاهز', 'b-ok');
+      }
     }
+  };
+
+  // ── أخطاء Worker (module load fail, syntax, runtime uncaught) ────────────
+  worker.onerror = function(e) {
+    clearTimeout(loadTimer);
+    var detail = (e.message || '') +
+      (e.filename ? ('\nfile: ' + e.filename + ':' + e.lineno) : '');
+    log('worker.onerror: ' + detail, 'e');
+
+    if (!progressGot) {
+      // لم يصلنا أي رد — Worker لم يبدأ أو CDN import فشل → نجرّب Main Thread
+      log('Module Worker فشل — جارٍ التبديل إلى Main Thread…', 'w');
+      showErr('فشل Module Worker:\n' + detail +
+              '\n\nجارٍ المحاولة على Main Thread (قد تتجمّد الواجهة مؤقتاً)…');
+      setBadge('احتياطي', 'b-warn');
+      runOnMainThread();
+    } else {
+      showErr('Worker error:\n' + detail);
+      setBadge('خطأ', 'b-err');
+      UI.btnRetry.style.display = '';
+    }
+    e.preventDefault && e.preventDefault();
+  };
+
+  // ── خطأ في تسلسل رسالة (نادر) ────────────────────────────────────────────
+  worker.onmessageerror = function(e) {
+    log('onmessageerror: ' + String(e), 'e');
+    showErr('خطأ في تسلسل رسالة Worker — ' + String(e));
+  };
+
+  return true;
+}
+
+// ── Main-Thread fallback (اليد الاحتياطية) ───────────────────────────────────
+// يُشغَّل إن فشل Module Worker (CSP، عدم دعم، CDN معطوب)
+// ملاحظة: pipeline على Main Thread يجمّد الواجهة لثوانٍ — مقبول في POC
+async function runOnMainThread() {
+  usingFallback = true;
+  log('استيراد Transformers.js على Main Thread…', 'w');
+  setSt('جارٍ استيراد المكتبة (وضع احتياطي)…');
+
+  var mod;
+  try {
+    mod = await import(CDN);
+    log('تم استيراد المكتبة ✓', 'o');
+  } catch (err) {
+    var msg1 = 'فشل استيراد CDN على Main Thread:\n' +
+               (err && err.message || String(err)) +
+               (err && err.stack ? '\n' + err.stack : '');
+    showErr(msg1);
+    setBadge('خطأ', 'b-err');
+    UI.btnRetry.style.display = '';
     return;
   }
 
-  if (type === 'transcribe') {
-    if (!asr) { self.postMessage({ type: 'error', text: 'النموذج غير محمَّل بعد' }); return; }
-    try {
-      console.log('[worker] transcribing', payload.audio.length, 'samples @ 16000 Hz');
-      const t0 = performance.now();
-      const result = await asr(
-        { array: payload.audio, sampling_rate: 16000 },
-        {
-          language: 'arabic',
-          task: 'transcribe',
-          chunk_length_s: 30,
-          stride_length_s: 5,
-          return_timestamps: false,
-        }
-      );
-      const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-      console.log('[worker] done in', elapsed, 's — text:', result.text);
-      self.postMessage({ type: 'result', text: result.text || '', time: elapsed });
-    } catch (err) {
-      console.error('[worker] transcribe error:', err);
-      self.postMessage({ type: 'error', text: 'خطأ أثناء التعرّف: ' + (err && err.message || String(err)) });
-    }
+  mod.env.allowLocalModels = false;
+  mod.env.useBrowserCache  = true;
+
+  setSt('جارٍ تحميل النموذج على Main Thread…');
+  log('تحميل النموذج — الواجهة قد تتجمّد مؤقتاً', 'w');
+
+  try {
+    asrMain = await mod.pipeline(
+      'automatic-speech-recognition',
+      MODEL,
+      { dtype: 'q4', progress_callback: handleProgress }
+    );
+    setModelReady();
+  } catch (err) {
+    var msg2 = 'فشل تحميل النموذج (Main Thread):\n' +
+               (err && err.message || String(err)) +
+               (err && err.stack ? '\n' + err.stack : '');
+    showErr(msg2);
+    setBadge('خطأ', 'b-err');
+    UI.btnRetry.style.display = '';
   }
-};
-`;
-
-const workerBlob = new Blob([WORKER_SRC], { type: 'text/javascript' });
-const workerUrl  = URL.createObjectURL(workerBlob);
-const worker     = new Worker(workerUrl, { type: 'module' });
-console.log('[main] worker created from blob URL');
-
-// ── State ─────────────────────────────────────────────────────────────────────
-let stream      = null;
-let recorder    = null;
-let recMime     = '';
-let chunks      = [];
-let modelReady  = false;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-
-function showErr(msg) {
-  const b = $('errBox');
-  b.textContent = msg;
-  b.style.display = '';
-  console.error('[main]', msg);
 }
 
-function hideErr() { $('errBox').style.display = 'none'; }
-
-// ── Worker messages ───────────────────────────────────────────────────────────
-worker.onmessage = function(ev) {
-  const { type, data, text, time } = ev.data;
-
-  if (type === 'progress') {
-    const p = data || {};
-    if (p.status === 'downloading' && p.progress != null) {
-      const pct = Math.round(p.progress);
-      $('progressBar').style.width = pct + '%';
-      $('progressLabel').textContent = (p.file || '') + '  ' + pct + '%';
-      $('statusText').textContent = 'جارٍ التحميل…';
-      console.log('[main] download', p.file, pct + '%');
-    } else if (p.status === 'initiate') {
-      $('statusText').textContent = 'جارٍ تهيئة ' + (p.file || '') + '…';
-    } else if (p.status === 'done') {
-      $('progressLabel').textContent = (p.file || '') + '  ✓';
-    }
-
-  } else if (type === 'ready') {
-    modelReady = true;
-    $('modelTag').textContent = 'جاهز';
-    $('modelTag').className = 'badge badge-ok';
-    $('statusText').textContent = 'النموذج محمَّل وجاهز';
-    $('progressBar').style.width = '100%';
-    $('progressLabel').textContent = 'اكتمل التحميل';
-    $('btnLoad').disabled  = true;
-    $('btnStart').disabled = false;
-    $('recStatus').textContent = 'جاهز — اضغط للتسجيل';
-    console.log('[main] model ready');
-
-  } else if (type === 'result') {
-    $('transcript').textContent = text || '(بدون نتيجة)';
-    $('timing').textContent = 'وقت المعالجة: ' + time + ' ث';
-    $('btnStart').disabled = false;
-    $('recStatus').textContent = 'جاهز';
-    $('modelTag').className = 'badge badge-ok';
-    console.log('[main] transcript:', JSON.stringify(text), '— elapsed:', time, 's');
-
-  } else if (type === 'error') {
-    showErr(text);
-    $('btnStart').disabled = !modelReady;
-    $('btnStop').disabled  = true;
-    $('recInd').classList.remove('on');
-    $('modelTag').className = modelReady ? 'badge badge-ok' : 'badge badge-warn';
-  }
-};
-
-worker.onerror = function(e) {
-  showErr('Worker error: ' + (e.message || String(e)));
-};
-
-// ── Exposed to HTML onclick attrs ─────────────────────────────────────────────
+// ── Exposed globals ───────────────────────────────────────────────────────────
 window.loadModel = function() {
-  $('btnLoad').disabled = true;
-  $('modelTag').className = 'badge badge-busy';
-  $('modelTag').textContent = 'يُحمَّل…';
-  $('statusText').textContent = 'يُرسَل طلب التحميل…';
-  $('progressBar').style.width = '0%';
   hideErr();
-  console.log('[main] → worker: load');
+  progressGot   = false;
+  workerReady   = false;
+  usingFallback = false;
+  asrMain       = null;
+  if (worker) { try { worker.terminate(); } catch (_) {} worker = null; }
+
+  UI.btnLoad.disabled       = true;
+  UI.btnRetry.style.display = 'none';
+  setBadge('يُحمَّل…', 'b-busy');
+  setSt('جارٍ استيراد مكتبة Transformers.js…');
+  setBar(0, '');
+  log('بدء التحميل…');
+
+  // مهلة 30 ثانية: إن لم يصلنا lib-ok خلالها نعرض خطأ
+  loadTimer = setTimeout(function() {
+    if (!progressGot) {
+      var msg = 'فشل بدء التحميل بعد 30 ثانية\nتحقّق من الإنترنت أو حاول مجدداً';
+      log('timeout (30s) — لم يستجب Worker', 'e');
+      showErr(msg);
+      setBadge('انتهت المهلة', 'b-err');
+      UI.btnLoad.disabled       = false;
+      UI.btnRetry.style.display = '';
+    }
+  }, TO_MS);
+
+  var ok = createWorker();
+  if (!ok) {
+    clearTimeout(loadTimer);
+    log('createWorker() فشل — تشغيل على Main Thread', 'w');
+    runOnMainThread();
+    return;
+  }
+
+  log('Worker أُنشئ — انتظار lib-ok من CDN…');
+  // نرسل 'load' فوراً؛ Worker يقرأه من الطابور بعد تسجيل onmessage
   worker.postMessage({ type: 'load' });
+};
+
+window.retryLoad = function() {
+  if (worker) { try { worker.terminate(); } catch (_) {} worker = null; }
+  setBadge('لم يُحمَّل', 'b-warn');
+  setSt('جارٍ إعادة المحاولة…');
+  setBar(0, '');
+  UI.log.innerHTML = '';
+  hideErr();
+  UI.btnLoad.disabled       = false;
+  UI.btnRetry.style.display = 'none';
+  window.loadModel();
 };
 
 window.startRec = async function() {
@@ -240,7 +453,7 @@ window.startRec = async function() {
   chunks = [];
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showErr('getUserMedia غير مدعوم — يلزم HTTPS أو localhost');
+    showErr('getUserMedia غير مدعوم\nيلزم HTTPS أو localhost');
     return;
   }
   if (typeof MediaRecorder === 'undefined') {
@@ -248,104 +461,120 @@ window.startRec = async function() {
     return;
   }
 
+  log('طلب إذن الميكروفون…');
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    console.log('[main] mic granted, tracks:', stream.getAudioTracks().map(t => t.label));
+    log('إذن الميكروفون مُمنح ✓', 'o');
   } catch (err) {
-    showErr('رُفض الوصول للميكروفون: ' + (err.message || String(err)));
+    showErr('رُفض إذن الميكروفون:\n' + (err.message || String(err)));
     return;
   }
 
   recMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(
-    m => MediaRecorder.isTypeSupported(m)
+    function(m) { return MediaRecorder.isTypeSupported(m); }
   ) || '';
-  console.log('[main] mimeType:', recMime || '(browser default)');
+  log('mimeType: ' + (recMime || '(browser default)'));
 
   recorder = new MediaRecorder(stream, recMime ? { mimeType: recMime } : {});
-  recorder.ondataavailable = function(e) {
-    if (e.data && e.data.size > 0) chunks.push(e.data);
-  };
-  recorder.start(300); // collect chunk every 300 ms
+  recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+  recorder.start(300);
 
-  $('btnStart').disabled = true;
-  $('btnStop').disabled  = false;
-  $('recStatus').textContent = 'جارٍ التسجيل…';
-  $('recInd').classList.add('on');
-  console.log('[main] recording started');
+  UI.btnStart.disabled     = true;
+  UI.btnStop.disabled      = false;
+  UI.recStatus.textContent = 'جارٍ التسجيل…';
+  UI.dot.classList.add('on');
+  log('بدأ التسجيل');
 };
 
 window.stopRec = async function() {
   if (!recorder || recorder.state === 'inactive') return;
-  $('btnStop').disabled = true;
-  $('recInd').classList.remove('on');
-  $('recStatus').textContent = 'جارٍ معالجة الصوت…';
-  $('transcript').textContent = '…';
-  $('timing').textContent = '';
-  $('modelTag').className = 'badge badge-busy';
-  $('modelTag').textContent = 'يعالج…';
+  UI.btnStop.disabled      = true;
+  UI.dot.classList.remove('on');
+  UI.recStatus.textContent = 'جارٍ المعالجة…';
+  UI.tx.textContent        = '…';
+  UI.timing.textContent    = '';
+  setBadge('يعالج…', 'b-busy');
   hideErr();
+  log('إيقاف التسجيل…');
 
-  // Stop recording and wait for final ondataavailable flush
   await new Promise(function(resolve) {
     recorder.onstop = resolve;
     recorder.stop();
     stream.getTracks().forEach(function(t) { t.stop(); });
-    setTimeout(resolve, 2000); // safety fallback
+    setTimeout(resolve, 2000); // حماية: إن لم يُطلَق onstop
   });
 
-  const totalBytes = chunks.reduce(function(s, c) { return s + c.size; }, 0);
-  console.log('[main] stopped — chunks:', chunks.length, 'bytes:', totalBytes);
+  var totalBytes = chunks.reduce(function(s, c) { return s + c.size; }, 0);
+  log('بيانات: ' + chunks.length + ' قطعة، ' + totalBytes + ' بايت');
 
   if (!chunks.length || totalBytes < 100) {
     showErr('لا يوجد صوت مسجَّل أو التسجيل قصير جداً');
-    $('btnStart').disabled = false;
-    $('modelTag').className = 'badge badge-ok';
-    $('modelTag').textContent = 'جاهز';
+    UI.btnStart.disabled = false;
+    setBadge(workerReady || asrMain ? 'جاهز' : 'خطأ', workerReady || asrMain ? 'b-ok' : 'b-err');
     return;
   }
 
-  // Decode compressed audio → AudioBuffer
-  const audioBlob = new Blob(chunks, { type: recMime || 'audio/webm' });
-  let arrayBuf;
+  // فك ترميز الصوت
+  var audioBlob = new Blob(chunks, { type: recMime || 'audio/webm' });
+  var arrayBuf;
   try {
     arrayBuf = await audioBlob.arrayBuffer();
   } catch (err) {
-    showErr('خطأ في قراءة بيانات الصوت: ' + (err.message || String(err)));
-    $('btnStart').disabled = false;
+    showErr('خطأ في قراءة الصوت:\n' + err.message);
+    UI.btnStart.disabled = false;
     return;
   }
 
-  const actx = new (window.AudioContext || window.webkitAudioContext)();
-  let decoded;
+  var actx = new (window.AudioContext || window.webkitAudioContext)();
+  var decoded;
   try {
     decoded = await actx.decodeAudioData(arrayBuf);
-    console.log('[main] decoded — duration:', decoded.duration.toFixed(2),
-      's  sr:', decoded.sampleRate, '  ch:', decoded.numberOfChannels);
+    log('صوت مُفكَّك: ' + decoded.duration.toFixed(2) + 'ث  sr=' +
+        decoded.sampleRate + '  ch=' + decoded.numberOfChannels);
   } catch (err) {
-    showErr('فشل فك ترميز الصوت: ' + (err.message || String(err)));
-    $('btnStart').disabled = false;
+    showErr('فشل فك ترميز الصوت:\n' + (err.message || String(err)));
+    UI.btnStart.disabled = false;
     actx.close();
     return;
   }
   actx.close();
 
-  // Resample to mono 16 kHz Float32 via OfflineAudioContext
-  const TARGET_SR = 16000;
-  const nSamples  = Math.ceil(decoded.duration * TARGET_SR);
-  const offCtx    = new OfflineAudioContext(1, nSamples, TARGET_SR);
-  const src       = offCtx.createBufferSource();
-  src.buffer = decoded;
+  // إعادة أخذ العينات → Mono 16kHz Float32
+  var TARGET   = 16000;
+  var nSamp    = Math.ceil(decoded.duration * TARGET);
+  var offCtx   = new OfflineAudioContext(1, nSamp, TARGET);
+  var src      = offCtx.createBufferSource();
+  src.buffer   = decoded;
   src.connect(offCtx.destination);
   src.start(0);
-  const resampled = await offCtx.startRendering();
-  const float32   = new Float32Array(resampled.getChannelData(0));
-  console.log('[main] resampled → 16kHz mono:', float32.length, 'samples');
+  var resampled = await offCtx.startRendering();
+  var float32   = new Float32Array(resampled.getChannelData(0));
+  log('إعادة أخذ العينات → 16kHz: ' + float32.length + ' عينة');
 
-  // Transfer to worker (zero-copy via Transferable)
-  worker.postMessage(
-    { type: 'transcribe', payload: { audio: float32 } },
-    [float32.buffer]
-  );
+  if (usingFallback && asrMain) {
+    // وضع احتياطي: تشغيل على Main Thread
+    log('تشغيل التعرّف على Main Thread…', 'w');
+    try {
+      var t0  = performance.now();
+      var res = await asrMain(
+        { array: float32, sampling_rate: 16000 },
+        { language: 'arabic', task: 'transcribe',
+          chunk_length_s: 30, stride_length_s: 5, return_timestamps: false }
+      );
+      showResult(res.text || '', ((performance.now() - t0) / 1000).toFixed(2));
+    } catch (err) {
+      showErr('خطأ في التعرّف:\n' + (err.message || String(err)) +
+              (err.stack ? '\n' + err.stack : ''));
+      UI.btnStart.disabled = false;
+    }
+  } else if (worker) {
+    // الوضع الطبيعي: إرسال البيانات للـ Worker (نسخ صفري zero-copy)
+    worker.postMessage({ type: 'transcribe', payload: { audio: float32 } }, [float32.buffer]);
+    log('أُرسلت البيانات للـ Worker (' + float32.length + ' عينة)');
+  } else {
+    showErr('لا Worker ولا نموذج محمَّل — اضغط "تحميل النموذج" أولاً');
+    UI.btnStart.disabled = false;
+  }
 };
 </script>
 </body>
