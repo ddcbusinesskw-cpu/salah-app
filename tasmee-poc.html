@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>تجربة Whisper على الجهاز — POC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;padding:28px 16px;direction:rtl}
+    .container{max-width:620px;margin:0 auto}
+    h1{font-size:22px;color:#58a6ff;margin-bottom:4px}
+    .sub{font-size:13px;color:#8b949e;margin-bottom:24px;line-height:1.6}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;margin-bottom:16px}
+    .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .card-hd span:first-child{font-size:13px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+    .badge-warn{background:#4a3700;color:#d29922}
+    .badge-ok{background:#1a4731;color:#56d364}
+    .badge-busy{background:#1c2d3f;color:#58a6ff}
+    #statusText{font-size:13px;color:#8b949e;min-height:18px;margin-bottom:10px}
+    .progress-track{background:#21262d;border-radius:4px;height:7px;overflow:hidden;margin-bottom:6px}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);width:0%;transition:width .35s}
+    .progress-label{font-size:11px;color:#6e7681;min-height:16px;margin-bottom:12px;direction:ltr;text-align:left}
+    .model-info{font-size:11px;color:#484f58;margin-top:8px;direction:ltr;text-align:left}
+    .btn{padding:9px 18px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-family:inherit;transition:background .15s,opacity .15s}
+    .btn-primary{background:#1f6feb;color:#fff}
+    .btn-primary:hover:not(:disabled){background:#388bfd}
+    .btn-success{background:#238636;color:#fff}
+    .btn-success:hover:not(:disabled){background:#2ea043}
+    .btn-danger{background:#da3633;color:#fff}
+    .btn-danger:hover:not(:disabled){background:#f85149}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    #recStatus{font-size:13px;color:#8b949e;min-height:18px}
+    .rec-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#da3633;margin-right:6px;opacity:0;vertical-align:middle;transition:opacity .25s}
+    .rec-dot.on{opacity:1;animation:pulse 1.1s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+    .transcript{font-size:20px;line-height:1.9;color:#e6edf3;min-height:70px;padding:14px;background:#0d1117;border-radius:7px;border:1px solid #21262d;white-space:pre-wrap;direction:rtl;text-align:right;word-break:break-word}
+    #timing{font-size:12px;color:#6e7681;margin-top:8px;direction:ltr;text-align:left}
+    .err-box{margin-top:10px;padding:10px 14px;background:#2d1418;border:1px solid #6e1c23;border-radius:6px;color:#f85149;font-size:13px;display:none}
+    .note{font-size:11.5px;color:#484f58;margin-top:10px;line-height:1.6;direction:rtl}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>تجربة Whisper على الجهاز</h1>
+  <p class="sub">
+    إثبات جدوى — ASR على الجهاز بدون محرّك Google ولا SpeechRecognizer<br>
+    Transformers.js · onnx-community/whisper-base · MediaRecorder + OfflineAudioContext
+  </p>
+
+  <!-- ── Model ── -->
+  <div class="card">
+    <div class="card-hd">
+      <span>النموذج</span>
+      <span id="modelTag" class="badge badge-warn">لم يُحمَّل</span>
+    </div>
+    <div id="statusText">اضغط زر التحميل للبدء — يستلزم اتصالاً بالإنترنت مرة واحدة فقط</div>
+    <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+    <div id="progressLabel" class="progress-label"></div>
+    <button id="btnLoad" class="btn btn-primary" onclick="loadModel()">تحميل النموذج</button>
+    <div class="model-info">onnx-community/whisper-base · dtype q4 · ~39 MB · يُخزَّن في IndexedDB بعد التحميل</div>
+  </div>
+
+  <!-- ── Recording ── -->
+  <div class="card">
+    <div class="card-hd">
+      <span>التسجيل</span>
+      <span id="recInd" class="rec-dot"></span>
+    </div>
+    <div id="recStatus">في انتظار تحميل النموذج…</div>
+    <div class="btn-row">
+      <button id="btnStart" class="btn btn-success" disabled onclick="startRec()">▶ بدء التسجيل</button>
+      <button id="btnStop"  class="btn btn-danger"  disabled onclick="stopRec()">■ إيقاف وتحليل</button>
+    </div>
+    <p class="note">يعمل على HTTPS أو localhost فقط · تأكد من منح إذن الميكروفون</p>
+  </div>
+
+  <!-- ── Result ── -->
+  <div class="card">
+    <div class="card-hd"><span>النص المُعرَّف</span></div>
+    <div id="transcript" class="transcript">—</div>
+    <div id="timing"></div>
+    <div id="errBox" class="err-box"></div>
+  </div>
+</div>
+
+<script type="module">
+// ── Inline Web Worker (ESM blob) ─────────────────────────────────────────────
+// The worker imports Transformers.js from CDN, loads whisper, and runs inference
+// off the main thread so the UI stays responsive during the ~5-30 s decode.
+const WORKER_SRC = `
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.esm.min.js';
+
+env.allowLocalModels  = false;
+env.useBrowserCache   = true;   // cache model in IndexedDB after first download
+
+let asr = null;
+
+self.onmessage = async function(ev) {
+  const { type, payload } = ev.data;
+  console.log('[worker] message:', type);
+
+  if (type === 'load') {
+    try {
+      asr = await pipeline(
+        'automatic-speech-recognition',
+        'onnx-community/whisper-base',
+        {
+          dtype: 'q4',
+          progress_callback: function(p) {
+            self.postMessage({ type: 'progress', data: p });
+          }
+        }
+      );
+      console.log('[worker] model ready');
+      self.postMessage({ type: 'ready' });
+    } catch (err) {
+      console.error('[worker] load error:', err);
+      self.postMessage({ type: 'error', text: 'فشل تحميل النموذج: ' + (err && err.message || String(err)) });
+    }
+    return;
+  }
+
+  if (type === 'transcribe') {
+    if (!asr) { self.postMessage({ type: 'error', text: 'النموذج غير محمَّل بعد' }); return; }
+    try {
+      console.log('[worker] transcribing', payload.audio.length, 'samples @ 16000 Hz');
+      const t0 = performance.now();
+      const result = await asr(
+        { array: payload.audio, sampling_rate: 16000 },
+        {
+          language: 'arabic',
+          task: 'transcribe',
+          chunk_length_s: 30,
+          stride_length_s: 5,
+          return_timestamps: false,
+        }
+      );
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+      console.log('[worker] done in', elapsed, 's — text:', result.text);
+      self.postMessage({ type: 'result', text: result.text || '', time: elapsed });
+    } catch (err) {
+      console.error('[worker] transcribe error:', err);
+      self.postMessage({ type: 'error', text: 'خطأ أثناء التعرّف: ' + (err && err.message || String(err)) });
+    }
+  }
+};
+`;
+
+const workerBlob = new Blob([WORKER_SRC], { type: 'text/javascript' });
+const workerUrl  = URL.createObjectURL(workerBlob);
+const worker     = new Worker(workerUrl, { type: 'module' });
+console.log('[main] worker created from blob URL');
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let stream      = null;
+let recorder    = null;
+let recMime     = '';
+let chunks      = [];
+let modelReady  = false;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function showErr(msg) {
+  const b = $('errBox');
+  b.textContent = msg;
+  b.style.display = '';
+  console.error('[main]', msg);
+}
+
+function hideErr() { $('errBox').style.display = 'none'; }
+
+// ── Worker messages ───────────────────────────────────────────────────────────
+worker.onmessage = function(ev) {
+  const { type, data, text, time } = ev.data;
+
+  if (type === 'progress') {
+    const p = data || {};
+    if (p.status === 'downloading' && p.progress != null) {
+      const pct = Math.round(p.progress);
+      $('progressBar').style.width = pct + '%';
+      $('progressLabel').textContent = (p.file || '') + '  ' + pct + '%';
+      $('statusText').textContent = 'جارٍ التحميل…';
+      console.log('[main] download', p.file, pct + '%');
+    } else if (p.status === 'initiate') {
+      $('statusText').textContent = 'جارٍ تهيئة ' + (p.file || '') + '…';
+    } else if (p.status === 'done') {
+      $('progressLabel').textContent = (p.file || '') + '  ✓';
+    }
+
+  } else if (type === 'ready') {
+    modelReady = true;
+    $('modelTag').textContent = 'جاهز';
+    $('modelTag').className = 'badge badge-ok';
+    $('statusText').textContent = 'النموذج محمَّل وجاهز';
+    $('progressBar').style.width = '100%';
+    $('progressLabel').textContent = 'اكتمل التحميل';
+    $('btnLoad').disabled  = true;
+    $('btnStart').disabled = false;
+    $('recStatus').textContent = 'جاهز — اضغط للتسجيل';
+    console.log('[main] model ready');
+
+  } else if (type === 'result') {
+    $('transcript').textContent = text || '(بدون نتيجة)';
+    $('timing').textContent = 'وقت المعالجة: ' + time + ' ث';
+    $('btnStart').disabled = false;
+    $('recStatus').textContent = 'جاهز';
+    $('modelTag').className = 'badge badge-ok';
+    console.log('[main] transcript:', JSON.stringify(text), '— elapsed:', time, 's');
+
+  } else if (type === 'error') {
+    showErr(text);
+    $('btnStart').disabled = !modelReady;
+    $('btnStop').disabled  = true;
+    $('recInd').classList.remove('on');
+    $('modelTag').className = modelReady ? 'badge badge-ok' : 'badge badge-warn';
+  }
+};
+
+worker.onerror = function(e) {
+  showErr('Worker error: ' + (e.message || String(e)));
+};
+
+// ── Exposed to HTML onclick attrs ─────────────────────────────────────────────
+window.loadModel = function() {
+  $('btnLoad').disabled = true;
+  $('modelTag').className = 'badge badge-busy';
+  $('modelTag').textContent = 'يُحمَّل…';
+  $('statusText').textContent = 'يُرسَل طلب التحميل…';
+  $('progressBar').style.width = '0%';
+  hideErr();
+  console.log('[main] → worker: load');
+  worker.postMessage({ type: 'load' });
+};
+
+window.startRec = async function() {
+  hideErr();
+  chunks = [];
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showErr('getUserMedia غير مدعوم — يلزم HTTPS أو localhost');
+    return;
+  }
+  if (typeof MediaRecorder === 'undefined') {
+    showErr('MediaRecorder غير مدعوم في هذا المتصفح');
+    return;
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    console.log('[main] mic granted, tracks:', stream.getAudioTracks().map(t => t.label));
+  } catch (err) {
+    showErr('رُفض الوصول للميكروفون: ' + (err.message || String(err)));
+    return;
+  }
+
+  recMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(
+    m => MediaRecorder.isTypeSupported(m)
+  ) || '';
+  console.log('[main] mimeType:', recMime || '(browser default)');
+
+  recorder = new MediaRecorder(stream, recMime ? { mimeType: recMime } : {});
+  recorder.ondataavailable = function(e) {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+  recorder.start(300); // collect chunk every 300 ms
+
+  $('btnStart').disabled = true;
+  $('btnStop').disabled  = false;
+  $('recStatus').textContent = 'جارٍ التسجيل…';
+  $('recInd').classList.add('on');
+  console.log('[main] recording started');
+};
+
+window.stopRec = async function() {
+  if (!recorder || recorder.state === 'inactive') return;
+  $('btnStop').disabled = true;
+  $('recInd').classList.remove('on');
+  $('recStatus').textContent = 'جارٍ معالجة الصوت…';
+  $('transcript').textContent = '…';
+  $('timing').textContent = '';
+  $('modelTag').className = 'badge badge-busy';
+  $('modelTag').textContent = 'يعالج…';
+  hideErr();
+
+  // Stop recording and wait for final ondataavailable flush
+  await new Promise(function(resolve) {
+    recorder.onstop = resolve;
+    recorder.stop();
+    stream.getTracks().forEach(function(t) { t.stop(); });
+    setTimeout(resolve, 2000); // safety fallback
+  });
+
+  const totalBytes = chunks.reduce(function(s, c) { return s + c.size; }, 0);
+  console.log('[main] stopped — chunks:', chunks.length, 'bytes:', totalBytes);
+
+  if (!chunks.length || totalBytes < 100) {
+    showErr('لا يوجد صوت مسجَّل أو التسجيل قصير جداً');
+    $('btnStart').disabled = false;
+    $('modelTag').className = 'badge badge-ok';
+    $('modelTag').textContent = 'جاهز';
+    return;
+  }
+
+  // Decode compressed audio → AudioBuffer
+  const audioBlob = new Blob(chunks, { type: recMime || 'audio/webm' });
+  let arrayBuf;
+  try {
+    arrayBuf = await audioBlob.arrayBuffer();
+  } catch (err) {
+    showErr('خطأ في قراءة بيانات الصوت: ' + (err.message || String(err)));
+    $('btnStart').disabled = false;
+    return;
+  }
+
+  const actx = new (window.AudioContext || window.webkitAudioContext)();
+  let decoded;
+  try {
+    decoded = await actx.decodeAudioData(arrayBuf);
+    console.log('[main] decoded — duration:', decoded.duration.toFixed(2),
+      's  sr:', decoded.sampleRate, '  ch:', decoded.numberOfChannels);
+  } catch (err) {
+    showErr('فشل فك ترميز الصوت: ' + (err.message || String(err)));
+    $('btnStart').disabled = false;
+    actx.close();
+    return;
+  }
+  actx.close();
+
+  // Resample to mono 16 kHz Float32 via OfflineAudioContext
+  const TARGET_SR = 16000;
+  const nSamples  = Math.ceil(decoded.duration * TARGET_SR);
+  const offCtx    = new OfflineAudioContext(1, nSamples, TARGET_SR);
+  const src       = offCtx.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offCtx.destination);
+  src.start(0);
+  const resampled = await offCtx.startRendering();
+  const float32   = new Float32Array(resampled.getChannelData(0));
+  console.log('[main] resampled → 16kHz mono:', float32.length, 'samples');
+
+  // Transfer to worker (zero-copy via Transferable)
+  worker.postMessage(
+    { type: 'transcribe', payload: { audio: float32 } },
+    [float32.buffer]
+  );
+};
+</script>
+</body>
+</html>
