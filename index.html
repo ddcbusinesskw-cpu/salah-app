@@ -2130,6 +2130,9 @@ function _mem2UpdateBar(){
 function _isNative(){
   return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 }
+function _isAndroidNative(){
+  return _isNative()&&window.Capacitor.getPlatform&&window.Capacitor.getPlatform()==='android';
+}
 // ── W2: Whisper on-device recognition (replaces Google/Apple engines) ────────
 var _W2_WSRC=[
   'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
@@ -2218,7 +2221,7 @@ function _w2StartCapture(){
   if(!W2.worker)_w2Init();
   var live=document.getElementById('mem2Live');
   if(live)live.textContent='جارٍ طلب الميكروفون…';
-  if(_isNative()){_w2StartNativeCapture(live);return;}
+  if(_isAndroidNative()){_w2StartNativeCapture(live);return;}
   // Web path
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     toast('التسجيل الصوتي غير مدعوم (يلزم HTTPS)','error');
@@ -2248,28 +2251,23 @@ function _w2StartCapture(){
     });
 }
 function _w2StartNativeCapture(live){
-  var vr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.VoiceRecorder;
-  if(!vr){
+  var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
+  if(!ar){
     toast('مكوّن التسجيل غير متاح — حدّث التطبيق','error');
     if(live)live.textContent='';return;
   }
-  vr.requestAudioRecordingPermission().then(function(res){
-    if(!res||!res.value){
-      toast('لم تُمنح صلاحية الميكروفون — افتح إعدادات الجهاز وأعطِ الإذن للتطبيق','error');
-      if(live)live.textContent='';
-      return Promise.reject(null);
-    }
-    return vr.startRecording();
-  }).then(function(){
+  ar.start().then(function(){
     W2.nativeRec=true;
     MEM2.recActive=true;
     if(live)live.textContent=W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل المحرّك… اقرأ بصوت';
     toast(W2.modelReady?'اقرأ المقطع بصوت واضح…':'جارٍ تحميل محرّك الذكاء الاصطناعي…');
     _mem2UpdateBar();
   }).catch(function(err){
-    if(err===null)return; // permission denied — already toasted
     W2.nativeRec=false;MEM2.recActive=false;
-    toast('تعذّر بدء التسجيل: '+(err&&err.message||String(err)),'error');
+    var msg=(err&&err.message==='PERMISSION_DENIED')
+      ?'لم تُمنح صلاحية الميكروفون — افتح إعدادات الجهاز وأعطِ الإذن للتطبيق'
+      :'تعذّر بدء التسجيل: '+(err&&err.message||String(err));
+    toast(msg,'error');
     if(live)live.textContent='';
     _mem2UpdateBar();
   });
@@ -2284,15 +2282,15 @@ function _w2StopCapture(){
   _mem2UpdateBar();
   if(W2.nativeRec){
     W2.nativeRec=false;
-    var vr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.VoiceRecorder;
-    if(!vr){
+    var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
+    if(!ar){
       toast('مكوّن التسجيل غير متاح','error');
       W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
       if(live)live.textContent='';_mem2UpdateBar();return;
     }
-    vr.stopRecording().then(function(data){
-      var b64=data&&data.value&&data.value.recordDataBase64;
-      var mime=data&&data.value&&data.value.mimeType||'audio/aac';
+    ar.stop().then(function(data){
+      var b64=data&&data.recordDataBase64;
+      var mime=data&&data.mimeType||'audio/aac';
       if(!b64||b64.length<100){
         toast('لم يُسجَّل صوت — حاول مجدداً','error');
         W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
@@ -2630,8 +2628,8 @@ function _mem2StopRec(){
   MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;
   if(W2.nativeRec){
     W2.nativeRec=false;
-    var vr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.VoiceRecorder;
-    if(vr){try{vr.stopRecording().catch(function(){});}catch(e){}}
+    var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
+    if(ar){try{ar.cancel().catch(function(){});}catch(e){}}
     // discard path — do NOT call _w2ProcessAudioBase64
   }else{
     if(W2.recorder&&W2.recorder.state!=='inactive'){
