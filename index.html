@@ -2012,7 +2012,7 @@ function go(id){
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
 }
 /* ===== تسميع الحفظ v2 ===== */
-var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false};
+var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2070,7 +2070,7 @@ function mem2Start(){
   var from=Math.max(0,+(document.getElementById('memFrom').value||1)-1);
   var to=Math.min(arr.length-1,+(document.getElementById('memTo').value||arr.length)-1);
   if(from>to)to=from;
-  MEM2={surah:n,from:from,to:to,segLen:_m2sl,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false};
+  MEM2={surah:n,from:from,to:to,segLen:_m2sl,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
   for(var i=from;i<=to;i+=_m2sl){
     var end=Math.min(i+_m2sl-1,to);var ayahs=[];
     for(var j=i;j<=end;j++){
@@ -2135,77 +2135,14 @@ function mem2ToggleRec(){
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
-  MEM2._tr='';MEM2._partial='';MEM2._retried=false;
+  MEM2._tr='';MEM2._partial='';MEM2._retried=false;MEM2._lang='';
   if(_isNative())_mem2StartNative();else _mem2StartWeb();
 }
 function _mem2StartNative(){
   console.log('[tasmee] _mem2StartNative entered');
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr){toast('إضافة التعرّف الصوتي غير موجودة — حدّث التطبيق','error');return;}
-  var live=document.getElementById('mem2Live');
-  MEM2._partial='';
-
-  // Cleanup previous listeners — guard against missing method
-  try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(ex){console.warn('[tasmee] removeAllListeners:',ex);}
-
-  try{
-    var _pl=nsr.addListener('partialResults',function(data){
-      if(!MEM2.recActive||!data||!data.matches)return;
-      MEM2._partial=(data.matches[0]||'').trim();
-      console.log('[tasmee] partial:',MEM2._partial);
-      if(live)live.textContent=MEM2._partial;
-    });
-    if(_pl&&_pl.catch)_pl.catch(function(){});
-  }catch(ex){console.warn('[tasmee] addListener partialResults:',ex);}
-
-  try{
-    var _ll=nsr.addListener('listeningState',function(data){console.log('[tasmee] listeningState:',data&&data.status);});
-    if(_ll&&_ll.catch)_ll.catch(function(){});
-  }catch(ex){}
-
-  // Core start loop — called once permissions + language are resolved
-  function _doStart(lang){
-    MEM2.recActive=true;
-    MEM2._tr='';
-    MEM2._partial='';
-    toast('اقرأ المقطع بصوت واضح…');
-    _mem2UpdateBar();
-    (function loop(){
-      if(!MEM2.recActive)return;
-      MEM2._partial='';
-      console.log('[tasmee] nsr.start() lang:',lang);
-      nsr.start({language:lang,maxResults:5,partialResults:true,popup:false})
-        .then(function(r){
-          var matches=r&&r.matches||[];
-          var best='';
-          if(matches.length>1){
-            var seg=MEM2.segs[MEM2.cur];var bestScore=-1;
-            for(var mi=0;mi<matches.length;mi++){
-              if(!matches[mi])continue;
-              var sc=_mem2Score(seg,matches[mi]);
-              if(sc>bestScore){bestScore=sc;best=matches[mi];}
-            }
-          }
-          if(!best)best=(matches[0]||MEM2._partial||'').trim();
-          else best=best.trim();
-          console.log('[tasmee] session — best:',best,'from',matches.length,'matches');
-          if(best)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+best;
-          MEM2._partial='';
-          if(MEM2.recActive)loop();
-        })
-        .catch(function(e){
-          var msg=(e&&(e.message||e.code))||String(e);
-          console.warn('[tasmee] start() error:',msg);
-          if(MEM2.recActive){
-            var lc=msg.toLowerCase();
-            if(!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
-              toast('خطأ في التعرّف الصوتي: '+msg,'error');
-            }
-          }
-          _mem2StopRec();
-        });
-    })();
-  }
+  _mem2NsrListen(nsr);
 
   // Step 1: permission check — fully non-fatal; any failure falls through
   var permPromise;
@@ -2213,7 +2150,6 @@ function _mem2StartNative(){
     permPromise=nsr.checkPermissions()
       .then(function(perm){
         console.log('[tasmee] checkPermissions:',JSON.stringify(perm));
-        // accept either key name returned by different plugin versions/platforms
         var granted=perm&&(perm.speechRecognition==='granted'||perm.microphone==='granted');
         if(granted)return;
         return nsr.requestPermissions().then(function(p2){
@@ -2224,11 +2160,9 @@ function _mem2StartNative(){
       })
       .catch(function(e){
         if(e&&e._stop)return Promise.reject(e);
-        // Any other error (method missing, OS rejection, etc.) → continue without stopping
         console.warn('[tasmee] checkPermissions non-fatal:',e&&(e.message||String(e)));
       });
   }catch(ex){
-    // checkPermissions() threw synchronously (method not in this plugin version) → continue
     console.warn('[tasmee] checkPermissions sync throw (non-fatal):',ex&&(ex.message||String(ex)));
     permPromise=Promise.resolve();
   }
@@ -2259,13 +2193,87 @@ function _mem2StartNative(){
       }
       return langP;
     })
-    .then(function(lang){_doStart(lang||'ar-SA');})
+    .then(function(lang){_mem2NsrStart(nsr,lang||'ar-SA');})
     .catch(function(e){
-      if(e&&e._stop)return; // permission denial already toasted above
+      if(e&&e._stop)return;
       var msg=(e&&e.message)||String(e);
       console.warn('[tasmee] fatal init error:',msg);
       toast('تعذّر بدء التعرّف — حاول مجدداً','error');
     });
+}
+/* Register partialResults + listeningState listeners.
+   Safe to call on every session start (removes old listeners first).
+   [أ-٤] partialResults now picks best alternative via _mem2Score. */
+function _mem2NsrListen(nsr){
+  var live=document.getElementById('mem2Live');
+  MEM2._partial='';
+  try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(ex){console.warn('[tasmee] removeAllListeners:',ex);}
+  try{
+    var _pl=nsr.addListener('partialResults',function(data){
+      if(!MEM2.recActive||!data||!data.matches)return;
+      var pm=data.matches||[];
+      var pb=pm.length>1?pm.reduce(function(b,m){
+        if(!m)return b;
+        return _mem2Score(MEM2.segs[MEM2.cur],m)>_mem2Score(MEM2.segs[MEM2.cur],b||'')?m:b;
+      },pm[0]||''):(pm[0]||'');
+      MEM2._partial=(pb||'').trim();
+      console.log('[tasmee] partial:',MEM2._partial);
+      if(live)live.textContent=MEM2._partial;
+    });
+    if(_pl&&_pl.catch)_pl.catch(function(){});
+  }catch(ex){console.warn('[tasmee] addListener partialResults:',ex);}
+  try{
+    var _ll=nsr.addListener('listeningState',function(data){console.log('[tasmee] listeningState:',data&&data.status);});
+    if(_ll&&_ll.catch)_ll.catch(function(){});
+  }catch(ex){}
+}
+/* Recognition loop — shared by full start and fast retry.
+   [أ-١] delay 200ms after a session with speech, 1200ms after silence.
+   [أ-٢] saves MEM2._lang so retry can skip permission/language. */
+function _mem2NsrStart(nsr,lang){
+  MEM2._lang=lang;
+  MEM2.recActive=true;
+  MEM2._tr='';
+  MEM2._partial='';
+  toast('اقرأ المقطع بصوت واضح…');
+  _mem2UpdateBar();
+  (function loop(){
+    if(!MEM2.recActive)return;
+    MEM2._partial='';
+    console.log('[tasmee] nsr.start() lang:',lang);
+    nsr.start({language:lang,maxResults:5,partialResults:true,popup:false})
+      .then(function(r){
+        var matches=r&&r.matches||[];
+        var best='';
+        if(matches.length>1){
+          var seg=MEM2.segs[MEM2.cur];var bestScore=-1;
+          for(var mi=0;mi<matches.length;mi++){
+            if(!matches[mi])continue;
+            var sc=_mem2Score(seg,matches[mi]);
+            if(sc>bestScore){bestScore=sc;best=matches[mi];}
+          }
+        }
+        if(!best)best=(matches[0]||MEM2._partial||'').trim();
+        else best=best.trim();
+        console.log('[tasmee] session — best:',best,'from',matches.length,'matches');
+        if(best)MEM2._tr=(MEM2._tr?MEM2._tr+' ':'')+best;
+        MEM2._partial='';
+        // [أ-١] delay: 200ms when speech detected, 1200ms when silent
+        var delay=best?200:1200;
+        if(MEM2.recActive)setTimeout(loop,delay);
+      })
+      .catch(function(e){
+        var msg=(e&&(e.message||e.code))||String(e);
+        console.warn('[tasmee] start() error:',msg);
+        if(MEM2.recActive){
+          var lc=msg.toLowerCase();
+          if(!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
+            toast('خطأ في التعرّف الصوتي: '+msg,'error');
+          }
+        }
+        _mem2StopRec();
+      });
+  })();
 }
 function _mem2StartWeb(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -2314,6 +2322,11 @@ function _mem2StopAndEval(){
       MEM2._retried=true;
       toast('لم أسمع — أعيد المحاولة…');
       MEM2._tr='';MEM2._partial='';
+      // [أ-٢] fast retry: skip permission/language detection if lang already known
+      if(_isNative()&&MEM2._lang){
+        var _rNsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+        if(_rNsr){_mem2NsrListen(_rNsr);_mem2NsrStart(_rNsr,MEM2._lang);return;}
+      }
       if(_isNative())_mem2StartNative();else _mem2StartWeb();
     }else{
       MEM2._retried=false;
