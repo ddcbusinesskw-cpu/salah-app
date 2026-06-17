@@ -2177,7 +2177,7 @@ var _W2_WSRC=[
   '      var audio=new Float32Array(raw);',
   '      var _procT0=Date.now();',
   '      var _dur=ev.data.length/16000;',
-  '      var _opts=_dur>25?{chunk_length_s:30,stride_length_s:5}:{};',
+  '      var _opts=_dur>25?{chunk_length_s:30,stride_length_s:[0,5]}:{};',
   '      var r=await asr(audio,_opts);',
   '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
@@ -2684,6 +2684,38 @@ function _mem2Align(refW,recW){
   }
   return res;
 }
+/* Character-level alignment — tolerant to Whisper word-boundary errors */
+function _mem2AlignChar(refW,recN){
+  var refStr=refW.join(''),recStr=recN.join('');
+  var m=refStr.length,n=recStr.length;
+  if(!m)return refW.map(function(w){return{ref:w,ok:false};});
+  if(!n)return refW.map(function(w){return{ref:w,ok:false};});
+  var S=2,G=-1,X=-2;
+  var dp=[];
+  for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0;}
+  for(var i=0;i<=m;i++)dp[i][0]=i*G;
+  for(var j=0;j<=n;j++)dp[0][j]=j*G;
+  for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+    var sc=refStr[i-1]===recStr[j-1]?S:X;
+    dp[i][j]=Math.max(dp[i-1][j-1]+sc,dp[i-1][j]+G,dp[i][j-1]+G);
+  }
+  var charOk=[];for(var k=0;k<m;k++)charOk[k]=false;
+  var i=m,j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&refStr[i-1]===recStr[j-1]&&dp[i][j]===dp[i-1][j-1]+S){charOk[i-1]=true;i--;j--;}
+    else if(i>0&&(j===0||dp[i][j]===dp[i-1][j]+G)){i--;}
+    else{j--;}
+  }
+  var res=[],pos=0;
+  refW.forEach(function(word){
+    var len=word.length;
+    if(!len){res.push({ref:word,ok:false});return;}
+    var matched=0;for(var k=0;k<len;k++)if(charOk[pos+k])matched++;
+    res.push({ref:word,ok:matched/len>=(len<=4?0.5:0.55)});
+    pos+=len;
+  });
+  return res;
+}
 var _MUQEXP={
   'الم':['الف','لام','ميم'],
   'الر':['الف','لام','را'],
@@ -2724,7 +2756,7 @@ function _mem2Eval(seg,recWords){
   seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var recN=recWords.map(function(w){return _normRec(w);});
   recN=_collapseMuq(recN);
-  var pairs=_mem2Align(refW,recN);
+  var pairs=_mem2AlignChar(refW,recN);
   var ok=0,err=0;
   pairs.forEach(function(p){if(p.ok)ok++;else err++;});
   seg.status='done';seg.result={pairs:pairs,ok:ok,err:err};
@@ -2735,7 +2767,7 @@ function _mem2Score(seg,text){
   var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
   var recN=_collapseMuq(words.map(function(w){return _normRec(w);}));
-  var pairs=_mem2Align(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
+  var pairs=_mem2AlignChar(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
