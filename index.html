@@ -3320,7 +3320,7 @@ function buildTimes(lat,lng){
   try{renderHome();}catch(e){console.error('[times] renderHome:',e&&e.message||String(e));}
   try{renderTimesScreen();}catch(e){console.error('[times] renderTimesScreen:',e&&e.message||String(e));}
   try{startCountdown();}catch(e){}
-  try{scheduleNoorPrayerAlerts();}catch(e){}
+  try{scheduleNoorPrayerAlerts();}catch(e){console.error('[adhan] scheduleNoorPrayerAlerts error:',e&&e.message||String(e),e&&e.stack);}
 }
 function renderHome(){
   if(!PT.data)return;var t=PT.data.timings;
@@ -3390,7 +3390,7 @@ function renderTimesScreen(){
   var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
   var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,174,142,.18)':'rgba(234,204,126,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
-  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="reqNotifPerm()" style="'+bs+'background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button></span></div>'+
+  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
   (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
@@ -3437,10 +3437,21 @@ ADHAN_NOTIF_KEYS.forEach(function(k){notifPrefs[k]=lsGet('notif_'+k.toLowerCase(
 /* جدولة إشعارات الأذان لليوم الحالي واليوم التالي */
 function scheduleNoorPrayerAlerts(){
   if(!adhanOn||!PT||!PT.data)return;
+  /* على native: تأكّد من الإذن أولاً — إن لم يُحسم بعد اطلبه ثم أعِد الجدولة */
+  var _LN=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()
+          &&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+  if(_LN&&window._nativeNotifGranted===undefined){
+    _LN.requestPermissions().then(function(r){
+      window._nativeNotifGranted=r.display==='granted';
+      if(window._nativeNotifGranted)scheduleNoorPrayerAlerts();
+      else console.warn('[adhan] notification permission denied — no scheduling');
+    }).catch(function(e){console.error('[adhan] requestPermissions:',e);});
+    return;
+  }
   var t=PT.data.timings,now=new Date();
   var todayMap={};
   ADHAN_NOTIF_KEYS.forEach(function(k){
-    if(!notifPrefs[k])return;
+    if(!notifPrefs[k]||!t[k])return;
     var hm=t[k].split(':'),d=new Date();d.setHours(+hm[0],+hm[1],0,0);
     todayMap[k.toLowerCase()]=d;
   });
@@ -3459,11 +3470,14 @@ function scheduleNoorPrayerAlerts(){
       var _d=new Date(_tmr);_d.setHours(+_hm[0],+_hm[1],0,0);
       tomorrowMap[k.toLowerCase()]=_d;
     });
-  }catch(e){}}
+  }catch(e){console.error('[adhan] tomorrow calc:',e);}}
+  console.log('[adhan] scheduling today:',Object.keys(todayMap),'tomorrow:',Object.keys(tomorrowMap));
   if(typeof window.scheduleAdhanAlerts==='function'){
     window.scheduleAdhanAlerts(todayMap,tomorrowMap);
   }else if(typeof window.scheduleTodayPrayers==='function'){
     window.scheduleTodayPrayers(todayMap);
+  }else{
+    console.warn('[adhan] no scheduleAdhanAlerts — native-bridge not ready?');
   }
 }
 function toggleNotifPrayer(k){
@@ -3554,13 +3568,63 @@ function toggleAdhan(){
   renderTimesScreen();
 }
 function playAdhan(){
+  toast('جارٍ تشغيل صوت الأذان…');
   var a=document.getElementById('adhanAudio');
   if(ADHAN_B64){try{a.src='data:audio/mpeg;base64,'+ADHAN_B64;a.currentTime=0;var p0=a.play();if(p0&&p0.catch)p0.catch(function(){synthAdhan();});return;}catch(e){}}
   var u=ADHANS[adhanIdx]&&ADHANS[adhanIdx].u;
   if(!u){synthAdhan();return;}
-  try{a.src=u;a.currentTime=0;var pr=a.play();if(pr&&pr.catch)pr.catch(function(){synthAdhan();});}catch(e){synthAdhan();}
+  try{
+    a.src=u;a.currentTime=0;
+    var pr=a.play();
+    if(pr&&pr.catch)pr.catch(function(pe){
+      toast('تعذّر تشغيل الصوت من الشبكة ('+(pe&&pe.message||String(pe))+') — يُستخدم الصوت الاصطناعي','warning');
+      synthAdhan();
+    });
+  }catch(e){synthAdhan();}
 }
 function stopAdhan(){try{var a=document.getElementById('adhanAudio');a.pause();}catch(e){}}
+
+/* تجربة الأذان: صوت + إشعار فوري للتأكد من عمل كل شيء */
+function testAdhan(){
+  /* [١] صوت فوري */
+  playAdhan();
+
+  var _LN=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()
+          &&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+  if(!_LN){
+    toast('[إشعار] بيئة الويب — الصوت فقط (لا إشعار native)','warning');
+    return;
+  }
+
+  /* [٢] طلب الإذن وعرض حالته */
+  toast('[إشعار ١/٣] جارٍ طلب إذن الإشعارات…');
+  _LN.requestPermissions().then(function(r){
+    var ok=r.display==='granted';
+    window._nativeNotifGranted=ok;
+    toast('[إشعار ٢/٣] الإذن: '+(ok?'ممنوح ✓':'مرفوض ✕ — افتح إعدادات التطبيق وفعّل الإشعارات'),ok?'success':'error');
+    if(!ok)return;
+
+    /* [٣] إشعار تجريبي فوري (بعد ٥ ثوانٍ) بنغمة الأذان */
+    var dt=new Date(Date.now()+5000);
+    _LN.schedule({notifications:[{
+      id:1999,
+      title:'🕌 اختبار الأذان',
+      body:'هذا إشعار تجريبي — إن وصلك فالجدولة تعمل ✓',
+      schedule:{at:dt,allowWhileIdle:true},
+      channelId:'adhan',
+      sound:'adhan_alert.wav',
+      smallIcon:'ic_stat_noor',
+      iconColor:'#3fae8e'
+    }]}).then(function(){
+      toast('[إشعار ٣/٣] إشعار تجريبي مجدوَل بعد ٥ ثوانٍ ✓','success');
+    }).catch(function(e){
+      toast('[إشعار ٣/٣] فشل الجدولة: '+(e&&e.message||String(e)),'error');
+    });
+  }).catch(function(e){
+    toast('[إشعار ١/٣] خطأ في requestPermissions: '+(e&&e.message||String(e)),'error');
+  });
+}
+
 function synthAdhan(){
   try{
     var Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;var ctx=new Ctx();
@@ -6097,8 +6161,8 @@ function _renderAdhanSett(){
     +'<button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button>'
     +'</div></div>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-    +'<span style="font-size:13px;color:var(--muted)">إشعار تنبيه</span>'
-    +'<button onclick="_settReqNotif()" style="'+bs+'font-size:13px;background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button>'
+    +'<span style="font-size:13px;color:var(--muted)">اختبار الأذان</span>'
+    +'<button onclick="testAdhan()" style="'+bs+'font-size:13px;background:rgba(234,204,126,.15);color:var(--gold)">🔔 تجربة</button>'
     +'</div>'
     +(adhanOn?'<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">أذان لكل صلاة:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</div></div>':'')
     +'<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">صوت الأذان:</div>'
