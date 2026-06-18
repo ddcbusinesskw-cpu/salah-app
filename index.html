@@ -3462,7 +3462,7 @@ if(!navigator.onLine){var _ob=document.getElementById('offlineBadge');if(_ob)_ob
 
 /* ===== البحث ===== */
 var QFLAT=null,SEARCH_TAB='q';
-function snorm(x){return x.replace(/\u0670/g,'\u0627').replace(/[\u064B-\u065F\u0640\u06D6-\u06EF]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
+function snorm(x){return x.replace(/\u0648\u0670/g,'\u0627').replace(/\u0670/g,'\u0627').replace(/[\u064B-\u065F\u0640\u06D6-\u06EF]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
 function _normRec(x){
   // ── الله variants (Whisper corrupts this word in several ways) ──
   x=x.replace(/اللاه/g,'الله').replace(/الاه/g,'الله').replace(/اللاة/g,'الله');
