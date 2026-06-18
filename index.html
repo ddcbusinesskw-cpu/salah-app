@@ -2536,11 +2536,9 @@ function _w2ProcessAudio(){
       var src=offCtx.createBufferSource();
       src.buffer=decoded;src.connect(offCtx.destination);src.start(0);
       offCtx.startRendering().then(function(rend){
-        var _raw=rend.getChannelData(0);
-        var float32=new Float32Array(16000+_raw.length);
-        float32.set(_raw,16000); /* 1 s silence lead-in so Whisper doesn't drop first syllable */
+        var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
         if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;_mem2UpdateBar();return;}
-        var _durS=(_raw.length/16000).toFixed(1);
+        var _durS=(float32.length/16000).toFixed(1);
         if(W2.modelReady){
           _m2tr('بدأ التعرّف ('+_durS+' ث)…');
           _w2StartXTO(float32.length/16000);
@@ -2583,12 +2581,10 @@ function _w2ProcessAudioBase64(b64,mime){
     var src=offCtx.createBufferSource();
     src.buffer=decoded;src.connect(offCtx.destination);src.start(0);
     offCtx.startRendering().then(function(rend){
-      var _raw=rend.getChannelData(0);
-      var float32=new Float32Array(16000+_raw.length);
-      float32.set(_raw,16000); /* 1 s silence lead-in so Whisper doesn't drop first syllable */
+      var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
       var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
       if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;_mem2UpdateBar();return;}
-      var _durS=(_raw.length/16000).toFixed(1);
+      var _durS=(float32.length/16000).toFixed(1);
       if(W2.modelReady){
         _m2tr('بدأ التعرّف ('+_durS+' ث)…');
         _w2StartXTO(float32.length/16000);
