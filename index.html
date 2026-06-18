@@ -2721,39 +2721,32 @@ function _mem2Align(refW,recW){
   }
   return res;
 }
-/* Character-level alignment — tolerant to Whisper word-boundary errors */
+/* Strict word-level alignment — exact match after full normalisation (madd only) */
 function _mem2AlignChar(refW,recN){
-  var refStr=refW.join(''),recStr=recN.join('');
-  var m=refStr.length,n=recStr.length;
+  var m=refW.length,n=recN.length;
   if(!m)return refW.map(function(w){return{ref:w,ok:false};});
   if(!n)return refW.map(function(w){return{ref:w,ok:false};});
-  var S=2,G=-1,X=-2;
+  /* Apply _normRec to both sides: ref words are snorm-only so this adds
+     ء removal and trailing ا→ي; rec words are already _normRec'd so idempotent */
+  var rn=refW.map(_normRec),cn=recN.map(_normRec);
+  var S=1,G=-1,i,j;
   var dp=[];
-  for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0;}
-  for(var i=0;i<=m;i++)dp[i][0]=i*G;
-  for(var j=0;j<=n;j++)dp[0][j]=j*G;
-  for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
-    var sc=refStr[i-1]===recStr[j-1]?S:X;
-    dp[i][j]=Math.max(dp[i-1][j-1]+sc,dp[i-1][j]+G,dp[i][j-1]+G);
+  for(i=0;i<=m;i++){dp[i]=[];for(j=0;j<=n;j++)dp[i][j]=0;}
+  for(i=0;i<=m;i++)dp[i][0]=i*G;
+  for(j=0;j<=n;j++)dp[0][j]=j*G;
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++){
+    var hit=rn[i-1]===cn[j-1]?S:G;
+    dp[i][j]=Math.max(dp[i-1][j-1]+hit,dp[i-1][j]+G,dp[i][j-1]+G);
   }
-  var charOk=[];for(var k=0;k<m;k++)charOk[k]=false;
-  var i=m,j=n;
+  var raw=[];i=m;j=n;
   while(i>0||j>0){
-    if(i>0&&j>0&&refStr[i-1]===recStr[j-1]&&dp[i][j]===dp[i-1][j-1]+S){charOk[i-1]=true;i--;j--;}
-    else if(i>0&&(j===0||dp[i][j]===dp[i-1][j]+G)){i--;}
-    else{j--;}
+    if(i>0&&j>0&&rn[i-1]===cn[j-1]&&dp[i][j]===dp[i-1][j-1]+S){
+      raw.push({ref:refW[i-1],ok:true});i--;j--;
+    }else if(i>0&&(j===0||dp[i][j]===dp[i-1][j]+G)){
+      raw.push({ref:refW[i-1],ok:false});i--;
+    }else{j--;}
   }
-  var res=[],pos=0;
-  refW.forEach(function(word){
-    var len=word.length;
-    if(!len){res.push({ref:word,ok:false});return;}
-    var matched=0;for(var k=0;k<len;k++)if(charOk[pos+k])matched++;
-    var ratio=matched/len,thresh=len<=4?0.5:0.55;
-    var trailMiss=0;for(var k=len-1;k>=0&&!charOk[pos+k];k--)trailMiss++;
-    res.push({ref:word,ok:ratio>=thresh&&trailMiss<2});
-    pos+=len;
-  });
-  return res;
+  return raw.reverse();
 }
 var _MUQEXP={
   'الم':['الف','لام','ميم'],
