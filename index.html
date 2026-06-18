@@ -5283,35 +5283,27 @@ function achvShare(){
         setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},1200);
       }
 
-      /* [4/4] navigator.share({files}) — الطريق الصحيح في Capacitor WebView.
-         لا نشترط navigator.canShare (غير متوفر في بعض WebViews) — نحاول مباشرةً.
-         لا يوجد أي احتياطي نصي — الصورة أو التنزيل فقط. */
+      /* [4/4] استدعاء navigator.share({files}) مباشرةً.
+         canShare() يعطي false خاطئاً في Capacitor WebView على Android — نتجاوزه كلياً.
+         navigator.share({files}) يعمل في WebView حديث (Chrome 86+) ويفتح نافذة المشاركة native. */
       if(!navigator.share){
-        toast('⚠ [4/4] navigator.share غير موجود — جارٍ التنزيل','error');
+        toast('⚠ [4/4] navigator.share غير موجود في هذه البيئة — جارٍ التنزيل','error');
         _dlB(blob,fname);return;
       }
 
-      /* canShare اختياري: إن وُجد ورفض نوقف هنا لنعرف السبب؛ إن غاب نكمل */
-      if(typeof navigator.canShare==='function'){
-        var cs=false;
-        try{cs=navigator.canShare({files:[f]});}catch(eCan){
-          toast('⚠ [4/4] canShare() رمى: '+(eCan&&eCan.message||String(eCan))+' — نحاول على أي حال');
-          cs=true;
-        }
-        if(!cs){
-          toast('⚠ [4/4] canShare({files}) = false — جارٍ التنزيل','error');
-          _dlB(blob,fname);return;
-        }
-      }
-
       toast('[4/4] جارٍ فتح نافذة المشاركة…');
-      navigator.share({files:[f],title:'إنجازاتي في المجدّد'})
-        .then(function(){toast('تمت مشاركة البطاقة كصورة ✓');})
-        .catch(function(eS){
-          if(eS&&eS.name==='AbortError')return;
-          toast('⚠ [4/4] Share رفض: '+(eS&&eS.message||String(eS))+' — جارٍ التنزيل','error');
-          _dlB(blob,fname);
-        });
+      try{
+        navigator.share({files:[f],title:'إنجازاتي في المجدّد'})
+          .then(function(){toast('تمت مشاركة البطاقة كصورة ✓');})
+          .catch(function(eS){
+            if(eS&&eS.name==='AbortError')return;
+            toast('⚠ [4/4] Share رفض: '+(eS&&eS.message||String(eS))+' — جارٍ التنزيل','error');
+            _dlB(blob,fname);
+          });
+      }catch(eSync){
+        toast('⚠ [4/4] share() رمى: '+(eSync&&eSync.message||String(eSync))+' — جارٍ التنزيل','error');
+        _dlB(blob,fname);
+      }
     },'image/png');
   }catch(e){console.error('[achvShare]',e);toast('⚠ [1/4] خطأ في رسم الـcanvas: '+(e&&e.message||String(e)),'error');}
 }
