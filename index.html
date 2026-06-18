@@ -2014,6 +2014,21 @@ function go(id){
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
+var W2_REF=null;var W2_REF_LOADING=false;var _W2_REF_CBS=[];
+function _loadW2Ref(cb){
+  if(W2_REF){if(cb)cb();return;}
+  if(cb)_W2_REF_CBS.push(cb);
+  if(W2_REF_LOADING)return;
+  try{var ca=lsGet('w2ref_v1');if(ca){W2_REF=JSON.parse(ca);_W2_REF_CBS.splice(0).forEach(function(f){f();});return;}}catch(e){}
+  W2_REF_LOADING=true;
+  fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(function(d){W2_REF=d;W2_REF_LOADING=false;
+      try{lsSet('w2ref_v1',JSON.stringify(d));}catch(e){}
+      _W2_REF_CBS.splice(0).forEach(function(f){f();});})
+    .catch(function(){W2_REF={};W2_REF_LOADING=false;
+      _W2_REF_CBS.splice(0).forEach(function(f){f();});});
+}
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2065,6 +2080,7 @@ function mem2SetSeg(n){
   [].forEach.call(pills,function(b,i){b.classList.toggle('on',[1,3,5][i]===n);});
 }
 function mem2Start(){
+  _loadW2Ref();
   var n=+document.getElementById('memSurah').value;
   var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];
   if(!arr){toast('المصحف غير متوفر','error');return;}
@@ -2751,23 +2767,46 @@ function _collapseMuq(arr){
   }
   return out;
 }
+function _buildRefAndMapping(seg){
+  var refW=[],writtenW=[],ayahMap=[];
+  seg.ayahs.forEach(function(a){
+    var key=MEM2.surah+':'+a.num;
+    var jt=W2_REF&&W2_REF[key];
+    var rw,ww;
+    ww=a.words.map(function(w){return w.n;});
+    if(jt){rw=jt.trim().split(/\s+/).filter(Boolean).map(function(w){return snorm(w);});}
+    else{rw=ww.slice();}
+    refW=refW.concat(rw);writtenW=writtenW.concat(ww);
+    ayahMap.push({refLen:rw.length,writtenLen:ww.length});
+  });
+  return{refW:refW,writtenW:writtenW,ayahMap:ayahMap};
+}
 function _mem2Eval(seg,recWords){
-  var refW=[];
-  seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
-  var recN=recWords.map(function(w){return _normRec(w);});
-  recN=_collapseMuq(recN);
-  var pairs=_mem2AlignChar(refW,recN);
-  var ok=0,err=0;
-  pairs.forEach(function(p){if(p.ok)ok++;else err++;});
+  var bld=_buildRefAndMapping(seg);
+  var recN=_collapseMuq(recWords.map(function(w){return _normRec(w);}));
+  var refPairs=_mem2AlignChar(bld.refW,recN);
+  var pairs=[],ri=0,wi=0;
+  bld.ayahMap.forEach(function(am){
+    var sp=refPairs.slice(ri,ri+am.refLen);ri+=am.refLen;
+    if(am.refLen===am.writtenLen){
+      for(var i=0;i<am.writtenLen;i++)pairs.push({ref:bld.writtenW[wi+i],ok:sp[i]?sp[i].ok:false});
+    }else{
+      var okc=0;sp.forEach(function(p){if(p.ok)okc++;});
+      var aok=am.refLen>0&&okc/am.refLen>=0.6;
+      for(var i=0;i<am.writtenLen;i++)pairs.push({ref:bld.writtenW[wi+i],ok:aok});
+    }
+    wi+=am.writtenLen;
+  });
+  var ok=0,err=0;pairs.forEach(function(p){if(p.ok)ok++;else err++;});
   seg.status='done';seg.result={pairs:pairs,ok:ok,err:err};
   if(RAK&&RAK.hap!==undefined?RAK.hap:true)buzz(ok===pairs.length?[60,30,80]:ok>0?35:0);
 }
 function _mem2Score(seg,text){
   if(!text||!seg)return 0;
-  var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
+  var bld=_buildRefAndMapping(seg);
   var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
   var recN=_collapseMuq(words.map(function(w){return _normRec(w);}));
-  var pairs=_mem2AlignChar(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
+  var pairs=_mem2AlignChar(bld.refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
