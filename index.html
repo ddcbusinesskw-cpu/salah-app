@@ -2748,7 +2748,9 @@ function _mem2AlignChar(refW,recN){
     var len=word.length;
     if(!len){res.push({ref:word,ok:false});return;}
     var matched=0;for(var k=0;k<len;k++)if(charOk[pos+k])matched++;
-    res.push({ref:word,ok:matched/len>=(len<=4?0.5:0.55)});
+    var ratio=matched/len,thresh=len<=4?0.5:0.55;
+    var trailMiss=0;for(var k=len-1;k>=0&&!charOk[pos+k];k--)trailMiss++;
+    res.push({ref:word,ok:ratio>=thresh&&trailMiss<2});
     pos+=len;
   });
   return res;
