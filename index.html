@@ -2176,7 +2176,7 @@ var _W2_WSRC=[
   '      var audio=new Float32Array(raw);',
   '      var _procT0=Date.now();',
   '      var _dur=ev.data.length/16000;',
-  '      var _opts=_dur>25?{chunk_length_s:30,stride_length_s:[0,5]}:{};',
+  '      var _opts=_dur>20?{chunk_length_s:30,stride_length_s:5}:{};',
   '      var r=await asr(audio,_opts);',
   '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
