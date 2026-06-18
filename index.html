@@ -2021,7 +2021,7 @@ function _loadW2Ref(cb){
   if(W2_REF_LOADING)return;
   try{var ca=lsGet('w2ref_v1');if(ca){W2_REF=JSON.parse(ca);_W2_REF_CBS.splice(0).forEach(function(f){f();});return;}}catch(e){}
   W2_REF_LOADING=true;
-  _m2tr('بدأ تحميل مرجع النموذج…');
+  if(!W2.loading)_m2tr('بدأ تحميل مرجع النموذج…');
   var _rto=new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},10000);});
   Promise.race([
     fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
@@ -2029,11 +2029,11 @@ function _loadW2Ref(cb){
     _rto
   ])
     .then(function(d){W2_REF=d;W2_REF_LOADING=false;
-      _m2tr('اكتمل تحميل المرجع ('+Object.keys(d).length+' آية)');
+      if(!W2.loading)_m2tr('اكتمل تحميل المرجع ('+Object.keys(d).length+' آية)');
       try{lsSet('w2ref_v1',JSON.stringify(d));}catch(e){}
       _W2_REF_CBS.splice(0).forEach(function(f){f();});})
     .catch(function(e){W2_REF={};W2_REF_LOADING=false;
-      _m2tr('فشل مرجع النموذج ('+(e&&e.message||'خطأ')+') — النص المكتوب');
+      if(!W2.loading)_m2tr('فشل مرجع النموذج ('+(e&&e.message||'خطأ')+') — النص المكتوب');
       _W2_REF_CBS.splice(0).forEach(function(f){f();});});
 }
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
@@ -2178,21 +2178,23 @@ var _W2_WSRC=[
   '    var pip,env;',
   '    try{var m=await import(P);pip=m.pipeline;env=m.env;}',
   '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
-  '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
+  '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js: "+(e2&&e2.message||String(e2))});return;}}',
+  '    self.postMessage({type:"trace",text:"تم استيراد المكتبة — جارٍ تحميل نموذج Whisper…"});',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
   '    var _loadT0=Date.now();var _dev="wasm";',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl="Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
   '    try{',
   '      if(typeof navigator!=="undefined"&&navigator.gpu){',
+  '        self.postMessage({type:"trace",text:"جارٍ محاولة WebGPU…"});',
   '        var _gpuP=pip("automatic-speech-recognition",_mdl,{dtype:"q8",device:"webgpu",progress_callback:_prog});',
   '        var _gpuTO=new Promise(function(_,r){setTimeout(function(){r(new Error("gpu-timeout"));},10000);});',
-  '        try{asr=await Promise.race([_gpuP,_gpuTO]);_dev="webgpu";}',
-  '        catch(eg){asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}}',
-  '      else{asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}',
+  '        try{asr=await Promise.race([_gpuP,_gpuTO]);_dev="webgpu";self.postMessage({type:"trace",text:"تم تحميل النموذج بـ WebGPU"});}',
+  '        catch(eg){self.postMessage({type:"trace",text:"WebGPU فشل ("+(eg&&eg.message||"خطأ")+") — جارٍ WASM…"});asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}}',
+  '      else{self.postMessage({type:"trace",text:"جارٍ تحميل النموذج بـ WASM…"});asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,device:_dev});',
   '      if(_dev==="wasm"){_warming=true;asr(new Float32Array(8000),{}).then(function(){_warming=false;}).catch(function(){_warming=false;});}',
-  '    catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك، تأكّد من الاتصال بالإنترنت"});}',
+  '    catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك: "+(err&&err.message||String(err))});}',
   '    return;}',
   '  if(t==="transcribe"){',
   '    if(!asr||_warming){self.postMessage({type:"error",text:_warming?"جارٍ التجهيز، أعد المحاولة":"النموذج غير جاهز"});return;}',
@@ -2216,8 +2218,10 @@ function _w2Init(){
   try{W2.worker=new Worker(url,{type:'module'});}
   catch(e){toast('Web Worker غير مدعوم','error');W2.loading=false;return;}
   W2.worker.onmessage=function(ev){_w2Msg(ev.data);};
-  W2.worker.onerror=function(){
-    toast('فشل تحميل محرّك الذكاء الاصطناعي','error');
+  W2.worker.onerror=function(e){
+    var msg='فشل تحميل محرّك الذكاء الاصطناعي'+(e&&e.message?' — '+e.message:'');
+    toast(msg,'error');
+    _m2tr(msg);
     W2.loading=false;
   };
   W2.worker.onmessageerror=function(){};
@@ -2229,11 +2233,14 @@ function _w2Msg(m){
   var lbl=document.getElementById('mem2MicLbl');
   if(m.type==='ws'){
     // worker ready
+  }else if(m.type==='trace'){
+    if(live)live.textContent=m.text||'';
   }else if(m.type==='progress'){
     var p=m.data||{};
     if(p.status==='downloading'&&p.progress!=null){
       var pct=Math.round(p.progress);
-      if(live&&(MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%…';
+      var fn=p.file?(' — '+p.file.split('/').pop().replace(/\?.*$/,'')):'';
+      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%'+fn+'…';
     }
   }else if(m.type==='ready'){
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
