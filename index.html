@@ -1103,7 +1103,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="icell" id="ramadanBtn" onclick="go('ramadan')" style="display:none"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.9A9 9 0 0 1 11.1 3a9 9 0 1 0 9.9 9.9z"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg></span><span class="lbl">رمضان</span></button>
     </div>
     <p class="note" id="trialNote" style="color:var(--gold)"></p>
-    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ٢٠</p>
+    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · <a onclick="_resetSetupOnly()" style="color:var(--gold);cursor:pointer">إعادة التهيئة</a> · إصدار ٢٠</p>
     <div style="height:calc(var(--bnav-h) + 10px)"></div>
   </div>
 
@@ -4455,11 +4455,11 @@ function afterSplash(){
   route();
 }
 function route(){
+  console.log('[route] consent='+lsGet('consent')+' session='+lsGet('session')+' setup_done='+lsGet('setup_done'));
   if(!lsGet('consent'))return showOv('consent');
   if(PREMIUM_ENABLED&&!lsGet('sub'))return showOv('paywall'); /* بريميوم قبل الدخول */
   if(!lsGet('session'))return showOv('login');
-  if(!lsGet('setup_done'))return showOv('setup');
-  enterApp();
+  enterApp(); /* enterApp() itself checks setup_done — covers all login paths */
 }
 function agreeTerms(){
   try{lsSet('consent','1');}catch(e){}
@@ -4547,7 +4547,19 @@ function login(provider){
 }
 function trialLeft(){var s=lsGet('trialStart');if(!s)return TRIAL_DAYS;var used=Math.floor((Date.now()-(+s))/86400000);return Math.max(0,TRIAL_DAYS-used);}
 function resetOnboarding(){['consent','session','sub','trialStart','setup_done'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});splashDone=false;boot();}
+function _resetSetupOnly(){try{localStorage.removeItem('setup_done');}catch(e){}enterApp();}
 function enterApp(){
+  var _sd=lsGet('setup_done');
+  console.log('[enterApp] setup_done='+_sd+' session='+lsGet('session'));
+  if(!_sd){
+    console.log('[enterApp] → showing ov_setup');
+    var inv=document.getElementById('setup_invite');if(inv)inv.style.display='';
+    var prg=document.getElementById('setup_progress');if(prg)prg.style.display='none';
+    var sd=document.getElementById('setup_done');if(sd)sd.style.display='none';
+    var err=document.getElementById('setup_err');if(err)err.style.display='none';
+    showOv('setup');
+    return;
+  }
   showOv(null);
   document.getElementById('locName').textContent=tzCity();
   var tn=document.getElementById('trialNote');
