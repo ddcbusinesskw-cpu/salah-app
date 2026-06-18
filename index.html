@@ -2162,7 +2162,7 @@ var _W2_WSRC=[
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl="Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
   '    try{',
-  '      asr=await pip("automatic-speech-recognition",_mdl,{dtype:{encoder_model:"fp32",decoder_model_merged:"q8"},progress_callback:_prog});',
+  '      asr=await pip("automatic-speech-recognition",_mdl,{dtype:{encoder_model:"fp32",decoder_model_merged:"fp32"},progress_callback:_prog});',
   '      var _wuT0=Date.now();try{await asr(new Float32Array(8000),{});}catch(ew){}',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,warmupMs:Date.now()-_wuT0});',
   '    }catch(err){',
