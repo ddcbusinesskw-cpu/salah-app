@@ -427,16 +427,6 @@
   .payopt.sel{border-color:var(--gold);background:rgba(234,204,126,.12);}
   .payopt svg{width:26px;height:26px;}
 
-  /* first-run setup */
-  #ov_setup{align-items:center;justify-content:center;text-align:center;}
-  .setup-phase{display:flex;flex-direction:column;align-items:center;gap:.75rem;width:100%;max-width:360px;}
-  .setup-icon{font-size:52px;line-height:1;}
-  .setup-prog-wrap{background:rgba(255,255,255,.15);border-radius:8px;height:12px;overflow:hidden;width:100%;}
-  .setup-prog-bar{background:linear-gradient(90deg,var(--gold),#e5a63a);height:100%;border-radius:8px;transition:width .35s ease;}
-  .setup-pct{color:var(--muted);font-size:12px;min-height:1.6em;text-align:center;line-height:1.5;word-break:break-all;padding:0 4px;}
-  .setup-err-msg{color:#ef9a9a;font-size:13px;line-height:1.6;text-align:center;}
-  .setup-skip-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;padding:8px;width:100%;}
-
   /* ===== مشغّل الصوت (تلاوة) ===== */
   .srow .playbtn{flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:rgba(234,204,126,.15);color:var(--gold);
     border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -1103,7 +1093,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="icell" id="ramadanBtn" onclick="go('ramadan')" style="display:none"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.9A9 9 0 0 1 11.1 3a9 9 0 1 0 9.9 9.9z"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg></span><span class="lbl">رمضان</span></button>
     </div>
     <p class="note" id="trialNote" style="color:var(--gold)"></p>
-    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · <a onclick="_resetSetupOnly()" style="color:var(--gold);cursor:pointer">إعادة التهيئة</a> · إصدار ٢٠</p>
+    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ٢٠</p>
     <div style="height:calc(var(--bnav-h) + 10px)"></div>
   </div>
 
@@ -1935,41 +1925,6 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <p class="fineprint">Apple Pay / Google Pay أو بطاقة. <a onclick="subscribe()">استعادة الشراء</a><br>عرض تجريبي للواجهة — لا يتم خصم أي مبلغ فعليًا.</p>
 </div>
 
-<!-- تهيئة التطبيق — تنزيل الموارد عند أول استخدام -->
-<div id="ov_setup" class="ov">
-  <!-- المرحلة ١: دعوة التنزيل -->
-  <div id="setup_invite" class="setup-phase">
-    <div class="setup-icon">⬇️</div>
-    <h3>تجهيز التطبيق</h3>
-    <p class="sub">لتشغيل ميزة التسميع (التعرّف على الصوت) بدون إنترنت، يحتاج التطبيق تنزيل نموذج الذكاء الاصطناعي مرة واحدة.</p>
-    <p class="sub" style="margin-top:-8px">الحجم التقديري: <b style="color:var(--gold)">~120 ميجابايت</b></p>
-    <div class="grow"></div>
-    <button class="cta" onclick="_setupDownloadAll()">تنزيل الآن</button>
-    <button class="setup-skip-btn" onclick="_setupSkip()">لاحقاً — سيُنزَّل تلقائياً عند أول استخدام ←</button>
-  </div>
-  <!-- المرحلة ٢: شريط التقدّم -->
-  <div id="setup_progress" class="setup-phase" style="display:none">
-    <h3>جارٍ التنزيل…</h3>
-    <p class="sub" id="setup_resname" style="margin-bottom:0">نموذج التسميع</p>
-    <div class="setup-prog-wrap" style="width:100%">
-      <div id="setup_bar" class="setup-prog-bar" style="width:0%"></div>
-    </div>
-    <div id="setup_pctlbl" class="setup-pct">0%</div>
-    <div id="setup_err" style="display:none;width:100%">
-      <p id="setup_errmsg" class="setup-err-msg"></p>
-      <button class="cta" onclick="_setupRetry()" style="margin-top:8px">إعادة المحاولة</button>
-      <button class="setup-skip-btn" onclick="_setupSkip()" style="margin-top:4px">تخطّي — سيُحاوَل لاحقاً ←</button>
-    </div>
-  </div>
-  <!-- المرحلة ٣: اكتمل -->
-  <div id="setup_done" class="setup-phase" style="display:none">
-    <div class="setup-icon">✅</div>
-    <h3>جاهز للعمل بدون إنترنت!</h3>
-    <p class="sub">تم تنزيل نموذج التسميع ومرجع التلاوة. تعمل ميزة التسميع الآن بدون إنترنت.</p>
-    <div class="grow"></div>
-    <button class="cta" onclick="_setupFinish()">ابدأ</button>
-  </div>
-</div>
 
 
 <script>
@@ -2060,28 +2015,6 @@ function go(id){
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
-var W2_REF=null;var W2_REF_LOADING=false;var _W2_REF_CBS=[];
-function _loadW2Ref(cb){
-  if(W2_REF){if(cb)cb();return;}
-  if(cb)_W2_REF_CBS.push(cb);
-  if(W2_REF_LOADING)return;
-  try{var ca=lsGet('w2ref_v1');if(ca){W2_REF=JSON.parse(ca);_W2_REF_CBS.splice(0).forEach(function(f){f();});return;}}catch(e){}
-  W2_REF_LOADING=true;
-  if(!W2.loading)_m2tr('بدأ تحميل مرجع النموذج…');
-  var _rto=new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},10000);});
-  Promise.race([
-    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
-      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-    _rto
-  ])
-    .then(function(d){W2_REF=d;W2_REF_LOADING=false;
-      if(!W2.loading)_m2tr('اكتمل تحميل المرجع ('+Object.keys(d).length+' آية)');
-      try{lsSet('w2ref_v1',JSON.stringify(d));}catch(e){}
-      _W2_REF_CBS.splice(0).forEach(function(f){f();});})
-    .catch(function(e){W2_REF={};W2_REF_LOADING=false;
-      if(!W2.loading)_m2tr('فشل مرجع النموذج ('+(e&&e.message||'خطأ')+') — النص المكتوب');
-      _W2_REF_CBS.splice(0).forEach(function(f){f();});});
-}
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1;
 function initMemorize(){
@@ -2134,7 +2067,6 @@ function mem2SetSeg(n){
   [].forEach.call(pills,function(b,i){b.classList.toggle('on',[1,3,5][i]===n);});
 }
 function mem2Start(){
-  _loadW2Ref();
   var n=+document.getElementById('memSurah').value;
   var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];
   if(!arr){toast('المصحف غير متوفر','error');return;}
@@ -2217,33 +2149,28 @@ var _W2_WSRC=[
   'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'self.postMessage({type:"ws"});',
-  'var asr=null;var _warming=false;',
+  'var asr=null;',
   'self.onmessage=async function(ev){',
   '  var t=ev.data.type;',
   '  if(t==="load"){',
   '    var pip,env;',
   '    try{var m=await import(P);pip=m.pipeline;env=m.env;}',
   '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
-  '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js: "+(e2&&e2.message||String(e2))});return;}}',
-  '    self.postMessage({type:"trace",text:"تم استيراد المكتبة — جارٍ تحميل نموذج Whisper…"});',
+  '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
-  '    var _loadT0=Date.now();var _dev="wasm";',
+  '    var _loadT0=Date.now();',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl="Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
   '    try{',
-  '      if(typeof navigator!=="undefined"&&navigator.gpu){',
-  '        self.postMessage({type:"trace",text:"جارٍ محاولة WebGPU…"});',
-  '        var _gpuP=pip("automatic-speech-recognition",_mdl,{dtype:"q8",device:"webgpu",progress_callback:_prog});',
-  '        var _gpuTO=new Promise(function(_,r){setTimeout(function(){r(new Error("gpu-timeout"));},10000);});',
-  '        try{asr=await Promise.race([_gpuP,_gpuTO]);_dev="webgpu";self.postMessage({type:"trace",text:"تم تحميل النموذج بـ WebGPU"});}',
-  '        catch(eg){self.postMessage({type:"trace",text:"WebGPU فشل ("+(eg&&eg.message||"خطأ")+") — جارٍ WASM…"});asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}}',
-  '      else{self.postMessage({type:"trace",text:"جارٍ تحميل النموذج بـ WASM…"});asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}',
-  '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,device:_dev});',
-  '      if(_dev==="wasm"){_warming=true;asr(new Float32Array(8000),{}).then(function(){_warming=false;}).catch(function(){_warming=false;});}',
-  '    }catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك: "+(err&&err.message||String(err))});}',
+  '      asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});',
+  '      var _wuT0=Date.now();try{await asr(new Float32Array(8000),{});}catch(ew){}',
+  '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,warmupMs:Date.now()-_wuT0});',
+  '    }catch(err){',
+  '      self.postMessage({type:"error",text:"تعذّر تحميل المحرّك: "+(err&&err.message||String(err))});',
+  '    }',
   '    return;}',
   '  if(t==="transcribe"){',
-  '    if(!asr||_warming){self.postMessage({type:"error",text:_warming?"جارٍ التجهيز، أعد المحاولة":"النموذج غير جاهز"});return;}',
+  '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
   '    try{',
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=new Float32Array(raw);',
@@ -2280,14 +2207,11 @@ function _w2Msg(m){
   var lbl=document.getElementById('mem2MicLbl');
   if(m.type==='ws'){
     // worker ready
-  }else if(m.type==='trace'){
-    if(live)live.textContent=m.text||'';
   }else if(m.type==='progress'){
     var p=m.data||{};
     if(p.status==='downloading'&&p.progress!=null){
       var pct=Math.round(p.progress);
-      var fn=p.file?(' — '+p.file.split('/').pop().replace(/\?.*$/,'')):'';
-      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%'+fn+'…';
+      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%…';
     }
   }else if(m.type==='ready'){
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
@@ -2336,125 +2260,6 @@ function _w2StartXTO(durSec){
   },killMs);
 }
 function _w2ClearXTO(){clearTimeout(_w2XTO);clearTimeout(_w2XWarnTO);}
-/* ── First-run resource download ──────────────────────────────────────────── */
-var _setupWorker=null,_setupPhase=0;
-var _setupFilesTotal={},_setupFilesLoaded={};
-var _setupInitTimer=null,_setupHangTimer=null;
-function _setupDownloadAll(){
-  document.getElementById('setup_invite').style.display='none';
-  document.getElementById('setup_progress').style.display='';
-  document.getElementById('setup_done').style.display='none';
-  document.getElementById('setup_err').style.display='none';
-  _setupFilesTotal={};_setupFilesLoaded={};
-  clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-  _setupPhase=1;
-  _setupLoadModel();
-}
-function _setupLoadModel(){
-  _setupSetRes('نموذج التسميع (Whisper)');
-  _setupSetBar(0,'جارٍ تهيئة المحرّك…');
-  var blob,url;
-  try{blob=new Blob([_W2_WSRC],{type:'text/javascript'});url=URL.createObjectURL(blob);}
-  catch(e){_setupError('فشل إنشاء المحرّك: '+(e&&e.message||String(e)));return;}
-  try{_setupWorker=new Worker(url,{type:'module'});}
-  catch(e){_setupError('Web Worker غير مدعوم: '+(e&&e.message||String(e)));return;}
-  _setupWorker.onmessage=function(ev){
-    var m=ev.data;
-    if(m.type==='trace'){
-      _setupSetRes(m.text||'');
-    }else if(m.type==='progress'){
-      var p=m.data||{};
-      if(p.status==='downloading'&&p.file&&p.total){
-        _setupFilesTotal[p.file]=p.total;
-        _setupFilesLoaded[p.file]=p.loaded||0;
-        var tot=_sumObj(_setupFilesTotal),ld=_sumObj(_setupFilesLoaded);
-        var pct=tot>0?Math.min(89,Math.round(ld/tot*90)):1;
-        var fn=p.file.split('/').pop().replace(/\?.*$/,'');
-        var mb=(p.loaded/1048576).toFixed(1)+'/'+(p.total/1048576).toFixed(1)+' MB';
-        _setupSetBar(pct,fn+' '+mb);
-        if(pct>=89&&!_setupInitTimer){
-          _setupInitTimer=setTimeout(function(){
-            if(_setupPhase===1)_setupSetRes('اكتمل التنزيل — جارٍ تهيئة النموذج في الذاكرة…');
-          },10000);
-          _setupHangTimer=setTimeout(function(){
-            if(_setupPhase===1)_setupError('علّق التطبيق عند تجهيز النموذج (تجاوز 5 دقائق). حاول مجدداً أو أعد فتح التطبيق.');
-          },300000);
-        }
-      }
-    }else if(m.type==='ready'){
-      clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-      _setupWorker.terminate();_setupWorker=null;
-      lsSet('mdl_cached','1');
-      _setupPhase=2;
-      _setupLoadRef();
-    }else if(m.type==='error'){
-      clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-      _setupError('خطأ في نموذج التسميع: '+(m.text||''));
-    }
-  };
-  _setupWorker.onerror=function(e){
-    clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-    var detail=(e&&(e.message||''))+(e&&e.lineno?' (سطر '+e.lineno+')':'');
-    _setupError('فشل تحميل المحرّك: '+(detail||'SyntaxError أو CSP'));
-  };
-  _setupWorker.postMessage({type:'load'});
-}
-function _setupLoadRef(){
-  _setupSetRes('مرجع التلاوة (بيانات أداء Whisper)');
-  _setupSetBar(90,'جارٍ التنزيل…');
-  if(W2_REF&&typeof W2_REF==='object'){
-    var cnt=0;for(var k in W2_REF)if(W2_REF.hasOwnProperty(k)){cnt++;if(cnt>100)break;}
-    if(cnt>100){_setupSetBar(100,'');_setupDone();return;}
-  }
-  var cached=lsGet('w2ref_v1');
-  if(cached){try{W2_REF=JSON.parse(cached);_setupSetBar(100,'');_setupDone();return;}catch(e){}}
-  var done=false;
-  function finish(ok){if(done)return;done=true;if(ok){_setupSetBar(100,'');_setupDone();}else{_setupError('فشل تنزيل مرجع التلاوة');}}
-  var rto=setTimeout(function(){finish(false);},22000);
-  var _abort=new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},20000);});
-  Promise.race([
-    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
-      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-    _abort
-  ])
-    .then(function(d){clearTimeout(rto);W2_REF=d;W2_REF_LOADING=false;
-      try{lsSet('w2ref_v1',JSON.stringify(d));}catch(e){}
-      _W2_REF_CBS.splice(0).forEach(function(f){f();});finish(true);})
-    .catch(function(e){clearTimeout(rto);W2_REF={};W2_REF_LOADING=false;
-      _W2_REF_CBS.splice(0).forEach(function(f){f();});finish(false);});
-}
-function _setupDone(){
-  lsSet('setup_done','1');
-  document.getElementById('setup_progress').style.display='none';
-  document.getElementById('setup_done').style.display='';
-}
-function _setupError(msg){
-  if(_setupWorker){try{_setupWorker.terminate();}catch(ex){}}_setupWorker=null;
-  var el=document.getElementById('setup_errmsg');if(el)el.textContent=msg;
-  var err=document.getElementById('setup_err');if(err)err.style.display='';
-}
-function _setupRetry(){
-  var err=document.getElementById('setup_err');if(err)err.style.display='none';
-  clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-  _setupFilesTotal={};_setupFilesLoaded={};
-  if(_setupPhase===1)_setupLoadModel();
-  else if(_setupPhase===2)_setupLoadRef();
-  else _setupDownloadAll();
-}
-function _setupSkip(){
-  if(_setupWorker){try{_setupWorker.terminate();}catch(ex){}}_setupWorker=null;
-  clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-  lsSet('setup_done','later');
-  enterApp();
-}
-function _setupFinish(){enterApp();}
-function _setupSetRes(name){var el=document.getElementById('setup_resname');if(el)el.textContent=name;}
-function _setupSetBar(pct,sub){
-  var bar=document.getElementById('setup_bar');if(bar)bar.style.width=pct+'%';
-  var p=document.getElementById('setup_pctlbl');if(p)p.textContent=pct+'%'+(sub?' — '+sub:'');
-}
-function _sumObj(o){var s=0;for(var k in o)if(o.hasOwnProperty(k))s+=o[k];return s;}
-/* ───────────────────────────────────────────────────────────────────────── */
 function _w2StartCapture(){
   if(!W2.worker)_w2Init();
   if(_isAndroidNative()){_w2StartNativeCapture();return;}
@@ -2983,46 +2788,22 @@ function _collapseMuq(arr){
   }
   return out;
 }
-function _buildRefAndMapping(seg){
-  var refW=[],writtenW=[],ayahMap=[];
-  seg.ayahs.forEach(function(a){
-    var key=MEM2.surah+':'+a.num;
-    var jt=W2_REF&&W2_REF[key];
-    var rw,ww;
-    ww=a.words.map(function(w){return w.n;});
-    if(jt){rw=jt.trim().split(/\s+/).filter(Boolean).map(function(w){return snorm(w);});}
-    else{rw=ww.slice();}
-    refW=refW.concat(rw);writtenW=writtenW.concat(ww);
-    ayahMap.push({refLen:rw.length,writtenLen:ww.length});
-  });
-  return{refW:refW,writtenW:writtenW,ayahMap:ayahMap};
-}
 function _mem2Eval(seg,recWords){
-  var bld=_buildRefAndMapping(seg);
+  var refW=[];
+  seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var recN=_collapseMuq(recWords.map(function(w){return _normRec(w);}));
-  var refPairs=_mem2AlignChar(bld.refW,recN);
-  var pairs=[],ri=0,wi=0;
-  bld.ayahMap.forEach(function(am){
-    var sp=refPairs.slice(ri,ri+am.refLen);ri+=am.refLen;
-    if(am.refLen===am.writtenLen){
-      for(var i=0;i<am.writtenLen;i++)pairs.push({ref:bld.writtenW[wi+i],ok:sp[i]?sp[i].ok:false});
-    }else{
-      var okc=0;sp.forEach(function(p){if(p.ok)okc++;});
-      var aok=am.refLen>0&&okc/am.refLen>=0.6;
-      for(var i=0;i<am.writtenLen;i++)pairs.push({ref:bld.writtenW[wi+i],ok:aok});
-    }
-    wi+=am.writtenLen;
-  });
-  var ok=0,err=0;pairs.forEach(function(p){if(p.ok)ok++;else err++;});
+  var pairs=_mem2AlignChar(refW,recN);
+  var ok=0,err=0;
+  pairs.forEach(function(p){if(p.ok)ok++;else err++;});
   seg.status='done';seg.result={pairs:pairs,ok:ok,err:err};
   if(RAK&&RAK.hap!==undefined?RAK.hap:true)buzz(ok===pairs.length?[60,30,80]:ok>0?35:0);
 }
 function _mem2Score(seg,text){
   if(!text||!seg)return 0;
-  var bld=_buildRefAndMapping(seg);
+  var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
   var recN=_collapseMuq(words.map(function(w){return _normRec(w);}));
-  var pairs=_mem2AlignChar(bld.refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
+  var pairs=_mem2AlignChar(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
@@ -4471,7 +4252,7 @@ function _updateSubCard(){
 /* ===== تسلسل البداية: سبلاش → شروط → بريميوم → دخول → التطبيق ===== */
 var PREMIUM_ENABLED=false; /* اضبطه true لإعادة تفعيل شاشة الاشتراك */
 var TRIAL_DAYS=12,splashDone=false;
-function showOv(id){['splash','consent','login','paywall','setup'].forEach(function(k){var el=document.getElementById('ov_'+k);if(el)el.classList.remove('on');});if(id){var t=document.getElementById('ov_'+id);if(t)t.classList.add('on');}}
+function showOv(id){['splash','consent','login','paywall'].forEach(function(k){var el=document.getElementById('ov_'+k);if(el)el.classList.remove('on');});if(id){var t=document.getElementById('ov_'+id);if(t)t.classList.add('on');}}
 function boot(){
   showOv('splash');
   setTimeout(afterSplash,2800);
@@ -4481,11 +4262,10 @@ function afterSplash(){
   route();
 }
 function route(){
-  console.log('[route] consent='+lsGet('consent')+' session='+lsGet('session')+' setup_done='+lsGet('setup_done'));
   if(!lsGet('consent'))return showOv('consent');
-  if(PREMIUM_ENABLED&&!lsGet('sub'))return showOv('paywall'); /* بريميوم قبل الدخول */
+  if(PREMIUM_ENABLED&&!lsGet('sub'))return showOv('paywall');
   if(!lsGet('session'))return showOv('login');
-  enterApp(); /* enterApp() itself checks setup_done — covers all login paths */
+  enterApp();
 }
 function agreeTerms(){
   try{lsSet('consent','1');}catch(e){}
@@ -4572,20 +4352,8 @@ function login(provider){
   }
 }
 function trialLeft(){var s=lsGet('trialStart');if(!s)return TRIAL_DAYS;var used=Math.floor((Date.now()-(+s))/86400000);return Math.max(0,TRIAL_DAYS-used);}
-function resetOnboarding(){['consent','session','sub','trialStart','setup_done'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});splashDone=false;boot();}
-function _resetSetupOnly(){try{localStorage.removeItem('setup_done');}catch(e){}enterApp();}
+function resetOnboarding(){['consent','session','sub','trialStart'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});splashDone=false;boot();}
 function enterApp(){
-  var _sd=lsGet('setup_done');
-  console.log('[enterApp] setup_done='+_sd+' session='+lsGet('session'));
-  if(!_sd){
-    console.log('[enterApp] → showing ov_setup');
-    var inv=document.getElementById('setup_invite');if(inv)inv.style.display='';
-    var prg=document.getElementById('setup_progress');if(prg)prg.style.display='none';
-    var sd=document.getElementById('setup_done');if(sd)sd.style.display='none';
-    var err=document.getElementById('setup_err');if(err)err.style.display='none';
-    showOv('setup');
-    return;
-  }
   showOv(null);
   document.getElementById('locName').textContent=tzCity();
   var tn=document.getElementById('trialNote');
