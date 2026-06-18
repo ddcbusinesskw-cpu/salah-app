@@ -5095,97 +5095,186 @@ function loadBadges(){
 /* ─── مشاركة الإنجازات ─── */
 function _rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
 function achvShare(){
-  var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+  /* ── اسم المستخدم ── */
+  var uName='مستخدم المجدّد';
   try{
-    var data=_achvCurrentData();var v=data.v,mx=data.max;
+    var _u=typeof _fb!=='undefined'&&_fb&&_fb.user;
+    if(_u){
+      if(_u.displayName&&_u.displayName.trim())uName=_u.displayName.trim();
+      else if(_u.email)uName=_u.email.split('@')[0].replace(/[._+]/g,' ');
+    }
+  }catch(ex){}
 
-    if(_isNative){
-      var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
-      var ovPct=Math.round(total/ACHV_DEFS.length*100);
-      var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
-      var shareTxt=period+'\n'+ACHV_DEFS.map(function(d){
-        var val=v[d.id]||0;var mxv=mx[d.id]||1;
-        return d.icon+' '+d.name+': '+Math.round(Math.min(1,val/mxv)*100)+'%';
-      }).join('\n')+'\nإنجاز إجمالي: '+ovPct+'%\n—\nتطبيق المجدّد';
-      var Sh=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
-      if(!Sh){alert('خاصية المشاركة غير متوفرة على هذا الجهاز');return;}
-      Sh.share({title:'إنجازاتي في المجدّد',text:shareTxt,dialogTitle:'مشاركة إنجازاتك'})
-        .catch(function(e){if(!e||e.name!=='AbortError'){console.error('[achvShare]',e);alert('تعذّرت المشاركة');}});
-      return;
+  var data=_achvCurrentData(),v=data.v,mx=data.max;
+  var total=0;
+  ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
+  var ovPct=Math.round(total/ACHV_DEFS.length*100);
+  var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
+  var medal=ovPct>=100?'🌟':ovPct>=75?'⭐':ovPct>=50?'🏅':'🎯';
+
+  try{
+    var S=1080;
+    var c=document.createElement('canvas');c.width=S;c.height=S;
+    var ctx=c.getContext('2d');
+
+    /* ── خلفية بتدرج شعاعي ── */
+    var bgG=ctx.createRadialGradient(S/2,380,60,S/2,S/2,S*0.78);
+    bgG.addColorStop(0,'#112e24');bgG.addColorStop(0.5,'#071d19');bgG.addColorStop(1,'#030e0c');
+    ctx.fillStyle=bgG;ctx.fillRect(0,0,S,S);
+
+    /* ── زخرفة هندسية إسلامية: نجوم ثمانية في الزوايا ── */
+    function _star8(cx,cy,ro,ri,al){
+      ctx.save();ctx.globalAlpha=al;ctx.strokeStyle='#eacc7e';ctx.lineWidth=0.9;
+      ctx.translate(cx,cy);
+      /* مربّعان متقاطعان = نجمة ثمانية */
+      for(var sq=0;sq<2;sq++){
+        ctx.beginPath();
+        for(var p=0;p<4;p++){var a=sq*Math.PI/4+p*Math.PI/2;p===0?ctx.moveTo(ro*Math.cos(a),ro*Math.sin(a)):ctx.lineTo(ro*Math.cos(a),ro*Math.sin(a));}
+        ctx.closePath();ctx.stroke();
+      }
+      /* مثمّن داخلي */
+      ctx.beginPath();
+      for(var i=0;i<8;i++){var a2=i*Math.PI/4+Math.PI/8;i===0?ctx.moveTo(ri*Math.cos(a2),ri*Math.sin(a2)):ctx.lineTo(ri*Math.cos(a2),ri*Math.sin(a2));}
+      ctx.closePath();ctx.stroke();
+      ctx.restore();
+    }
+    _star8(0,0,210,100,0.06);_star8(S,0,210,100,0.06);
+    _star8(0,S,210,100,0.06);_star8(S,S,210,100,0.06);
+    _star8(S/2,S/2,330,158,0.025);
+
+    /* ── إطار ذهبي مزدوج ── */
+    ctx.strokeStyle='rgba(234,204,126,0.62)';ctx.lineWidth=2.5;
+    _rrect(ctx,20,20,S-40,S-40,28);ctx.stroke();
+    ctx.strokeStyle='rgba(234,204,126,0.18)';ctx.lineWidth=1;
+    _rrect(ctx,30,30,S-60,S-60,22);ctx.stroke();
+
+    /* ── شريط رأسي (تدرج ذهبي خفيف) ── */
+    var hG=ctx.createLinearGradient(0,20,0,190);
+    hG.addColorStop(0,'rgba(234,204,126,0.1)');hG.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=hG;_rrect(ctx,20,20,S-40,170,28);ctx.fill();
+
+    /* ── خطوط فاصلة متدرجة ── */
+    function _div(y){
+      var dG=ctx.createLinearGradient(60,0,S-60,0);
+      dG.addColorStop(0,'rgba(234,204,126,0)');dG.addColorStop(0.25,'rgba(234,204,126,0.38)');
+      dG.addColorStop(0.75,'rgba(234,204,126,0.38)');dG.addColorStop(1,'rgba(234,204,126,0)');
+      ctx.strokeStyle=dG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(S-60,y);ctx.stroke();
     }
 
-    var c=document.createElement('canvas');c.width=1080;c.height=1200;
-    var ctx=c.getContext('2d');
-    /* bg */
-    ctx.fillStyle='#051a16';ctx.fillRect(0,0,1080,1200);
-    /* border */
-    ctx.strokeStyle='rgba(234,204,126,.22)';ctx.lineWidth=3;_rrect(ctx,24,24,1032,1152,28);ctx.stroke();
-    /* top band */
-    var grad=ctx.createLinearGradient(0,0,0,200);
-    grad.addColorStop(0,'rgba(234,204,126,.08)');grad.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=grad;ctx.fillRect(24,24,1032,180);
-    /* app name */
-    ctx.fillStyle='#eacc7e';ctx.font='bold 64px serif';ctx.textAlign='center';ctx.direction='rtl';
-    ctx.fillText('المجدّد',540,112);
-    /* period */
-    var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
-    ctx.fillStyle='#eaf3ee';ctx.font='bold 32px sans-serif';ctx.fillText(period,540,160);
-    /* date */
-    var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e2){}
-    ctx.fillStyle='rgba(234,204,126,.55)';ctx.font='22px sans-serif';ctx.fillText(dateStr,540,196);
-    /* separator */
-    ctx.strokeStyle='rgba(234,204,126,.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(100,218);ctx.lineTo(980,218);ctx.stroke();
-    /* overall pct */
-    var total=0;ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
-    var ovPct=Math.round(total/ACHV_DEFS.length*100);
-    ctx.fillStyle='#eacc7e';ctx.font='bold 90px sans-serif';ctx.fillText(ovPct+'%',540,320);
-    ctx.fillStyle='rgba(234,204,126,.5)';ctx.font='24px sans-serif';ctx.fillText('إنجاز إجمالي',540,358);
-    /* cards: 2×3 grid */
-    var cols=2,rows=3,padX=60,startY=400,gX=30,gY=24;
-    var cW=(1080-padX*2-gX)/cols,cH=(1200-startY-80-gY*2)/rows;
+    /* ── اسم التطبيق ── */
+    ctx.textAlign='center';ctx.direction='rtl';
+    ctx.shadowColor='rgba(234,204,126,0.28)';ctx.shadowBlur=20;
+    ctx.fillStyle='#eacc7e';ctx.font='bold 56px serif';
+    ctx.fillText('المجدّد',S/2,106);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(234,204,126,0.52)';ctx.font='21px serif';
+    ctx.fillText('طريق الأتقياء',S/2,140);
+    _div(162);
+
+    /* ── اسم المستخدم ── */
+    ctx.fillStyle='rgba(234,204,126,0.72)';ctx.font='bold 22px sans-serif';
+    ctx.fillText('إنجاز  '+uName,S/2,190);
+
+    /* ── دائرة النسبة الكلية ── */
+    var pcx=S/2,pcy=330,pcr=82;
+    ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=13;ctx.lineCap='butt';
+    ctx.beginPath();ctx.arc(pcx,pcy,pcr,0,2*Math.PI);ctx.stroke();
+    if(ovPct>0){
+      var arG=ctx.createLinearGradient(pcx-pcr,pcy,pcx+pcr,pcy);
+      arG.addColorStop(0,'#3aab8a');arG.addColorStop(1,'#eacc7e');
+      ctx.strokeStyle=arG;ctx.lineWidth=13;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(pcx,pcy,pcr,-Math.PI/2,-Math.PI/2+ovPct/100*2*Math.PI);ctx.stroke();
+      ctx.lineCap='butt';
+    }
+    ctx.shadowColor='rgba(234,204,126,0.35)';ctx.shadowBlur=22;
+    ctx.fillStyle='#eacc7e';ctx.font='bold 66px sans-serif';ctx.textAlign='center';
+    ctx.fillText(ar(ovPct)+'٪',pcx,pcy+24);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(234,204,126,0.5)';ctx.font='20px sans-serif';
+    ctx.fillText(period,pcx,pcy+56);
+    ctx.font='27px serif';ctx.fillText(medal,pcx,pcy+88);
+    _div(435);
+
+    /* ── بطاقات الإنجازات (قائمة أفقية) ── */
+    var bsy=452,bh=88,bpad=58;
+    var btx=bpad+40,btw=S-bpad*2-80;
     ACHV_DEFS.forEach(function(d,i){
-      var col=i%cols,row=Math.floor(i/cols);
-      var x=padX+col*(cW+gX),y=startY+row*(cH+gY);
-      var val=v[d.id]||0;var mxv=mx[d.id]||1;
-      var pct=Math.min(1,val/mxv);var done=pct>=1;
-      /* card bg */
-      ctx.fillStyle=done?'rgba(234,204,126,.07)':'rgba(12,46,43,.85)';
-      _rrect(ctx,x,y,cW,cH,18);ctx.fill();
-      if(done){ctx.strokeStyle='rgba(234,204,126,.4)';ctx.lineWidth=1.5;_rrect(ctx,x,y,cW,cH,18);ctx.stroke();}
-      /* icon */
-      ctx.font=(done?'30px':'28px')+' serif';ctx.textAlign='center';ctx.fillStyle='#eaf3ee';
-      ctx.fillText(d.icon+(done?' 👑':''),x+cW/2,y+46);
-      /* name */
-      ctx.font='bold 20px sans-serif';ctx.fillStyle=done?'#eacc7e':'#eaf3ee';
-      ctx.fillText(d.name,x+cW/2,y+80);
-      /* bar bg */
-      ctx.fillStyle='rgba(255,255,255,.07)';_rrect(ctx,x+20,y+92,cW-40,10,5);ctx.fill();
-      /* bar fill */
-      if(pct>0){ctx.fillStyle=done?'#eacc7e':'#4ecaa8';_rrect(ctx,x+20,y+92,(cW-40)*pct,10,5);ctx.fill();}
-      /* pct label */
-      ctx.font='bold 16px sans-serif';ctx.fillStyle='rgba(234,204,126,.75)';
-      ctx.fillText(Math.round(pct*100)+'%',x+cW/2,y+122);
+      var val=v[d.id]||0,mxv=mx[d.id]||1;
+      var pct=Math.min(1,val/mxv),done=pct>=1;
+      var by=bsy+i*bh;
+
+      if(done){
+        ctx.fillStyle='rgba(234,204,126,0.045)';
+        _rrect(ctx,bpad-8,by-6,S-bpad*2+16,bh-10,10);ctx.fill();
+      }
+
+      /* أيقونة — يسار */
+      ctx.textAlign='left';ctx.direction='ltr';ctx.font='23px serif';ctx.fillStyle='#eaf3ee';
+      ctx.fillText(d.icon,bpad,by+26);
+
+      /* اسم — يمين (عربي RTL) */
+      ctx.textAlign='right';ctx.direction='rtl';
+      ctx.font=(done?'bold ':'')+'21px sans-serif';
+      ctx.fillStyle=done?'#eacc7e':'#bdd4cf';
+      ctx.fillText(d.name+(done?' ✓':''),S-bpad,by+26);
+
+      /* شريط التقدم */
+      ctx.fillStyle='rgba(255,255,255,0.07)';_rrect(ctx,btx,by+38,btw,9,4);ctx.fill();
+      if(pct>0){
+        var bfG=ctx.createLinearGradient(btx,0,btx+btw*pct,0);
+        if(done){bfG.addColorStop(0,'#b8952e');bfG.addColorStop(1,'#eacc7e');}
+        else{bfG.addColorStop(0,'#2b9170');bfG.addColorStop(1,'#4ecaa8');}
+        ctx.fillStyle=bfG;_rrect(ctx,btx,by+38,btw*pct,9,4);ctx.fill();
+      }
+
+      /* قيمة */
+      ctx.textAlign='center';ctx.direction='ltr';ctx.font='bold 14px sans-serif';
+      ctx.fillStyle=done?'rgba(234,204,126,0.85)':'rgba(180,210,204,0.6)';
+      ctx.fillText(_achvFmtVal(val,mxv,d.id),S/2,by+64);
     });
-    /* footer */
-    ctx.fillStyle='rgba(234,204,126,.35)';ctx.font='18px sans-serif';ctx.fillText('تطبيق المجدّد · للقرآن والذِكر والصلاة',540,1168);
+
+    _div(984);
+
+    /* ── تذييل ── */
+    ctx.fillStyle='rgba(234,204,126,0.28)';ctx.font='16px sans-serif';ctx.textAlign='center';ctx.direction='rtl';
+    ctx.fillText('المجدّد · للقرآن والذِكر والصلاة',S/2,1018);
+    var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e2){}
+    if(dateStr){ctx.fillStyle='rgba(234,204,126,0.18)';ctx.font='13px sans-serif';ctx.fillText(dateStr,S/2,1046);}
+
+    /* ── مشاركة الصورة ── */
     c.toBlob(function(blob){
-      if(!blob){alert('تعذّر إنشاء صورة الإنجازات');return;}
+      if(!blob){toast('تعذّر إنشاء بطاقة الإنجاز','error');return;}
+      var fname='mujaddid-achievements.png';
+      function _dl(){
+        var u=URL.createObjectURL(blob),a=document.createElement('a');
+        a.href=u;a.download=fname;document.body.appendChild(a);a.click();
+        setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},1200);
+      }
       try{
-        var f=new File([blob],'mujaddid-achievements.png',{type:'image/png'});
+        var f=new File([blob],fname,{type:'image/png'});
+        /* navigator.share({files}) — يعمل في Capacitor WebView (Android/iOS) ويرسل
+           الصورة لواتساب كـ image/png حقيقية عبر content URI */
         if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){
-          navigator.share({title:'إنجازاتي في المجدّد',files:[f]})
-            .catch(function(eShare){
-              if(eShare&&eShare.name==='AbortError')return;
-              var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';
-              document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
-            });
-        }else{
-          var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mujaddid-achievements.png';
-          document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+          navigator.share({files:[f],title:'إنجازاتي في المجدّد'})
+            .catch(function(eS){if(eS&&eS.name!=='AbortError')_dl();});
+          return;
         }
-      }catch(eBlob){alert('خطأ في المشاركة: '+eBlob.message);}
+      }catch(eF){}
+      /* Capacitor Share نصي احتياطي (لا يدعم files بدون Filesystem) */
+      var Sh=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
+      if(Sh){
+        Sh.share({
+          title:'إنجازاتي في المجدّد',
+          text:period+' '+medal+' '+ar(ovPct)+'٪\n'+
+            ACHV_DEFS.map(function(d){var val=v[d.id]||0,mxv=mx[d.id]||1;return d.icon+' '+d.name+': '+ar(Math.round(Math.min(1,val/mxv)*100))+'٪';}).join('\n')+
+            '\n— تطبيق المجدّد',
+          dialogTitle:'مشاركة إنجازاتك'
+        }).catch(function(e){if(!e||e.name!=='AbortError')toast('تعذّرت المشاركة','error');});
+        _dl();return;
+      }
+      _dl();
     },'image/png');
-  }catch(e){console.error('[achvShare]',e);alert('خطأ: '+e.message);}
+  }catch(e){console.error('[achvShare]',e);toast('خطأ في إنشاء البطاقة: '+(e&&e.message||String(e)),'error');}
 }
 
 /* ===== v18: Ramadan Mode ===== */
