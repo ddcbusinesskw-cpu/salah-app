@@ -3251,19 +3251,28 @@ function selectCity(i){var c=CITY_PRESETS[i];console.log('[location] selectCity:
 function retryGeo(){document.getElementById('ov_city').classList.remove('on');loadHome();}
 function buildTimes(lat,lng){
   console.log('[times] buildTimes lat:',lat,'lng:',lng);
+  if(lat==null||lng==null||isNaN(+lat)||isNaN(+lng)){
+    toast('إحداثيات الموقع غير صالحة ('+lat+','+lng+')','error');return;
+  }
+  var tz,t,timings;
   try{
-    var tz=-new Date().getTimezoneOffset()/60;
-    var t=computeTimes(new Date(),lat,lng,tz);
+    tz=-new Date().getTimezoneOffset()/60;
+    t=computeTimes(new Date(),+lat,+lng,tz);
     var ofs=(+(lsGet('time_offset')||0))/60;
     if(ofs!==0){['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(k){t[k]=fixhour(t[k]+ofs);});}
     var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
-    var timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
+    timings={};P_ORDER.forEach(function(k){timings[k]=fmtH(t[k]);});
     timings.Midnight=fmtH(sunset+night/2);timings.Lastthird=fmtH(sunset+night*2/3);
     PT.data={timings:timings,raw:t};
-    document.getElementById('locName').textContent=lsGet('cityName')||tzCity();
-    renderHome();renderTimesScreen();startCountdown();
-    scheduleNoorPrayerAlerts();
-  }catch(e){console.error('[times] buildTimes failed:',e&&e.message||String(e),e&&e.stack);}
+  }catch(e){
+    console.error('[times] computeTimes failed:',e&&e.message||String(e),e&&e.stack);
+    toast('خطأ في حساب المواقيت: '+(e&&e.message||String(e)),'error');return;
+  }
+  try{var ln=document.getElementById('locName');if(ln)ln.textContent=lsGet('cityName')||tzCity();}catch(e){}
+  try{renderHome();}catch(e){console.error('[times] renderHome:',e&&e.message||String(e));}
+  try{renderTimesScreen();}catch(e){console.error('[times] renderTimesScreen:',e&&e.message||String(e));}
+  try{startCountdown();}catch(e){}
+  try{scheduleNoorPrayerAlerts();}catch(e){}
 }
 function renderHome(){
   if(!PT.data)return;var t=PT.data.timings;
@@ -3308,7 +3317,13 @@ function tick(){
   }
 }
 function renderTimesScreen(){
-  var body=document.getElementById('timesBody');if(!PT.data)return;
+  var body=document.getElementById('timesBody');
+  if(!PT.data){
+    var coords=lsGet('coords');
+    if(body&&!coords){body.innerHTML='<div class="loading">اضغط لتحديد موقعك وحساب المواقيت</div><button class="btn" onclick="loadHome()">تحديد الموقع</button>';}
+    else if(body&&coords){body.innerHTML='<div class="loading">جارٍ الحساب…</div>';}
+    return;
+  }
   var t=PT.data.timings,np=nextPrayer(),nk=np?np.key:'Fajr';
   var _ds=getDailyState();
   var rows=P_ORDER.map(function(k){
@@ -4588,7 +4603,9 @@ function enterApp(){
   document.getElementById('locName').textContent=tzCity();
   var tn=document.getElementById('trialNote');
   if(tn){var d=trialLeft();tn.textContent=d>0?('تجربتك المجانية: متبقٍ '+ar(d)+' يوم'):'انتهت التجربة المجانية';}
-  var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}
+  var c=lsGet('coords');
+  if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[enterApp] coords parse failed:',e&&e.message);toast('خطأ في بيانات الموقع — حدّد مدينتك','error');}}
+  else{try{renderTimesScreen();}catch(ex){}} /* تحديث شاشة المواقيت لعرض "تحديد الموقع" */
   updateStreak();
   updateRamadanBanner();
   checkWeeklyReport();
