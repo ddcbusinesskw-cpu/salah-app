@@ -2240,7 +2240,7 @@ var _W2_WSRC=[
   '      else{self.postMessage({type:"trace",text:"جارٍ تحميل النموذج بـ WASM…"});asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,device:_dev});',
   '      if(_dev==="wasm"){_warming=true;asr(new Float32Array(8000),{}).then(function(){_warming=false;}).catch(function(){_warming=false;});}',
-  '    catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك: "+(err&&err.message||String(err))});}',
+  '    }catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك: "+(err&&err.message||String(err))});}',
   '    return;}',
   '  if(t==="transcribe"){',
   '    if(!asr||_warming){self.postMessage({type:"error",text:_warming?"جارٍ التجهيز، أعد المحاولة":"النموذج غير جاهز"});return;}',
@@ -2265,7 +2265,8 @@ function _w2Init(){
   catch(e){toast('Web Worker غير مدعوم','error');W2.loading=false;return;}
   W2.worker.onmessage=function(ev){_w2Msg(ev.data);};
   W2.worker.onerror=function(e){
-    var msg='فشل تحميل محرّك الذكاء الاصطناعي'+(e&&e.message?' — '+e.message:'');
+    var detail=(e&&(e.message||''))+(e&&e.lineno?' (سطر '+e.lineno+')':'');
+    var msg='فشل تحميل محرّك الذكاء الاصطناعي'+(detail?' — '+detail:'');
     toast(msg,'error');
     _m2tr(msg);
     W2.loading=false;
@@ -2371,7 +2372,8 @@ function _setupLoadModel(){
   };
   _setupWorker.onerror=function(e){
     clearTimeout(_setupInitTimer);clearTimeout(_setupHangTimer);
-    _setupError('فشل تحميل المحرّك: '+(e&&e.message||''));
+    var detail=(e&&(e.message||''))+(e&&e.lineno?' (سطر '+e.lineno+')':'');
+    _setupError('فشل تحميل المحرّك: '+(detail||'SyntaxError أو CSP'));
   };
   _setupWorker.postMessage({type:'load'});
 }
