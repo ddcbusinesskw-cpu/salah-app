@@ -2061,6 +2061,38 @@ function go(id){
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
+/* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
+var _NOOR_IDB=null;
+function _idbOpen(cb){
+  if(_NOOR_IDB){cb(_NOOR_IDB);return;}
+  try{
+    var req=indexedDB.open('noor_cache_v1',1);
+    req.onupgradeneeded=function(e){
+      var db=e.target.result;
+      if(!db.objectStoreNames.contains('ref'))db.createObjectStore('ref');
+      if(!db.objectStoreNames.contains('audio'))db.createObjectStore('audio');
+    };
+    req.onsuccess=function(e){_NOOR_IDB=e.target.result;cb(_NOOR_IDB);};
+    req.onerror=function(){cb(null);};
+  }catch(e){cb(null);}
+}
+function _idbGet(store,key,cb){
+  _idbOpen(function(db){
+    if(!db){cb(null);return;}
+    try{
+      var tx=db.transaction(store,'readonly');
+      var req=tx.objectStore(store).get(key);
+      req.onsuccess=function(){cb(req.result!==undefined?req.result:null);};
+      req.onerror=function(){cb(null);};
+    }catch(e){cb(null);}
+  });
+}
+function _idbPut(store,key,val){
+  _idbOpen(function(db){
+    if(!db)return;
+    try{db.transaction(store,'readwrite').objectStore(store).put(val,key);}catch(e){}
+  });
+}
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1;
 function initMemorize(){
@@ -2280,16 +2312,17 @@ function _loadW2Ref(cb){
   if(cb)W2_REF_CBS.push(cb);
   if(W2_REF_LOADING)return;
   W2_REF_LOADING=true;
-  fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
-    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
-    .then(function(d){
-      W2_REF=d;W2_REF_LOADING=false;
-      var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
-    })
-    .catch(function(){
-      W2_REF={};W2_REF_LOADING=false;  /* empty = all ayahs use written-text fallback */
-      var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
-    });
+  function _applyRef(d){
+    W2_REF=d;W2_REF_LOADING=false;
+    var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
+  }
+  _idbGet('ref','alafasy',function(cached){
+    if(cached&&typeof cached==='object'&&Object.keys(cached).length>0){_applyRef(cached);return;}
+    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
+      .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+      .then(function(d){_idbPut('ref','alafasy',d);_applyRef(d);})
+      .catch(function(){_applyRef({});});  /* empty = all ayahs use written-text fallback */
+  });
 }
 function _w2Msg(m){
   var live=document.getElementById('mem2Live');
@@ -4448,21 +4481,30 @@ function _svMaybeSelfTest(){
 }
 function _svRunSelfTest(){
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='فحص دقة WebGPU…';
-  fetch('https://everyayah.com/data/Alafasy_64kbps/001001.mp3')
-    .then(function(r){if(!r.ok)throw new Error(r.status);return r.arrayBuffer();})
-    .then(function(ab){
+  function _stFail(){
+    try{lsSet('webgpu_ok','false');}catch(e){}
+    _svTestDone=true;_svModelDone=false;_w2Kill();_w2Init(true);
+  }
+  function _stDecode(ab){
+    try{
       var ctx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
-      return ctx.decodeAudioData(ab).then(function(buf){ctx.close();return buf;});
-    })
-    .then(function(buf){
-      var f32=buf.getChannelData(0),copy=new Float32Array(f32);
-      W2.worker.postMessage({type:'selftest',buffer:copy.buffer,length:copy.length},[copy.buffer]);
-    })
-    .catch(function(){
-      try{lsSet('webgpu_ok','false');}catch(e){}
-      _svTestDone=true;_svModelDone=false;
-      _w2Kill();_w2Init(true);
-    });
+      ctx.decodeAudioData(ab,function(buf){
+        try{ctx.close();}catch(e){}
+        var f32=buf.getChannelData(0),copy=new Float32Array(f32);
+        W2.worker.postMessage({type:'selftest',buffer:copy.buffer,length:copy.length},[copy.buffer]);
+      },_stFail);
+    }catch(e){_stFail();}
+  }
+  _idbGet('audio','001001',function(cached){
+    if(cached){_stDecode(cached);return;}
+    fetch('https://everyayah.com/data/Alafasy_64kbps/001001.mp3')
+      .then(function(r){if(!r.ok)throw new Error(r.status);return r.arrayBuffer();})
+      .then(function(ab){
+        try{_idbPut('audio','001001',ab.slice(0));}catch(e){}
+        _stDecode(ab);
+      })
+      .catch(_stFail);
+  });
 }
 function _svEnterApp(){
   _svActive=false;
