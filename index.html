@@ -2021,14 +2021,22 @@ function _loadW2Ref(cb){
   if(W2_REF_LOADING)return;
   try{var ca=lsGet('w2ref_v1');if(ca){W2_REF=JSON.parse(ca);_W2_REF_CBS.splice(0).forEach(function(f){f();});return;}}catch(e){}
   W2_REF_LOADING=true;
-  fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
-    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+  _m2tr('بدأ تحميل مرجع النموذج…');
+  var _rto=new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},10000);});
+  Promise.race([
+    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
+    _rto
+  ])
     .then(function(d){W2_REF=d;W2_REF_LOADING=false;
+      _m2tr('اكتمل تحميل المرجع ('+Object.keys(d).length+' آية)');
       try{lsSet('w2ref_v1',JSON.stringify(d));}catch(e){}
       _W2_REF_CBS.splice(0).forEach(function(f){f();});})
-    .catch(function(){W2_REF={};W2_REF_LOADING=false;
+    .catch(function(e){W2_REF={};W2_REF_LOADING=false;
+      _m2tr('فشل مرجع النموذج ('+(e&&e.message||'خطأ')+') — النص المكتوب');
       _W2_REF_CBS.splice(0).forEach(function(f){f();});});
 }
+function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1;
 function initMemorize(){
   var sel=document.getElementById('memSurah');
@@ -2163,7 +2171,7 @@ var _W2_WSRC=[
   'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'self.postMessage({type:"ws"});',
-  'var asr=null;',
+  'var asr=null;var _warming=false;',
   'self.onmessage=async function(ev){',
   '  var t=ev.data.type;',
   '  if(t==="load"){',
@@ -2183,11 +2191,11 @@ var _W2_WSRC=[
   '        catch(eg){asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}}',
   '      else{asr=await pip("automatic-speech-recognition",_mdl,{dtype:"q8",progress_callback:_prog});}',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,device:_dev});',
-  '      if(_dev==="wasm")asr(new Float32Array(8000),{}).catch(function(){});}',
+  '      if(_dev==="wasm"){_warming=true;asr(new Float32Array(8000),{}).then(function(){_warming=false;}).catch(function(){_warming=false;});}',
   '    catch(err){self.postMessage({type:"error",text:"تعذّر تحميل المحرّك، تأكّد من الاتصال بالإنترنت"});}',
   '    return;}',
   '  if(t==="transcribe"){',
-  '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
+  '    if(!asr||_warming){self.postMessage({type:"error",text:_warming?"جارٍ التجهيز، أعد المحاولة":"النموذج غير جاهز"});return;}',
   '    try{',
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=new Float32Array(raw);',
@@ -2232,7 +2240,7 @@ function _w2Msg(m){
     if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
     if(W2.pendingAudio){
       var pa=W2.pendingAudio;W2.pendingAudio=null;
-      if(live)live.textContent='جارٍ التحليل…';
+      _m2tr('بدأ التعرّف ('+(pa.length/16000).toFixed(1)+' ث)…');
       W2.worker.postMessage({type:'transcribe',buffer:pa.buffer,length:pa.length},[pa.buffer]);
     }
   }else if(m.type==='result'){
@@ -2240,13 +2248,15 @@ function _w2Msg(m){
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     if(m.procMs!=null)toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
+    var _wc=(MEM2._tr.trim().split(/\s+/).filter(Boolean).length);
+    _m2tr('اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
     _mem2StopAndEval();
   }else if(m.type==='error'){
     W2.analyzing=false;W2.loading=false;
     toast((m.text||'تعذّر التعرّف على الصوت'),'error');
     MEM2.recActive=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
-    if(live)live.textContent='';
+    if(live)live.textContent='خطأ: '+(m.text||'غير معروف');
     _mem2UpdateBar();
   }
 }
@@ -2313,7 +2323,7 @@ function _w2StopCapture(){
   var mic=document.getElementById('mem2MicBtn');
   var lbl=document.getElementById('mem2MicLbl');
   W2.analyzing=true;MEM2.recActive=false;
-  if(live)live.textContent='جارٍ التحليل…';
+  if(live)live.textContent='انتهى التسجيل — جارٍ المعالجة…';
   if(lbl)lbl.textContent='جارٍ…';if(mic)mic.disabled=true;
   _mem2UpdateBar();
   if(W2.nativeRec){
@@ -2368,7 +2378,9 @@ function _w2ProcessAudio(){
       offCtx.startRendering().then(function(rend){
         var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
         if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;_mem2UpdateBar();return;}
+        var _durS=(float32.length/16000).toFixed(1);
         if(W2.modelReady){
+          _m2tr('بدأ التعرّف ('+_durS+' ث)…');
           W2.worker.postMessage({type:'transcribe',buffer:float32.buffer,length:float32.length},[float32.buffer]);
         }else{
           W2.pendingAudio=float32;
@@ -2411,7 +2423,9 @@ function _w2ProcessAudioBase64(b64,mime){
       var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
       var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
       if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;_mem2UpdateBar();return;}
+      var _durS=(float32.length/16000).toFixed(1);
       if(W2.modelReady){
+        _m2tr('بدأ التعرّف ('+_durS+' ث)…');
         W2.worker.postMessage({type:'transcribe',buffer:float32.buffer,length:float32.length},[float32.buffer]);
       }else{
         W2.pendingAudio=float32;
@@ -2621,7 +2635,12 @@ function _mem2StopAndEval(){
   }
   MEM2._retried=false;
   var seg=MEM2.segs[MEM2.cur];
-  _mem2Eval(seg,words);
+  try{_mem2Eval(seg,words);}
+  catch(e){
+    seg.status='done';seg.result={pairs:[],ok:0,err:1};
+    _m2tr('خطأ في المطابقة: '+(e&&e.message||String(e)));
+    _mem2Render();_mem2UpdateBar();return;
+  }
   seg.result.raw=tr; // keep raw Whisper text for display/diagnosis
   _mem2Render();
   var allDone=MEM2.segs.every(function(s){return s.status==='done';});
