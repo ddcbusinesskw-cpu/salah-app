@@ -2015,9 +2015,11 @@ function go(id){
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
+var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1;
 function initMemorize(){
+  _loadW2Ref();
   var sel=document.getElementById('memSurah');
   if(sel&&!sel.options.length){
     var meta=(surahMeta)||(QURAN_EMBED&&QURAN_EMBED.meta)||[];
@@ -2067,6 +2069,7 @@ function mem2SetSeg(n){
   [].forEach.call(pills,function(b,i){b.classList.toggle('on',[1,3,5][i]===n);});
 }
 function mem2Start(){
+  _loadW2Ref();
   var n=+document.getElementById('memSurah').value;
   var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];
   if(!arr){toast('المصحف غير متوفر','error');return;}
@@ -2200,6 +2203,22 @@ function _w2Init(){
   };
   W2.worker.onmessageerror=function(){};
   W2.worker.postMessage({type:'load'});
+}
+function _loadW2Ref(cb){
+  if(W2_REF!==null){if(cb)cb();return;}
+  if(cb)W2_REF_CBS.push(cb);
+  if(W2_REF_LOADING)return;
+  W2_REF_LOADING=true;
+  fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(function(d){
+      W2_REF=d;W2_REF_LOADING=false;
+      var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
+    })
+    .catch(function(){
+      W2_REF={};W2_REF_LOADING=false;  /* empty = all ayahs use written-text fallback */
+      var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
+    });
 }
 function _w2Msg(m){
   var live=document.getElementById('mem2Live');
@@ -2785,11 +2804,31 @@ function _collapseMuq(arr){
   }
   return out;
 }
+/* Build normalised reference word list for a segment from W2_REF JSON.
+   Falls back to written Quran text per ayah when key is missing. */
+function _mem2RefWords(seg){
+  var parts=[];
+  seg.ayahs.forEach(function(a){
+    var key=MEM2.surah+':'+a.num;
+    var txt=(W2_REF&&W2_REF[key])||a.words.map(function(w){return w.w;}).join(' ');
+    parts.push(txt);
+  });
+  return _collapseMuq(parts.join(' ').trim().split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);}));
+}
 function _mem2Eval(seg,recWords){
-  var refW=[];
-  seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var recN=_collapseMuq(recWords.map(function(w){return _normRec(w);}));
+  var refW=_mem2RefWords(seg);
   var pairs=_mem2AlignChar(refW,recN);
+  /* Remap pairs to written-word count so display indices stay correct */
+  var nw=0;seg.ayahs.forEach(function(a){nw+=a.words.length;});
+  if(pairs.length!==nw){
+    var mapped=[];
+    for(var wi=0;wi<nw;wi++){
+      var ri=Math.min(pairs.length-1,Math.round(wi*(pairs.length-1)/Math.max(1,nw-1)));
+      mapped.push({ref:pairs[ri].ref,ok:pairs[ri].ok});
+    }
+    pairs=mapped;
+  }
   var ok=0,err=0;
   pairs.forEach(function(p){if(p.ok)ok++;else err++;});
   seg.status='done';seg.result={pairs:pairs,ok:ok,err:err};
@@ -2797,10 +2836,11 @@ function _mem2Eval(seg,recWords){
 }
 function _mem2Score(seg,text){
   if(!text||!seg)return 0;
-  var refW=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){refW.push(w.n);});});
   var words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return 0;
   var recN=_collapseMuq(words.map(function(w){return _normRec(w);}));
-  var pairs=_mem2AlignChar(refW,recN);var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
+  var refW=_mem2RefWords(seg);
+  var pairs=_mem2AlignChar(refW,recN);
+  var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
