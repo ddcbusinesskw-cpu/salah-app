@@ -2295,10 +2295,11 @@ function _w2Msg(m){
     if(W2.pendingAudio){
       var pa=W2.pendingAudio;W2.pendingAudio=null;
       _m2tr('بدأ التعرّف ('+(pa.length/16000).toFixed(1)+' ث)…');
+      _w2StartXTO(pa.length/16000);
       W2.worker.postMessage({type:'transcribe',buffer:pa.buffer,length:pa.length},[pa.buffer]);
     }
   }else if(m.type==='result'){
-    W2.analyzing=false;
+    _w2ClearXTO();W2.analyzing=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     if(m.procMs!=null)toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
@@ -2306,7 +2307,7 @@ function _w2Msg(m){
     _m2tr('اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
     _mem2StopAndEval();
   }else if(m.type==='error'){
-    W2.analyzing=false;W2.loading=false;
+    _w2ClearXTO();W2.analyzing=false;W2.loading=false;
     toast((m.text||'تعذّر التعرّف على الصوت'),'error');
     MEM2.recActive=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
@@ -2314,6 +2315,27 @@ function _w2Msg(m){
     _mem2UpdateBar();
   }
 }
+/* ── Transcription timeout: restart worker if inference hangs ──────────────── */
+var _w2XTO=null,_w2XWarnTO=null;
+function _w2StartXTO(durSec){
+  _w2ClearXTO();
+  var warnMs=Math.max(25000,durSec*4000);   /* warn after 4× audio, min 25 s */
+  var killMs=Math.max(150000,durSec*25000); /* kill after 25× audio, min 2.5 min */
+  _w2XWarnTO=setTimeout(function(){
+    if(W2.analyzing)_m2tr('النموذج يعمل… قد يستغرق دقيقة أو أكثر على هذا الجهاز');
+  },warnMs);
+  _w2XTO=setTimeout(function(){
+    if(!W2.analyzing)return;
+    _m2tr('انتهت مهلة المعالجة — اضغط «سمّع» للمحاولة مجدداً');
+    if(W2.worker){try{W2.worker.terminate();}catch(e){}}
+    W2.worker=null;W2.modelReady=false;W2.loading=false;W2.analyzing=false;
+    MEM2.recActive=false;
+    var lbl=document.getElementById('mem2MicLbl');if(lbl)lbl.textContent='سمّع';
+    var mic=document.getElementById('mem2MicBtn');if(mic)mic.disabled=false;
+    _mem2UpdateBar();
+  },killMs);
+}
+function _w2ClearXTO(){clearTimeout(_w2XTO);clearTimeout(_w2XWarnTO);}
 /* ── First-run resource download ──────────────────────────────────────────── */
 var _setupWorker=null,_setupPhase=0;
 var _setupFilesTotal={},_setupFilesLoaded={};
@@ -2554,6 +2576,7 @@ function _w2ProcessAudio(){
         var _durS=(float32.length/16000).toFixed(1);
         if(W2.modelReady){
           _m2tr('بدأ التعرّف ('+_durS+' ث)…');
+          _w2StartXTO(float32.length/16000);
           W2.worker.postMessage({type:'transcribe',buffer:float32.buffer,length:float32.length},[float32.buffer]);
         }else{
           W2.pendingAudio=float32;
@@ -2599,6 +2622,7 @@ function _w2ProcessAudioBase64(b64,mime){
       var _durS=(float32.length/16000).toFixed(1);
       if(W2.modelReady){
         _m2tr('بدأ التعرّف ('+_durS+' ث)…');
+        _w2StartXTO(float32.length/16000);
         W2.worker.postMessage({type:'transcribe',buffer:float32.buffer,length:float32.length},[float32.buffer]);
       }else{
         W2.pendingAudio=float32;
