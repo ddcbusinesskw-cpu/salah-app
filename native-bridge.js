@@ -151,9 +151,20 @@
       /**
        * scheduleNoorNotifications(times) — لإشعارات الأذان
        * times: [{ id, title, body, date }]
+       * إذا لم يُحسم الإذن بعد نعيد طلبه مرة واحدة ثم نجدول.
        */
-      window.scheduleNoorNotifications = function (times) {
-        if (!window._nativeNotifGranted || !times || !times.length) return;
+      window.scheduleNoorNotifications = function (times, _retried) {
+        if (!times || !times.length) return;
+        if (!window._nativeNotifGranted) {
+          if (_retried) return; /* تم الرفض — لا نكرر */
+          LocalNotif.requestPermissions().then(function (r) {
+            window._nativeNotifGranted = r.display === 'granted';
+            if (window._nativeNotifGranted) window.scheduleNoorNotifications(times, true);
+            else if (typeof window.toast === 'function')
+              window.toast('يلزم منح إذن الإشعارات لجدولة الأذان — افتح إعدادات التطبيق', 'warning');
+          }).catch(function () {});
+          return;
+        }
         var cancelIds = times.map(function (t) { return { id: t.id }; });
         LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
         var notifications = times.map(function (t) {
@@ -164,7 +175,18 @@
             smallIcon: 'ic_stat_noor', iconColor: '#3fae8e'
           };
         });
-        LocalNotif.schedule({ notifications: notifications }).catch(function () {});
+        LocalNotif.schedule({ notifications: notifications }).catch(function (e) {
+          console.warn('[NoorAdhan] schedule failed:', e && (e.message || String(e)));
+          if (typeof window.toast === 'function')
+            window.toast('تعذّر جدولة الأذان: ' + (e && e.message || String(e)), 'error');
+        });
+      };
+
+      /* إلغاء إشعارات الأذان (IDs 2000-2019) عند تعطيل الأذان */
+      window.cancelAdhanNotifications = function () {
+        var ids = [];
+        for (var i = 2000; i < 2020; i++) ids.push({ id: i });
+        LocalNotif.cancel({ notifications: ids }).catch(function () {});
       };
 
       /* scheduleAdhanAlerts / scheduleTodayPrayers */

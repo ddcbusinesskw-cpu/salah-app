@@ -3335,7 +3335,7 @@ function tick(){
   var tnc=document.getElementById('timesNextCount');if(tnc)tnc.textContent=ar(hh)+' س '+ar(mm)+' د';
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
-    if(nowS>=s&&nowS<s+3){var id=k+now.toDateString();if(adhanOn&&firedAdhan!==id){firedAdhan=id;playAdhan();showDua();
+    if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;playAdhan();showDua();
       if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
         new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
       }
@@ -3376,7 +3376,7 @@ function renderTimesScreen(){
   var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,174,142,.18)':'rgba(234,204,126,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
   var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="reqNotifPerm()" style="'+bs+'background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button></span></div>'+
-  (notifOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">تنبيه لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
+  (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
   // السنن الرواتب المؤكدة (حديث ابن عمر — رواه مسلم ٧٢٨)
@@ -3421,7 +3421,7 @@ var notifPrefs={};
 ADHAN_NOTIF_KEYS.forEach(function(k){notifPrefs[k]=lsGet('notif_'+k.toLowerCase())!=='0';});
 /* جدولة إشعارات الأذان لليوم الحالي واليوم التالي */
 function scheduleNoorPrayerAlerts(){
-  if(!notifOn||!PT||!PT.data)return;
+  if(!adhanOn||!PT||!PT.data)return;
   var t=PT.data.timings,now=new Date();
   var todayMap={};
   ADHAN_NOTIF_KEYS.forEach(function(k){
@@ -3510,7 +3510,34 @@ function reqNotifPerm(){
     else{toast('لم تُمنح صلاحية الإشعارات','error');}
   });
 }
-function toggleAdhan(){adhanOn=!adhanOn;lsSet('adhanOn',adhanOn?'1':'0');var b=document.getElementById('adhanToggle');if(b){b.textContent=adhanOn?'مفعّل':'متوقف';b.style.background=adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';b.style.color=adhanOn?'var(--green)':'var(--gold)';}}
+function _cancelAdhanNotifications(){
+  if(typeof window.cancelAdhanNotifications==='function')window.cancelAdhanNotifications();
+}
+function _reqAdhanPermAndSchedule(){
+  var _LN=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+  if(_LN){
+    _LN.requestPermissions().then(function(r){
+      window._nativeNotifGranted=r.display==='granted';
+      if(window._nativeNotifGranted){scheduleNoorPrayerAlerts();}
+      else{toast('يلزم منح إذن الإشعارات لتشغيل الأذان في الخلفية — افتح إعدادات التطبيق','warning');}
+    }).catch(function(){scheduleNoorPrayerAlerts();});
+    return;
+  }
+  /* web: request Notification permission for foreground alerts */
+  if('Notification' in window&&Notification.permission!=='granted'){
+    Notification.requestPermission().then(function(p){
+      if(p!=='granted')toast('يلزم منح إذن الإشعارات لتفعيل التنبيه','warning');
+    });
+  }
+}
+function toggleAdhan(){
+  adhanOn=!adhanOn;lsSet('adhanOn',adhanOn?'1':'0');
+  var b=document.getElementById('adhanToggle');
+  if(b){b.textContent=adhanOn?'مفعّل':'متوقف';b.style.background=adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';b.style.color=adhanOn?'var(--green)':'var(--gold)';}
+  if(adhanOn){_reqAdhanPermAndSchedule();}
+  else{_cancelAdhanNotifications();}
+  renderTimesScreen();
+}
 function playAdhan(){
   var a=document.getElementById('adhanAudio');
   if(ADHAN_B64){try{a.src='data:audio/mpeg;base64,'+ADHAN_B64;a.currentTime=0;var p0=a.play();if(p0&&p0.catch)p0.catch(function(){synthAdhan();});return;}catch(e){}}
@@ -5953,7 +5980,7 @@ function _renderAdhanSett(){
     +'<span style="font-size:13px;color:var(--muted)">إشعار تنبيه</span>'
     +'<button onclick="_settReqNotif()" style="'+bs+'font-size:13px;background:'+nColor+';color:'+nTextColor+'">'+nIcon+' إشعار</button>'
     +'</div>'
-    +(notifOn?'<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">تنبيه لكل صلاة:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</div></div>':'')
+    +(adhanOn?'<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">أذان لكل صلاة:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</div></div>':'')
     +'<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">صوت الأذان:</div>'
     +'<div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="_settSetAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
 }
