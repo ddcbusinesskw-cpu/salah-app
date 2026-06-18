@@ -2210,11 +2210,7 @@ var _W2_WSRC=[
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl="Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
   '    var _base={dtype:{encoder_model:"fp32",decoder_model_merged:"fp32"},progress_callback:_prog};',
-  '    var _gpuOk=false;',
-  '    if(typeof navigator!=="undefined"&&navigator.gpu){',
-  '      try{var _adp=await Promise.race([navigator.gpu.requestAdapter(),new Promise(function(r){setTimeout(function(){r(null);},3000);})]);',
-  '      _gpuOk=!!_adp;}catch(e){}',
-  '    }',
+  '    var _gpuOk=false;/* DEBUG: WebGPU forced off */',
   '    if(_gpuOk){',
   '      try{',
   '        var _gp=pip("automatic-speech-recognition",_mdl,Object.assign({},_base,{device:"webgpu"}));',
@@ -2243,7 +2239,7 @@ var _W2_WSRC=[
   '      var _dur=ev.data.length/16000;',
   '      var _opts=_dur>20?{chunk_length_s:30,stride_length_s:5}:{};',
   '      var r=await asr(audio,_opts);',
-  '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
+  '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0,dbg:{n:audio.length,dur:_dur,f0:audio[0],fn:audio[audio.length-1]}});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
   '};'
 ].join('\n');
@@ -2311,6 +2307,10 @@ function _w2Msg(m){
     if(m.procMs!=null)toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
     var _wc=(MEM2._tr.trim().split(/\s+/).filter(Boolean).length);
+    var _dbg=m.dbg||{},_ref1=(W2_REF&&W2_REF['1:1'])||(W2_REF?'(فارغ)':'(لم يُحمَّل)');
+    _m2tr('[DBG] '+W2._dev+' | '+(_dbg.n||'؟')+' عينة | '+Number(_dbg.dur||0).toFixed(2)+'ث | f0='+Number(_dbg.f0||0).toFixed(4)+' fn='+Number(_dbg.fn||0).toFixed(4));
+    _m2tr('[REF 1:1] '+String(_ref1).slice(0,80));
+    _m2tr('[ASR raw] '+(MEM2._tr||'').slice(0,160));
     _m2tr('اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
     _mem2StopAndEval();
   }else if(m.type==='error'){
