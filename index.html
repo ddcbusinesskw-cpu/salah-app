@@ -2721,26 +2721,28 @@ function _mem2Align(refW,recW){
   }
   return res;
 }
-/* Strict word-level alignment — exact match after full normalisation (madd only) */
+/* Strict word-level alignment — exact after normalisation, alef/madd tolerant */
 function _mem2AlignChar(refW,recN){
   var m=refW.length,n=recN.length;
   if(!m)return refW.map(function(w){return{ref:w,ok:false};});
   if(!n)return refW.map(function(w){return{ref:w,ok:false};});
-  /* Apply _normRec to both sides: ref words are snorm-only so this adds
-     ء removal and trailing ا→ي; rec words are already _normRec'd so idempotent */
   var rn=refW.map(_normRec),cn=recN.map(_normRec);
+  /* After _normRec all alef variants are ا; stripping ا from both sides
+     tests whether the only difference is a madd alef (ذالك≈ذلك, etc.) */
+  function sa(w){return w.replace(/ا/g,'');}
+  function eq(a,b){return a===b||sa(a)===sa(b);}
   var S=1,G=-1,i,j;
   var dp=[];
   for(i=0;i<=m;i++){dp[i]=[];for(j=0;j<=n;j++)dp[i][j]=0;}
   for(i=0;i<=m;i++)dp[i][0]=i*G;
   for(j=0;j<=n;j++)dp[0][j]=j*G;
   for(i=1;i<=m;i++)for(j=1;j<=n;j++){
-    var hit=rn[i-1]===cn[j-1]?S:G;
+    var hit=eq(rn[i-1],cn[j-1])?S:G;
     dp[i][j]=Math.max(dp[i-1][j-1]+hit,dp[i-1][j]+G,dp[i][j-1]+G);
   }
   var raw=[];i=m;j=n;
   while(i>0||j>0){
-    if(i>0&&j>0&&rn[i-1]===cn[j-1]&&dp[i][j]===dp[i-1][j-1]+S){
+    if(i>0&&j>0&&eq(rn[i-1],cn[j-1])&&dp[i][j]===dp[i-1][j-1]+S){
       raw.push({ref:refW[i-1],ok:true});i--;j--;
     }else if(i>0&&(j===0||dp[i][j]===dp[i-1][j]+G)){
       raw.push({ref:refW[i-1],ok:false});i--;
