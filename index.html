@@ -2053,7 +2053,7 @@ function go(id){
   }else{
     window.scrollTo(0,0);
   }
-  if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times')renderTimesScreen();if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='home'){renderVotd();renderDailyCards();}
+  if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times'){try{renderTimesScreen();}catch(_e){console.error('[go:times] renderTimesScreen:',_e&&_e.message||String(_e));}}if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='home'){renderVotd();renderDailyCards();}
   if(id==='quran'){var _qd=todayKey(),_qk='quran_opens_'+_qd;if(!lsGet(_qk)){lsSet(_qk,'1');var _qn=+(lsGet('quran_opens')||0)+1;lsSet('quran_opens',String(_qn));if(_qn>=10)checkBadge('quran_10');}}
   if(id==='adiya'){var _ad=todayKey(),_ak='adiya_opens_'+_ad;if(!lsGet(_ak)){lsSet(_ak,'1');var _an=+(lsGet('adiya_opens')||0)+1;lsSet('adiya_opens',String(_an));if(_an>=20)checkBadge('adiya_20');}}
   if(id==='account'){setTimeout(function(){_renderThemeBtn();_updateSubCard();},60);}
@@ -3440,9 +3440,11 @@ function renderTimesScreen(){
       +'</span></div>';
   }).join('');
   var bs='border:0;font-family:inherit;font-weight:700;font-size:14px;padding:7px 14px;border-radius:999px;cursor:pointer;';
-  var nIcon=(!('Notification' in window)||Notification.permission==='denied')?'🔕':(notifOn?'🔔':'🔕');
-  var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
-  var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
+  /* قراءة Notification.permission بأمان — بعض WebView versions تُلقي استثناءً */
+  var _np='';try{if('Notification' in window)_np=Notification.permission;}catch(_){}
+  var nIcon=(!_np||_np==='denied')?'🔕':(notifOn?'🔔':'🔕');
+  var nColor=notifOn&&_np==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
+  var nTextColor=notifOn&&_np==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,174,142,.18)':'rgba(234,204,126,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
   var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(234,204,126,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
   (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
@@ -6166,9 +6168,11 @@ function _stToggleAudioLayer(){
 function _renderAdhanSett(){
   var card=document.getElementById('adhanSettCard');if(!card)return;
   var bs='border:0;font-family:inherit;font-weight:700;font-size:14px;padding:7px 14px;border-radius:999px;cursor:pointer;';
-  var nIcon=(!('Notification' in window)||Notification.permission==='denied')?'🔕':(notifOn?'🔔':'🔕');
-  var nColor=notifOn&&Notification.permission==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
-  var nTextColor=notifOn&&Notification.permission==='granted'?'var(--green)':'var(--gold)';
+  /* قراءة Notification.permission بأمان — بعض WebView versions تُلقي استثناءً */
+  var _np='';try{if('Notification' in window)_np=Notification.permission;}catch(_){}
+  var nIcon=(!_np||_np==='denied')?'🔕':(notifOn?'🔔':'🔕');
+  var nColor=notifOn&&_np==='granted'?'rgba(63,174,142,.2)':'rgba(234,204,126,.15)';
+  var nTextColor=notifOn&&_np==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){
     var on=notifPrefs[k];
     return '<button onclick="_settToggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,174,142,.18)':'rgba(234,204,126,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';
