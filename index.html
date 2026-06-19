@@ -1962,6 +1962,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <div id="sv_done" style="display:none">
     <p class="sv-done-ico">✅</p>
     <p id="sv_done_title" class="sv-title">اكتمل التحميل</p>
+    <p id="sv_diag" style="font-size:12px;color:var(--muted);margin:4px 0 12px;direction:rtl;line-height:1.7"></p>
     <button onclick="_svEnterApp()" class="btn" style="width:100%">ابدأ</button>
   </div>
   <!-- مرحلة الخطأ -->
@@ -2271,14 +2272,15 @@ var _W2_WSRC=[
   '    self.postMessage({type:"ready",loadMs:Date.now()-_loadT0,device:_dev});',
   '    return;}',
   '  if(t==="selftest"){',
-  '    if(!asr){self.postMessage({type:"selftest_result",text:"",err:true});return;}',
+  '    if(!asr||_dev!=="webgpu"){self.postMessage({type:"selftest_result",text:"",dev:_dev,err:true});return;}',
   '    if(!_wuDone){try{await _wuProm;}catch(e){}}',
+  '    var _st0=Date.now();',
   '    try{',
   '      var _sr=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var _sa=new Float32Array(_sr);',
   '      var _rr=await asr(_sa,{});',
-  '      self.postMessage({type:"selftest_result",text:_rr.text||""});}',
-  '    catch(e){self.postMessage({type:"selftest_result",text:"",err:true});}}',
+  '      self.postMessage({type:"selftest_result",text:_rr.text||"",dev:_dev,procMs:Date.now()-_st0});}',
+  '    catch(e){self.postMessage({type:"selftest_result",text:"",dev:_dev,err:true});}}',
   '  if(t==="transcribe"){',
   '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
   '    if(!_wuDone){try{await _wuProm;}catch(e){}}',
@@ -2382,28 +2384,32 @@ function _w2Msg(m){
     var _sref=W2_REF&&W2_REF['1:1']?_normRec(W2_REF['1:1']):'';
     var _srec=_normRec(m.text||'');
     var _spass=false,_saveable=false;
-    if(m.err){
-      /* Worker أرجع خطأ أثناء الاستدلال → WebGPU غير موثوق على هذا الجهاز → احجب نهائياً */
+    var _stLbl=document.getElementById('sv_lbl');
+    if(m.err||m.dev!=='webgpu'){
+      /* خطأ أثناء الاستدلال، أو النتيجة جاءت من WASM لا WebGPU → احجب نهائياً */
       _saveable=true;_spass=false;
+      _svDiagText='فحص WebGPU: خطأ في الاستدلال → تحوّل إلى WASM';
     }else if(!_sref){
-      /* ref_alafasy["1:1"] غير محمّل (فشل الشبكة) → لا يمكن التحقق → WASM هذه الجلسة فقط */
+      /* ref_alafasy["1:1"] غير محمّل → لا يمكن التحقق → WASM هذه الجلسة فقط */
       _saveable=false;_spass=false;
+      _svDiagText='فحص WebGPU: المرجع غير متاح → تحوّل إلى WASM';
     }else{
-      /* قارن نتيجة WebGPU (بعد _normRec) مع مرجع العفاسي — تطابق ≥50% كلمة = ناجح */
+      /* مقارنة صارمة ≥85% تطابق كلمة بكلمة */
       _saveable=true;
       var _srw=_sref.split(/\s+/).filter(Boolean);
       var _scw=_srec.split(/\s+/).filter(Boolean);
       var _shi=_srw.filter(function(w){return _scw.indexOf(w)>=0;}).length;
-      _spass=_srec.length>0&&_shi/Math.max(_srw.length,1)>=0.5;
+      var _ratio=_srw.length>0?_shi/_srw.length:0;
+      _spass=_srec.length>0&&_ratio>=0.85;
+      var _ms=m.procMs?m.procMs+'ms':'';
+      _svDiagText=(_spass?'WebGPU موثوق ✓':'تحوّل إلى WASM ⚠')+(_ms?' — '+_ms:'')+' — «'+(_srec||'—')+'»';
     }
     if(_saveable)try{lsSet('webgpu_ok',_spass?'true':'false');}catch(e){}
-    var _stLbl=document.getElementById('sv_lbl');
     W2._dev=_spass?'webgpu':'wasm';
+    if(_stLbl)_stLbl.textContent=_svDiagText;
     if(!_spass){
-      if(_stLbl)_stLbl.textContent='تحوّل إلى WASM…';
       _svTestDone=true;_svModelDone=false;_w2Kill();_w2Init(true);
     }else{
-      if(_stLbl)_stLbl.textContent='WebGPU ✓ — جاهز';
       _svTestDone=true;_svRedraw();_svCheckDone();
     }
   }
@@ -4635,7 +4641,7 @@ function _updateSubCard(){
 }
 
 /* ===== التهيئة الأولى (Setup) ===== */
-var _svActive=false,_svModelDone=false,_svRefDone=false,_svTestDone=false,_svSelfTestStarted=false,_svFiles={};
+var _svActive=false,_svModelDone=false,_svRefDone=false,_svTestDone=false,_svSelfTestStarted=false,_svFiles={},_svDiagText='';
 function _svFmt(b){return b>=1048576?(b/1048576).toFixed(0)+' MB':b>=1024?(b/1024).toFixed(0)+' KB':String(b)+' B';}
 function _svShortFile(f){
   if(!f)return'ملفات الضبط';
@@ -4679,11 +4685,11 @@ function _svCheckDone(){
   var done=document.getElementById('sv_done');if(done)done.style.display='';
   var _eng=W2._dev==='webgpu'?'WebGPU ⚡':'WASM 🛡';
   var _dt=document.getElementById('sv_done_title');if(_dt)_dt.textContent='اكتمل التحميل ('+_eng+')';
+  var _dd=document.getElementById('sv_diag');if(_dd)_dd.textContent=_svDiagText||'';
 }
 function _svMaybeSelfTest(){
   if(!_svActive||!_svModelDone||!_svRefDone)return;
   if(_svSelfTestStarted||_svTestDone)return;
-  if(lsGet('webgpu_ok')!==null){_svTestDone=true;return;}
   if(W2._dev!=='webgpu'){_svTestDone=true;return;}
   _svSelfTestStarted=true;
   _svRunSelfTest();
@@ -4722,7 +4728,7 @@ function _svEnterApp(){
   enterApp();
 }
 function _setupRun(){
-  _svActive=true;_svModelDone=false;_svRefDone=false;_svTestDone=false;_svSelfTestStarted=false;_svFiles={};
+  _svActive=true;_svModelDone=false;_svRefDone=false;_svTestDone=false;_svSelfTestStarted=false;_svFiles={};_svDiagText='';
   document.getElementById('sv_invite').style.display='none';
   document.getElementById('sv_progress').style.display='';
   document.getElementById('sv_done').style.display='none';
@@ -4730,6 +4736,7 @@ function _setupRun(){
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='جارٍ الاتصال…';
   _svRedraw();
   /* 1 — Whisper model (via existing worker init) */
+  try{localStorage.removeItem('webgpu_ok');}catch(e){}
   var _fwasm=lsGet('webgpu_ok')==='false';
   if(W2.modelReady){_svModelDone=true;}
   else{if(!W2.worker&&!W2.loading)_w2Init(_fwasm);}
