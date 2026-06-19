@@ -5287,58 +5287,61 @@ function shareAchievementCard(period){
     if(dateStr){ctx.fillStyle='rgba(234,204,126,0.14)';ctx.font='13px '+_FA;ctx.fillText(dateStr,W/2,1148);}
 
     /* ── PNG وإرسال ── */
-    c.toBlob(function(blob){
-      if(!blob){toast('⚠ فشل إنشاء الصورة — تأكّد من دعم المتصفح','error');return;}
-      var fname='mujaddid-'+period+'.png';
-      /* ① Capacitor Filesystem + Share (native) */
-      var _CFS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
-      var _CS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
-      if(_isNative()&&_CFS&&_CS){
-        var rdr=new FileReader();
-        rdr.onload=function(){
-          var b64=rdr.result.split(',')[1];
-          _CFS.writeFile({path:fname,data:b64,directory:'CACHE'})
-            .then(function(wr){return _CS.share({title:'إنجازاتي في المجدّد — '+periodLabel,files:[wr.uri]});})
-            .then(function(){toast('تمت المشاركة كصورة ✓');})
-            .catch(function(eC){
-              console.warn('[achvShare] Capacitor Share:',eC&&eC.message);
-              toast('⚠ خطأ في المشاركة: '+(eC&&eC.message||String(eC)),'error');
-              _webShare(blob,fname);
-            });
-        };
-        rdr.onerror=function(){_webShare(blob,fname);};
-        rdr.readAsDataURL(blob);
-        return;
+    /* ── تصدير PNG وإرسال (تزامني — للحفاظ على user-gesture context) ── */
+    var _fname='mujaddid-'+period+'.png';
+    var _dataURL='';
+    try{_dataURL=c.toDataURL('image/png');}catch(eTD){
+      toast('⚠ خطأ في تصدير الصورة: '+(eTD&&eTD.message||String(eTD)),'error');return;
+    }
+    if(!_dataURL||_dataURL==='data:,'){toast('⚠ فشل تصدير الصورة','error');return;}
+    /* data URL → Blob بشكل تزامني بدون FileReader */
+    var _b64=_dataURL.split(',')[1];
+    var _byteStr=atob(_b64);
+    var _ia=new Uint8Array(_byteStr.length);
+    for(var _bi=0;_bi<_byteStr.length;_bi++)_ia[_bi]=_byteStr.charCodeAt(_bi);
+    var _blob=new Blob([_ia],{type:'image/png'});
+    /* ① Capacitor Filesystem + Share — base64 مباشرة (بدون FileReader الغير متزامن) */
+    var _CFS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
+    var _CS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
+    if(_isNative()&&_CFS&&_CS){
+      toast('جارٍ المشاركة…');
+      _CFS.writeFile({path:_fname,data:_b64,directory:'CACHE'})
+        .then(function(wr){return _CS.share({title:'إنجازاتي في المجدّد — '+periodLabel,files:[wr.uri]});})
+        .then(function(){toast('تمت المشاركة كصورة ✓');})
+        .catch(function(eC){
+          console.warn('[achvShare] Capacitor Share:',eC&&eC.message);
+          toast('⚠ Capacitor Share: '+(eC&&eC.message||String(eC)),'error');
+          _webShare();
+        });
+      return;
+    }
+    /* ② Web Share API — استدعاء تزامني لضمان بقاء user-gesture context */
+    _webShare();
+    function _webShare(){
+      var _f;try{_f=new File([_blob],_fname,{type:'image/png'});}catch(eF){
+        toast('⚠ File() فشل: '+(eF&&eF.message||String(eF)),'error');_dlB();return;
       }
-      /* ② Web Share API */
-      _webShare(blob,fname);
-      function _webShare(b,n){
-        var f;try{f=new File([b],n,{type:'image/png'});}catch(eF){_dlB(b,n);return;}
-        if(!navigator.share){
-          toast('⚠ المشاركة غير متاحة في هذه البيئة — جارٍ التنزيل','error');
-          _dlB(b,n);return;
-        }
-        toast('جارٍ فتح نافذة المشاركة…');
-        try{
-          navigator.share({files:[f],title:'إنجازاتي في المجدّد — '+periodLabel})
-            .then(function(){toast('تمت المشاركة كصورة ✓');})
-            .catch(function(eS){
-              if(eS&&eS.name==='AbortError')return;
-              toast('⚠ '+(eS&&eS.message||String(eS)),'error');
-              _dlB(b,n);
-            });
-        }catch(eSync){
-          toast('⚠ '+(eSync&&eSync.message||String(eSync)),'error');
-          _dlB(b,n);
-        }
+      if(!navigator.share){
+        toast('⚠ navigator.share غير متاح — جارٍ التنزيل','error');_dlB();return;
       }
-      function _dlB(b,n){
-        toast('⬇ جارٍ التنزيل…');
-        var u=URL.createObjectURL(b),a=document.createElement('a');
-        a.href=u;a.download=n;document.body.appendChild(a);a.click();
-        setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},1200);
+      toast('جارٍ فتح نافذة المشاركة…');
+      try{
+        navigator.share({files:[_f],title:'إنجازاتي في المجدّد — '+periodLabel})
+          .then(function(){toast('تمت المشاركة كصورة ✓');})
+          .catch(function(eS){
+            if(eS&&eS.name==='AbortError')return;
+            toast('⚠ share: '+(eS&&eS.message||String(eS)),'error');_dlB();
+          });
+      }catch(eSync){
+        toast('⚠ share() رمى: '+(eSync&&eSync.message||String(eSync)),'error');_dlB();
       }
-    },'image/png');
+    }
+    function _dlB(){
+      toast('⬇ جارٍ التنزيل…');
+      var _u=URL.createObjectURL(_blob),_a=document.createElement('a');
+      _a.href=_u;_a.download=_fname;document.body.appendChild(_a);_a.click();
+      setTimeout(function(){document.body.removeChild(_a);URL.revokeObjectURL(_u);},1200);
+    }
   }catch(e){console.error('[shareAchievementCard]',e);toast('⚠ خطأ في رسم البطاقة: '+(e&&e.message||String(e)),'error');}
 }
 function achvShare(){shareAchievementCard(_achvTabSel);}
