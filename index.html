@@ -1126,7 +1126,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
   <div id="times" class="screen">
     <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>مواقيت الصلاة</h2><button onclick="go('account')" style="background:none;border:0;color:var(--gold);font-size:20px;cursor:pointer;padding:4px">⚙️</button></div>
-    <div class="pad"><div id="timesBody"><div class="loading">اضغط لتحديد موقعك وحساب المواقيت</div><button class="btn" onclick="loadHome()">تحديد الموقع</button></div></div>
+    <div class="pad"><div id="timesBody"><div class="loading">جارٍ تحميل مواقيت الصلاة…</div></div></div>
   </div>
 
   <div id="quran" class="screen">
@@ -3288,6 +3288,26 @@ var CITY_PRESETS=[
   {n:'شيكاغو',lat:41.8781,lng:-87.6298},{n:'تورونتو',lat:43.6532,lng:-79.3832},
   {n:'سيدني',lat:-33.8688,lng:151.2093},{n:'ملبورن',lat:-37.8136,lng:144.9631}
 ];
+/* تحديد الموقع من شاشة المواقيت — تظهر city picker فوراً + تشغّل GPS خلفياً */
+function loadTimesGeo(){
+  var body=document.getElementById('timesBody');
+  var _c=lsGet('coords');
+  if(_c){
+    try{var _xy=JSON.parse(_c);if(body)body.innerHTML='<div class="loading">جارٍ حساب المواقيت…</div>';buildTimes(_xy.lat,_xy.lng);return;}catch(e){}
+  }
+  if(body)body.innerHTML='<div class="loading" style="margin-bottom:12px">جارٍ تحديد موقعك — أو اختر مدينة</div>'+_timesPickerHTML();
+  _startTimesGPS();
+}
+function _startTimesGPS(){
+  if(_isNative()){
+    var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
+    if(!geo)return;
+    geo.requestPermissions({permissions:['location']}).catch(function(){}).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(){});
+    return;
+  }
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(function(p){lsSet('coords',JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}));buildTimes(p.coords.latitude,p.coords.longitude);},function(){},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+}
 function showCityPicker(){
   document.getElementById('locName').textContent='اختر مدينة';
   var body=document.getElementById('cityBody');
@@ -3368,7 +3388,7 @@ function _timesPickerHTML(){
   return '<div class="cats" style="margin-bottom:14px">'+
     CITY_PRESETS.map(function(c,i){return '<button onclick="selectCity('+i+')">'+c.n+'</button>';}).join('')+
     '</div>'+
-    '<button class="btn" style="margin-bottom:8px" onclick="retryGeo()">📍 تحديد موقعي تلقائيًا</button>';
+    '<button class="btn" style="margin-bottom:8px" onclick="loadTimesGeo()">📍 تحديد موقعي تلقائيًا</button>';
 }
 function renderTimesScreen(){
   var body=document.getElementById('timesBody');
@@ -3380,6 +3400,7 @@ function renderTimesScreen(){
       catch(_e){console.error('[times] auto-compute:',_e&&_e.message);if(body)body.innerHTML='<div class="loading" style="color:var(--gold)">تعذّر الحساب — اختر مدينة</div>'+_timesPickerHTML();}
     }else{
       if(body)body.innerHTML='<div class="loading" style="margin-bottom:12px">اختر مدينة لحساب مواقيت الصلاة</div>'+_timesPickerHTML();
+      _startTimesGPS(); /* تشغيل GPS خلفياً — إذا نجح يُحدّث الشاشة تلقائياً */
     }
     return;
   }
