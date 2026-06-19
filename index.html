@@ -2003,7 +2003,7 @@ var QURAN_EMBED={"meta":[{"number":1,"name":"الفاتحة","englishName":"Al-F
 var AR=['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
 function ar(n){return String(n).replace(/\d/g,function(d){return AR[+d];});}
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){console.error('[storage] lsSet failed for key:',k,e&&e.name);return false;}}
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
 /* حفظ الإحداثيات في localStorage — مُستخدَم في الموقع الرئيسي والمواقيت والقبلة */
 function _saveCoords(lat,lng){lsSet('coords',JSON.stringify({lat:lat,lng:lng}));}
@@ -2064,6 +2064,7 @@ function go(id){
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
 var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
+var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
 var _NOOR_IDB=null;
@@ -2310,6 +2311,14 @@ function _w2Init(forceWasm){
   };
   W2.worker.onmessageerror=function(){};
   W2.worker.postMessage({type:'load',forceWasm:!!forceWasm});
+  _w2LoadTO=setTimeout(function(){
+    if(W2.modelReady){_w2LoadTO=null;return;}
+    console.error('[w2] model load timeout after 45s');
+    _w2Kill();
+    var live=document.getElementById('mem2Live');
+    if(live)live.textContent='فشل التحميل — انقر «سمّع» للمحاولة مجدداً';
+    toast('فشل تحميل نموذج التسميع — انقر للمحاولة مجدداً','error');
+  },45000);
 }
 function _loadW2Ref(cb){
   if(W2_REF!==null){if(cb)cb();return;}
@@ -2318,7 +2327,7 @@ function _loadW2Ref(cb){
   W2_REF_LOADING=true;
   function _applyRef(d){
     W2_REF=d;W2_REF_LOADING=false;
-    var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){}});
+    var c=W2_REF_CBS;W2_REF_CBS=[];c.forEach(function(f){try{f();}catch(e){console.error('[w2ref] callback:',e&&e.message||String(e));}});
   }
   _idbGet('ref','alafasy',function(cached){
     if(cached&&typeof cached==='object'&&Object.keys(cached).length>0){_applyRef(cached);return;}
@@ -2342,6 +2351,7 @@ function _w2Msg(m){
     }
     _svOnProgress(p);
   }else if(m.type==='ready'){
+    clearTimeout(_w2LoadTO);_w2LoadTO=null;
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
     if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
     _svOnModelReady();
@@ -2420,6 +2430,7 @@ function _w2StartXTO(durSec){
 function _w2ClearXTO(){clearTimeout(_w2XTO);clearTimeout(_w2XWarnTO);}
 function _w2Kill(){
   _w2ClearXTO();
+  clearTimeout(_w2LoadTO);_w2LoadTO=null;
   if(W2.worker){try{W2.worker.terminate();}catch(e){}W2.worker=null;}
   W2.modelReady=false;W2.loading=false;W2.analyzing=false;W2._dev='wasm';
 }
@@ -3321,14 +3332,19 @@ function loadTimesGeo(){
   _startTimesGPS();
 }
 function _startTimesGPS(){
+  var _geoFail=function(e){
+    console.error('[gps] denied or failed:',e&&(e.message||e.code||String(e)));
+    var body=document.getElementById('timesBody');
+    if(body&&!PT.data)body.innerHTML='<div class="loading" style="color:var(--gold);margin-bottom:12px">تعذّر تحديد موقعك — اختر مدينة</div>'+_timesPickerHTML();
+  };
   if(_isNative()){
     var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
-    if(!geo)return;
-    geo.requestPermissions({permissions:['location']}).catch(function(){}).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(){});
+    if(!geo){_geoFail(new Error('no geo plugin'));return;}
+    geo.requestPermissions({permissions:['location']}).catch(function(){}).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(e){_geoFail(e);});
     return;
   }
-  if(!navigator.geolocation)return;
-  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);buildTimes(p.coords.latitude,p.coords.longitude);},function(){},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+  if(!navigator.geolocation){_geoFail(new Error('geolocation not supported'));return;}
+  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);buildTimes(p.coords.latitude,p.coords.longitude);},function(e){_geoFail(e);},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
 }
 function showCityPicker(){
   document.getElementById('locName').textContent='اختر مدينة';
@@ -3410,7 +3426,33 @@ function _timesPickerHTML(){
   return '<div class="cats" style="margin-bottom:14px">'+
     CITY_PRESETS.map(function(c,i){return '<button onclick="selectCity('+i+')">'+c.n+'</button>';}).join('')+
     '</div>'+
-    '<button class="btn" style="margin-bottom:8px" onclick="loadTimesGeo()">📍 تحديد موقعي تلقائيًا</button>';
+    '<button class="btn" style="margin-bottom:8px" onclick="loadTimesGeo()">📍 تحديد موقعي تلقائيًا</button>'+
+    '<button class="btn" style="margin-bottom:8px;opacity:.75" onclick="_showManualCoordsForm()">📌 إدخال الإحداثيات يدوياً</button>';
+}
+function _showManualCoordsForm(){
+  var body=document.getElementById('timesBody');
+  if(!body)return;
+  var inp='padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:inherit;font-size:14px;width:44%;text-align:center';
+  body.innerHTML=
+    '<div style="padding:16px 0;text-align:center">'
+    +'<div style="color:var(--gold);font-weight:700;margin-bottom:16px">إدخال الإحداثيات يدوياً</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px">'
+    +'<input id="manLat" type="number" step="any" placeholder="خط العرض (٢٤.٦٨)" style="'+inp+'" />'
+    +'<input id="manLng" type="number" step="any" placeholder="خط الطول (٤٦.٧٢)" style="'+inp+'" />'
+    +'</div>'
+    +'<button class="cta" onclick="_applyManualCoords()">✓ تطبيق</button>'
+    +'<br><button class="btn" style="margin-top:10px;opacity:.7" onclick="renderTimesScreen()">← رجوع</button>'
+    +'</div>';
+}
+function _applyManualCoords(){
+  var latEl=document.getElementById('manLat'),lngEl=document.getElementById('manLng');
+  var lat=latEl?parseFloat(latEl.value):NaN,lng=lngEl?parseFloat(lngEl.value):NaN;
+  if(isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
+    toast('أدخل إحداثيات صحيحة (خط العرض −90 إلى 90، خط الطول −180 إلى 180)','error');return;
+  }
+  _saveCoords(lat,lng);
+  try{localStorage.removeItem('cityName');}catch(e){}
+  buildTimes(lat,lng);
 }
 function renderTimesScreen(){
   var body=document.getElementById('timesBody');
@@ -5610,8 +5652,8 @@ function loadCalcSettings(){
       +'<p class="note" style="margin:0">'+(reminderOn?'يُجدَّد تلقائياً كلما فُتح التطبيق · '+DAILY_DHIKR.length+' ذِكراً بالتناوب.':'فعّل لتلقّي ذِكر مختلف كل ساعة على شاشة قفل هاتفك.')+'</p>';
   }
 }
-function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
-function setMadhhab(n){lsSet('calc_madhhab',String(n));var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}loadCalcSettings();toast('تم تحديث المذهب');}
+function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[times] setCalcMethod buildTimes:',e&&e.message||String(e));toast('خطأ في إعادة حساب المواقيت','error');}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
+function setMadhhab(n){lsSet('calc_madhhab',String(n));var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[times] setMadhhab buildTimes:',e&&e.message||String(e));toast('خطأ في إعادة حساب المواقيت','error');}}loadCalcSettings();toast('تم تحديث المذهب');}
 
 /* ===== v18: Ayah Image Share ===== */
 function ayImage(){
