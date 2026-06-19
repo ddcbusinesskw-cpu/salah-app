@@ -6123,17 +6123,16 @@ function _stUpdateCounters(){
 }
 function salahTrackStop(){
   ST.active=false;
-  _stStopSpeech();
-  if(ST.afId){cancelAnimationFrame(ST.afId);ST.afId=null;}
-  if(ST.vadId){clearInterval(ST.vadId);ST.vadId=null;}
-  if(ST.timerId){clearInterval(ST.timerId);ST.timerId=null;}
-  if(ST.audioCtx){try{ST.audioCtx.close();}catch(e){}ST.audioCtx=null;}
-  if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});}
-  if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});}
-  ST.camStream=null;ST.audioStream=null;
-  rakWakeLock(false);
-  var video=document.getElementById('stVideo');
-  if(video){video.srcObject=null;}
+  try{_stStopSpeech();}catch(e){console.error('[ST-stop] speech:',e&&e.message||String(e));}
+  try{if(ST.afId){cancelAnimationFrame(ST.afId);ST.afId=null;}}catch(e){ST.afId=null;console.error('[ST-stop] raf:',e&&e.message||String(e));}
+  try{if(ST.vadId){clearInterval(ST.vadId);ST.vadId=null;}}catch(e){ST.vadId=null;console.error('[ST-stop] vad:',e&&e.message||String(e));}
+  try{if(ST.timerId){clearInterval(ST.timerId);ST.timerId=null;}}catch(e){ST.timerId=null;console.error('[ST-stop] timer:',e&&e.message||String(e));}
+  try{if(ST.detector&&typeof ST.detector.dispose==='function'){ST.detector.dispose();}ST.detector=null;}catch(e){ST.detector=null;console.error('[ST-stop] detector:',e&&e.message||String(e));}
+  try{var video=document.getElementById('stVideo');if(video){video.pause();video.srcObject=null;}}catch(e){console.error('[ST-stop] video:',e&&e.message||String(e));}
+  try{if(ST.camStream){ST.camStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.camStream=null;}}catch(e){ST.camStream=null;console.error('[ST-stop] camStream:',e&&e.message||String(e));}
+  try{if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.audioStream=null;}}catch(e){ST.audioStream=null;console.error('[ST-stop] audioStream:',e&&e.message||String(e));}
+  try{if(ST.audioCtx){ST.audioCtx.close().catch(function(){});ST.audioCtx=null;ST.analyser=null;ST._vadData=null;}}catch(e){ST.audioCtx=null;ST.analyser=null;console.error('[ST-stop] audioCtx:',e&&e.message||String(e));}
+  try{rakWakeLock(false);}catch(e){console.error('[ST-stop] wakelock:',e&&e.message||String(e));}
 }
 function salahTrackFinish(){
   salahTrackStop();
