@@ -3295,7 +3295,7 @@ function showCityPicker(){
     '<button class="cta" style="margin-top:16px" onclick="retryGeo()">📍 تحديد موقعي تلقائيًا</button>';
   document.getElementById('ov_city').classList.add('on');
 }
-function selectCity(i){var c=CITY_PRESETS[i];console.log('[location] selectCity:',c&&c.n,'lat:',c&&c.lat,'lng:',c&&c.lng);lsSet('coords',JSON.stringify({lat:c.lat,lng:c.lng}));lsSet('cityName',c.n);document.getElementById('ov_city').classList.remove('on');try{buildTimes(c.lat,c.lng);}catch(e){console.error('[location] buildTimes error:',e&&e.message||String(e),e&&e.stack);toast('خطأ في حساب المواقيت','error');}}
+function selectCity(i){var c=CITY_PRESETS[i];console.log('[location] selectCity:',c&&c.n,'lat:',c&&c.lat,'lng:',c&&c.lng);lsSet('coords',JSON.stringify({lat:c.lat,lng:c.lng}));lsSet('cityName',c.n);document.getElementById('ov_city').classList.remove('on');toast('📍 '+c.n+' (lat:'+c.lat.toFixed(2)+', lng:'+c.lng.toFixed(2)+') — جارٍ الحساب…');try{buildTimes(c.lat,c.lng);}catch(e){console.error('[location] buildTimes error:',e&&e.message||String(e),e&&e.stack);toast('خطأ في حساب المواقيت','error');}}
 function retryGeo(){document.getElementById('ov_city').classList.remove('on');loadHome();}
 function buildTimes(lat,lng){
   console.log('[times] buildTimes lat:',lat,'lng:',lng);
@@ -3364,12 +3364,23 @@ function tick(){
     }
   }
 }
+function _timesPickerHTML(){
+  return '<div class="cats" style="margin-bottom:14px">'+
+    CITY_PRESETS.map(function(c,i){return '<button onclick="selectCity('+i+')">'+c.n+'</button>';}).join('')+
+    '</div>'+
+    '<button class="btn" style="margin-bottom:8px" onclick="retryGeo()">📍 تحديد موقعي تلقائيًا</button>';
+}
 function renderTimesScreen(){
   var body=document.getElementById('timesBody');
   if(!PT.data){
-    var coords=lsGet('coords');
-    if(body&&!coords){body.innerHTML='<div class="loading">اضغط لتحديد موقعك وحساب المواقيت</div><button class="btn" onclick="loadHome()">تحديد الموقع</button>';}
-    else if(body&&coords){body.innerHTML='<div class="loading">جارٍ الحساب…</div>';}
+    var _coords=lsGet('coords');
+    if(_coords){
+      if(body)body.innerHTML='<div class="loading">جارٍ حساب المواقيت…</div>';
+      try{var _xy=JSON.parse(_coords);buildTimes(_xy.lat,_xy.lng);}
+      catch(_e){console.error('[times] auto-compute:',_e&&_e.message);if(body)body.innerHTML='<div class="loading" style="color:var(--gold)">تعذّر الحساب — اختر مدينة</div>'+_timesPickerHTML();}
+    }else{
+      if(body)body.innerHTML='<div class="loading" style="margin-bottom:12px">اختر مدينة لحساب مواقيت الصلاة</div>'+_timesPickerHTML();
+    }
     return;
   }
   var t=PT.data.timings,np=nextPrayer(),nk=np?np.key:'Fajr';
@@ -3414,7 +3425,9 @@ function renderTimesScreen(){
   }
   // تنبيه التقويم الهجري
   var hijriNote='<p class="hijri-note">التاريخ الهجري بحساب أم القرى — قد يختلف يوماً عن رؤية الهلال</p>';
-  body.innerHTML='<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big" id="timesNextCount">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>'+rawatibSec+karSec+hijriNote;
+  var _cn=lsGet('cityName')||tzCity();
+  var _cityBar='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px"><span style="color:var(--muted);font-size:13px">📍 '+_cn+'</span><button onclick="showCityPicker()" style="background:none;border:1px solid rgba(255,255,255,.2);color:var(--muted);font-family:inherit;font-size:12px;padding:4px 12px;border-radius:999px;cursor:pointer">تغيير المدينة</button></div>';
+  body.innerHTML=_cityBar+'<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big" id="timesNextCount">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>'+rawatibSec+karSec+hijriNote;
 }
 
 /* ===== الأذان ===== */
