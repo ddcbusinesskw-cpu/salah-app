@@ -5186,204 +5186,162 @@ function loadBadges(){
 }
 /* ─── مشاركة الإنجازات ─── */
 function _rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
-function achvShare(){
-  /* ── خطوط عربية لـ canvas (تعمل على Android/iOS بدون تحميل خارجي) ── */
+function shareAchievementCard(period){
+  period=period||_achvTabSel||'daily';
   var _FA='"Noto Naskh Arabic","Geeza Pro",Arial,sans-serif';
   var _FS='"Noto Naskh Arabic","Geeza Pro",Georgia,serif';
-
-  /* ── اسم المستخدم ── */
   var uName='مستخدم المجدّد';
-  try{
-    var _u=typeof _fb!=='undefined'&&_fb&&_fb.user;
-    if(_u){
-      if(_u.displayName&&_u.displayName.trim())uName=_u.displayName.trim();
-      else if(_u.email)uName=_u.email.split('@')[0].replace(/[._+]/g,' ');
-    }
-  }catch(ex){}
-
-  var data=_achvCurrentData(),v=data.v,mx=data.max;
+  try{var _u=typeof _fb!=='undefined'&&_fb&&_fb.user;if(_u){if(_u.displayName&&_u.displayName.trim())uName=_u.displayName.trim();else if(_u.email)uName=_u.email.split('@')[0].replace(/[._+]/g,' ');}}catch(ex){}
+  /* بيانات الفترة المحدّدة دون تغيير التبويب النشط */
+  var prevTab=_achvTabSel;_achvTabSel=period;
+  var data=_achvCurrentData();
+  _achvTabSel=prevTab;
+  var v=data.v,mx=data.max;
   var total=0;
   ACHV_DEFS.forEach(function(d){total+=Math.min(1,mx[d.id]>0?(v[d.id]||0)/mx[d.id]:0);});
   var ovPct=Math.round(total/ACHV_DEFS.length*100);
-  var period=_achvTabSel==='daily'?'إنجازات اليوم':_achvTabSel==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
   var medal=ovPct>=100?'🌟':ovPct>=75?'⭐':ovPct>=50?'🏅':'🎯';
-
-  toast('[1/4] جارٍ رسم البطاقة…');
+  var periodLabel=period==='daily'?'تقريري اليومي':period==='weekly'?'تقريري الأسبوعي':'تقريري الشهري';
+  var periodFull=period==='daily'?'إنجازات اليوم':period==='weekly'?'إنجازات الأسبوع':'إنجازات الشهر';
+  var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});}catch(_de){}
+  toast('جارٍ رسم البطاقة…');
   try{
-    var S=1080;
-    var c=document.createElement('canvas');c.width=S;c.height=S;
+    /* ── Canvas 1080×1380 (portrait — screenshot-style) ── */
+    var W=1080,H=1380;
+    var c=document.createElement('canvas');c.width=W;c.height=H;
     var ctx=c.getContext('2d');
-
-    /* ── خلفية بتدرج شعاعي ── */
-    var bgG=ctx.createRadialGradient(S/2,380,60,S/2,S/2,S*0.78);
-    bgG.addColorStop(0,'#112e24');bgG.addColorStop(0.5,'#071d19');bgG.addColorStop(1,'#030e0c');
-    ctx.fillStyle=bgG;ctx.fillRect(0,0,S,S);
-
-    /* ── زخرفة هندسية إسلامية: نجوم ثمانية في الزوايا ── */
-    function _star8(cx,cy,ro,ri,al){
-      ctx.save();ctx.globalAlpha=al;ctx.strokeStyle='#eacc7e';ctx.lineWidth=0.9;
-      ctx.translate(cx,cy);
-      for(var sq=0;sq<2;sq++){
-        ctx.beginPath();
-        for(var p=0;p<4;p++){var a=sq*Math.PI/4+p*Math.PI/2;p===0?ctx.moveTo(ro*Math.cos(a),ro*Math.sin(a)):ctx.lineTo(ro*Math.cos(a),ro*Math.sin(a));}
-        ctx.closePath();ctx.stroke();
-      }
-      ctx.beginPath();
-      for(var i=0;i<8;i++){var a2=i*Math.PI/4+Math.PI/8;i===0?ctx.moveTo(ri*Math.cos(a2),ri*Math.sin(a2)):ctx.lineTo(ri*Math.cos(a2),ri*Math.sin(a2));}
-      ctx.closePath();ctx.stroke();
-      ctx.restore();
-    }
-    _star8(0,0,210,100,0.06);_star8(S,0,210,100,0.06);
-    _star8(0,S,210,100,0.06);_star8(S,S,210,100,0.06);
-    _star8(S/2,S/2,330,158,0.025);
-
-    /* ── إطار ذهبي مزدوج ── */
-    ctx.strokeStyle='rgba(234,204,126,0.62)';ctx.lineWidth=2.5;
-    _rrect(ctx,20,20,S-40,S-40,28);ctx.stroke();
-    ctx.strokeStyle='rgba(234,204,126,0.18)';ctx.lineWidth=1;
-    _rrect(ctx,30,30,S-60,S-60,22);ctx.stroke();
-
-    /* ── شريط رأسي (تدرج ذهبي خفيف) ── */
-    var hG=ctx.createLinearGradient(0,20,0,190);
-    hG.addColorStop(0,'rgba(234,204,126,0.1)');hG.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=hG;_rrect(ctx,20,20,S-40,170,28);ctx.fill();
-
-    /* ── خطوط فاصلة متدرجة ── */
-    function _div(y){
-      var dG=ctx.createLinearGradient(60,0,S-60,0);
-      dG.addColorStop(0,'rgba(234,204,126,0)');dG.addColorStop(0.25,'rgba(234,204,126,0.38)');
-      dG.addColorStop(0.75,'rgba(234,204,126,0.38)');dG.addColorStop(1,'rgba(234,204,126,0)');
-      ctx.strokeStyle=dG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(S-60,y);ctx.stroke();
-    }
-
-    /* ── اسم التطبيق (RTL + خط عربي صريح) ── */
+    /* خلفية */
+    ctx.fillStyle='#0c1e19';ctx.fillRect(0,0,W,H);
+    var bgG=ctx.createRadialGradient(W/2,200,40,W/2,H/2,W*0.85);
+    bgG.addColorStop(0,'rgba(63,174,142,0.09)');bgG.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=bgG;ctx.fillRect(0,0,W,H);
+    /* إطار ذهبي */
+    ctx.strokeStyle='rgba(234,204,126,0.5)';ctx.lineWidth=2;_rrect(ctx,18,18,W-36,H-36,24);ctx.stroke();
+    ctx.strokeStyle='rgba(234,204,126,0.12)';ctx.lineWidth=1;_rrect(ctx,27,27,W-54,H-54,18);ctx.stroke();
+    /* خط فاصل */
+    function _hdiv(y){var g=ctx.createLinearGradient(60,0,W-60,0);g.addColorStop(0,'rgba(234,204,126,0)');g.addColorStop(0.3,'rgba(234,204,126,0.32)');g.addColorStop(0.7,'rgba(234,204,126,0.32)');g.addColorStop(1,'rgba(234,204,126,0)');ctx.strokeStyle=g;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(W-60,y);ctx.stroke();}
+    /* شارة الفترة */
     ctx.textAlign='center';ctx.direction='rtl';
-    ctx.shadowColor='rgba(234,204,126,0.28)';ctx.shadowBlur=20;
-    ctx.fillStyle='#eacc7e';ctx.font='bold 56px '+_FS;
-    ctx.fillText('المجدّد',S/2,106);
+    var PIL=220,PIH=34,PIX=(W-PIL)/2,PIY=38;
+    ctx.fillStyle='rgba(63,174,142,0.18)';_rrect(ctx,PIX,PIY,PIL,PIH,PIH/2);ctx.fill();
+    ctx.strokeStyle='rgba(63,174,142,0.45)';ctx.lineWidth=1;_rrect(ctx,PIX,PIY,PIL,PIH,PIH/2);ctx.stroke();
+    ctx.fillStyle='#4ecaa8';ctx.font='bold 14px '+_FA;ctx.fillText(periodLabel,W/2,PIY+22);
+    /* اسم التطبيق */
+    ctx.shadowColor='rgba(234,204,126,0.28)';ctx.shadowBlur=18;
+    ctx.fillStyle='#eacc7e';ctx.font='bold 54px '+_FS;ctx.fillText('المجدّد',W/2,134);
     ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(234,204,126,0.52)';ctx.font='21px '+_FS;
-    ctx.fillText('طريق الأتقياء',S/2,140);
-    _div(162);
-
-    /* ── اسم المستخدم ── */
-    ctx.fillStyle='rgba(234,204,126,0.72)';ctx.font='bold 22px '+_FA;
-    ctx.textAlign='center';ctx.direction='rtl';
-    ctx.fillText('إنجاز  '+uName,S/2,190);
-
-    /* ── دائرة النسبة الكلية ── */
-    var pcx=S/2,pcy=330,pcr=82;
-    ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=13;ctx.lineCap='butt';
-    ctx.beginPath();ctx.arc(pcx,pcy,pcr,0,2*Math.PI);ctx.stroke();
-    if(ovPct>0){
-      var arG=ctx.createLinearGradient(pcx-pcr,pcy,pcx+pcr,pcy);
-      arG.addColorStop(0,'#3aab8a');arG.addColorStop(1,'#eacc7e');
-      ctx.strokeStyle=arG;ctx.lineWidth=13;ctx.lineCap='round';
-      ctx.beginPath();ctx.arc(pcx,pcy,pcr,-Math.PI/2,-Math.PI/2+ovPct/100*2*Math.PI);ctx.stroke();
-      ctx.lineCap='butt';
-    }
-    ctx.shadowColor='rgba(234,204,126,0.35)';ctx.shadowBlur=22;
-    ctx.fillStyle='#eacc7e';ctx.font='bold 66px '+_FA;ctx.textAlign='center';ctx.direction='rtl';
-    ctx.fillText(ar(ovPct)+'٪',pcx,pcy+24);
+    ctx.fillStyle='rgba(234,204,126,0.5)';ctx.font='20px '+_FS;ctx.fillText('طريق الأتقياء',W/2,168);
+    /* اسم المستخدم */
+    ctx.fillStyle='rgba(232,240,238,0.5)';ctx.font='17px '+_FA;ctx.fillText(uName,W/2,200);
+    _hdiv(218);
+    /* صندوق الملخص */
+    var SY=234,SH=140,SPD=40;
+    ctx.fillStyle='rgba(255,255,255,0.04)';_rrect(ctx,SPD,SY,W-SPD*2,SH,16);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;_rrect(ctx,SPD,SY,W-SPD*2,SH,16);ctx.stroke();
+    ctx.textAlign='right';ctx.direction='rtl';
+    ctx.shadowColor='rgba(234,204,126,0.3)';ctx.shadowBlur=12;
+    ctx.fillStyle='#eacc7e';ctx.font='bold 56px '+_FA;ctx.fillText(ar(ovPct)+'٪',SPD+150,SY+80);
     ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(234,204,126,0.5)';ctx.font='20px '+_FA;
-    ctx.fillText(period,pcx,pcy+56);
-    ctx.font='27px serif';ctx.direction='ltr';ctx.fillText(medal,pcx,pcy+88);
-    _div(435);
-
-    /* ── بطاقات الإنجازات ── */
-    var bsy=452,bh=88,bpad=58;
-    var btx=bpad+40,btw=S-bpad*2-80;
+    ctx.textAlign='left';ctx.direction='ltr';
+    ctx.fillStyle='rgba(232,240,238,0.8)';ctx.font='bold 18px '+_FA;ctx.fillText(periodFull,SPD+170,SY+52);
+    if(dateStr){ctx.fillStyle='rgba(232,240,238,0.4)';ctx.font='13px '+_FA;ctx.fillText(dateStr,SPD+170,SY+76);}
+    ctx.font='38px serif';ctx.direction='ltr';ctx.textAlign='center';ctx.fillText(medal,W-SPD-45,SY+80);
+    _hdiv(386);
+    /* شبكة الإنجازات 2×3 — تحاكي شاشة الإنجازات */
+    var GY=402,GSIDE=36,GGAP=12;
+    var CW=(W-GSIDE*2-GGAP)/2,CH=210;
     ACHV_DEFS.forEach(function(d,i){
+      var col=i%2,row=Math.floor(i/2);
+      var cx=GSIDE+(CW+GGAP)*col,cy=GY+(CH+GGAP)*row;
       var val=v[d.id]||0,mxv=mx[d.id]||1;
       var pct=Math.min(1,val/mxv),done=pct>=1;
-      var by=bsy+i*bh;
-
-      if(done){
-        ctx.fillStyle='rgba(234,204,126,0.045)';
-        _rrect(ctx,bpad-8,by-6,S-bpad*2+16,bh-10,10);ctx.fill();
-      }
-
-      /* أيقونة — يسار LTR */
-      ctx.textAlign='left';ctx.direction='ltr';ctx.font='23px serif';ctx.fillStyle='#eaf3ee';
-      ctx.fillText(d.icon,bpad,by+26);
-
-      /* اسم — يمين RTL بخط عربي صريح */
+      ctx.fillStyle=done?'rgba(234,204,126,0.055)':'rgba(255,255,255,0.035)';
+      _rrect(ctx,cx,cy,CW,CH,14);ctx.fill();
+      ctx.strokeStyle=done?'rgba(234,204,126,0.38)':'rgba(255,255,255,0.07)';ctx.lineWidth=1;
+      _rrect(ctx,cx,cy,CW,CH,14);ctx.stroke();
+      if(done){ctx.font='17px serif';ctx.textAlign='right';ctx.direction='ltr';ctx.fillText('👑',cx+CW-8,cy+22);}
+      ctx.font='30px serif';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(d.icon,cx+16,cy+52);
       ctx.textAlign='right';ctx.direction='rtl';
-      ctx.font=(done?'bold ':'')+'21px '+_FA;
-      ctx.fillStyle=done?'#eacc7e':'#bdd4cf';
-      ctx.fillText(d.name+(done?' ✓':''),S-bpad,by+26);
-
-      /* شريط التقدم */
-      ctx.fillStyle='rgba(255,255,255,0.07)';_rrect(ctx,btx,by+38,btw,9,4);ctx.fill();
+      ctx.font=(done?'bold ':'')+'17px '+_FA;
+      ctx.fillStyle=done?'#eacc7e':'rgba(232,240,238,0.85)';
+      ctx.fillText(d.name+(done?' ✓':''),cx+CW-16,cy+52);
+      var BX=cx+14,BY=cy+70,BW=CW-28,BH=9;
+      ctx.fillStyle='rgba(255,255,255,0.07)';_rrect(ctx,BX,BY,BW,BH,4);ctx.fill();
       if(pct>0){
-        var bfG=ctx.createLinearGradient(btx,0,btx+btw*pct,0);
-        if(done){bfG.addColorStop(0,'#b8952e');bfG.addColorStop(1,'#eacc7e');}
-        else{bfG.addColorStop(0,'#2b9170');bfG.addColorStop(1,'#4ecaa8');}
-        ctx.fillStyle=bfG;_rrect(ctx,btx,by+38,btw*pct,9,4);ctx.fill();
+        var bG=ctx.createLinearGradient(BX,0,BX+BW*pct,0);
+        if(done){bG.addColorStop(0,'#b8952e');bG.addColorStop(1,'#eacc7e');}
+        else{bG.addColorStop(0,'#2b9170');bG.addColorStop(1,'#4ecaa8');}
+        ctx.fillStyle=bG;_rrect(ctx,BX,BY,BW*pct,BH,4);ctx.fill();
       }
-
-      /* قيمة */
-      ctx.textAlign='center';ctx.direction='ltr';ctx.font='bold 14px '+_FA;
-      ctx.fillStyle=done?'rgba(234,204,126,0.85)':'rgba(180,210,204,0.6)';
-      ctx.fillText(_achvFmtVal(val,mxv,d.id),S/2,by+64);
+      ctx.textAlign='center';ctx.direction='ltr';
+      ctx.font='bold 13px '+_FA;
+      ctx.fillStyle=done?'rgba(234,204,126,0.8)':'rgba(180,210,204,0.55)';
+      ctx.fillText(_achvFmtVal(val,mxv,d.id),cx+CW/2,cy+100);
     });
-
-    _div(984);
-
-    /* ── تذييل ── */
+    /* grid ends at GY+3*(CH+GGAP)=402+666=1068 */
+    _hdiv(1082);
+    /* تذييل */
     ctx.textAlign='center';ctx.direction='rtl';
-    ctx.fillStyle='rgba(234,204,126,0.28)';ctx.font='16px '+_FA;
-    ctx.fillText('المجدّد · للقرآن والذِكر والصلاة',S/2,1018);
-    var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'});}catch(e2){}
-    if(dateStr){ctx.fillStyle='rgba(234,204,126,0.18)';ctx.font='13px '+_FA;ctx.fillText(dateStr,S/2,1046);}
+    ctx.fillStyle='rgba(234,204,126,0.25)';ctx.font='16px '+_FA;
+    ctx.fillText('المجدّد · للقرآن والذِكر والصلاة',W/2,1118);
+    if(dateStr){ctx.fillStyle='rgba(234,204,126,0.14)';ctx.font='13px '+_FA;ctx.fillText(dateStr,W/2,1148);}
 
-    /* ── [2/4] تحويل PNG ── */
-    toast('[2/4] جارٍ تحويل PNG…');
+    /* ── PNG وإرسال ── */
     c.toBlob(function(blob){
-      if(!blob){toast('⚠ [2/4] فشل PNG: toBlob أعاد null — تأكّد من دعم المتصفح','error');return;}
-      var kb=Math.round(blob.size/1024);
-      toast('[3/4] PNG جاهز ('+kb+' KB) — جارٍ المشاركة كصورة…');
-
-      var fname='mujaddid-achievements.png';
-      var f;
-      try{f=new File([blob],fname,{type:'image/png'});}
-      catch(eFile){
-        toast('⚠ [3/4] فشل File(): '+(eFile&&eFile.message||String(eFile))+' — جارٍ التنزيل','error');
-        _dlB(blob,fname);return;
+      if(!blob){toast('⚠ فشل إنشاء الصورة — تأكّد من دعم المتصفح','error');return;}
+      var fname='mujaddid-'+period+'.png';
+      /* ① Capacitor Filesystem + Share (native) */
+      var _CFS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
+      var _CS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
+      if(_isNative()&&_CFS&&_CS){
+        var rdr=new FileReader();
+        rdr.onload=function(){
+          var b64=rdr.result.split(',')[1];
+          _CFS.writeFile({path:fname,data:b64,directory:'CACHE'})
+            .then(function(wr){return _CS.share({title:'إنجازاتي في المجدّد — '+periodLabel,files:[wr.uri]});})
+            .then(function(){toast('تمت المشاركة كصورة ✓');})
+            .catch(function(eC){
+              console.warn('[achvShare] Capacitor Share:',eC&&eC.message);
+              toast('⚠ خطأ في المشاركة: '+(eC&&eC.message||String(eC)),'error');
+              _webShare(blob,fname);
+            });
+        };
+        rdr.onerror=function(){_webShare(blob,fname);};
+        rdr.readAsDataURL(blob);
+        return;
       }
-
+      /* ② Web Share API */
+      _webShare(blob,fname);
+      function _webShare(b,n){
+        var f;try{f=new File([b],n,{type:'image/png'});}catch(eF){_dlB(b,n);return;}
+        if(!navigator.share){
+          toast('⚠ المشاركة غير متاحة في هذه البيئة — جارٍ التنزيل','error');
+          _dlB(b,n);return;
+        }
+        toast('جارٍ فتح نافذة المشاركة…');
+        try{
+          navigator.share({files:[f],title:'إنجازاتي في المجدّد — '+periodLabel})
+            .then(function(){toast('تمت المشاركة كصورة ✓');})
+            .catch(function(eS){
+              if(eS&&eS.name==='AbortError')return;
+              toast('⚠ '+(eS&&eS.message||String(eS)),'error');
+              _dlB(b,n);
+            });
+        }catch(eSync){
+          toast('⚠ '+(eSync&&eSync.message||String(eSync)),'error');
+          _dlB(b,n);
+        }
+      }
       function _dlB(b,n){
-        toast('[4/4] ⬇ جارٍ التنزيل…');
+        toast('⬇ جارٍ التنزيل…');
         var u=URL.createObjectURL(b),a=document.createElement('a');
         a.href=u;a.download=n;document.body.appendChild(a);a.click();
         setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},1200);
       }
-
-      /* [4/4] استدعاء navigator.share({files}) مباشرةً.
-         canShare() يعطي false خاطئاً في Capacitor WebView على Android — نتجاوزه كلياً.
-         navigator.share({files}) يعمل في WebView حديث (Chrome 86+) ويفتح نافذة المشاركة native. */
-      if(!navigator.share){
-        toast('⚠ [4/4] navigator.share غير موجود في هذه البيئة — جارٍ التنزيل','error');
-        _dlB(blob,fname);return;
-      }
-
-      toast('[4/4] جارٍ فتح نافذة المشاركة…');
-      try{
-        navigator.share({files:[f],title:'إنجازاتي في المجدّد'})
-          .then(function(){toast('تمت مشاركة البطاقة كصورة ✓');})
-          .catch(function(eS){
-            if(eS&&eS.name==='AbortError')return;
-            toast('⚠ [4/4] Share رفض: '+(eS&&eS.message||String(eS))+' — جارٍ التنزيل','error');
-            _dlB(blob,fname);
-          });
-      }catch(eSync){
-        toast('⚠ [4/4] share() رمى: '+(eSync&&eSync.message||String(eSync))+' — جارٍ التنزيل','error');
-        _dlB(blob,fname);
-      }
     },'image/png');
-  }catch(e){console.error('[achvShare]',e);toast('⚠ [1/4] خطأ في رسم الـcanvas: '+(e&&e.message||String(e)),'error');}
+  }catch(e){console.error('[shareAchievementCard]',e);toast('⚠ خطأ في رسم البطاقة: '+(e&&e.message||String(e)),'error');}
 }
+function achvShare(){shareAchievementCard(_achvTabSel);}
 
 /* ===== v18: Ramadan Mode ===== */
 function isRamadan(){
@@ -5648,11 +5606,7 @@ function openWeeklySheet(){
   if(sheet)sheet.classList.add('show');if(bk)bk.style.display='block';
 }
 function closeWeeklySheet(){var s=document.getElementById('weeklySheet');var b=document.getElementById('weeklyBk');if(s)s.classList.remove('show');if(b)b.style.display='none';}
-function shareWeekly(){
-  var prayers=0;try{for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var s=lsGet('daily_'+d.toDateString());if(s){var o=JSON.parse(s);['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(p){if(o['prayer_'+p])prayers++;})}}}catch(e){}
-  var text='تقريري الأسبوعي مع تطبيق المجدّد 🌟\nالصلوات: '+prayers+'/35\n#المجدّد_طريق_الأتقياء';
-  if(navigator.share)navigator.share({text:text});else{navigator.clipboard&&navigator.clipboard.writeText(text);toast('تم النسخ');}
-}
+function shareWeekly(){shareAchievementCard('weekly');}
 function checkWeeklyReport(){
   var day=new Date().getDay();if(day!==5)return;
   var today=new Date().toDateString();if(lsGet('weekly_shown')===today)return;
