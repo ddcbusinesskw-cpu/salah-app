@@ -1961,7 +1961,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <!-- مرحلة الاكتمال -->
   <div id="sv_done" style="display:none">
     <p class="sv-done-ico">✅</p>
-    <p class="sv-title">اكتمل التحميل</p>
+    <p id="sv_done_title" class="sv-title">اكتمل التحميل</p>
     <button onclick="_svEnterApp()" class="btn" style="width:100%">ابدأ</button>
   </div>
   <!-- مرحلة الخطأ -->
@@ -2366,17 +2366,31 @@ function _w2Msg(m){
   }else if(m.type==='selftest_result'){
     var _sref=W2_REF&&W2_REF['1:1']?_normRec(W2_REF['1:1']):'';
     var _srec=_normRec(m.text||'');
-    var _spass=false;
-    if(_sref&&_srec){
+    var _spass=false,_saveable=false;
+    if(m.err){
+      /* Worker أرجع خطأ أثناء الاستدلال → WebGPU غير موثوق على هذا الجهاز → احجب نهائياً */
+      _saveable=true;_spass=false;
+    }else if(!_sref){
+      /* ref_alafasy["1:1"] غير محمّل (فشل الشبكة) → لا يمكن التحقق → WASM هذه الجلسة فقط */
+      _saveable=false;_spass=false;
+    }else{
+      /* قارن نتيجة WebGPU (بعد _normRec) مع مرجع العفاسي — تطابق ≥50% كلمة = ناجح */
+      _saveable=true;
       var _srw=_sref.split(/\s+/).filter(Boolean);
       var _scw=_srec.split(/\s+/).filter(Boolean);
       var _shi=_srw.filter(function(w){return _scw.indexOf(w)>=0;}).length;
-      _spass=_shi/Math.max(_srw.length,1)>=0.5;
+      _spass=_srec.length>0&&_shi/Math.max(_srw.length,1)>=0.5;
     }
-    try{lsSet('webgpu_ok',_spass?'true':'false');}catch(e){}
+    if(_saveable)try{lsSet('webgpu_ok',_spass?'true':'false');}catch(e){}
+    var _stLbl=document.getElementById('sv_lbl');
     W2._dev=_spass?'webgpu':'wasm';
-    if(!_spass){_svTestDone=true;_svModelDone=false;_w2Kill();_w2Init(true);}
-    else{_svTestDone=true;_svRedraw();_svCheckDone();}
+    if(!_spass){
+      if(_stLbl)_stLbl.textContent='تحوّل إلى WASM…';
+      _svTestDone=true;_svModelDone=false;_w2Kill();_w2Init(true);
+    }else{
+      if(_stLbl)_stLbl.textContent='WebGPU ✓ — جاهز';
+      _svTestDone=true;_svRedraw();_svCheckDone();
+    }
   }
 }
 /* ── Transcription timeout: restart worker if inference hangs ──────────────── */
@@ -4610,6 +4624,8 @@ function _svCheckDone(){
   if(!_svModelDone||!_svRefDone||!_svTestDone)return;
   var prog=document.getElementById('sv_progress');if(prog)prog.style.display='none';
   var done=document.getElementById('sv_done');if(done)done.style.display='';
+  var _eng=W2._dev==='webgpu'?'WebGPU ⚡':'WASM 🛡';
+  var _dt=document.getElementById('sv_done_title');if(_dt)_dt.textContent='اكتمل التحميل ('+_eng+')';
 }
 function _svMaybeSelfTest(){
   if(!_svActive||!_svModelDone||!_svRefDone)return;
@@ -4622,7 +4638,8 @@ function _svMaybeSelfTest(){
 function _svRunSelfTest(){
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='فحص دقة WebGPU…';
   function _stFail(){
-    try{lsSet('webgpu_ok','false');}catch(e){}
+    /* فشل تحميل/فك ترميز الصوت (شبكة أو codec) — لا نعرف سلوك WebGPU → WASM هذه الجلسة فقط بدون حفظ دائم */
+    var _flbl=document.getElementById('sv_lbl');if(_flbl)_flbl.textContent='تحوّل إلى WASM…';
     _svTestDone=true;_svModelDone=false;_w2Kill();_w2Init(true);
   }
   function _stDecode(ab){
