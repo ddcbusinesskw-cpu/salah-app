@@ -3162,17 +3162,25 @@ function todayKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)
 function getDailyState(){var k='daily_'+todayKey();try{return JSON.parse(lsGet(k)||'{}');}catch(e){return {};}}
 function saveDailyState(s){var k='daily_'+todayKey();lsSet(k,JSON.stringify(s));}
 function markAdhkarDone(cat){
-  var s=getDailyState();var wasDone=!!s[cat];s[cat]=true;saveDailyState(s);
+  /* cat may be the full ADHKAR key ('الصباح','المساء') or the short form ('صباح','مساء').
+     Normalise to short form so the daily state key always matches renderDailyCards. */
+  var stateKey=cat.indexOf('صباح')>-1?'صباح':cat.indexOf('مساء')>-1?'مساء':cat;
+  var s=getDailyState();var wasDone=!!s[stateKey];s[stateKey]=true;saveDailyState(s);
   if(!wasDone){
-    var sKey=cat==='صباح'?'morn_streak':cat==='مساء'?'eve_streak':null;
+    if(navigator.vibrate)try{navigator.vibrate([40,20,80]);}catch(e){}
+    var dispName=stateKey==='صباح'?'أذكار الصباح':stateKey==='مساء'?'أذكار المساء':stateKey;
+    toast('✅ '+dispName+' — تمّ بحمد الله','success');
+    if(stateKey==='صباح')checkBadge('morning');
+    else if(stateKey==='مساء')checkBadge('evening');
+    var sKey=stateKey==='صباح'?'morn_streak':stateKey==='مساء'?'eve_streak':null;
     if(sKey){
       var lKey=sKey+'_last',today=new Date().toDateString();
       var cnt=+(lsGet(sKey)||0),last=lsGet(lKey);
       if(last){var d=Math.round((new Date(today)-new Date(last))/86400000);
         if(d===1){cnt++;}else if(d>=2){cnt=1;}}else{cnt=1;}
       lsSet(sKey,String(cnt));lsSet(lKey,today);
-      if(cnt>=3)toast((cat==='صباح'?'أذكار الصباح':'أذكار المساء')+' · '+ar(cnt)+' أيام متتالية 🔥','success');
-      if(cat==='صباح'&&cnt>=7)checkBadge('morn_7');
+      if(cnt>=3)setTimeout(function(){toast(dispName+' · '+ar(cnt)+' أيام متتالية 🔥','success');},2700);
+      if(stateKey==='صباح'&&cnt>=7)checkBadge('morn_7');
     }
   }
   renderDailyCards();
@@ -4114,8 +4122,10 @@ function _adhkarCheckCatDone(cat){
   var prog=_getAdhkarProg(cat,n);
   var allDone=prog.slice(0,n).every(function(v){return v===0;});
   if(allDone){
+    /* Normalise to short key so the guard matches the same key markAdhkarDone uses */
+    var stateKey=cat.indexOf('صباح')>-1?'صباح':cat.indexOf('مساء')>-1?'مساء':cat;
     var s=getDailyState();
-    if(!s[cat])markAdhkarDone(cat);
+    if(!s[stateKey])markAdhkarDone(cat);
   }
 }
 function renderAdhkar(cat){
