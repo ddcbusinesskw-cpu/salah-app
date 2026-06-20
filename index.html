@@ -1114,7 +1114,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <button class="icell" id="ramadanBtn" onclick="go('ramadan')" style="display:none"><span class="ic c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.9A9 9 0 0 1 11.1 3a9 9 0 1 0 9.9 9.9z"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg></span><span class="lbl">رمضان</span></button>
     </div>
     <p class="note" id="trialNote" style="color:var(--gold)"></p>
-    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · إصدار ٢٠</p>
+    <p class="note">المواقيت والقبلة والتاريخ الهجري تُحسب داخل التطبيق بدون إنترنت. راجع الأذكار مع «حصن المسلم».<br><a onclick="resetOnboarding()" style="color:var(--gold);cursor:pointer">إعادة عرض شاشات البداية</a> · <a onclick="go('about')" style="color:var(--gold);cursor:pointer">عن التطبيق</a> · إصدار ٢٠</p>
     <div style="height:calc(var(--bnav-h) + 10px)"></div>
   </div>
 
@@ -1792,6 +1792,40 @@ button,a{-webkit-tap-highlight-color:transparent;}
       </div>
     </div>
 
+  </div>
+</div>
+<div id="about" class="screen">
+  <div class="top"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2>عن التطبيق</h2></div>
+  <div class="pad" style="padding-bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 24px)">
+    <article>
+      <h1 style="font-size:20px;color:var(--gold);font-weight:800;margin:0 0 12px;line-height:1.5">المجدّد — طريق الأتقياء | رفيقك الإيماني الكامل</h1>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 24px">تطبيق المجدّد رفيقك اليومي في رحلتك الإيمانية: مواقيت الصلاة، المصحف الكريم كاملاً، تسميع الحفظ بصوتك، الأذكار والأدعية، اتجاه القبلة والمزيد — في مكان واحد، ويعمل بدون إنترنت.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">مواقيت الصلاة والأذان</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">مواقيت صلاة دقيقة حسب موقعك أو مدينتك، مع تنبيه الأذان عند دخول كل وقت، ودعم طرق حساب متعددة (أم القرى، رابطة العالم الإسلامي وغيرها) لتناسب بلدك.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">المصحف الكريم</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">اقرأ القرآن الكريم كاملاً برسم المصحف، مع تلاوة صوتية بأصوات كبار القرّاء، والترجمة والتفسير الميسّر، وحفظ موضع القراءة — متاح بدون إنترنت بعد التحميل الأول.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">التسميع الذكي — احفظ القرآن بصوتك</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">ميزة فريدة: اقرأ الآيات بصوتك، والتطبيق يستمع ويصحّح لك كلمة بكلمة لمراجعة حفظك وإتقانه. المعالجة على جهازك بالكامل حفاظاً على خصوصيتك.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">الأذكار والأدعية والرقية</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">أذكار الصباح والمساء، أدعية مأثورة، الرقية الشرعية، وأسماء الله الحسنى، مع تتبّع وردك اليومي.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">القبلة والتسبيح</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">حدّد اتجاه القبلة من أي مكان، واستخدم المسبحة الإلكترونية لعدّ تسبيحك وأذكارك.</p>
+
+      <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">يعمل بدون إنترنت · خصوصيتك أولاً</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 24px">يعمل التطبيق دون اتصال بعد التحميل الأول، ولا يجمع بياناتك ولا يتتبّعك — بياناتك تبقى على جهازك. المجدّد مجاني بالكامل.</p>
+
+      <div style="background:var(--card2);border:1px solid var(--line2);border-radius:14px;padding:18px 16px;margin-bottom:20px">
+        <h2 style="font-size:15px;color:var(--gold);font-weight:700;margin:0 0 10px">تواصل معنا</h2>
+        <p style="color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 10px">لمقترحاتك وملاحظاتك وأي استفسار:</p>
+        <a href="mailto:ddcbusiness.kw@gmail.com" style="color:var(--gold);font-size:13px;display:block;margin-bottom:10px">ddcbusiness.kw@gmail.com</a>
+        <a href="privacy.html" target="_blank" style="color:var(--green2);font-size:13px">سياسة الخصوصية ←</a>
+      </div>
+    </article>
   </div>
 </div>
 <button id="drawerHandle" onclick="toggleDrawer()" aria-label="الخدمات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg></button>
