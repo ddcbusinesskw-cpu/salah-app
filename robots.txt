@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ddcbusinesskw-cpu.github.io/salah-app/sitemap.xml
