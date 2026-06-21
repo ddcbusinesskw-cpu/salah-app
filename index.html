@@ -1530,6 +1530,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
       </div>
     </div>
 
+    <!-- trace overlay: fixed, outside panes, visible during stop teardown -->
+    <div id="stStopTrace" style="display:none;position:fixed;bottom:80px;left:12px;right:12px;background:rgba(4,12,9,.96);border:1px solid rgba(255,255,255,.13);border-radius:12px;padding:10px 14px;z-index:999;max-height:200px;overflow-y:auto;direction:rtl;pointer-events:none;font-size:11px;font-family:monospace;"></div>
+
   </div>
 </div>
 
@@ -5766,7 +5769,7 @@ function checkWeeklyReport(){
 
 /* ===== salahTrack: AI Salah Tracker ===== */
 var ST={
-  active:false,prayer:'fajr',target:2,
+  active:false,_stopping:false,prayer:'fajr',target:2,
   camStream:null,audioStream:null,detector:null,
   audioCtx:null,analyser:null,_vadData:null,
   afId:null,vadId:null,timerId:null,
@@ -6167,21 +6170,76 @@ function _stUpdateCounters(){
   if(pf)pf.style.width=Math.round((ST.rakaat/Math.max(ST.target,1))*100)+'%';
   if(pt)pt.textContent=_stAr(ST.rakaat)+' / '+_stAr(ST.target);
 }
-function salahTrackStop(){
-  ST.active=false;
-  try{_stStopSpeech();}catch(e){console.error('[ST-stop] speech:',e&&e.message||String(e));}
-  try{if(ST.afId){cancelAnimationFrame(ST.afId);ST.afId=null;}}catch(e){ST.afId=null;console.error('[ST-stop] raf:',e&&e.message||String(e));}
-  try{if(ST.vadId){clearInterval(ST.vadId);ST.vadId=null;}}catch(e){ST.vadId=null;console.error('[ST-stop] vad:',e&&e.message||String(e));}
-  try{if(ST.timerId){clearInterval(ST.timerId);ST.timerId=null;}}catch(e){ST.timerId=null;console.error('[ST-stop] timer:',e&&e.message||String(e));}
-  try{if(ST.detector&&typeof ST.detector.dispose==='function'){ST.detector.dispose();}ST.detector=null;}catch(e){ST.detector=null;console.error('[ST-stop] detector:',e&&e.message||String(e));}
-  try{var video=document.getElementById('stVideo');if(video){video.pause();video.srcObject=null;}}catch(e){console.error('[ST-stop] video:',e&&e.message||String(e));}
-  try{if(ST.camStream){ST.camStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.camStream=null;}}catch(e){ST.camStream=null;console.error('[ST-stop] camStream:',e&&e.message||String(e));}
-  try{if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.audioStream=null;}}catch(e){ST.audioStream=null;console.error('[ST-stop] audioStream:',e&&e.message||String(e));}
-  try{if(ST.audioCtx){ST.audioCtx.close().catch(function(){});ST.audioCtx=null;ST.analyser=null;ST._vadData=null;}}catch(e){ST.audioCtx=null;ST.analyser=null;console.error('[ST-stop] audioCtx:',e&&e.message||String(e));}
-  try{rakWakeLock(false);}catch(e){console.error('[ST-stop] wakelock:',e&&e.message||String(e));}
+function salahTrackStop(_silent){
+  /* idempotent: ignore double-stop (e.g. button + go() teardown racing) */
+  if(ST._stopping)return;
+  ST._stopping=true;
+  ST.active=false;  /* halts _stPoseLoop, timers, VAD immediately */
+
+  var _traceEl=document.getElementById('stStopTrace');
+  function _tr(step,ok,detail){
+    var line=(ok?'✓ ':'✗ ')+step+(detail?' — '+String(detail).slice(0,80):'');
+    console.log('[ST-stop]',line);
+    if(!_traceEl)return;
+    var d=document.createElement('div');
+    d.style.color=ok?'#4ecaa8':'#e06060';
+    d.textContent=line;
+    _traceEl.appendChild(d);
+  }
+
+  /* ── 0. UI first: user sees immediate response, trace overlay appears ──── */
+  if(!_silent&&_traceEl){_traceEl.innerHTML='';_traceEl.style.display='block';}
+  try{_stShowPane('stSetupPane');}catch(_e){}
+  try{rakWakeLock(false);}catch(_e){}
+
+  /* ── 1. Speech recognition ───────────────────────────────────────────────── */
+  try{_stStopSpeech();_tr('إيقاف التعرّف الصوتي',true);}
+  catch(e){_tr('إيقاف التعرّف الصوتي',false,e&&e.message);}
+
+  /* ── 2. Animation frame (pose detection loop) ───────────────────────────── */
+  try{if(ST.afId){cancelAnimationFrame(ST.afId);ST.afId=null;}_tr('إلغاء حلقة الكشف',true);}
+  catch(e){ST.afId=null;_tr('إلغاء حلقة الكشف',false,e&&e.message);}
+
+  /* ── 3. Intervals ────────────────────────────────────────────────────────── */
+  try{if(ST.vadId){clearInterval(ST.vadId);ST.vadId=null;}_tr('إلغاء VAD / تحليل الصوت',true);}
+  catch(e){ST.vadId=null;_tr('إلغاء VAD / تحليل الصوت',false,e&&e.message);}
+  try{if(ST.timerId){clearInterval(ST.timerId);ST.timerId=null;}_tr('إلغاء مؤقّت الوقت',true);}
+  catch(e){ST.timerId=null;_tr('إلغاء مؤقّت الوقت',false,e&&e.message);}
+
+  /* ── 4. Video element + streams (fast sync ops) ──────────────────────────── */
+  try{var _v=document.getElementById('stVideo');if(_v){_v.pause();_v.srcObject=null;}_tr('إيقاف الفيديو',true);}
+  catch(e){_tr('إيقاف الفيديو',false,e&&e.message);}
+  try{if(ST.camStream){ST.camStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.camStream=null;}_tr('إيقاف tracks الكاميرا',true);}
+  catch(e){ST.camStream=null;_tr('إيقاف tracks الكاميرا',false,e&&e.message);}
+  try{if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.audioStream=null;}_tr('إيقاف المايك/VAD tracks',true);}
+  catch(e){ST.audioStream=null;_tr('إيقاف المايك/VAD tracks',false,e&&e.message);}
+
+  /* ── 5. AudioContext ─────────────────────────────────────────────────────── */
+  try{if(ST.audioCtx){ST.audioCtx.close().catch(function(){});ST.audioCtx=null;ST.analyser=null;ST._vadData=null;}_tr('إغلاق AudioContext',true);}
+  catch(e){ST.audioCtx=null;ST.analyser=null;_tr('إغلاق AudioContext',false,e&&e.message);}
+
+  /* ── 6. detector.dispose(): deferred ~120 ms so any in-flight estimatePoses()
+          Promise resolves first, avoiding a WebGL/GPU race condition.
+          A 3-second hard timeout ensures teardown always completes. ─────────── */
+  var _det=ST.detector;ST.detector=null;
+  var _dispDone=false;
+  function _afterDispose(ok,msg){
+    if(_dispDone)return;_dispDone=true;
+    _tr('dispose النموذج',ok,msg);
+    _tr('إعادة الواجهة ✓',true);
+    ST._stopping=false;
+    if(!_silent)setTimeout(function(){if(_traceEl)_traceEl.style.display='none';},4000);
+  }
+  var _dispTO=setTimeout(function(){_afterDispose(false,'مهلة ٣ث — يُتجاهَل');},3000);
+  setTimeout(function(){
+    try{
+      if(_det&&typeof _det.dispose==='function'){_det.dispose();}
+      clearTimeout(_dispTO);_afterDispose(true);
+    }catch(e){clearTimeout(_dispTO);_afterDispose(false,e&&e.message);}
+  },120);
 }
 function salahTrackFinish(){
-  salahTrackStop();
+  salahTrackStop(true);
   // Compute avg score
   var scores=ST.segments.filter(function(s){return s.score!==null;}).map(function(s){return s.score;});
   var avg=scores.length?Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length):null;
