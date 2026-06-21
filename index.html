@@ -1331,6 +1331,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div id="rakStartWrap" style="display:none;margin-top:8px">
         <button class="btn" id="rstart" onclick="rakOrientToggle()">ابدأ التتبّع</button>
       </div>
+      <div id="rakOrientDiag" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin:6px 0 0;font-family:monospace;padding:6px 10px;background:rgba(255,255,255,.05);border-radius:8px;line-height:1.7"></div>
       <div class="rak-cam-panel" id="rakCamPanel">
         <div id="rakPrivCard" class="rak-priv-card">
           <strong>🔒 الكاميرا على جهازك فقط</strong>
@@ -4620,7 +4621,7 @@ var PRAYER_TYPES={
 var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
 var _rakCurPrayer=null;
 var _rakCurTab='fard';
-var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,history:[],poseLabel:'unknown',pendPose:'unknown',_sujudPendTime:0}};
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_orientActive:false,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,history:[],poseLabel:'unknown',pendPose:'unknown',_sujudPendTime:0}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
 function buildPills(){buildPrayerPicker();}
@@ -4633,13 +4634,98 @@ function rakTouchStart(e){if(e)e.preventDefault();if(RAK.mode!=='touch')return;R
 function rakTouchEnd(e){RAK._lastTouch=Date.now();if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;rakTap();}}
 function rakTouchCancel(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}}
 function rakClick(){if(Date.now()-RAK._lastTouch<600)return;if(RAK.mode==='touch')rakTap();}
-function rakComplete(){rakRender();document.getElementById('rstatus').textContent='تقبّل الله — اكتملت الصلاة';if(RAK.hap)buzz([60,40,60,40,120]);if(RAK.mode==='orient')rakOrientToggle();if(RAK.mode==='cam')rakCamStop();if(RAK.mode==='ai')rakAIStop();rakWakeLock(false);}
-function rakSetMode(m){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}RAK.mode=m;lsSet('rak_mode',m);var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var cam=document.getElementById('rakModeCam');var cp=document.getElementById('rakCamPanel');var aim=document.getElementById('rakModeAI');var aip=document.getElementById('rakAIPanel');var sw=document.getElementById('rakStartWrap');var st=document.getElementById('rstatus');if(lms)lms.classList.toggle('on',m==='touch');if(hrk)hrk.classList.toggle('on',m==='orient');if(cam)cam.classList.toggle('on',m==='cam');if(aim)aim.classList.toggle('on',m==='ai');if(aip)aip.classList.toggle('show',m==='ai');if(cp)cp.classList.toggle('show',m==='cam');if(sw)sw.style.display=m==='orient'?'':'none';if(m!=='cam')rakCamStop();if(m!=='ai')rakAIStop();if(st)st.textContent=m==='touch'?'انقر الحلقة لإضافة ركعة':m==='cam'?'':(m==='ai'?'':'ضع الهاتف في راحة يدك واضغط ابدأ');if(m==='touch'&&RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';rakWakeLock(false);}rakRender();}
+function rakComplete(){rakRender();document.getElementById('rstatus').textContent='تقبّل الله — اكتملت الصلاة';if(RAK.hap)buzz([60,40,60,40,120]);if(RAK.mode==='orient')_rakOrientStop();if(RAK.mode==='cam')rakCamStop();if(RAK.mode==='ai')rakAIStop();rakWakeLock(false);}
+function rakSetMode(m){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}RAK.mode=m;lsSet('rak_mode',m);var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var cam=document.getElementById('rakModeCam');var cp=document.getElementById('rakCamPanel');var aim=document.getElementById('rakModeAI');var aip=document.getElementById('rakAIPanel');var sw=document.getElementById('rakStartWrap');var st=document.getElementById('rstatus');if(lms)lms.classList.toggle('on',m==='touch');if(hrk)hrk.classList.toggle('on',m==='orient');if(cam)cam.classList.toggle('on',m==='cam');if(aim)aim.classList.toggle('on',m==='ai');if(aip)aip.classList.toggle('show',m==='ai');if(cp)cp.classList.toggle('show',m==='cam');if(sw)sw.style.display=m==='orient'?'':'none';if(m!=='cam')rakCamStop();if(m!=='ai')rakAIStop();if(st)st.textContent=m==='touch'?'انقر الحلقة لإضافة ركعة':m==='cam'?'':(m==='ai'?'':'ضع الهاتف في راحة يدك واضغط ابدأ');if(RAK._orientActive){_rakOrientStop();}rakRender();}
 function rakToggleHap(){RAK.hap=!RAK.hap;lsSet('rak_hap',RAK.hap?'1':'0');var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);}
-function rakOrientToggle(){if(RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;RAK.step=0;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';document.getElementById('rstatus').textContent='تم الإيقاف';rakWakeLock(false);rakRender();return;}function startOrient(){rakWakeLock(true);window.addEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;RAK.step=0;var rs=document.getElementById('rstart');if(rs)rs.textContent='إيقاف';document.getElementById('rstatus').textContent='انتظر اكتشاف الوضعية الأولى…';rakRender();}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')startOrient();else document.getElementById('rstatus').textContent='اسمح بالوصول لمستشعر الاتجاه';}).catch(function(){document.getElementById('rstatus').textContent='جرّب من الموقع (https)';});}else{startOrient();}}
-function _rakOrientHandler(e){var beta=e.beta;if(beta==null)return;var now=Date.now();if(Math.abs(beta)<25){if(RAK._inTilt){if(now-RAK._tiltStart>280&&now-RAK._lastStep>550){RAK._lastStep=now;RAK.step++;if(RAK.hap)buzz(35);if(RAK.step>=3){RAK.step=0;if(RAK.hap)buzz([40,20,65]);rakFeed('rakaa');}rakRender();}RAK._inTilt=false;}RAK._betaBase=beta;}else if(beta>28){if(!RAK._inTilt){RAK._inTilt=true;RAK._tiltStart=now;}}}
+function _rakOrientStop(){
+  if(!RAK._orientActive)return;
+  RAK._orientActive=false;
+  RAK._betaBase=null;
+  RAK._inTilt=false;
+  try{window.removeEventListener('deviceorientation',_rakOrientHandler);}catch(_e){}
+  var _rs=document.getElementById('rstart');if(_rs)_rs.textContent='ابدأ التتبّع';
+  var _diag=document.getElementById('rakOrientDiag');if(_diag)_diag.style.display='none';
+  rakWakeLock(false);
+}
+function rakOrientToggle(){
+  var _st=document.getElementById('rstatus');
+  var _diag=document.getElementById('rakOrientDiag');
+  function _d(html){if(_diag){_diag.innerHTML=html;_diag.style.display='block';}}
+  if(RAK._orientActive){
+    _rakOrientStop();
+    if(_st)_st.textContent='تم الإيقاف';
+    rakRender();return;
+  }
+  function _startOrient(){
+    RAK._orientActive=true;
+    RAK._betaBase=null;
+    RAK.step=0;
+    RAK._inTilt=false;
+    RAK._lastStep=0;
+    var _rs=document.getElementById('rstart');if(_rs)_rs.textContent='إيقاف ■';
+    rakWakeLock(true);
+    window.addEventListener('deviceorientation',_rakOrientHandler,{passive:true});
+    if(_st)_st.textContent='انتظر الوضعية الأولى — قف منتصباً…';
+    _d('⏳ انتظار بيانات المستشعر…');
+    setTimeout(function(){
+      if(!RAK._orientActive)return;
+      if(RAK._betaBase===null&&!RAK._inTilt)
+        _d('⚠ لم تصل أحداث — تأكّد من الإذن أو جرّب وضعاً آخر');
+    },2000);
+    rakRender();
+  }
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    _d('🔐 طلب إذن المستشعر…');
+    DeviceOrientationEvent.requestPermission()
+      .then(function(s){
+        _d('إذن المستشعر: '+s);
+        if(s==='granted'){_startOrient();}
+        else{
+          if(_st)_st.textContent='اسمح بالمستشعر: الإعدادات ← Safari ← طلبات الموقع';
+          _d('✗ رُفض الإذن ('+s+') — فعّل المستشعرات من إعدادات Safari');
+        }
+      })
+      .catch(function(e){
+        _d('✗ خطأ requestPermission: '+(e&&e.message||String(e)));
+        if(_st)_st.textContent='جرّب من الموقع الرسمي (https) أو افتح من Safari';
+      });
+  }else{
+    _startOrient();
+  }
+}
+function _rakOrientHandler(e){
+  var beta=e.beta,gamma=e.gamma;
+  var _diag=document.getElementById('rakOrientDiag');
+  if(beta==null){
+    if(_diag&&_diag.style.display!=='none')
+      _diag.innerHTML='⚠ beta=null — الجهاز لا يُرسل بيانات الاتجاه';
+    return;
+  }
+  var now=Date.now();
+  var ab=Math.abs(beta);
+  if(_diag&&_diag.style.display!=='none'){
+    _diag.innerHTML='β:'+Math.round(beta)+'° γ:'+Math.round(gamma||0)+'° — '+
+      (ab>40?'<b style="color:#4ecaa8">انحناء ✓</b>':'↑ وقوف')+
+      ' | خطوة '+(RAK.step)+'/3'+(RAK._inTilt?' [مائل]':'');
+  }
+  if(ab<25){
+    if(RAK._inTilt){
+      if(now-RAK._tiltStart>250&&now-RAK._lastStep>450){
+        RAK._lastStep=now;
+        RAK.step++;
+        if(RAK.hap)buzz(35);
+        if(RAK.step>=3){RAK.step=0;if(RAK.hap)buzz([40,20,65]);rakFeed('rakaa');}
+        rakRender();
+      }
+      RAK._inTilt=false;
+    }
+    RAK._betaBase=beta;
+  }else if(ab>40){
+    if(!RAK._inTilt){RAK._inTilt=true;RAK._tiltStart=now;}
+  }
+}
 function rakDoubt(){if(RAK.count>0){RAK.count=Math.max(0,RAK.count-1);RAK.step=0;document.getElementById('ring').classList.remove('done');if(RAK.hap)buzz([20,15,20]);document.getElementById('rstatus').textContent='بُنِيَ على الأقل — ولا تنسَ سجدتَي السهو';rakRender();}}
-function rakReset(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}if(RAK._betaBase!==null){window.removeEventListener('deviceorientation',_rakOrientHandler);RAK._betaBase=null;var rs=document.getElementById('rstart');if(rs)rs.textContent='ابدأ التتبّع';rakWakeLock(false);}rakCamStop();rakProxStop();RAK.count=0;RAK.step=0;RAK._sujudInRak=0;RAK._cam.sujudTotal=0;RAK._cam.inSujud=false;document.getElementById('ring').classList.remove('done');var st=document.getElementById('rstatus');if(st)st.textContent=RAK.mode==='touch'?'انقر الحلقة لإضافة ركعة':'ضع الهاتف في راحة يدك واضغط ابدأ';rakRender();}
+function rakReset(){if(RAK._tTimer){clearTimeout(RAK._tTimer);RAK._tTimer=null;}if(RAK._orientActive){_rakOrientStop();}rakCamStop();rakProxStop();RAK.count=0;RAK.step=0;RAK._sujudInRak=0;RAK._cam.sujudTotal=0;RAK._cam.inSujud=false;document.getElementById('ring').classList.remove('done');var st=document.getElementById('rstatus');if(st)st.textContent=RAK.mode==='touch'?'انقر الحلقة لإضافة ركعة':'ضع الهاتف في راحة يدك واضغط ابدأ';rakRender();}
 function rakAdj(d){RAK.count=Math.max(0,Math.min(RAK.count+d,RAK.target));document.getElementById('ring').classList.remove('done');rakRender();}
 function rakInit(){RAK.mode=lsGet('rak_mode')||'touch';if(RAK.mode==='prox')RAK.mode='touch';RAK.hap=(lsGet('rak_hap')||'1')==='1';if(!_rakCurPrayer)_rakCurPrayer=PRAYER_TYPES.fard[0];buildPills();var btn=document.getElementById('rakHapBtn');if(btn)btn.classList.toggle('on',RAK.hap);var sw=document.getElementById('rakStartWrap');var lms=document.getElementById('rakModeLms');var hrk=document.getElementById('rakModeHrk');var cam2=document.getElementById('rakModeCam');var cp2=document.getElementById('rakCamPanel');var aim2=document.getElementById('rakModeAI');var aip2=document.getElementById('rakAIPanel');if(lms)lms.classList.toggle('on',RAK.mode==='touch');if(hrk)hrk.classList.toggle('on',RAK.mode==='orient');if(cam2)cam2.classList.toggle('on',RAK.mode==='cam');if(aim2)aim2.classList.toggle('on',RAK.mode==='ai');if(cp2)cp2.classList.toggle('show',RAK.mode==='cam');if(aip2)aip2.classList.toggle('show',RAK.mode==='ai');if(sw)sw.style.display=RAK.mode==='orient'?'':'none';rakRender();}
 
