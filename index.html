@@ -3211,6 +3211,24 @@ function openVotd(){if(votdCur)goAyah(votdCur[0],votdCur[1]);}
 function todayKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function getDailyState(){var k='daily_'+todayKey();try{return JSON.parse(lsGet(k)||'{}');}catch(e){return {};}}
 function saveDailyState(s){var k='daily_'+todayKey();lsSet(k,JSON.stringify(s));}
+function _playAdhkarChime(){
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    var ctx=new C();
+    [[523,0],[659,0.18],[784,0.36],[1047,0.56]].forEach(function(nv){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine';o.frequency.value=nv[0];
+      o.connect(g);g.connect(ctx.destination);
+      var s=ctx.currentTime+nv[1];
+      g.gain.setValueAtTime(0,s);
+      g.gain.linearRampToValueAtTime(0.22,s+0.04);
+      g.gain.setValueAtTime(0.22,s+0.18);
+      g.gain.linearRampToValueAtTime(0,s+0.35);
+      o.start(s);o.stop(s+0.38);
+    });
+    setTimeout(function(){try{ctx.close();}catch(e){}},1500);
+  }catch(e){}
+}
 function markAdhkarDone(cat){
   /* cat may be the full ADHKAR key ('الصباح','المساء') or the short form ('صباح','مساء').
      Normalise to short form so the daily state key always matches renderDailyCards. */
@@ -3218,6 +3236,7 @@ function markAdhkarDone(cat){
   var s=getDailyState();var wasDone=!!s[stateKey];s[stateKey]=true;saveDailyState(s);
   if(!wasDone){
     if(navigator.vibrate)try{navigator.vibrate([40,20,80]);}catch(e){}
+    _playAdhkarChime();
     var dispName=stateKey==='صباح'?'أذكار الصباح':stateKey==='مساء'?'أذكار المساء':stateKey;
     toast('✅ '+dispName+' — تمّ بحمد الله','success');
     if(stateKey==='صباح')checkBadge('morning');
@@ -3234,6 +3253,7 @@ function markAdhkarDone(cat){
     }
   }
   renderDailyCards();
+  try{_achvSaveSnap();}catch(e){}
 }
 var PRAYER_ICONS={Fajr:'<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',Dhuhr:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>',Asr:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="7" r="3"/><path d="M10 2v2M4 4.8l1.2 1.2M2 7h2M17 7h-2M16 4.8l-1.2 1.2"/><path d="M6 18h12a3 3 0 0 0 0-6 5 5 0 0 0-9.54 1A3 3 0 0 0 6 18z"/></svg>',Maghrib:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 12a5 5 0 1 0-10 0"/><path d="M3 12h2M19 12h2M12 5V3M6.22 7.22l-1.5-1.5M17.78 7.22l1.5-1.5"/><line x1="2" y1="16" x2="22" y2="16"/></svg>',Isha:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><circle cx="19" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="7" r=".8" fill="currentColor" stroke="none"/><circle cx="21" cy="7" r=".8" fill="currentColor" stroke="none"/></svg>'};
 var PRAYER_AR={Fajr:'الفجر',Dhuhr:'الظهر',Asr:'العصر',Maghrib:'المغرب',Isha:'العشاء'};
@@ -4151,8 +4171,8 @@ function _adhkarShowList(cat){
 function goAdhkarCat(cat){
   go('adhkar');
   setTimeout(function(){
-    var fullCat=cat;
-    Object.keys(ADHKAR).forEach(function(k){if(k.indexOf(cat)>-1)fullCat=k;});
+    var _CAT_MAP={'صباح':'الصباح','مساء':'المساء'};
+    var fullCat=_CAT_MAP[cat]||cat;
     _adhkarShowList(fullCat);
   },150);
 }
@@ -5336,7 +5356,8 @@ function achvTab(t){
   loadBadges();
 }
 function _achvAdhkarFrac(cat){
-  var base=(typeof ADHKAR!=='undefined'&&ADHKAR[cat])||[];
+  var _catMap={'صباح':'الصباح','مساء':'المساء'};
+  var base=(typeof ADHKAR!=='undefined'&&ADHKAR[_catMap[cat]||cat])||[];
   var custom=_getAdhkarCustom(cat);
   var all=base.concat(custom.map(function(c){return{r:c.r||1};}));
   if(!all.length)return 0;
