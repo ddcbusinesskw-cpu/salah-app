@@ -2009,9 +2009,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <!-- مرحلة الدعوة -->
   <div id="sv_invite">
     <p class="sv-title">تهيئة أولى</p>
-    <p class="sv-desc">سيتم تحميل الملفات الأساسية مرة واحدة وتخزينها على جهازك (~160 MB):</p>
+    <p class="sv-desc">سيتم تحميل الملفات الأساسية مرة واحدة وتخزينها على جهازك (~290 MB):</p>
     <ul class="sv-list">
-      <li>نموذج التعرّف على صوت القرآن<span class="sv-size">~150 MB</span></li>
+      <li>نموذج التعرّف على صوت القرآن<span class="sv-size">~290 MB</span></li>
       <li>مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span></li>
     </ul>
     <button onclick="_setupRun()" class="btn" style="width:100%">تحميل وبدء</button>
@@ -2373,20 +2373,28 @@ function _w2Init(forceWasm){
   W2.worker.onerror=function(e){
     var detail=(e&&(e.message||''))+(e&&e.lineno?' (سطر '+e.lineno+')':'');
     var msg='فشل تحميل محرّك الذكاء الاصطناعي'+(detail?' — '+detail:'');
-    toast(msg,'error');
-    _m2tr(msg);
     W2.loading=false;
+    if(_svActive){_svShowErr(msg);}
+    else{toast(msg,'error');_m2tr(msg);}
   };
   W2.worker.onmessageerror=function(){};
-  W2.worker.postMessage({type:'load',forceWasm:!!forceWasm});
-  _w2LoadTO=setTimeout(function(){
-    if(W2.modelReady){_w2LoadTO=null;return;}
-    console.error('[w2] model load timeout after 45s');
-    _w2Kill();
+  /* على Android أصلي: تجاوز WebGPU تماماً — غير مستقر ويسبّب تحميلاً مزدوجاً */
+  var _fwAsm=!!forceWasm||_isAndroidNative();
+  W2.worker.postMessage({type:'load',forceWasm:_fwAsm});
+  /* مهلة "عدم تقدّم": تنطلق فقط إذا توقّف التقدّم 120ث — تُعاد عند كل progress event */
+  _w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);
+}
+function _w2OnLoadTimeout(){
+  if(W2.modelReady){_w2LoadTO=null;return;}
+  console.error('[w2] model load stalled — no progress for 120s');
+  _w2Kill();
+  var _errMsg='توقّف التحميل (لا تقدّم لـ120 ث) — تأكّد من الاتصال وأعِد المحاولة';
+  if(_svActive){_svShowErr(_errMsg);}
+  else{
     var live=document.getElementById('mem2Live');
     if(live)live.textContent='فشل التحميل — انقر «سمّع» للمحاولة مجدداً';
     toast('فشل تحميل نموذج التسميع — انقر للمحاولة مجدداً','error');
-  },45000);
+  }
 }
 function _loadW2Ref(cb){
   if(W2_REF!==null){if(cb)cb();return;}
@@ -2400,10 +2408,13 @@ function _loadW2Ref(cb){
   _idbGet('ref','alafasy',function(cached){
     if(cached&&typeof cached==='object'&&Object.keys(cached).length>0){_applyRef(cached);return;}
     if(!navigator.onLine){console.warn('[w2ref] offline — using empty ref');_applyRef({});return;}
-    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json')
-      .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    var _refCtrl=typeof AbortController!=='undefined'?new AbortController():null;
+    var _refTO=_refCtrl?setTimeout(function(){_refCtrl.abort();},30000):null;
+    fetch('https://huggingface.co/datasets/Oa-4/quran-ref-alafasy/resolve/main/ref_alafasy.json',
+          _refCtrl?{signal:_refCtrl.signal}:{})
+      .then(function(r){clearTimeout(_refTO);if(!r.ok)throw new Error(r.status);return r.json();})
       .then(function(d){_idbPut('ref','alafasy',d);_applyRef(d);})
-      .catch(function(){_applyRef({});});  /* empty = all ayahs use written-text fallback */
+      .catch(function(){clearTimeout(_refTO);_applyRef({});});  /* fallback: written-text */
   });
 }
 function _w2Msg(m){
@@ -2440,8 +2451,11 @@ function _w2Msg(m){
     _mem2StopAndEval();
   }else if(m.type==='error'){
     _w2ClearXTO();W2.analyzing=false;W2.loading=false;
-    if(_svActive){_svShowErr(m.text||'فشل تحميل النموذج');}
-    else{toast((m.text||'تعذّر التعرّف على الصوت'),'error');}
+    var _errTxt=m.text||'';
+    if(_errTxt.toLowerCase().indexOf('quotaexceeded')>=0||_errTxt.indexOf('QuotaExceeded')>=0)
+      _errTxt='مساحة التخزين ممتلئة — فرّغ مساحة وأعِد المحاولة';
+    if(_svActive){_svShowErr(_errTxt||'فشل تحميل النموذج');}
+    else{toast((_errTxt||'تعذّر التعرّف على الصوت'),'error');}
     MEM2.recActive=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     if(live)live.textContent='خطأ: '+(m.text||'غير معروف');
@@ -4862,6 +4876,8 @@ function _svOnProgress(p){
   if(p.status==='done'&&_svFiles[p.file].t>0)_svFiles[p.file].l=_svFiles[p.file].t;
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent=_svShortFile(p.file);
   _svRedraw();
+  /* إعادة ضبط مهلة التوقف عند كل خطوة تقدّم — تنطلق فقط عند الركود الفعلي */
+  if(_w2LoadTO){clearTimeout(_w2LoadTO);_w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);}
 }
 function _svOnModelReady(){
   if(!_svModelDone){_svModelDone=true;_svRedraw();}
@@ -4933,7 +4949,11 @@ function _setupRun(){
   try{localStorage.removeItem('webgpu_ok');}catch(e){}
   var _fwasm=lsGet('webgpu_ok')==='false';
   if(W2.modelReady){_svModelDone=true;}
-  else{if(!W2.worker&&!W2.loading)_w2Init(_fwasm);}
+  else{
+    /* قتل أي worker قديم بقي من محاولة سابقة قبل البدء من جديد */
+    if(!W2.modelReady&&(W2.worker||W2.loading)){_w2Kill();}
+    _w2Init(_fwasm);
+  }
   /* 2 — Alafasy reference JSON */
   W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];
   _loadW2Ref(function(){
