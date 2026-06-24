@@ -5940,7 +5940,7 @@ var ST={
   camStream:null,audioStream:null,detector:null,
   audioCtx:null,analyser:null,_vadData:null,
   afId:null,vadId:null,timerId:null,
-  rec:null,srAvail:false,_nativeSR:false,
+  rec:null,srAvail:false,_nativeSR:false,_silentSpeech:null,_nsrMuted:false,_nsrRestarting:false,
   startTime:0,elapsed:0,
   pose:'unknown',poseConf:0,
   pendPose:'unknown',pendTime:0,DEBOUNCE:700,
@@ -5999,8 +5999,10 @@ function _stSelPrayer(btn){
 }
 function initSalahTrack(){
   var _nsrPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+  var _silPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SilentSpeech;
   var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
-  ST._nativeSR=_isNative&&!!_nsrPlug;
+  ST._silentSpeech=(_isNative&&_silPlug)||null;
+  ST._nativeSR=_isNative&&!!_nsrPlug&&!!_silPlug;
   ST.srAvail=ST._nativeSR||!!(window.SpeechRecognition||window.webkitSpeechRecognition);
   var note=document.getElementById('stOfflineNote');
   if(note)note.style.display=ST.srAvail?'none':'block';
@@ -6008,7 +6010,13 @@ function initSalahTrack(){
   var status=document.getElementById('stLoadStatus');
   if(status)status.textContent=ST.srAvail?('✅ التعرّف الصوتي متاح — محرّك: '+_srEngine):'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
   var _stDiag=document.getElementById('stSrDiag');
-  if(_stDiag)_stDiag.textContent=ST.srAvail?('🔍 كشف: سمع / اكبر — محرّك: '+_srEngine+' — يعمل عند تفعيل التحليل الصوتي'):'';
+  var _initDiagMsg='';
+  if(_isNative&&!!_nsrPlug&&!_silPlug){
+    _initDiagMsg='⚠️ التعرّف الصوتي غير متاح بصمت على هذا الجهاز';
+  }else if(ST.srAvail){
+    _initDiagMsg='🔍 كشف: سمع / اكبر — محرّك: '+_srEngine+' — يعمل عند تفعيل التحليل الصوتي';
+  }
+  if(_stDiag)_stDiag.textContent=_initDiagMsg;
   // Load persisted preferences
   ST.audioLayer=lsGet('st_audio')==='1';
   var _aBtn=document.getElementById('stAudioLayerBtn');
@@ -6334,7 +6342,10 @@ function _stShowSrScore(score){
 }
 function _stStartSpeech(){
   if(!ST.active)return;
-  if(ST._nativeSR){_stStartSpeechNative();return;}
+  if(ST._nativeSR){
+    if(!ST.audioLayer)return;
+    _stStartSpeechNative();return;
+  }
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
   try{
@@ -6365,7 +6376,7 @@ function _stStartSpeech(){
 function _stStartSpeechNative(){
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr||!ST.active)return;
-  // Register partialResults listener (fires continuously during speech)
+  ST._nsrMuted=false;ST._nsrRestarting=false;
   try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(ex){}
   try{
     nsr.addListener('partialResults',function(data){
@@ -6374,12 +6385,23 @@ function _stStartSpeechNative(){
       if(!text)return;
       var el=document.getElementById('stSrHeard');if(el)el.textContent=text;
       var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
-      var diag=document.getElementById('stSrDiag');
-      if(diag&&ST.audioLayer)diag.textContent='🎙️ أصلي — آخر: '+text.slice(-20);
       _stKeywordScan(text);
+      _stNsrUpdateDiag(text);
     });
   }catch(ex){}
-  // Permission check then start loop
+  // listeningState: restart when recogniser stops naturally
+  try{
+    nsr.addListener('listeningState',function(ev){
+      if(!ST.active||!ev)return;
+      if(ev.status==='stopped'&&!ST._nsrRestarting&&!ST._stopping){
+        ST._nsrRestarting=true;
+        setTimeout(function(){
+          ST._nsrRestarting=false;
+          if(ST.active&&!ST._stopping)_stNsrStart(nsr,'ar-SA');
+        },500);
+      }
+    });
+  }catch(ex){}
   var permP;
   try{
     permP=nsr.checkPermissions().then(function(p){
@@ -6391,33 +6413,50 @@ function _stStartSpeechNative(){
       });
     }).catch(function(e){if(e&&e._stop)return Promise.reject(e);});
   }catch(ex){permP=Promise.resolve();}
-  permP.then(function(){_stNsrLoop(nsr,'ar-SA');}).catch(function(){});
+  permP.then(function(){_stNsrStart(nsr,'ar-SA');}).catch(function(){});
 }
-function _stNsrLoop(nsr,lang){
+function _stNsrStart(nsr,lang){
   if(!ST.active||ST._stopping)return;
-  nsr.start({language:lang,maxResults:3,partialResults:true,popup:false})
-    .then(function(r){
-      if(!ST.active||ST._stopping)return;
-      var text=((r&&r.matches&&r.matches[0])||'').trim();
-      if(text){
-        var el=document.getElementById('stSrHeard');if(el)el.textContent=text;
-        var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
-        var diag=document.getElementById('stSrDiag');
-        if(diag&&ST.audioLayer)diag.textContent='🎙️ أصلي — آخر: '+text.slice(-20);
-        _stKeywordScan(text);
+  var ss=ST._silentSpeech;
+  var muteP;
+  try{muteP=ss?ss.muteBeep():Promise.resolve();}catch(ex){muteP=Promise.resolve();}
+  muteP.then(function(){
+    if(!ST.active||ST._stopping){
+      if(ss&&ST._nsrMuted){ST._nsrMuted=false;try{ss.unmuteBeep();}catch(ex){}}
+      return;
+    }
+    ST._nsrMuted=true;
+    _stNsrUpdateDiag(null);
+    // Unmute ~350ms after start — beep is <200ms
+    setTimeout(function(){
+      if(ST._nsrMuted){
+        ST._nsrMuted=false;
+        try{if(ss){var _u=ss.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}}catch(ex){}
+        _stNsrUpdateDiag(null);
       }
-      // Restart: short delay when speech detected, longer on silence
-      var delay=text?200:1000;
-      if(ST.active&&!ST._stopping)setTimeout(function(){_stNsrLoop(nsr,lang);},delay);
-    })
-    .catch(function(e){
-      var msg=(e&&(e.message||e.code))||String(e);
-      var lc=msg.toLowerCase();
-      // Ignore expected stop/cancel errors; restart on others
-      if(ST.active&&!ST._stopping&&!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
-        setTimeout(function(){_stNsrLoop(nsr,lang);},1500);
-      }
-    });
+    },350);
+    try{
+      nsr.start({language:lang,maxResults:3,partialResults:true,popup:false})
+        .catch(function(e){
+          var msg=(e&&(e.message||e.code))||String(e);
+          var lc=msg.toLowerCase();
+          if(ST.active&&!ST._stopping&&!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
+            setTimeout(function(){if(ST.active&&!ST._stopping)_stNsrStart(nsr,lang);},2000);
+          }
+        });
+    }catch(ex){}
+  }).catch(function(){
+    // muteBeep failed — still try to start without muting
+    ST._nsrMuted=false;
+    try{nsr.start({language:lang,maxResults:3,partialResults:true,popup:false}).catch(function(){});}catch(ex){}
+  });
+}
+function _stNsrUpdateDiag(lastText){
+  var diag=document.getElementById('stSrDiag');
+  if(!diag||!ST.audioLayer)return;
+  var muteStr=ST._nsrMuted?'مكتوم':'غير مكتوم';
+  var textStr=lastText?(' — آخر: '+lastText.slice(-20)):'';
+  diag.textContent='🎙️ أصلي — '+muteStr+textStr;
 }
 function _stToggleCam(el){
   var wrap=document.getElementById('stVidWrap');
@@ -6434,6 +6473,10 @@ function _stStopSpeech(){
     if(nsr){
       try{var _s=nsr.stop();if(_s&&_s.catch)_s.catch(function(){});}catch(ex){}
       try{var _r=nsr.removeAllListeners();if(_r&&_r.catch)_r.catch(function(){});}catch(ex){}
+    }
+    if(ST._nsrMuted&&ST._silentSpeech){
+      ST._nsrMuted=false;
+      try{var _u=ST._silentSpeech.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}catch(ex){}
     }
   }
 }

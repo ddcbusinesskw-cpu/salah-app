@@ -54,4 +54,7 @@
 
     <!-- Vibration for haptics -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- SilentSpeech: mute system beep during speech recognition -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>
