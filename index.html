@@ -5920,14 +5920,14 @@ var ST={
   camStream:null,audioStream:null,detector:null,
   audioCtx:null,analyser:null,_vadData:null,
   afId:null,vadId:null,timerId:null,
-  rec:null,recActive:false,srAvail:false,
+  rec:null,srAvail:false,
   startTime:0,elapsed:0,
   pose:'unknown',poseConf:0,
   pendPose:'unknown',pendTime:0,DEBOUNCE:700,
   rakaat:0,sujudInRak:0,inSujud:false,totalSujud:0,
   totalRuku:0,totalJalsa:0,inRuku:false,inJalsa:false,
-  segments:[],currentSpeech:'',currentScore:null,
-  speaking:false,_lastInf:0,_warned:false,
+  segments:[],currentSpeech:'',
+  speaking:false,_lastInf:0,
   audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false,
   audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null
 };
@@ -5984,7 +5984,15 @@ function initSalahTrack(){
   if(status)status.textContent=ST.srAvail?'✅ التعرّف الصوتي متاح':'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
   var _stDiag=document.getElementById('stSrDiag');
   if(_stDiag)_stDiag.textContent=ST.srAvail?'🔍 كشف: سمع / اكبر — يعمل عند تفعيل التحليل الصوتي':'';
-  // Load qasr preference
+  // Load persisted preferences
+  ST.audioLayer=lsGet('st_audio')==='1';
+  var _aBtn=document.getElementById('stAudioLayerBtn');
+  if(_aBtn){
+    _aBtn.textContent=ST.audioLayer?'مفعّل':'متوقف';
+    _aBtn.style.borderColor=ST.audioLayer?'var(--green)':'var(--line)';
+    _aBtn.style.color=ST.audioLayer?'var(--green)':'var(--muted)';
+    _aBtn.style.background=ST.audioLayer?'rgba(63,174,142,.08)':'transparent';
+  }
   ST._qasr=lsGet('st_qasr')==='1';
   var qBtn=document.getElementById('stQasrBtn');
   if(qBtn){
@@ -6011,7 +6019,7 @@ function salahTrackStart(){
   if(msg)msg.textContent='جارٍ تحميل مكتبة الذكاء الاصطناعي…';
   ST.rakaat=0;ST.sujudInRak=0;ST.inSujud=false;ST.totalSujud=0;
   ST.totalRuku=0;ST.totalJalsa=0;ST.inRuku=false;ST.inJalsa=false;
-  ST.segments=[];ST.currentSpeech='';ST.currentScore=null;
+  ST.segments=[];ST.currentSpeech='';
   ST.pose='unknown';ST.pendPose='unknown';ST.pendTime=0;
   ST.elapsed=0;ST.active=false;
   ST.audioRak=0;ST.audioTakbir=0;ST._lastTasmi3=0;ST._lastTakbir=0;ST._lastVisRak=0;ST._lastAudRak=0;
@@ -6065,7 +6073,7 @@ function _stErrMsg(msg){
 function _stBeginSession(){
   var video=document.getElementById('stVideo');
   var wrap=document.getElementById('stVidWrap');
-  if(video){video.srcObject=ST.camStream;video.play().catch(function(e){console.error('[ST] video.play failed:',e&&e.message||String(e));if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}_stErrMsg('تعذّر تشغيل الكاميرا — حاول مجدداً');});}
+  if(video){video.srcObject=ST.camStream;video.play().catch(function(e){console.error('[ST] video.play failed:',e&&e.message||String(e));if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}salahTrackStop(true);_stErrMsg('تعذّر تشغيل الكاميرا — حاول مجدداً');});}
   if(wrap)wrap.style.display='';
   ST.active=true;
   ST.startTime=Date.now();
@@ -6226,9 +6234,10 @@ function _stOnPoseChange(prev,cur){
       ST.sujudInRak=0;
       if(!ST.audioLayer||Date.now()-ST._lastAudRak>=4000){
         ST.rakaat++;ST._lastVisRak=Date.now();
-        _stUpdateCounters();if(navigator.vibrate)navigator.vibrate([60,30,60]);
+        if(navigator.vibrate)navigator.vibrate([60,30,60]);
         if(ST.rakaat>=ST.target)salahTrackFinish();
       }
+      _stUpdateCounters();
     }
   }
   // Ruku speech segment: captured when returning to qiyam
@@ -6270,6 +6279,7 @@ function _stShowSrScore(score){
   badge.className='st-sr-score-badge '+(score>=75?'great':score>=45?'ok':'low');
 }
 function _stStartSpeech(){
+  if(!ST.active)return;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
   try{
@@ -6292,7 +6302,7 @@ function _stStartSpeech(){
     r.onerror=function(){ST.recActive=false;};
     r.onend=function(){
       ST.recActive=false;
-      if(ST.active)setTimeout(_stStartSpeech,500);
+      if(ST.active&&!ST._stopping)setTimeout(_stStartSpeech,500);
     };
     r.start();
     ST.rec=r;ST.recActive=true;
@@ -6373,7 +6383,7 @@ function _stKeywordScan(text){
   if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
     if(now-ST._lastTasmi3>=1800){ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
   }
-  if(norm.indexOf('اكبر')>=0){
+  if(norm.indexOf('اكبر')>=0&&ST.pose!=='sujud'&&ST.pose!=='jalsa'&&ST.pose!=='ruku'){
     if(now-ST._lastTakbir>=1800){ST._lastTakbir=now;_stOnKeyword('takbir');}
   }
 }
@@ -6387,9 +6397,9 @@ function _stOnKeyword(type){
     if(_cf){_cf.style.display='';clearTimeout(ST._audConfTO);ST._audConfTO=setTimeout(function(){var c=document.getElementById('stAudConf');if(c)c.style.display='none';},2200);}
     _stUpdateAudioCtrs();
     if(now-ST._lastVisRak<4000)return;
-    if(ST.pose==='unknown'){
+    if(ST.pose==='unknown'||(Date.now()-ST._lastVisRak>25000)){
       if(now-ST._lastAudRak<4000)return;
-      ST._lastAudRak=now;ST.rakaat++;
+      ST._lastAudRak=now;ST.sujudInRak=0;ST.rakaat++;
       _stUpdateCounters();_stUpdateAudioCtrs();
       if(navigator.vibrate)navigator.vibrate([60,30,60]);
       if(ST.rakaat>=ST.target)salahTrackFinish();
@@ -6447,6 +6457,9 @@ function salahTrackStop(_silent){
   catch(e){ST.camStream=null;_tr('إيقاف tracks الكاميرا',false,e&&e.message);}
   try{if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ST.audioStream=null;}_tr('إيقاف المايك/VAD tracks',true);}
   catch(e){ST.audioStream=null;_tr('إيقاف المايك/VAD tracks',false,e&&e.message);}
+
+  /* ── 4b. Clear pending audio UI timeouts ─────────────────────────────────── */
+  clearTimeout(ST._audConfTO);ST._audConfTO=null;
 
   /* ── 5. AudioContext ─────────────────────────────────────────────────────── */
   try{if(ST.audioCtx){ST.audioCtx.close().catch(function(){});ST.audioCtx=null;ST.analyser=null;ST._vadData=null;}_tr('إغلاق AudioContext',true);}
@@ -6540,6 +6553,7 @@ function salahTrackReset(){
   var _rau=document.getElementById('stAudCtrs');if(_rau)_rau.style.display='none';
   var _rad=document.getElementById('stAudDiag');if(_rad)_rad.style.display='none';
   var _rsw=document.getElementById('stSumAudWrap');if(_rsw)_rsw.style.display='none';
+  var _sc=document.getElementById('stSrCard');if(_sc)_sc.style.display='';
 }
 function _stMarkPrayerDone(pKey){
   var s=getDailyState();
@@ -6558,6 +6572,7 @@ function _stManualPrayer(){
 }
 function _stToggleAudioLayer(){
   ST.audioLayer=!ST.audioLayer;
+  lsSet('st_audio',ST.audioLayer?'1':'0');
   var btn=document.getElementById('stAudioLayerBtn');
   if(btn){
     btn.textContent=ST.audioLayer?'مفعّل':'متوقف';
@@ -6606,6 +6621,7 @@ function loadSettingsScreen(){loadCalcSettings();_renderAdhanSett();}
 var _origGo=go;
 go=function(id){
   var actualId=(id==='calcSettings')?'account':id;
+  if(typeof ST!=='undefined'&&ST.active&&id!=='salahTrack')salahTrackStop();
   _origGo(actualId);
   if(actualId==='names')loadNamesScreen();
   if(actualId==='khatmah')loadKhatmah();
