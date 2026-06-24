@@ -2078,7 +2078,7 @@ function go(id){
   var dw=document.getElementById('drawer');if(dw)dw.classList.remove('on');
   var db=document.getElementById('drawerBk');if(db)db.classList.remove('on');
   var prev=document.querySelector('.screen.on');
-  if(prev&&prev.id==='rakaat'){try{rakCamStop();}catch(ex){}try{rakAIStop();}catch(ex){}try{rakProxStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
+  if(prev&&prev.id==='rakaat'){try{rakCamStop();}catch(ex){}try{rakAIStop();}catch(ex){}try{if(typeof _rakOrientStop!=='undefined')_rakOrientStop();}catch(ex){}try{rakProxStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
   if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
   if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
@@ -4625,7 +4625,7 @@ var PRAYER_TYPES={
 var PR=PRAYER_TYPES.fard.concat(PRAYER_TYPES.sunnah);
 var _rakCurPrayer=null;
 var _rakCurTab='fard';
-var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_orientActive:false,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_proxHandle:null,_proxNear:false,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,history:[],poseLabel:'unknown',pendPose:'unknown',_sujudPendTime:0}};
+var RAK={count:0,step:0,target:2,mode:'touch',hap:true,_betaBase:null,_orientActive:false,_inTilt:false,_tiltStart:0,_lastStep:0,_tDown:0,_tTimer:null,_wl:null,_lastTouch:0,_qasr:false,_sujudInRak:0,_orientEvts:0,_orientEvtT:0,_cam:{stream:null,video:null,cvs:null,ctx:null,baseline:null,posState:0,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null},_ai:{stream:null,video:null,detector:null,cvs:null,ctx:null,posState:-1,pendState:-1,pendTime:0,inSujud:false,sujudTotal:0,afId:null,loaded:false,_lastInf:0,history:[],poseLabel:'unknown',pendPose:'unknown',_sujudPendTime:0}};
 var CO=2*Math.PI*130,CI=2*Math.PI*98;
 function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
 function buildPills(){buildPrayerPicker();}
@@ -4646,6 +4646,8 @@ function _rakOrientStop(){
   RAK._orientActive=false;
   RAK._betaBase=null;
   RAK._inTilt=false;
+  RAK.step=0;
+  RAK._orientEvts=0;RAK._orientEvtT=0;
   try{window.removeEventListener('deviceorientation',_rakOrientHandler);}catch(_e){}
   var _rs=document.getElementById('rstart');if(_rs)_rs.textContent='ابدأ التتبّع';
   var _diag=document.getElementById('rakOrientDiag');if(_diag)_diag.style.display='none';
@@ -4670,11 +4672,14 @@ function rakOrientToggle(){
     rakWakeLock(true);
     window.addEventListener('deviceorientation',_rakOrientHandler,{passive:true});
     if(_st)_st.textContent='انتظر الوضعية الأولى — قف منتصباً…';
+    RAK._orientEvts=0;RAK._orientEvtT=0;
     _d('⏳ انتظار بيانات المستشعر…');
     setTimeout(function(){
       if(!RAK._orientActive)return;
-      if(RAK._betaBase===null&&!RAK._inTilt)
-        _d('⚠ لم تصل أحداث — تأكّد من الإذن أو جرّب وضعاً آخر');
+      if(RAK._orientEvts===0)
+        _d('⚠ المستشعر لا يُرسل بيانات على هذا الجهاز<br>'
+          +'تأكّد من: HTTPS · إذن Safari (iOS) · دعم WebView<br>'
+          +'جرّب <b>وضع اللمس</b> أو <b>الكاميرا</b> بدلاً من ذلك');
     },2000);
     rakRender();
   }
@@ -4700,17 +4705,25 @@ function rakOrientToggle(){
 function _rakOrientHandler(e){
   var beta=e.beta,gamma=e.gamma;
   var _diag=document.getElementById('rakOrientDiag');
+  var now=Date.now();
+  /* ── live event-rate counter for diagnostics ── */
+  RAK._orientEvts++;
+  if(!RAK._orientEvtT)RAK._orientEvtT=now;
+  var _evtAge=now-RAK._orientEvtT;
+  var _evtRate=_evtAge>500?Math.round(RAK._orientEvts*1000/_evtAge):0;
+  if(_evtAge>2000){RAK._orientEvts=1;RAK._orientEvtT=now;}
   if(beta==null){
     if(_diag&&_diag.style.display!=='none')
-      _diag.innerHTML='⚠ beta=null — الجهاز لا يُرسل بيانات الاتجاه';
+      _diag.innerHTML='⚠ beta=null — الجهاز لا يُرسل بيانات الاتجاه<br>'
+        +'📡 '+RAK._orientEvts+' حدث | تحقق من دعم DeviceOrientation';
     return;
   }
-  var now=Date.now();
   var ab=Math.abs(beta);
   if(_diag&&_diag.style.display!=='none'){
-    _diag.innerHTML='β:'+Math.round(beta)+'° γ:'+Math.round(gamma||0)+'° — '+
-      (ab>40?'<b style="color:#4ecaa8">انحناء ✓</b>':'↑ وقوف')+
-      ' | خطوة '+(RAK.step)+'/3'+(RAK._inTilt?' [مائل]':'');
+    var _zone=ab>40?'<b style="color:#4ecaa8">انحناء ✓</b>':ab<25?'↑ وقوف':'— منطقة انتقال';
+    _diag.innerHTML='β:'+Math.round(beta)+'° γ:'+Math.round(gamma||0)+'° — '+_zone+
+      ' | خطوة '+(RAK.step)+'/3'+(RAK._inTilt?' [مائل]':'')+
+      (_evtRate>0?' | 📡 '+_evtRate+' ح/ث':'');
   }
   if(ab<25){
     if(RAK._inTilt){
@@ -6489,6 +6502,7 @@ go=function(id){
   if(actualId==='quiz')loadQuiz();
   if(actualId==='account')loadSettingsScreen();
   if(actualId==='salahTrack')initSalahTrack();
+  if(actualId==='rakaat')rakInit();
 };
 
 /* ===== Hook togglePrayer: badges + fajr streak + all-5 celebration ===== */
@@ -6542,67 +6556,8 @@ function rakFeed(evt){
   if(RAK.count>=RAK.target&&RAK.target>0){rakComplete();return;}
   rakRender();
 }
-function _rakProxNativeAvail(){
-  return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()
-    &&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor);
-}
-/* ===== عدّاد الركعات: حسّاس القُرب ===== */
-var _proxLastSujud=0;
-function rakProxOpen(){
-  var st=document.getElementById('rstatus');
-  var diag=document.getElementById('rakProxDiag');
-  var dp=document.getElementById('proxDiagPlugin');
-  var da=document.getElementById('proxDiagAvail');
-  var dv=document.getElementById('proxDiagVal');
-  var dn=document.getElementById('proxDiagNear');
-  if(diag)diag.style.display='';
-  if(dv)dv.textContent='—';
-  if(dn)dn.textContent='—';
-  var pluginAvail=_rakProxNativeAvail();
-  if(dp)dp.textContent=pluginAvail?'✅ نعم':'❌ لا';
-  if(!pluginAvail){
-    if(da)da.textContent='—';
-    if(st)st.textContent=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()
-      ?'إضافة حسّاس القُرب غير محملة':'وضع القُرب يتطلب التطبيق الأصلي';
-    return;
-  }
-  if(da)da.textContent='جاري الفحص…';
-  var Prox=window.Capacitor.Plugins.ProximitySensor;
-  Prox.isAvailable().then(function(r){
-    if(da)da.textContent=r.value?'✅ نعم':'❌ لا';
-    if(!r.value){
-      if(st)st.textContent='الجهاز لا يمتلك حسّاس قُرب';
-      return;
-    }
-    Prox.start().then(function(){
-      RAK._proxHandle=Prox.addListener('proximity',function(d){_rakProxHandle(d.near,d.value);});
-      if(st)st.textContent='حسّاس القُرب نشط — مرّر يدك فوق الشاشة عند كل سجود';
-      rakWakeLock(true);
-    }).catch(function(e){
-      if(st)st.textContent='تعذّر تشغيل الحسّاس: '+(e&&e.message?e.message:'خطأ');
-    });
-  }).catch(function(e){
-    if(da)da.textContent='خطأ: '+(e&&e.message?e.message:'؟');
-    if(st)st.textContent='تعذّر التحقق من حسّاس القُرب';
-  });
-}
-function _rakProxHandle(near,val){
-  var dv=document.getElementById('proxDiagVal');
-  var dn=document.getElementById('proxDiagNear');
-  if(dv)dv.textContent=val!=null?val+' cm':'—';
-  if(dn)dn.textContent=near?'✅ نعم':'⬜ لا';
-  if(near&&!RAK._proxNear){RAK._proxNear=true;if(RAK.hap)buzz(12);}
-  else if(!near&&RAK._proxNear){
-    RAK._proxNear=false;
-    var now=Date.now();
-    if(now-_proxLastSujud>600){_proxLastSujud=now;rakFeed('sujud');}
-  }
-}
 function rakProxStop(){
-  var Prox=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor;
-  if(Prox)try{Prox.stop();}catch(e){}
-  if(RAK._proxHandle){try{RAK._proxHandle.remove();}catch(e){}RAK._proxHandle=null;}
-  RAK._proxNear=false;
+  try{var _P=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor;if(_P)_P.stop();}catch(e){}
 }
 function rakTypeTab(tab){
   _rakCurTab=tab;
@@ -6814,16 +6769,27 @@ function _rakAIReady(){
 }
 function rakAIStop(){
   var ai=RAK._ai;
+  /* ── 1. RAF + streams (sync, fast) ─────────────────────────────────────── */
   try{if(ai.afId){cancelAnimationFrame(ai.afId);ai.afId=null;}}catch(e){ai.afId=null;}
-  try{if(ai.detector&&typeof ai.detector.dispose==='function'){ai.detector.dispose();}ai.detector=null;}catch(e){ai.detector=null;console.error('[RAK-AI-stop] detector:',e&&e.message||String(e));}
-  try{var v=document.getElementById('rakAIVideo');if(v){v.pause();v.srcObject=null;}}catch(e){}
+  try{var _v=document.getElementById('rakAIVideo');if(_v){_v.pause();_v.srcObject=null;}}catch(e){}
   try{if(ai.stream){ai.stream.getTracks().forEach(function(t){try{t.stop();}catch(_){}});ai.stream=null;}}catch(e){ai.stream=null;}
   ai.posState=-1;ai.pendState=-1;ai.inSujud=false;ai.loaded=false;ai.history=[];ai._sujudPendTime=0;
+  /* ── 2. UI immediately (user sees instant response) ─────────────────────── */
   var priv=document.getElementById('rakAIPrivCard');
   var load=document.getElementById('rakAILoading');
   var active=document.getElementById('rakAIActive');
   if(priv)priv.style.display='';if(load)load.style.display='none';if(active)active.style.display='none';
   rakWakeLock(false);
+  /* ── 3. dispose() deferred 120ms: avoids WebGL race with in-flight
+          estimatePoses() Promise. 3s hard timeout ensures cleanup always runs. ─ */
+  var _det=ai.detector;ai.detector=null;
+  var _dd=false;
+  var _dto=setTimeout(function(){if(!_dd){_dd=true;}},3000);
+  setTimeout(function(){
+    try{if(_det&&typeof _det.dispose==='function'){_det.dispose();}}
+    catch(e){console.error('[RAK-AI-stop] dispose:',e&&e.message||String(e));}
+    clearTimeout(_dto);_dd=true;
+  },120);
 }
 // Camera-invariant geometric features from MoveNet keypoints
 function _geoFeat(kp){
