@@ -1413,6 +1413,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <p class="st-tip">📷 كاميرا أمامية لرصد الوضعيات • 🎙️ التعرّف الصوتي يتطلّب إنترنت ومتصفّح (ليس داخل التطبيق)</p>
         <div id="stLoadStatus" style="font-size:12px;color:var(--muted);margin:8px 0;min-height:16px;"></div>
+        <div id="stSrDiag" style="font-size:11px;color:var(--muted);margin:-4px 0 6px;min-height:14px;"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
           <span style="font-size:13px;color:var(--muted)">🎙️ تحليل صوتي (يزيد الدقة)</span>
           <button id="stAudioLayerBtn" onclick="_stToggleAudioLayer()" style="border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s">متوقف</button>
@@ -1482,6 +1483,18 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
       </div>
 
+      <!-- Audio reinforcement counters (visible when audioLayer=on) -->
+      <div id="stAudCtrs" style="display:none;grid-template-columns:repeat(2,1fr);gap:7px;margin:4px 0">
+        <div class="st-ctr-card">
+          <span class="st-ctr-n" id="stAudRakNum">٠</span>
+          <span class="st-ctr-k">ركعات صوتي</span>
+        </div>
+        <div class="st-ctr-card">
+          <span class="st-ctr-n" id="stAudTakNum">٠</span>
+          <span class="st-ctr-k">تكبيرات</span>
+        </div>
+      </div>
+
       <!-- Sujud dots for current rakaat -->
       <div class="st-rak-dots">
         <span class="st-rak-dot" id="stSd1"></span>
@@ -1511,6 +1524,12 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <div class="st-sr-score-badge" id="stSrScore">–</div>
       </div>
       <div class="st-offline-note" id="stOfflineNote" style="display:none">📵 التعرّف الصوتي غير متاح</div>
+      <!-- Keyword diagnostic (visible when audioLayer=on) -->
+      <div id="stAudDiag" style="display:none;align-items:center;gap:8px;direction:rtl;font-size:12px;color:var(--muted);padding:2px 16px 4px;flex-wrap:wrap">
+        <span style="opacity:.65">🎙️ آخر كلمة:</span>
+        <span id="stKwLast" style="color:var(--gold);font-weight:600">—</span>
+        <span id="stAudConf" style="display:none;color:var(--green);font-weight:700">✓ سمع الله لمن حمده</span>
+      </div>
 
       <!-- Fixed stop button -->
       <div class="st-bottom-bar">
@@ -1527,6 +1546,10 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <div class="st-sum-item"><div class="st-sum-val" id="stSumSuj">٠</div><div class="st-sum-key">سجدات</div></div>
           <div class="st-sum-item"><div class="st-sum-val" id="stSumTime">٠:٠٠</div><div class="st-sum-key">الوقت</div></div>
           <div class="st-sum-item"><div class="st-sum-val" id="stSumScore">–</div><div class="st-sum-key">متوسّط القراءة</div></div>
+        </div>
+        <div id="stSumAudWrap" style="display:none;text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);margin:8px 0 2px">
+          <div style="font-size:13px;color:var(--muted)">بصري: <b id="stSumVisRak">—</b> · صوت: <b id="stSumAudRak">—</b></div>
+          <div id="stSumAudNote" style="display:none;font-size:11px;color:var(--gold);margin-top:4px">⚠️ اختلاف — راجع عدد الركعات</div>
         </div>
         <div class="st-segs-title">تفاصيل القراءة</div>
         <div id="stSegsList"></div>
@@ -5905,7 +5928,8 @@ var ST={
   totalRuku:0,totalJalsa:0,inRuku:false,inJalsa:false,
   segments:[],currentSpeech:'',currentScore:null,
   speaking:false,_lastInf:0,_warned:false,
-  audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false
+  audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false,
+  audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -5958,6 +5982,8 @@ function initSalahTrack(){
   if(note)note.style.display=ST.srAvail?'none':'block';
   var status=document.getElementById('stLoadStatus');
   if(status)status.textContent=ST.srAvail?'✅ التعرّف الصوتي متاح':'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
+  var _stDiag=document.getElementById('stSrDiag');
+  if(_stDiag)_stDiag.textContent=ST.srAvail?'🔍 كشف: سمع / اكبر — يعمل عند تفعيل التحليل الصوتي':'';
   // Load qasr preference
   ST._qasr=lsGet('st_qasr')==='1';
   var qBtn=document.getElementById('stQasrBtn');
@@ -5988,6 +6014,7 @@ function salahTrackStart(){
   ST.segments=[];ST.currentSpeech='';ST.currentScore=null;
   ST.pose='unknown';ST.pendPose='unknown';ST.pendTime=0;
   ST.elapsed=0;ST.active=false;
+  ST.audioRak=0;ST.audioTakbir=0;ST._lastTasmi3=0;ST._lastTakbir=0;ST._lastVisRak=0;ST._lastAudRak=0;
   _loadTFJS(function(err){
     if(err){
       console.error('[ST] TF.js load error:',err);
@@ -6074,6 +6101,9 @@ function _stBeginSession(){
   }
   // Speech recognition
   if(ST.srAvail){_stStartSpeech();}
+  // Show audio UI elements if audioLayer active
+  var _sac=document.getElementById('stAudCtrs');if(_sac)_sac.style.display=ST.audioLayer?'grid':'none';
+  var _sad=document.getElementById('stAudDiag');if(_sad)_sad.style.display=ST.audioLayer?'flex':'none';
   // Pose loop
   rakWakeLock(true);
   _stPoseLoop();
@@ -6192,7 +6222,14 @@ function _stOnPoseChange(prev,cur){
   }
   if(cur!=='sujud'&&ST.inSujud){
     ST.inSujud=false;
-    if(ST.sujudInRak>=2){ST.rakaat++;ST.sujudInRak=0;_stUpdateCounters();if(navigator.vibrate)navigator.vibrate([60,30,60]);if(ST.rakaat>=ST.target)salahTrackFinish();}
+    if(ST.sujudInRak>=2){
+      ST.sujudInRak=0;
+      if(!ST.audioLayer||Date.now()-ST._lastAudRak>=4000){
+        ST.rakaat++;ST._lastVisRak=Date.now();
+        _stUpdateCounters();if(navigator.vibrate)navigator.vibrate([60,30,60]);
+        if(ST.rakaat>=ST.target)salahTrackFinish();
+      }
+    }
   }
   // Ruku speech segment: captured when returning to qiyam
   if(cur==='qiyam'&&ST.currentSpeech){var exp2=_stGetExpected('ruku');if(prev==='ruku'&&exp2){var sc2=_stScoreMatch(ST.currentSpeech,exp2);ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});_stShowSrScore(sc2);}ST.currentSpeech='';}
@@ -6246,6 +6283,7 @@ function _stStartSpeech(){
       }
       var display=final_||interim;
       ST.currentSpeech+=(final_?' '+final_:'');
+      if(final_)_stKeywordScan(final_);
       var el=document.getElementById('stSrHeard');
       if(el)el.textContent=display;
       var card=document.getElementById('stSrCard');
@@ -6327,6 +6365,44 @@ function _stUpdateCounters(){
   var pt=document.getElementById('stProgText');
   if(pf)pf.style.width=Math.round((ST.rakaat/Math.max(ST.target,1))*100)+'%';
   if(pt)pt.textContent=_stAr(ST.rakaat)+' / '+_stAr(ST.target);
+}
+function _stKeywordScan(text){
+  if(!ST.audioLayer||!text||!ST.active)return;
+  var norm=typeof _normRec==='function'?_normRec(text):text;
+  var now=Date.now();
+  if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
+    if(now-ST._lastTasmi3>=1800){ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
+  }
+  if(norm.indexOf('اكبر')>=0){
+    if(now-ST._lastTakbir>=1800){ST._lastTakbir=now;_stOnKeyword('takbir');}
+  }
+}
+function _stOnKeyword(type){
+  if(!ST.active)return;
+  var now=Date.now();
+  if(type==='tasmi3'){
+    ST.audioRak++;
+    var _kw=document.getElementById('stKwLast');if(_kw)_kw.textContent='سمع الله لمن حمده';
+    var _cf=document.getElementById('stAudConf');
+    if(_cf){_cf.style.display='';clearTimeout(ST._audConfTO);ST._audConfTO=setTimeout(function(){var c=document.getElementById('stAudConf');if(c)c.style.display='none';},2200);}
+    _stUpdateAudioCtrs();
+    if(now-ST._lastVisRak<4000)return;
+    if(ST.pose==='unknown'){
+      if(now-ST._lastAudRak<4000)return;
+      ST._lastAudRak=now;ST.rakaat++;
+      _stUpdateCounters();_stUpdateAudioCtrs();
+      if(navigator.vibrate)navigator.vibrate([60,30,60]);
+      if(ST.rakaat>=ST.target)salahTrackFinish();
+    }
+  }else if(type==='takbir'){
+    ST.audioTakbir++;
+    var _kw2=document.getElementById('stKwLast');if(_kw2)_kw2.textContent='الله أكبر';
+    _stUpdateAudioCtrs();
+  }
+}
+function _stUpdateAudioCtrs(){
+  var _ar=document.getElementById('stAudRakNum');if(_ar)_ar.textContent=_stAr(ST.audioRak);
+  var _at=document.getElementById('stAudTakNum');if(_at)_at.textContent=_stAr(ST.audioTakbir);
 }
 function salahTrackStop(_silent){
   /* idempotent: ignore double-stop (e.g. button + go() teardown racing) */
@@ -6425,6 +6501,14 @@ function salahTrackFinish(){
   var regMsg=document.getElementById('stSumRegMsg');
   if(regMsg){var _ds2=getDailyState();if(_ds2['prayer_'+pKey]){regMsg.style.color='var(--green)';regMsg.textContent='✓ تم تسجيل الصلاة في إنجازاتك';}else{regMsg.textContent='';}}
   _stShowPane('stSumPane');
+  if(ST.audioLayer){
+    var _saw=document.getElementById('stSumAudWrap');
+    if(_saw){_saw.style.display='';
+      var _svr=document.getElementById('stSumVisRak');if(_svr)_svr.textContent=_stAr(ST.rakaat);
+      var _sar=document.getElementById('stSumAudRak');if(_sar)_sar.textContent=_stAr(ST.audioRak);
+      var _san=document.getElementById('stSumAudNote');if(_san)_san.style.display=(ST.audioRak!==ST.rakaat)?'':'none';
+    }
+  }
 }
 function salahTrackReset(){
   var btn=document.getElementById('stStartBtn');if(btn)btn.disabled=false;
@@ -6449,6 +6533,13 @@ function salahTrackReset(){
   var timer=document.getElementById('stTimer');if(timer)timer.textContent='٠:٠٠';
   var lbl=document.getElementById('stCamLbl');if(lbl)lbl.textContent='عرض الكاميرا';
   var regMsg=document.getElementById('stSumRegMsg');if(regMsg)regMsg.textContent='';
+  var _rar=document.getElementById('stAudRakNum');if(_rar)_rar.textContent='٠';
+  var _rat=document.getElementById('stAudTakNum');if(_rat)_rat.textContent='٠';
+  var _rkw=document.getElementById('stKwLast');if(_rkw)_rkw.textContent='—';
+  var _rcf=document.getElementById('stAudConf');if(_rcf)_rcf.style.display='none';
+  var _rau=document.getElementById('stAudCtrs');if(_rau)_rau.style.display='none';
+  var _rad=document.getElementById('stAudDiag');if(_rad)_rad.style.display='none';
+  var _rsw=document.getElementById('stSumAudWrap');if(_rsw)_rsw.style.display='none';
 }
 function _stMarkPrayerDone(pKey){
   var s=getDailyState();
