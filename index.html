@@ -1417,6 +1417,10 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <span style="font-size:13px;color:var(--muted)">🎙️ تحليل صوتي (يزيد الدقة)</span>
           <button id="stAudioLayerBtn" onclick="_stToggleAudioLayer()" style="border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s">متوقف</button>
         </div>
+        <div id="stQasrRow" style="display:none;align-items:center;justify-content:space-between;margin:4px 0 6px">
+          <span style="font-size:13px;color:var(--muted)">✈️ قصر الصلاة (مسافر)</span>
+          <button id="stQasrBtn" onclick="_stToggleQasr()" style="border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s">متوقف</button>
+        </div>
         <button class="st-start-btn" id="stStartBtn" onclick="salahTrackStart()">▶ ابدأ التتبّع</button>
         <div style="text-align:center;margin:10px 0 0">
           <button onclick="_stManualPrayer()" style="border:1.5px solid var(--line);background:transparent;color:var(--gold);font-size:13px;font-weight:600;padding:8px 22px;border-radius:12px;cursor:pointer;font-family:inherit">✓ سجّلتها بنفسي</button>
@@ -5867,7 +5871,7 @@ var ST={
   totalRuku:0,totalJalsa:0,inRuku:false,inJalsa:false,
   segments:[],currentSpeech:'',currentScore:null,
   speaking:false,_lastInf:0,_warned:false,
-  audioLayer:false,vadLastPulse:0,_vadSpeakStart:0
+  audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -5885,11 +5889,34 @@ function _stShowPane(name){
     if(el)el.style.display=(id===name?'':'none');
   });
 }
+function _stComputeTarget(){
+  if(ST._qasr&&['dhuhr','asr','isha'].indexOf(ST.prayer)>=0)return 2;
+  return _PRAYER_RAK[ST.prayer]||4;
+}
+function _stUpdateQasrRow(){
+  var row=document.getElementById('stQasrRow');
+  if(!row)return;
+  var canQasr=['dhuhr','asr','isha'].indexOf(ST.prayer)>=0;
+  row.style.display=canQasr?'flex':'none';
+}
+function _stToggleQasr(){
+  ST._qasr=!ST._qasr;
+  lsSet('st_qasr',ST._qasr?'1':'0');
+  var btn=document.getElementById('stQasrBtn');
+  if(btn){
+    btn.textContent=ST._qasr?'مفعّل':'متوقف';
+    btn.style.borderColor=ST._qasr?'var(--gold)':'var(--line)';
+    btn.style.color=ST._qasr?'var(--gold)':'var(--muted)';
+    btn.style.background=ST._qasr?'rgba(218,165,32,.08)':'transparent';
+  }
+  ST.target=_stComputeTarget();
+}
 function _stSelPrayer(btn){
   document.querySelectorAll('.st-prayer-btn').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
   ST.prayer=btn.dataset.p;
-  ST.target=_PRAYER_RAK[ST.prayer]||4;
+  _stUpdateQasrRow();
+  ST.target=_stComputeTarget();
 }
 function initSalahTrack(){
   ST.srAvail=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
@@ -5897,6 +5924,17 @@ function initSalahTrack(){
   if(note)note.style.display=ST.srAvail?'none':'block';
   var status=document.getElementById('stLoadStatus');
   if(status)status.textContent=ST.srAvail?'✅ التعرّف الصوتي متاح':'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
+  // Load qasr preference
+  ST._qasr=lsGet('st_qasr')==='1';
+  var qBtn=document.getElementById('stQasrBtn');
+  if(qBtn){
+    qBtn.textContent=ST._qasr?'مفعّل':'متوقف';
+    qBtn.style.borderColor=ST._qasr?'var(--gold)':'var(--line)';
+    qBtn.style.color=ST._qasr?'var(--gold)':'var(--muted)';
+    qBtn.style.background=ST._qasr?'rgba(218,165,32,.08)':'transparent';
+  }
+  _stUpdateQasrRow();
+  ST.target=_stComputeTarget();
   _stShowPane('stSetupPane');
 }
 function salahTrackBack(){
@@ -5907,7 +5945,7 @@ function salahTrackStart(){
   toast('تتبّع الصلاة يستهلك الكاميرا والمعالج — تأكد من شحن الجهاز','warning');
   var btn=document.getElementById('stStartBtn');
   if(btn)btn.disabled=true;
-  ST.target=_PRAYER_RAK[ST.prayer]||4;
+  ST.target=_stComputeTarget();
   _stShowPane('stLoadPane');
   var msg=document.getElementById('stLoadMsg');
   if(msg)msg.textContent='جارٍ تحميل مكتبة الذكاء الاصطناعي…';
@@ -6099,7 +6137,7 @@ function _stClassify(pose,W,H){
     }
   }
   if(torsoRatio>0.17&&headRel>0.23)return 'qiyam';
-  if(headRel>=0.07)return 'ruku';
+  if(headRel>=0.07&&torsoRatio<=0.15)return 'ruku';
   return 'qiyam';
 }
 function _stOnPoseChange(prev,cur){
@@ -6313,6 +6351,7 @@ function salahTrackStop(_silent){
     if(_dispDone)return;_dispDone=true;
     _tr('dispose النموذج',ok,msg);
     _tr('إعادة الواجهة ✓',true);
+    var _sb=document.getElementById('stStartBtn');if(_sb)_sb.disabled=false;
     ST._stopping=false;
     if(!_silent)setTimeout(function(){if(_traceEl)_traceEl.style.display='none';},4000);
   }
