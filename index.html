@@ -6309,17 +6309,17 @@ function _stSmAdvance(steps,skipped,reason){
     if(sm.idx>=seq.length)break;
     var from=seq[sm.idx];
     sm.idx++;sm.totalTransitions++;
+    // Rakaat++ on leaving sujud2 — before end-of-seq break so it is never skipped
+    if(from.role==='sujud2'){
+      ST.rakaat++;ST.sujudInRak=0;ST._lastVisRak=now;
+      if(navigator.vibrate)navigator.vibrate([60,30,60]);
+    }
     if(sm.idx>=seq.length)break;
     var to=seq[sm.idx];
     var conf=(reason==='audio');
     if(!conf&&ST.audioLayer&&to.audioIn&&sm._lastAudio&&
        sm._lastAudio.word===to.audioIn&&(now-sm._lastAudio.time)<4000){conf=true;}
     if(conf)sm.audioConfirmed++;
-    // Rakaat increments when leaving sujud2
-    if(from.role==='sujud2'){
-      ST.rakaat++;ST.sujudInRak=0;ST._lastVisRak=now;
-      if(navigator.vibrate)navigator.vibrate([60,30,60]);
-    }
     // Maintain inXxx flags and sub-counters from step role
     ST.inSujud=(to.role==='sujud1'||to.role==='sujud2');
     ST.inRuku=(to.role==='ruku');
@@ -6654,12 +6654,21 @@ function _stOnKeyword(word){
   sm._lastAudio={word:word,time:now};
   if(idx+1>=seq.length)return;
   var nxt=seq[idx+1];
+  // Fix 1: ihram takbeer — first sound before any transition, never schedule recovery
+  if(word==='takbir'&&sm.idx===0&&sm.totalTransitions===0){
+    _stSmDiag('🔊 تكبيرة الإحرام');return;
+  }
   var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
   if(!coolOk)return;
   if(nxt.audioIn===word){
     var snapIdx=sm.idx;
     setTimeout(function(){
       if(!ST.active||!ST.sm||ST.sm.idx!==snapIdx)return;
+      // Fix 2: if visual confidently shows user is still in current pose → defer
+      var _cs=ST.sm.seq[snapIdx];
+      if(_cs&&ST.pose===_cs.pose&&ST.poseConf>=0.4){
+        _stSmDiag('🔊 مؤجَّل: المستخدم ما زال في '+(_cs.label||_cs.pose));return;
+      }
       sm._lastAudioAdvance=Date.now();
       _stSmAdvance(1,false,'audio');
     },4000);
