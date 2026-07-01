@@ -855,6 +855,8 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .st-live-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-weight:600;margin-inline-start:auto;}
 .st-live-pulse{width:7px;height:7px;border-radius:50%;background:var(--green);animation:livePulse 1.8s ease-in-out infinite;}
 @keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(63,174,142,.5);}60%{box-shadow:0 0 0 6px rgba(63,174,142,0);}}
+@keyframes ihramFlash{0%{background:rgba(78,202,168,.3);border-radius:4px;}100%{background:transparent;}}
+.st-ihram-ok{color:var(--green);font-weight:700;animation:ihramFlash .8s ease-out;}
 .st-timer-lbl{font-size:14px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
 .st-pose-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;}
 .st-pose-ring{width:114px;height:114px;border-radius:50%;border:3px solid var(--line);display:flex;align-items:center;justify-content:center;transition:border-color .3s,box-shadow .3s;}
@@ -1536,6 +1538,11 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <span id="stSmDiag" style="opacity:.65;font-size:10px;direction:rtl"></span>
       </div>
 
+      <!-- Ihram takbeer indicator (visible when audioLayer=on) -->
+      <div id="stIhramRow" style="display:none;text-align:center;font-size:12px;color:var(--muted);padding:1px 16px 3px;direction:rtl">
+        تكبيرة الإحرام: <span id="stIhramBadge">—</span>
+      </div>
+
       <!-- Fixed stop button -->
       <div class="st-bottom-bar">
         <button class="st-stop-btn" onclick="salahTrackStop()">⏹ إيقاف</button>
@@ -1556,6 +1563,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <div style="font-size:13px;color:var(--muted)">بصري: <b id="stSumVisRak">—</b> · صوت: <b id="stSumAudRak">—</b></div>
           <div id="stSumAudConf" style="display:none;font-size:12px;color:var(--green);margin-top:4px">🔊 مؤكَّد صوتياً: <b id="stSumAudConfVal">٠/٠</b></div>
           <div id="stSumAudNote" style="display:none;font-size:11px;color:var(--gold);margin-top:4px">⚠️ اختلاف — راجع عدد الركعات</div>
+          <div id="stSumIhram" style="display:none;font-size:12px;color:var(--muted);margin-top:4px">تكبيرة الإحرام: <span id="stSumIhramVal">—</span></div>
         </div>
         <div class="st-segs-title">تفاصيل القراءة</div>
         <div id="stSegsList"></div>
@@ -5955,7 +5963,8 @@ var ST={
   segments:[],currentSpeech:'',
   speaking:false,_lastInf:0,
   audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false,
-  audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null,_smFinTO:null,sm:null
+  audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null,_smFinTO:null,sm:null,
+  _ihramHeard:false
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -6075,6 +6084,8 @@ function _stResetSession(){
   var _kw=document.getElementById('stKwLast');if(_kw)_kw.textContent='—';
   var _cf=document.getElementById('stAudConf');if(_cf)_cf.style.display='none';
   clearTimeout(ST._audConfTO);ST._audConfTO=null;
+  ST._ihramHeard=false;
+  var _ib=document.getElementById('stIhramBadge');if(_ib){_ib.textContent='—';_ib.className='';}
   // UI: speech card
   var _sc=document.getElementById('stSrCard');if(_sc)_sc.style.display='';
   var _sh=document.getElementById('stSrHeard');if(_sh)_sh.textContent='—';
@@ -6188,6 +6199,7 @@ function _stBeginSession(){
   // Show audio UI elements if audioLayer active
   var _sac=document.getElementById('stAudCtrs');if(_sac)_sac.style.display=ST.audioLayer?'grid':'none';
   var _sad=document.getElementById('stAudDiag');if(_sad)_sad.style.display=ST.audioLayer?'flex':'none';
+  var _sir=document.getElementById('stIhramRow');if(_sir)_sir.style.display=ST.audioLayer?'':'none';
   // Pose loop
   rakWakeLock(true);
   _stPoseLoop();
@@ -6656,7 +6668,9 @@ function _stOnKeyword(word){
   var nxt=seq[idx+1];
   // Fix 1: ihram takbeer — first sound before any transition, never schedule recovery
   if(word==='takbir'&&sm.idx===0&&sm.totalTransitions===0){
-    _stSmDiag('🔊 تكبيرة الإحرام');return;
+    _stSmDiag('🔊 تكبيرة الإحرام');
+    if(!ST._ihramHeard){ST._ihramHeard=true;_stMarkIhramHeard();}
+    return;
   }
   var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
   if(!coolOk)return;
@@ -6679,6 +6693,16 @@ function _stOnKeyword(word){
 function _stUpdateAudioCtrs(){
   var _ar=document.getElementById('stAudRakNum');if(_ar)_ar.textContent=_stAr(ST.audioRak);
   var _at=document.getElementById('stAudTakNum');if(_at)_at.textContent=_stAr(ST.audioTakbir);
+}
+function _stMarkIhramHeard(){
+  var _ib=document.getElementById('stIhramBadge');
+  if(!_ib)return;
+  _ib.textContent='✓';
+  _ib.className='';
+  void _ib.offsetWidth; // force reflow so animation re-triggers
+  _ib.className='st-ihram-ok';
+  var _row=document.getElementById('stIhramRow');
+  if(_row)_row.style.color='var(--green)';
 }
 function salahTrackStop(_silent){
   /* idempotent: ignore double-stop (e.g. button + go() teardown racing) */
@@ -6792,6 +6816,13 @@ function salahTrackFinish(){
         var _sacv=document.getElementById('stSumAudConfVal');
         if(_sac&&_sacv){_sac.style.display='';_sacv.textContent=_stAr(ST.sm.audioConfirmed)+'/'+_stAr(ST.sm.totalTransitions);}
       }
+      var _sih=document.getElementById('stSumIhram');
+      var _sihv=document.getElementById('stSumIhramVal');
+      if(_sih&&_sihv){
+        _sih.style.display='';
+        if(ST._ihramHeard){_sihv.textContent='مؤكَّدة ✓';_sihv.style.color='var(--green)';}
+        else{_sihv.textContent='لم تُرصد';_sihv.style.color='var(--muted)';}
+      }
     }
   }
 }
@@ -6813,6 +6844,8 @@ function salahTrackReset(){
   var _rad=document.getElementById('stAudDiag');if(_rad)_rad.style.display='none';
   var _rsw=document.getElementById('stSumAudWrap');if(_rsw)_rsw.style.display='none';
   var _rsc=document.getElementById('stSumAudConf');if(_rsc)_rsc.style.display='none';
+  var _rih=document.getElementById('stIhramRow');if(_rih){_rih.style.display='none';_rih.style.color='var(--muted)';}
+  var _rsih=document.getElementById('stSumIhram');if(_rsih)_rsih.style.display='none';
 }
 function _stMarkPrayerDone(pKey){
   var s=getDailyState();
