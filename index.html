@@ -1463,6 +1463,10 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <div class="st-prog-label"><span>التقدّم نحو <span id="stRakTarget">—</span> ركعات</span><span id="stProgText">٠ / —</span></div>
       </div>
 
+      <!-- State machine position bar -->
+      <div id="stSmBar" style="text-align:center;padding:1px 0 5px;font-size:12px;color:var(--muted);direction:rtl;min-height:18px">
+        <span id="stSmPos" style="color:var(--text);font-weight:600">—</span><span style="margin:0 5px;opacity:.4">·</span>التالي: <span id="stSmNext" style="color:var(--gold)">—</span>
+      </div>
       <!-- Live counters -->
       <div class="st-ctrs">
         <div class="st-ctr-card st-ctr-gold">
@@ -1529,6 +1533,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <span style="opacity:.65">🎙️ آخر كلمة:</span>
         <span id="stKwLast" style="color:var(--gold);font-weight:600">—</span>
         <span id="stAudConf" style="display:none;color:var(--green);font-weight:700">✓ سمع الله لمن حمده</span>
+        <span id="stSmDiag" style="opacity:.65;font-size:10px;direction:rtl"></span>
       </div>
 
       <!-- Fixed stop button -->
@@ -1549,6 +1554,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <div id="stSumAudWrap" style="display:none;text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);margin:8px 0 2px">
           <div style="font-size:13px;color:var(--muted)">بصري: <b id="stSumVisRak">—</b> · صوت: <b id="stSumAudRak">—</b></div>
+          <div id="stSumAudConf" style="display:none;font-size:12px;color:var(--green);margin-top:4px">🔊 مؤكَّد صوتياً: <b id="stSumAudConfVal">٠/٠</b></div>
           <div id="stSumAudNote" style="display:none;font-size:11px;color:var(--gold);margin-top:4px">⚠️ اختلاف — راجع عدد الركعات</div>
         </div>
         <div class="st-segs-title">تفاصيل القراءة</div>
@@ -5949,7 +5955,7 @@ var ST={
   segments:[],currentSpeech:'',
   speaking:false,_lastInf:0,
   audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false,
-  audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null
+  audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null,_smFinTO:null,sm:null
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -6072,6 +6078,12 @@ function _stResetSession(){
   // UI: speech card
   var _sc=document.getElementById('stSrCard');if(_sc)_sc.style.display='';
   var _sh=document.getElementById('stSrHeard');if(_sh)_sh.textContent='—';
+  // State machine reset
+  if(ST._smFinTO){clearTimeout(ST._smFinTO);ST._smFinTO=null;}
+  ST.sm=null;
+  var _sp=document.getElementById('stSmPos');if(_sp)_sp.textContent='—';
+  var _sn=document.getElementById('stSmNext');if(_sn)_sn.textContent='—';
+  var _smDg=document.getElementById('stSmDiag');if(_smDg)_smDg.textContent='';
 }
 function salahTrackStart(){
   toast('تتبّع الصلاة يستهلك الكاميرا والمعالج — تأكد من شحن الجهاز','warning');
@@ -6139,6 +6151,8 @@ function _stBeginSession(){
   if(wrap)wrap.style.display='';
   ST.active=true;
   ST.startTime=Date.now();
+  ST.sm={seq:_stGenerateSeq(ST.target),idx:0,enteredAt:Date.now(),stuckSince:null,
+         audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0};
   _stShowPane('stActivePane');
   // Update prayer chip + target
   var chip=document.getElementById('stPrayerChip');
@@ -6274,36 +6288,110 @@ function _stClassify(pose,W,H){
   if(headRel>=0.07&&torsoRatio<=0.15)return 'ruku';
   return 'qiyam';
 }
-function _stOnPoseChange(prev,cur){
-  // Ruku: entering from qiyam
-  if(cur==='ruku'&&prev==='qiyam'){ST.totalRuku++;ST.inRuku=true;_stUpdateCounters();}
-  if(cur!=='ruku')ST.inRuku=false;
-  // Jalsa: sitting between sujuds
-  if(cur==='jalsa'&&!ST.inJalsa){
-    ST.inJalsa=true;ST.totalJalsa++;_stUpdateCounters();
-    if(ST.currentSpeech){var ej=_stGetExpected('jalsa');if(ej){var sj=_stScoreMatch(ST.currentSpeech,ej);ST.segments.push({pose:'جلوس',heard:ST.currentSpeech,score:sj});_stShowSrScore(sj);}ST.currentSpeech='';}
+function _stGenerateSeq(target){
+  var seq=[];
+  for(var r=1;r<=target;r++){
+    var isLast=(r===target),needsT1=(r===2&&target>2);
+    seq.push({pose:'qiyam',rak:r,role:'qiyam1',label:'قيام',audioIn:r===1?null:'takbir'});
+    seq.push({pose:'ruku', rak:r,role:'ruku',  label:'ركوع',audioIn:'takbir'});
+    seq.push({pose:'qiyam',rak:r,role:'qiyam2',label:'قيام',audioIn:'tasmi3'});
+    seq.push({pose:'sujud',rak:r,role:'sujud1',label:'السجدة الأولى',audioIn:'takbir'});
+    seq.push({pose:'jalsa',rak:r,role:'jalsa_bein',label:'جلسة',audioIn:'takbir'});
+    seq.push({pose:'sujud',rak:r,role:'sujud2',label:'السجدة الثانية',audioIn:'takbir'});
+    if(needsT1)seq.push({pose:'jalsa',rak:r,role:'tashahud1',label:'التشهّد الأول',audioIn:'takbir'});
+    if(isLast)seq.push({pose:'jalsa',rak:r,role:'tashahud_final',label:'التشهّد الأخير',audioIn:'takbir',isFinal:true});
   }
-  if(cur!=='jalsa')ST.inJalsa=false;
-  // Sujud
-  if(cur==='sujud'&&!ST.inSujud){
-    ST.inSujud=true;ST.sujudInRak++;ST.totalSujud++;_stUpdateCounters();
-    if(navigator.vibrate)navigator.vibrate(40);
-    if(ST.currentSpeech){var exp=_stGetExpected('sujud');var sc=exp?_stScoreMatch(ST.currentSpeech,exp):null;ST.segments.push({pose:'سجود',heard:ST.currentSpeech,score:sc});ST.currentSpeech='';_stShowSrScore(sc);}
-  }
-  if(cur!=='sujud'&&ST.inSujud){
-    ST.inSujud=false;
-    if(ST.sujudInRak>=2){
-      ST.sujudInRak=0;
-      if(!ST.audioLayer||Date.now()-ST._lastAudRak>=4000){
-        ST.rakaat++;ST._lastVisRak=Date.now();
-        if(navigator.vibrate)navigator.vibrate([60,30,60]);
-        if(ST.rakaat>=ST.target)salahTrackFinish();
-      }
-      _stUpdateCounters();
+  return seq;
+}
+function _stSmAdvance(steps,skipped,reason){
+  var sm=ST.sm,seq=sm.seq,now=Date.now();
+  for(var i=0;i<steps;i++){
+    if(sm.idx>=seq.length)break;
+    var from=seq[sm.idx];
+    sm.idx++;sm.totalTransitions++;
+    if(sm.idx>=seq.length)break;
+    var to=seq[sm.idx];
+    var conf=(reason==='audio');
+    if(!conf&&ST.audioLayer&&to.audioIn&&sm._lastAudio&&
+       sm._lastAudio.word===to.audioIn&&(now-sm._lastAudio.time)<4000){conf=true;}
+    if(conf)sm.audioConfirmed++;
+    // Rakaat increments when leaving sujud2
+    if(from.role==='sujud2'){
+      ST.rakaat++;ST.sujudInRak=0;ST._lastVisRak=now;
+      if(navigator.vibrate)navigator.vibrate([60,30,60]);
     }
+    // Maintain inXxx flags and sub-counters from step role
+    ST.inSujud=(to.role==='sujud1'||to.role==='sujud2');
+    ST.inRuku=(to.role==='ruku');
+    ST.inJalsa=(to.role==='jalsa_bein'||to.role==='tashahud1'||to.role==='tashahud_final');
+    if(to.role==='ruku')ST.totalRuku++;
+    if(to.role==='sujud1'){ST.sujudInRak=1;ST.totalSujud++;if(navigator.vibrate)navigator.vibrate(40);}
+    if(to.role==='sujud2'){ST.sujudInRak=2;ST.totalSujud++;if(navigator.vibrate)navigator.vibrate(40);}
+    if(to.role==='jalsa_bein'||to.role==='tashahud1')ST.totalJalsa++;
+    if(to.role==='tashahud_final'){
+      ST.totalJalsa++;
+      if(ST._smFinTO)clearTimeout(ST._smFinTO);
+      (function(cs,cm){
+        ST._smFinTO=setTimeout(function(){
+          if(ST.active&&cm.idx<cs.length&&cs[cm.idx].isFinal)salahTrackFinish();
+        },15000);
+      })(seq,sm);
+    }
+    var tag=[];
+    if(skipped&&i===0)tag.push('⏭');
+    if(reason==='resync')tag.push('↻ مزامنة');
+    if(reason==='audio')tag.push('🔊 صوتي');
+    if(conf)tag.push('✓');
+    if(tag.length)_stSmDiag(tag.join(' ')+': '+from.role+'→'+to.role);
   }
-  // Ruku speech segment: captured when returning to qiyam
-  if(cur==='qiyam'&&ST.currentSpeech){var exp2=_stGetExpected('ruku');if(prev==='ruku'&&exp2){var sc2=_stScoreMatch(ST.currentSpeech,exp2);ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});_stShowSrScore(sc2);}ST.currentSpeech='';}
+  sm.enteredAt=now;sm.stuckSince=null;
+  _stUpdateCounters();_stUpdateSmBar();
+}
+function _stSmResync(cur){
+  var sm=ST.sm,seq=sm.seq,idx=sm.idx;
+  for(var i=idx+1;i<Math.min(idx+8,seq.length);i++){
+    if(seq[i].pose===cur){sm.stuckSince=null;_stSmAdvance(i-idx,false,'resync');return;}
+  }
+}
+function _stUpdateSmBar(){
+  var sm=ST.sm;if(!sm)return;
+  var seq=sm.seq,idx=sm.idx;
+  var cur=idx<seq.length?seq[idx]:null,nxt=idx+1<seq.length?seq[idx+1]:null;
+  var pe=document.getElementById('stSmPos'),ne=document.getElementById('stSmNext');
+  if(pe)pe.textContent=cur?'الركعة '+_stAr(cur.rak)+' · '+cur.label:'اكتمال الصلاة';
+  if(ne)ne.textContent=nxt?nxt.label:'سلام';
+}
+function _stSmDiag(msg){
+  var el=document.getElementById('stSmDiag');if(el)el.textContent=msg;
+  console.log('[ST-SM]',msg);
+}
+function _stCaptureSegment(prev,cur){
+  if(cur==='jalsa'&&ST.currentSpeech){
+    var ej=_stGetExpected('jalsa');
+    if(ej){var sj=_stScoreMatch(ST.currentSpeech,ej);ST.segments.push({pose:'جلوس',heard:ST.currentSpeech,score:sj});_stShowSrScore(sj);}
+    ST.currentSpeech='';
+  }
+  if(cur==='sujud'&&ST.currentSpeech){
+    var exp=_stGetExpected('sujud');var sc=exp?_stScoreMatch(ST.currentSpeech,exp):null;
+    ST.segments.push({pose:'سجود',heard:ST.currentSpeech,score:sc});ST.currentSpeech='';_stShowSrScore(sc);
+  }
+  if(cur==='qiyam'&&prev==='ruku'&&ST.currentSpeech){
+    var exp2=_stGetExpected('ruku');
+    if(exp2){var sc2=_stScoreMatch(ST.currentSpeech,exp2);ST.segments.push({pose:'ركوع',heard:ST.currentSpeech,score:sc2});_stShowSrScore(sc2);}
+    ST.currentSpeech='';
+  }
+}
+function _stOnPoseChange(prev,cur){
+  if(!ST.active||!ST.sm)return;
+  _stCaptureSegment(prev,cur);
+  var sm=ST.sm,seq=sm.seq,idx=sm.idx;
+  if(idx>=seq.length)return;
+  var curStep=seq[idx],nxt=seq[idx+1],nxt2=seq[idx+2];
+  if(cur===curStep.pose){sm.stuckSince=null;return;}
+  if(nxt&&cur===nxt.pose){sm.stuckSince=null;_stSmAdvance(1,false);return;}
+  if(nxt2&&cur===nxt2.pose&&ST.poseConf>=0.25){sm.stuckSince=null;_stSmAdvance(2,true);return;}
+  if(!sm.stuckSince)sm.stuckSince=Date.now();
+  else if(Date.now()-sm.stuckSince>=20000)_stSmResync(cur);
 }
 function _stGetExpected(pose){
   var E={
@@ -6544,31 +6632,39 @@ function _stKeywordScan(text){
   if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
     if(now-ST._lastTasmi3>=1800){ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
   }
-  if(norm.indexOf('اكبر')>=0&&ST.pose!=='sujud'&&ST.pose!=='jalsa'&&ST.pose!=='ruku'){
+  if(norm.indexOf('اكبر')>=0){
     if(now-ST._lastTakbir>=1800){ST._lastTakbir=now;_stOnKeyword('takbir');}
   }
 }
-function _stOnKeyword(type){
+function _stOnKeyword(word){
   if(!ST.active)return;
   var now=Date.now();
-  if(type==='tasmi3'){
+  if(word==='tasmi3'){
     ST.audioRak++;
-    var _kw=document.getElementById('stKwLast');if(_kw)_kw.textContent='سمع الله لمن حمده';
-    var _cf=document.getElementById('stAudConf');
-    if(_cf){_cf.style.display='';clearTimeout(ST._audConfTO);ST._audConfTO=setTimeout(function(){var c=document.getElementById('stAudConf');if(c)c.style.display='none';},2200);}
-    _stUpdateAudioCtrs();
-    if(now-ST._lastVisRak<4000)return;
-    if(ST.pose==='unknown'||(Date.now()-ST._lastVisRak>25000)){
-      if(now-ST._lastAudRak<4000)return;
-      ST._lastAudRak=now;ST.sujudInRak=0;ST.rakaat++;
-      _stUpdateCounters();_stUpdateAudioCtrs();
-      if(navigator.vibrate)navigator.vibrate([60,30,60]);
-      if(ST.rakaat>=ST.target)salahTrackFinish();
-    }
-  }else if(type==='takbir'){
+    var kw=document.getElementById('stKwLast');if(kw)kw.textContent='سمع الله لمن حمده';
+    var cf=document.getElementById('stAudConf');
+    if(cf){cf.style.display='';clearTimeout(ST._audConfTO);ST._audConfTO=setTimeout(function(){var c=document.getElementById('stAudConf');if(c)c.style.display='none';},2200);}
+  }else{
     ST.audioTakbir++;
-    var _kw2=document.getElementById('stKwLast');if(_kw2)_kw2.textContent='الله أكبر';
-    _stUpdateAudioCtrs();
+    var kw2=document.getElementById('stKwLast');if(kw2)kw2.textContent='الله أكبر';
+  }
+  _stUpdateAudioCtrs();
+  if(!ST.sm)return;
+  var sm=ST.sm,seq=sm.seq,idx=sm.idx;
+  sm._lastAudio={word:word,time:now};
+  if(idx+1>=seq.length)return;
+  var nxt=seq[idx+1];
+  var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
+  if(!coolOk)return;
+  if(nxt.audioIn===word){
+    var snapIdx=sm.idx;
+    setTimeout(function(){
+      if(!ST.active||!ST.sm||ST.sm.idx!==snapIdx)return;
+      sm._lastAudioAdvance=Date.now();
+      _stSmAdvance(1,false,'audio');
+    },4000);
+  }else if(word==='tasmi3'){
+    _stSmDiag('🔊 تسميع خارج الموضع (متوقّع: '+(nxt.audioIn||'—')+')');
   }
 }
 function _stUpdateAudioCtrs(){
@@ -6621,6 +6717,7 @@ function salahTrackStop(_silent){
 
   /* ── 4b. Clear pending audio UI timeouts ─────────────────────────────────── */
   clearTimeout(ST._audConfTO);ST._audConfTO=null;
+  if(ST._smFinTO){clearTimeout(ST._smFinTO);ST._smFinTO=null;}
 
   /* ── 5. AudioContext ─────────────────────────────────────────────────────── */
   try{if(ST.audioCtx){ST.audioCtx.close().catch(function(){});ST.audioCtx=null;ST.analyser=null;ST._vadData=null;}_tr('إغلاق AudioContext',true);}
@@ -6681,6 +6778,11 @@ function salahTrackFinish(){
       var _svr=document.getElementById('stSumVisRak');if(_svr)_svr.textContent=_stAr(ST.rakaat);
       var _sar=document.getElementById('stSumAudRak');if(_sar)_sar.textContent=_stAr(ST.audioRak);
       var _san=document.getElementById('stSumAudNote');if(_san)_san.style.display=(ST.audioRak!==ST.rakaat)?'':'none';
+      if(ST.sm){
+        var _sac=document.getElementById('stSumAudConf');
+        var _sacv=document.getElementById('stSumAudConfVal');
+        if(_sac&&_sacv){_sac.style.display='';_sacv.textContent=_stAr(ST.sm.audioConfirmed)+'/'+_stAr(ST.sm.totalTransitions);}
+      }
     }
   }
 }
@@ -6701,6 +6803,7 @@ function salahTrackReset(){
   var _rau=document.getElementById('stAudCtrs');if(_rau)_rau.style.display='none';
   var _rad=document.getElementById('stAudDiag');if(_rad)_rad.style.display='none';
   var _rsw=document.getElementById('stSumAudWrap');if(_rsw)_rsw.style.display='none';
+  var _rsc=document.getElementById('stSumAudConf');if(_rsc)_rsc.style.display='none';
 }
 function _stMarkPrayerDone(pKey){
   var s=getDailyState();
