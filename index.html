@@ -1535,7 +1535,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <span style="opacity:.65">🎙️ آخر كلمة:</span>
         <span id="stKwLast" style="color:var(--gold);font-weight:600">—</span>
         <span id="stAudConf" style="display:none;color:var(--green);font-weight:700">✓ سمع الله لمن حمده</span>
-        <span id="stSmDiag" style="opacity:.65;font-size:10px;direction:rtl"></span>
+        <span id="stSmDiag" style="opacity:.65;font-size:10px;direction:rtl;white-space:pre-line"></span>
       </div>
 
       <!-- Ihram takbeer indicator (visible when audioLayer=on) -->
@@ -5964,7 +5964,7 @@ var ST={
   speaking:false,_lastInf:0,
   audioLayer:false,vadLastPulse:0,_vadSpeakStart:0,_qasr:false,
   audioRak:0,audioTakbir:0,_lastTasmi3:0,_lastTakbir:0,_lastVisRak:0,_lastAudRak:0,_audConfTO:null,_smFinTO:null,sm:null,
-  _ihramHeard:false
+  _ihramHeard:false,_gen:0
 };
 var _PRAYER_RAK={fajr:2,dhuhr:4,asr:4,maghrib:3,isha:4};
 
@@ -6013,6 +6013,7 @@ function _stSelPrayer(btn){
   if(!ST.active)_stResetSession();
 }
 function initSalahTrack(){
+  if(ST.active)salahTrackStop(true);
   var _nsrPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   var _silPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SilentSpeech;
   var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
@@ -6086,6 +6087,7 @@ function _stResetSession(){
   clearTimeout(ST._audConfTO);ST._audConfTO=null;
   ST._ihramHeard=false;
   var _ib=document.getElementById('stIhramBadge');if(_ib){_ib.textContent='—';_ib.className='';}
+  var _irow=document.getElementById('stIhramRow');if(_irow)_irow.style.color='var(--muted)';
   // UI: speech card
   var _sc=document.getElementById('stSrCard');if(_sc)_sc.style.display='';
   var _sh=document.getElementById('stSrHeard');if(_sh)_sh.textContent='—';
@@ -6097,6 +6099,7 @@ function _stResetSession(){
   var _smDg=document.getElementById('stSmDiag');if(_smDg)_smDg.textContent='';
 }
 function salahTrackStart(){
+  ST._gen=(ST._gen||0)+1;var _myGen=ST._gen;
   toast('تتبّع الصلاة يستهلك الكاميرا والمعالج — تأكد من شحن الجهاز','warning');
   var btn=document.getElementById('stStartBtn');
   if(btn)btn.disabled=true;
@@ -6107,12 +6110,14 @@ function salahTrackStart(){
   _stResetSession();
   ST.elapsed=0;ST.active=false;
   _loadTFJS(function(err){
+    if(_myGen!==ST._gen)return; // cancelled while loading TF.js
     if(err){
       console.error('[ST] TF.js load error:',err);
       _stErrMsg('تعذّر تحميل المكتبة — تأكّد من الإنترنت وأعد المحاولة.\n('+err.message+')');return;
     }
     if(msg)msg.textContent='جارٍ تحميل نموذج الوضعية…';
     _rakAILoadDet(function(det,err2){
+      if(_myGen!==ST._gen)return; // cancelled while loading detector
       if(!det){
         console.error('[ST] detector load error:',err2);
         _stErrMsg('تعذّر تحميل النموذج — '+(err2?err2.message:'خطأ غير معروف')+'.\nتأكّد من الإنترنت.');return;
@@ -6125,22 +6130,30 @@ function salahTrackStart(){
       if(_needAudio){
         navigator.mediaDevices.getUserMedia({video:_vcon,audio:true})
         .then(function(stream){
+          if(_myGen!==ST._gen){stream.getTracks().forEach(function(t){t.stop();});return;}
           var tracks=stream.getTracks();
           var vTracks=tracks.filter(function(t){return t.kind==='video';});
           var aTracks=tracks.filter(function(t){return t.kind==='audio';});
           ST.camStream=new MediaStream(vTracks);
           ST.audioStream=new MediaStream(aTracks);
-          _stBeginSession();
+          _stBeginSession(_myGen);
         })
         .catch(function(e){
+          if(_myGen!==ST._gen)return;
           console.error('[ST] camera+audio error:',e);
           navigator.mediaDevices.getUserMedia({video:_vcon})
-          .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
+          .then(function(stream){
+            if(_myGen!==ST._gen){stream.getTracks().forEach(function(t){t.stop();});return;}
+            ST.camStream=stream;ST.audioStream=null;_stBeginSession(_myGen);
+          })
           .catch(function(e2){console.error('[ST] camera video-only error:',e2);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
         });
       }else{
         navigator.mediaDevices.getUserMedia({video:_vcon})
-        .then(function(stream){ST.camStream=stream;ST.audioStream=null;_stBeginSession();})
+        .then(function(stream){
+          if(_myGen!==ST._gen){stream.getTracks().forEach(function(t){t.stop();});return;}
+          ST.camStream=stream;ST.audioStream=null;_stBeginSession(_myGen);
+        })
         .catch(function(e){console.error('[ST] camera error:',e);_stErrMsg('لا يمكن الوصول إلى الكاميرا — تحقّق من الأذونات.');});
       }
     });
@@ -6155,7 +6168,13 @@ function _stErrMsg(msg){
   var st=document.getElementById('stLoadStatus');
   if(st)st.textContent=msg;
 }
-function _stBeginSession(){
+function _stBeginSession(gen){
+  if(gen!==ST._gen){
+    // cancelled while loading — release any acquired streams
+    if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}
+    if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}
+    return;
+  }
   var video=document.getElementById('stVideo');
   var wrap=document.getElementById('stVidWrap');
   if(video){video.srcObject=ST.camStream;video.play().catch(function(e){console.error('[ST] video.play failed:',e&&e.message||String(e));if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}salahTrackStop(true);_stErrMsg('تعذّر تشغيل الكاميرا — حاول مجدداً');});}
@@ -6163,7 +6182,7 @@ function _stBeginSession(){
   ST.active=true;
   ST.startTime=Date.now();
   ST.sm={seq:_stGenerateSeq(ST.target),idx:0,enteredAt:Date.now(),stuckSince:null,
-         audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0};
+         audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0,_diagLog:[]};
   _stShowPane('stActivePane');
   // Update prayer chip + target
   var chip=document.getElementById('stPrayerChip');
@@ -6331,7 +6350,7 @@ function _stSmAdvance(steps,skipped,reason){
     var conf=(reason==='audio');
     if(!conf&&ST.audioLayer&&to.audioIn&&sm._lastAudio&&
        sm._lastAudio.word===to.audioIn&&(now-sm._lastAudio.time)<4000){conf=true;}
-    if(conf)sm.audioConfirmed++;
+    if(conf){sm.audioConfirmed++;sm._lastAudio=null;} // consume: one event → one confirmation
     // Maintain inXxx flags and sub-counters from step role
     ST.inSujud=(to.role==='sujud1'||to.role==='sujud2');
     ST.inRuku=(to.role==='ruku');
@@ -6350,7 +6369,7 @@ function _stSmAdvance(steps,skipped,reason){
       })(seq,sm);
     }
     var tag=[];
-    if(skipped&&i===0)tag.push('⏭');
+    if(skipped)tag.push('⏭');
     if(reason==='resync')tag.push('↻ مزامنة');
     if(reason==='audio')tag.push('🔊 صوتي');
     if(conf)tag.push('✓');
@@ -6364,6 +6383,7 @@ function _stSmResync(cur){
   for(var i=idx+1;i<Math.min(idx+8,seq.length);i++){
     if(seq[i].pose===cur){sm.stuckSince=null;_stSmAdvance(i-idx,false,'resync');return;}
   }
+  sm.stuckSince=Date.now(); // no match found — wait another 20s before next attempt
 }
 function _stUpdateSmBar(){
   var sm=ST.sm;if(!sm)return;
@@ -6374,7 +6394,13 @@ function _stUpdateSmBar(){
   if(ne)ne.textContent=nxt?nxt.label:'سلام';
 }
 function _stSmDiag(msg){
-  var el=document.getElementById('stSmDiag');if(el)el.textContent=msg;
+  if(ST.sm){
+    if(!ST.sm._diagLog)ST.sm._diagLog=[];
+    ST.sm._diagLog.push(msg);
+    if(ST.sm._diagLog.length>3)ST.sm._diagLog.shift();
+  }
+  var el=document.getElementById('stSmDiag');
+  if(el)el.textContent=ST.sm&&ST.sm._diagLog?ST.sm._diagLog.join('\n'):msg;
   console.log('[ST-SM]',msg);
 }
 function _stCaptureSegment(prev,cur){
@@ -6515,8 +6541,14 @@ function _stStartSpeechNative(){
   }catch(ex){permP=Promise.resolve();}
   permP.then(function(){_stNsrStart(nsr,'ar-SA');}).catch(function(){});
 }
-function _stNsrStart(nsr,lang){
-  if(!ST.active||ST._stopping)return;
+function _stNsrStart(nsr,lang,_retries){
+  if(!ST.active)return;
+  if(ST._stopping){
+    // dispose window from a previous stop — retry up to 5×400ms
+    if((_retries||0)>=5)return;
+    setTimeout(function(){_stNsrStart(nsr,lang,(_retries||0)+1);},400);
+    return;
+  }
   var ss=ST._silentSpeech;
   var muteP;
   try{muteP=ss?ss.muteBeep():Promise.resolve();}catch(ex){muteP=Promise.resolve();}
@@ -6666,10 +6698,11 @@ function _stOnKeyword(word){
   sm._lastAudio={word:word,time:now};
   if(idx+1>=seq.length)return;
   var nxt=seq[idx+1];
-  // Fix 1: ihram takbeer — first sound before any transition, never schedule recovery
-  if(word==='takbir'&&sm.idx===0&&sm.totalTransitions===0){
+  // Ihram takbeer: only while still at step 0 AND ihram not yet detected.
+  // After first ihram, subsequent takbirs at idx=0 pass to normal audio-recovery path.
+  if(word==='takbir'&&sm.idx===0&&!ST._ihramHeard){
     _stSmDiag('🔊 تكبيرة الإحرام');
-    if(!ST._ihramHeard){ST._ihramHeard=true;_stMarkIhramHeard();}
+    ST._ihramHeard=true;_stMarkIhramHeard();
     return;
   }
   var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
@@ -6708,6 +6741,7 @@ function salahTrackStop(_silent){
   /* idempotent: ignore double-stop (e.g. button + go() teardown racing) */
   if(ST._stopping)return;
   ST._stopping=true;
+  ST._gen=(ST._gen||0)+1; // invalidate any in-flight salahTrackStart load chain
   ST.active=false;  /* halts _stPoseLoop, timers, VAD immediately */
 
   var _traceEl=document.getElementById('stStopTrace');
@@ -6811,7 +6845,7 @@ function salahTrackFinish(){
       var _svr=document.getElementById('stSumVisRak');if(_svr)_svr.textContent=_stAr(ST.rakaat);
       var _sar=document.getElementById('stSumAudRak');if(_sar)_sar.textContent=_stAr(ST.audioRak);
       var _san=document.getElementById('stSumAudNote');if(_san)_san.style.display=(ST.audioRak!==ST.rakaat)?'':'none';
-      if(ST.sm){
+      if(ST.sm&&ST.sm.totalTransitions>0){
         var _sac=document.getElementById('stSumAudConf');
         var _sacv=document.getElementById('stSumAudConfVal');
         if(_sac&&_sacv){_sac.style.display='';_sacv.textContent=_stAr(ST.sm.audioConfirmed)+'/'+_stAr(ST.sm.totalTransitions);}
