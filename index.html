@@ -2656,6 +2656,11 @@ function _bmTap(){
   if(_bmState.taps>=7){_bmState.taps=0;_bmShowPanel();return;}
   _bmState.tapTO=setTimeout(function(){_bmState.taps=0;},1500);
 }
+/* ?bench=1 URL param + window.openBench() console shortcut */
+window.openBench=function(){_bmShowPanel();};
+if(new URLSearchParams(location.search).get('bench')==='1'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_bmShowPanel,400);});
+}
 function _bmShowPanel(){
   if(_bmState.panel){_bmState.panel.style.display='flex';return;}
   var d=document.createElement('div');
