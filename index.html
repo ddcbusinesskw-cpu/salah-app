@@ -2126,7 +2126,7 @@ function go(id){
   if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
   if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
-  if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();}
+  if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
@@ -2152,7 +2152,7 @@ function go(id){
 }
 /* ===== تسميع الحفظ v2 ===== */
 var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
-var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm'};
+var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm',_cascBuf:null};
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
@@ -2271,16 +2271,85 @@ function mem2Start(){
   _mem2Render();_mem2UpdateBar();
 }
 /* ── Page mode helpers ─────────────────────────────────────────────────── */
+/* جدول حدود الصفحات الدقيق: _QP[i] = surah*1000+ayah (1-indexed) لأول آية في الصفحة i+1 */
+var _QP=[
+1001,2001,2006,2017,2025,2030,2038,2049,2055,2062,
+2070,2077,2084,2092,2098,2106,2113,2120,2127,2133,
+2141,2142,2148,2153,2159,2164,2170,2175,2181,2186,
+2192,2198,2203,2209,2214,2220,2225,2231,2236,2242,
+2247,2253,2257,2262,2266,2270,2274,2278,2283,3001,
+3009,3016,3024,3031,3039,3046,3054,3062,3069,3077,
+3084,3092,3099,3107,3114,3121,3128,3136,3143,3150,
+3157,3165,3172,3179,3186,3194,4001,4006,4010,4015,
+4019,4024,4030,4036,4043,4049,4055,4061,4067,4074,
+4080,4086,4092,4098,4105,4111,4117,4123,4129,4136,
+4142,4148,4155,4162,4170,5001,5006,5012,5017,5023,
+5028,5033,5039,5044,5050,5055,5060,5066,5071,5077,
+5082,5088,5093,5099,5104,5110,5115,6001,6009,6017,
+6025,6032,6040,6048,6056,6064,6072,6080,6087,6095,
+6103,6111,6117,6123,6129,6135,6142,6148,6154,6160,
+7001,7009,7017,7025,7033,7041,7048,7056,7064,7072,
+7080,7088,7096,7104,7112,7120,7128,7136,7144,7151,
+7159,7167,7175,7183,7191,7199,8001,8009,8017,8025,
+8033,8041,8048,8055,8062,8069,9001,9008,9014,9021,
+9027,9034,9040,9047,9054,9060,9067,9073,9080,9086,
+9093,9098,9104,9109,9114,9119,9125,10001,10009,10018,
+10026,10035,10043,10051,10060,10068,10076,10085,10093,10102,
+11001,11006,11015,11024,11033,11042,11051,11060,11070,11079,
+11088,11097,11106,11115,12001,12008,12016,12023,12031,12038,
+12046,12053,12061,12070,12078,12087,12095,12104,13001,13008,
+13015,13022,13030,13037,14001,14008,14016,14023,14031,14038,
+14046,15001,15021,15041,15060,15080,16001,16010,16018,16027,
+16035,16044,16052,16061,16069,16078,16086,16095,16103,16112,
+16120,17001,17011,17021,17031,17041,17051,17062,17072,17082,
+17092,17102,18001,18009,18017,18026,18034,18042,18050,18059,
+18067,18075,18087,18099,19001,19015,19029,19043,19057,19071,
+19085,20001,20015,20028,20041,20055,20069,20082,20095,20109,
+20123,21001,21012,21023,21035,21046,21057,21068,21079,21091,
+21102,22001,22009,22017,22024,22032,22040,22048,22056,22063,
+22071,23001,23016,23030,23045,23060,23075,23090,23104,24001,
+24008,24015,24022,24029,24037,24044,24051,24058,25001,25008,
+25014,25021,25032,25044,25055,25067,26001,26024,26046,26069,
+26092,26115,26137,26160,26183,26205,27001,27012,27023,27034,
+27045,27056,27069,27081,28001,28009,28017,28025,28033,28041,
+28049,28057,28065,28073,28081,29001,29009,29016,29023,29031,
+29039,29046,29058,30001,30010,30018,30027,30035,30044,30052,
+31001,31010,31018,31026,32001,32011,32021,33001,33008,33016,
+33024,33031,33038,33045,33052,33060,33067,34001,34010,34019,
+34028,34037,34046,35001,35009,35016,35023,35031,35039,36001,
+36014,36028,36042,36056,36070,37001,37027,37053,37079,37105,
+37131,37157,38001,38019,38036,38054,38071,39001,39009,39017,
+39024,39032,39041,39050,39058,39067,40001,40010,40018,40026,
+40035,40044,40052,40060,40069,40078,41001,41010,41019,41029,
+41038,41047,42001,42010,42019,42027,42036,42045,43001,43014,
+43026,43039,43052,43065,43077,44001,44021,44040,45001,45013,
+45026,46001,46008,46015,46022,46029,47001,47010,47020,47030,
+48001,48008,48016,48023,49001,49007,49013,50001,50023,51001,
+51016,51031,52001,52017,52034,53001,53032,54001,54019,54038,
+55001,55027,55053,56001,56033,56065,57001,57007,57013,57018,
+57024,58001,58008,58016,59001,59007,59013,59019,60001,60007,
+61001,61008,62001,63001,63007,64001,64010,65001,65007,66001,
+66007,67001,67016,68001,68027,69001,69027,70001,70023,71001,
+71015,72001,72015,73001,74001,74029,75001,76001,76016,77001,
+77026,78001,79001,79024,80001,81001,82001,83009,84001,85001,
+86001,88001,89001,90001,91001,93001,95001,97001,99001,101001,
+103001,106001,109001,112001];
 function _getPageAyahs(page){
-  if(!window.SURAH_START_PAGE||!window.QURAN_EMBED)return[];
+  if(!window.QURAN_EMBED)return[];
+  var p=Math.max(1,Math.min(604,page));
+  var sv=_QP[p-1];
+  var s1=Math.floor(sv/1000),a1=(sv%1000)-1; // a1: 0-indexed
+  var es=-1,ea=-1; // start of next page (exclusive); -1 = unbounded (page 604)
+  if(p<604){var ev=_QP[p];es=Math.floor(ev/1000);ea=(ev%1000)-1;}
   var res=[];
-  for(var s=1;s<=114;s++){
-    var p0=SURAH_START_PAGE[s-1],p1=s<114?SURAH_START_PAGE[s]:605;
-    if(page<p0||page>=p1)continue;
+  for(var s=s1;s<=114;s++){
+    if(es>=0&&s>es)break;
     var arr=QURAN_EMBED.surahs&&QURAN_EMBED.surahs[String(s)];
-    if(!arr||!arr.length)continue;
-    var span=Math.max(1,p1-p0);
-    for(var a=0;a<arr.length;a++){if(p0+Math.floor(a*span/arr.length)===page)res.push({s:s,a:a});}
+    if(!arr||!arr.length){if(es>=0&&s===es)break;continue;}
+    var a0=(s===s1)?a1:0;
+    var aMax=(es>=0&&s===es)?ea:arr.length;
+    for(var a=a0;a<aMax;a++)res.push({s:s,a:a});
+    if(es>=0&&s>=es)break;
   }
   return res;
 }
@@ -2396,8 +2465,18 @@ function _tryCascade(){
       btn.style.cssText='background:rgba(234,204,126,.15);color:var(--gold);border-color:rgba(234,204,126,.3);';
       btn.onclick=function(){
         btn.remove();
+        var buf=W2._cascBuf;W2._cascBuf=null;
+        if(!buf||!buf.length){toast('لا يوجد تسجيل محفوظ — أعِد التلاوة','warning');return;}
         var sg=MEM2.segs[MEM2.cur];if(sg){sg.status='pending';sg.result=null;}
-        _mem2Render();_mem2UpdateBar();_w2StartCapture();
+        _mem2Render();_mem2UpdateBar();
+        if(!W2.worker){toast('محرّك التعرّف غير متاح','error');return;}
+        W2.analyzing=true;
+        var _lbl=document.getElementById('mem2MicLbl'),_mic=document.getElementById('mem2MicBtn');
+        if(_lbl)_lbl.textContent='يحلّل…';if(_mic)_mic.disabled=true;
+        _m2tr('تشخيص دقيق (Whisper)…');
+        _w2StartXTO(buf.length/16000);
+        if(_m2PageMode)_m2pgStartProc(buf.length/16000);
+        W2.worker.postMessage({type:'transcribe',buffer:buf.buffer,length:buf.length},[buf.buffer]);
       };
       var foot=bar.querySelector('.mem2-bar-foot');if(foot)foot.appendChild(btn);
     }
@@ -3014,7 +3093,9 @@ function _w2ProcessAudio(){
         if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;_mem2UpdateBar();return;}
         var _durS=(float32.length/16000).toFixed(1);
         setTimeout(function(){
-          if(_tryCascade()){float32=null;return;}
+          W2._cascBuf=float32;
+          if(_tryCascade()){return;}
+          W2._cascBuf=null;
           if(W2.modelReady){
             _m2tr('بدأ التعرّف ('+_durS+' ث)…');
             _w2StartXTO(float32.length/16000);
@@ -3065,7 +3146,9 @@ function _w2ProcessAudioBase64(b64,mime){
       if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;_mem2UpdateBar();return;}
       var _durS=(float32.length/16000).toFixed(1);
       setTimeout(function(){
-        if(_tryCascade()){float32=null;return;}
+        W2._cascBuf=float32;
+        if(_tryCascade()){return;}
+        W2._cascBuf=null;
         if(W2.modelReady){
           _m2tr('بدأ التعرّف ('+_durS+' ث)…');
           _w2StartXTO(float32.length/16000);
@@ -3299,7 +3382,7 @@ function _mem2StopAndEval(){
 }
 function _mem2StopRec(){
   _stopLiveSR();_m2pgStopTimer();_m2pgStopProc();
-  MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;
+  MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;W2._cascBuf=null;
   // Silence any old Web Speech Recognition instance so it doesn't fire onerror/onend
   if(MEM2.rec){try{MEM2.rec.onresult=null;MEM2.rec.onerror=null;MEM2.rec.onend=null;MEM2.rec.abort();}catch(e){}MEM2.rec=null;}
   if(W2.nativeRec){
@@ -3497,6 +3580,7 @@ function mem2ToggleReveal(){
 function mem2Back(){
   if(MEM2.recActive)_mem2StopRec();
   else{_stopLiveSR();_m2pgStopTimer();_m2pgStopProc();}
+  W2._cascBuf=null;
   var db=document.getElementById('_cascDiagBtn');if(db)db.remove();
   var pfx=document.getElementById('mem2SegPfx');if(pfx)pfx.textContent='مقطع';
   document.getElementById('mem2SetupPane').style.display='';
