@@ -1816,7 +1816,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
         <div style="font-size:22px;font-weight:800;color:var(--gold);letter-spacing:.5px;margin-bottom:2px">المجدّد</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:14px;font-weight:500">طريق الأتقياء</div>
         <div style="font-size:12px;color:var(--muted);line-height:2;margin-bottom:12px">المصحف الكامل · مواقيت الصلاة · اتجاه القبلة<br>الأذكار والأدعية · عدّاد الركعات · يعمل بدون إنترنت</div>
-        <div style="display:inline-block;background:rgba(234,204,126,.12);border:1px solid rgba(234,204,126,.3);border-radius:8px;padding:4px 14px;font-size:12px;color:var(--gold);margin-bottom:12px">الإصدار 1.0 (بناء 1)</div>
+        <div id="appVerDiv" onclick="_bmTap()" style="display:inline-block;background:rgba(234,204,126,.12);border:1px solid rgba(234,204,126,.3);border-radius:8px;padding:4px 14px;font-size:12px;color:var(--gold);margin-bottom:12px;cursor:pointer">الإصدار 1.0 (بناء 1)</div>
         <div style="font-size:11px;color:var(--muted);opacity:.6">© DDC Business · ddcbusiness.kw@gmail.com</div>
       </div>
     </div>
@@ -2318,6 +2318,7 @@ var _W2_WSRC=[
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'self.postMessage({type:"ws"});',
   'var asr=null,_dev="wasm",_wuDone=true,_wuProm=null;',
+  'function _tr(f32){var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-1600),Math.min(f32.length,e+W+1600));}',
   'self.onmessage=async function(ev){',
   '  var t=ev.data.type;',
   '  if(t==="load"){',
@@ -2328,8 +2329,9 @@ var _W2_WSRC=[
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
   '    var _loadT0=Date.now();',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
-  '    var _mdl="Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
-  '    var _base={dtype:{encoder_model:"fp32",decoder_model_merged:"fp32"},progress_callback:_prog};',
+  '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
+  '    var _dtp=ev.data.dtype||{encoder_model:"fp32",decoder_model_merged:"fp32"};',
+  '    var _base={dtype:_dtp,progress_callback:_prog};',
   '    var _gpuOk=false;',
   '    if(!ev.data.forceWasm&&typeof navigator!=="undefined"&&navigator.gpu){',
   '      try{var _adp=await Promise.race([navigator.gpu.requestAdapter(),new Promise(function(r){setTimeout(function(){r(null);},3000);})]);',
@@ -2368,15 +2370,201 @@ var _W2_WSRC=[
   '    if(!_wuDone){try{await _wuProm;}catch(e){}}',
   '    try{',
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
-  '      var audio=new Float32Array(raw);',
+  '      var _iL=raw.length;',
+  '      var audio=_tr(raw);',
   '      var _procT0=Date.now();',
-  '      var _dur=ev.data.length/16000;',
+  '      var _dur=audio.length/16000;',
   '      var _opts=_dur>20?{chunk_length_s:30,stride_length_s:5}:{};',
   '      var r=await asr(audio,_opts);',
-  '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0});}',
+  '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0,iL:_iL,tL:audio.length});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
   '};'
 ].join('\n');
+/* ── Engine Benchmark (hidden dev panel — 7 taps on version div) ──────────── */
+var _BM_CANDIDATES=[
+  {id:'A',label:'base fp32 (الحالي)',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'fp32',decoder_model_merged:'fp32'},sizeMB:290},
+  {id:'B',label:'base q8 (مكمَّم)',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8'},sizeMB:145},
+  {id:'C',label:'tiny fp32 (Salama1429)',model:'Salama1429/tarteel-ai-whisper-tiny-ar-quran',dtype:{encoder_model:'fp32',decoder_model_merged:'fp32'},sizeMB:75},
+];
+var _BM_SEGS=[
+  {key:'001001',url:'https://everyayah.com/data/Alafasy_64kbps/001001.mp3',ref:'بسم الله الرحمن الرحيم'},
+  {key:'001002',url:'https://everyayah.com/data/Alafasy_64kbps/001002.mp3',ref:'الحمد لله رب العالمين'},
+  {key:'112001',url:'https://everyayah.com/data/Alafasy_64kbps/112001.mp3',ref:'قل هو الله احد'},
+  {key:'112002',url:'https://everyayah.com/data/Alafasy_64kbps/112002.mp3',ref:'الله الصمد'},
+  {key:'112003',url:'https://everyayah.com/data/Alafasy_64kbps/112003.mp3',ref:'لم يلد ولم يولد'},
+];
+var _BM_WSRC=[
+  'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
+  'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
+  'var asr=null;',
+  'function _tr(f32){var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-1600),Math.min(f32.length,e+W+1600));}',
+  'self.onmessage=async function(ev){',
+  '  var t=ev.data.type;',
+  '  if(t==="load"){',
+  '    var pip,env;',
+  '    try{var m=await import(P);pip=m.pipeline;env=m.env;}',
+  '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
+  '      catch(e2){self.postMessage({type:"error",text:"فشل الاستيراد"});return;}}',
+  '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
+  '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
+  '    var _dtp=ev.data.dtype||{encoder_model:"fp32",decoder_model_merged:"fp32"};',
+  '    var _t0=Date.now();',
+  '    try{asr=await pip("automatic-speech-recognition",_mdl,{dtype:_dtp,progress_callback:function(){}});',
+  '      self.postMessage({type:"ready",loadMs:Date.now()-_t0});}',
+  '    catch(err){self.postMessage({type:"error",text:"تعذّر تحميل: "+(err&&err.message||String(err))});}',
+  '    return;}',
+  '  if(t==="run"){',
+  '    if(!asr){self.postMessage({type:"error",text:"النموذج غير جاهز"});return;}',
+  '    try{',
+  '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
+  '      var audio=_tr(raw);',
+  '      var _t0=Date.now();',
+  '      var r=await asr(audio,{});',
+  '      self.postMessage({type:"bm_result",text:r.text||"",procMs:Date.now()-_t0});}',
+  '    catch(e){self.postMessage({type:"error",text:"استنتاج: "+(e&&e.message||String(e))});}}',
+  '};'
+].join('\n');
+var _bmState={taps:0,tapTO:null,running:false,results:[],panel:null};
+function _bmTap(){
+  clearTimeout(_bmState.tapTO);
+  _bmState.taps++;
+  if(_bmState.taps>=7){_bmState.taps=0;_bmShowPanel();return;}
+  _bmState.tapTO=setTimeout(function(){_bmState.taps=0;},1500);
+}
+function _bmShowPanel(){
+  if(_bmState.panel){_bmState.panel.style.display='flex';return;}
+  var d=document.createElement('div');
+  d.id='bmPanel';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;overflow-y:auto;color:#fff;font-family:inherit;direction:rtl;';
+  d.innerHTML='<div style="font-size:18px;font-weight:700;color:#eacc7e;margin-bottom:8px">🔬 مقارنة محرّكات التسميع</div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:14px">وضع التطوير فقط</div>'
+    +'<button id="bmRunBtn" onclick="_bmRun()" style="background:#3fae8e;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:15px;cursor:pointer;margin-bottom:14px">تشغيل المقارنة</button>'
+    +'<div id="bmStatus" style="font-size:13px;color:#aaa;margin-bottom:10px;text-align:center;min-height:18px"></div>'
+    +'<div id="bmTable" style="width:100%;overflow-x:auto;"></div>'
+    +'<div id="bmVerdict" style="margin-top:14px;font-size:14px;font-weight:600;text-align:center;"></div>'
+    +'<button onclick="_bmHidePanel()" style="margin-top:18px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 24px;font-size:13px;cursor:pointer">إغلاق</button>';
+  document.body.appendChild(d);
+  _bmState.panel=d;
+}
+function _bmHidePanel(){if(_bmState.panel)_bmState.panel.style.display='none';}
+function _bmLog(msg){console.log('[BM]',msg);var el=document.getElementById('bmStatus');if(el)el.textContent=msg;}
+function _bmRun(){
+  if(_bmState.running){_bmLog('المقارنة تعمل بالفعل…');return;}
+  _bmState.running=true;_bmState.results=[];
+  var btn=document.getElementById('bmRunBtn');if(btn)btn.disabled=true;
+  var vd=document.getElementById('bmVerdict');if(vd)vd.textContent='';
+  var tbl=document.getElementById('bmTable');if(tbl)tbl.innerHTML='';
+  _bmLog('جارٍ جلب المقاطع الصوتية…');
+  var segsDecoded=[];
+  (function _fetchNext(si){
+    if(si>=_BM_SEGS.length){_bmRunCandidate(0,segsDecoded);return;}
+    _bmLog('تحميل مقطع '+(si+1)+'/'+_BM_SEGS.length+'…');
+    _decodeAudio(_BM_SEGS[si].url,function(f32,err){
+      if(err){_bmLog('خطأ: '+err);_bmState.running=false;if(btn)btn.disabled=false;return;}
+      segsDecoded.push(f32);_fetchNext(si+1);
+    });
+  })(0);
+}
+function _bmRunCandidate(ci,segsDecoded){
+  if(ci>=_BM_CANDIDATES.length){_bmPickWinner();_bmState.running=false;var btn=document.getElementById('bmRunBtn');if(btn)btn.disabled=false;return;}
+  var cand=_BM_CANDIDATES[ci];
+  _bmLog('تحميل النموذج '+cand.id+': '+cand.label+'…');
+  var blob,url,w;
+  try{blob=new Blob([_BM_WSRC],{type:'text/javascript'});url=URL.createObjectURL(blob);w=new Worker(url,{type:'module'});URL.revokeObjectURL(url);}
+  catch(e){_bmState.results.push({cand:cand,err:'فشل Worker',wordAcc:0,procMs:0,texts:[]});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);return;}
+  var loadTO=setTimeout(function(){try{w.terminate();}catch(x){}_bmState.results.push({cand:cand,err:'تجاوز مهلة التحميل',wordAcc:0,procMs:0,texts:[]});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);},180000);
+  w.onerror=function(){clearTimeout(loadTO);try{w.terminate();}catch(x){}_bmState.results.push({cand:cand,err:'خطأ Worker',wordAcc:0,procMs:0,texts:[]});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);};
+  w.onmessage=function(ev){
+    var d=ev.data;
+    if(d.type==='ready'){
+      clearTimeout(loadTO);
+      _bmLog('النموذج '+cand.id+' جاهز — تشغيل '+_BM_SEGS.length+' مقاطع…');
+      var segTexts=[],totalProc=0,si2=0;
+      (function _runSeg(){
+        if(si2>=_BM_SEGS.length){
+          try{w.terminate();}catch(x){}
+          var avgProc=Math.round(totalProc/_BM_SEGS.length);
+          var totalWer=0;
+          for(var wi=0;wi<_BM_SEGS.length;wi++)totalWer+=_bmWer(segTexts[wi],_BM_SEGS[wi].ref);
+          var wordAcc=Math.round((1-totalWer/_BM_SEGS.length)*100);
+          _bmState.results.push({cand:cand,err:null,wordAcc:wordAcc,procMs:avgProc,texts:segTexts});
+          _bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);return;
+        }
+        _bmLog('النموذج '+cand.id+' — مقطع '+(si2+1)+'/'+_BM_SEGS.length+'…');
+        var segTO=setTimeout(function(){try{w.terminate();}catch(x){}_bmState.results.push({cand:cand,err:'timeout مقطع '+(si2+1),wordAcc:0,procMs:0,texts:segTexts});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);},60000);
+        w.onmessage=function(ev2){
+          var d2=ev2.data;
+          if(d2.type==='bm_result'){clearTimeout(segTO);segTexts.push(d2.text||'');totalProc+=d2.procMs||0;si2++;_runSeg();}
+          else if(d2.type==='error'){clearTimeout(segTO);try{w.terminate();}catch(x){}_bmState.results.push({cand:cand,err:'استنتاج: '+(d2.text||''),wordAcc:0,procMs:0,texts:segTexts});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);}
+        };
+        var f32=segsDecoded[si2],buf=f32.buffer.slice(0);
+        w.postMessage({type:'run',buffer:buf,length:f32.length},[buf]);
+      })();
+    }else if(d.type==='error'){clearTimeout(loadTO);try{w.terminate();}catch(x){}_bmState.results.push({cand:cand,err:'فشل التحميل: '+(d.text||''),wordAcc:0,procMs:0,texts:[]});_bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);}
+  };
+  w.postMessage({type:'load',model:cand.model,dtype:cand.dtype,forceWasm:true});
+}
+function _decodeAudio(url,cb){
+  fetch(url,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
+  .then(function(ab){
+    var ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+    return ac.decodeAudioData(ab).then(function(buf){ac.close();var raw=buf.getChannelData(0);var out=new Float32Array(raw.length);for(var i=0;i<raw.length;i++)out[i]=raw[i];cb(out,null);});
+  }).catch(function(e){cb(null,e&&e.message||String(e));});
+}
+function _bmWer(hyp,ref){
+  var h=hyp.trim().split(/\s+/).filter(Boolean);
+  var r=ref.trim().split(/\s+/).filter(Boolean);
+  if(!r.length)return 0;
+  return Math.min(1,_memED(h,r)/r.length);
+}
+function _bmRenderTable(){
+  var tbl=document.getElementById('bmTable');if(!tbl)return;
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<tr style="background:rgba(255,255,255,.08)"><th style="padding:6px 8px;text-align:right">النموذج</th><th style="padding:5px">تطابق%</th><th style="padding:5px">ms</th><th style="padding:5px">MB</th><th style="padding:5px;text-align:right">ملاحظة</th></tr>';
+  _bmState.results.forEach(function(r){
+    var ok=!r.err;
+    html+='<tr style="border-bottom:1px solid rgba(255,255,255,.06)">'
+      +'<td style="padding:6px 8px;color:#eacc7e">'+r.cand.label+'</td>'
+      +'<td style="padding:5px;text-align:center;color:'+(ok&&r.wordAcc>=95?'#3fae8e':'#f07')+'">'+( ok?r.wordAcc+'%':'—')+'</td>'
+      +'<td style="padding:5px;text-align:center">'+( ok?r.procMs:'—')+'</td>'
+      +'<td style="padding:5px;text-align:center">'+r.cand.sizeMB+'</td>'
+      +'<td style="padding:5px;color:#aaa;font-size:11px">'+( r.err||'✓')+'</td></tr>';
+  });
+  tbl.innerHTML=html+'</table>';
+}
+function _bmPickWinner(){
+  var vd=document.getElementById('bmVerdict');
+  var passing=_bmState.results.filter(function(r){return !r.err&&r.wordAcc>=95;});
+  if(!passing.length){
+    _bmLog('لا يوجد مرشّح بدقة ≥95% — يبقى الحالي');
+    if(vd)vd.innerHTML='<span style="color:#f07">لا بديل بدقة ≥95% — النموذج الحالي (A) محتفَظ به</span>';
+    return;
+  }
+  passing.sort(function(a,b){return a.procMs-b.procMs;});
+  var winner=passing[0];
+  var current=_bmState.results.find(function(r){return r.cand.id==='A';});
+  if(current&&!current.err&&winner.procMs>=current.procMs*0.95){
+    _bmLog('لا تحسّن ذو بال — النموذج الحالي كافٍ');
+    if(vd)vd.innerHTML='<span style="color:#eacc7e">'+winner.cand.id+' ('+winner.wordAcc+'%) يحقّق الدقة لكن السرعة لا تُبرّر التبديل</span>';
+    return;
+  }
+  _bmLog('الفائز: '+winner.cand.id+' ('+winner.cand.label+')');
+  if(vd)vd.innerHTML='<span style="color:#3fae8e">الفائز: '+winner.cand.label+' — '+winner.wordAcc+'% دقة · '+winner.procMs+' ms</span>'
+    +'<br><button onclick="_bmApplyWinner(\''+winner.cand.id+'\')" style="margin-top:10px;background:#3fae8e;color:#fff;border:none;border-radius:6px;padding:8px 22px;font-size:13px;cursor:pointer">تطبيق هذا النموذج</button>';
+}
+function _bmApplyWinner(candId){
+  var cand=_BM_CANDIDATES.find(function(c){return c.id===candId;});
+  if(!cand){_bmLog('مرشّح غير موجود');return;}
+  lsSet('bm_engine',candId);
+  if(W2.worker||W2.loading){_w2Kill();}
+  var el=document.getElementById('sv_sizeHint');
+  if(el)el.textContent='حجم التنزيل ≈ '+cand.sizeMB+' MB (مرة واحدة)';
+  var vd=document.getElementById('bmVerdict');
+  if(vd)vd.innerHTML+='<br><span style="color:#3fae8e">✓ تم الحفظ — سيُستخدم '+cand.label+' في المرة القادمة</span>';
+  _bmHidePanel();
+  if(typeof toast==='function')toast('تم تطبيق '+cand.label,'success');
+}
+
 function _w2Init(forceWasm){
   if(W2.worker||W2.loading)return;
   W2.loading=true;
@@ -2397,7 +2585,9 @@ function _w2Init(forceWasm){
   W2.worker.onmessageerror=function(){};
   /* على Android أصلي: تجاوز WebGPU تماماً — غير مستقر ويسبّب تحميلاً مزدوجاً */
   var _fwAsm=!!forceWasm||_isAndroidNative();
-  W2.worker.postMessage({type:'load',forceWasm:_fwAsm});
+  var _bmEngId=lsGet('bm_engine');
+  var _bmEngCfg=(_bmEngId&&typeof _BM_CANDIDATES!=='undefined')?_BM_CANDIDATES.find(function(c){return c.id===_bmEngId;}):null;
+  W2.worker.postMessage({type:'load',forceWasm:_fwAsm,model:_bmEngCfg?_bmEngCfg.model:null,dtype:_bmEngCfg?_bmEngCfg.dtype:null});
   /* مهلة "عدم تقدّم": تنطلق فقط إذا توقّف التقدّم 120ث — تُعاد عند كل progress event */
   _w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);
 }
@@ -2461,7 +2651,7 @@ function _w2Msg(m){
   }else if(m.type==='result'){
     _w2ClearXTO();W2.analyzing=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
-    if(m.procMs!=null)toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');
+    if(m.procMs!=null){toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');console.log('[w2] transcribe dev='+W2._dev+' procMs='+m.procMs+(m.iL?' inputSmp='+m.iL+' trimSmp='+m.tL:''));}
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
     var _wc=(MEM2._tr.trim().split(/\s+/).filter(Boolean).length);
     _m2tr('['+(W2._dev==='webgpu'?'WebGPU':'WASM')+(m.procMs!=null?' '+m.procMs+'ms':'')+'] اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
@@ -4981,8 +5171,10 @@ var _svActive=false,_svModelDone=false,_svRefDone=false,_svTestDone=false,_svSel
 function _svFmt(b){return b>=1048576?(b/1048576).toFixed(0)+' MB':b>=1024?(b/1024).toFixed(0)+' KB':String(b)+' B';}
 function _svShortFile(f){
   if(!f)return'ملفات الضبط';
-  if(f.indexOf('encoder')>=0)return'نموذج المستمع (encoder fp32)';
-  if(f.indexOf('decoder')>=0)return'نموذج المولّد (decoder fp32)';
+  var _act=lsGet('bm_engine'),_dtp='fp32';
+  if(_act&&typeof _BM_CANDIDATES!=='undefined'){var _bc=_BM_CANDIDATES.find(function(c){return c.id===_act;});if(_bc&&_bc.dtype)_dtp=_bc.dtype.encoder_model||'fp32';}
+  if(f.indexOf('encoder')>=0)return'نموذج المستمع (encoder '+_dtp+')';
+  if(f.indexOf('decoder')>=0)return'نموذج المولّد (decoder '+_dtp+')';
   if(f.indexOf('tokenizer')>=0||f.indexOf('vocab')>=0)return'قاموس الكلمات';
   return f.split('/').pop()||f;
 }
