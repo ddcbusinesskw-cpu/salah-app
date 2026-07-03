@@ -2644,7 +2644,7 @@ var _BM_WSRC=[
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=_tr(raw);',
   '      var _t0=Date.now();',
-  '      var r=await asr(audio,{});',
+  '      var r=await asr(audio,{language:"arabic",task:"transcribe",return_timestamps:false});',
   '      self.postMessage({type:"bm_result",text:r.text||"",procMs:Date.now()-_t0});}',
   '    catch(e){self.postMessage({type:"error",text:"استنتاج: "+(e&&e.message||String(e))});}}',
   '};'
@@ -2714,10 +2714,9 @@ function _bmRunCandidate(ci,segsDecoded){
         if(si2>=_BM_SEGS.length){
           try{w.terminate();}catch(x){}
           var avgProc=Math.round(totalProc/_BM_SEGS.length);
-          var totalWer=0;
-          for(var wi=0;wi<_BM_SEGS.length;wi++)totalWer+=_bmWer(segTexts[wi],_BM_SEGS[wi].ref);
-          var wordAcc=Math.round((1-totalWer/_BM_SEGS.length)*100);
-          _bmState.results.push({cand:cand,err:null,wordAcc:wordAcc,procMs:avgProc,texts:segTexts});
+          var segAccs=_BM_SEGS.map(function(seg,wi){return Math.round((1-_bmWer(segTexts[wi]||'',seg.ref))*100);});
+          var wordAcc=Math.round(segAccs.reduce(function(a,b){return a+b;},0)/segAccs.length);
+          _bmState.results.push({cand:cand,err:null,wordAcc:wordAcc,procMs:avgProc,texts:segTexts,segAccs:segAccs});
           _bmRenderTable();_bmRunCandidate(ci+1,segsDecoded);return;
         }
         _bmLog('النموذج '+cand.id+' — مقطع '+(si2+1)+'/'+_BM_SEGS.length+'…');
@@ -2737,30 +2736,69 @@ function _bmRunCandidate(ci,segsDecoded){
 function _decodeAudio(url,cb){
   fetch(url,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
   .then(function(ab){
-    var ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
-    return ac.decodeAudioData(ab).then(function(buf){ac.close();var raw=buf.getChannelData(0);var out=new Float32Array(raw.length);for(var i=0;i<raw.length;i++)out[i]=raw[i];cb(out,null);});
+    var ac=new (window.AudioContext||window.webkitAudioContext)();
+    ac.decodeAudioData(ab,function(decoded){
+      ac.close();
+      var nSamp=Math.ceil(decoded.duration*16000);
+      var offCtx=new OfflineAudioContext(1,nSamp,16000);
+      var src=offCtx.createBufferSource();
+      src.buffer=decoded;src.connect(offCtx.destination);src.start(0);
+      offCtx.startRendering().then(function(rend){cb(new Float32Array(rend.getChannelData(0)),null);});
+    },function(e){cb(null,'decode: '+(e&&e.message||String(e)));});
   }).catch(function(e){cb(null,e&&e.message||String(e));});
 }
 function _bmWer(hyp,ref){
-  var h=hyp.trim().split(/\s+/).filter(Boolean);
-  var r=ref.trim().split(/\s+/).filter(Boolean);
+  var nm=typeof _normRec==='function'?_normRec:function(w){return w;};
+  var sn=typeof snorm==='function'?snorm:function(w){return w;};
+  var h=hyp.trim().split(/\s+/).filter(Boolean).map(nm);
+  var r=ref.trim().split(/\s+/).filter(Boolean).map(sn);
   if(!r.length)return 0;
   return Math.min(1,_memED(h,r)/r.length);
 }
 function _bmRenderTable(){
   var tbl=document.getElementById('bmTable');if(!tbl)return;
-  var html='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+  var nm=typeof _normRec==='function'?_normRec:function(w){return w;};
+  var sn=typeof snorm==='function'?snorm:function(w){return w;};
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">'
     +'<tr style="background:rgba(255,255,255,.08)"><th style="padding:6px 8px;text-align:right">النموذج</th><th style="padding:5px">تطابق%</th><th style="padding:5px">ms</th><th style="padding:5px">MB</th><th style="padding:5px;text-align:right">ملاحظة</th></tr>';
   _bmState.results.forEach(function(r){
     var ok=!r.err;
     html+='<tr style="border-bottom:1px solid rgba(255,255,255,.06)">'
       +'<td style="padding:6px 8px;color:#eacc7e">'+r.cand.label+'</td>'
-      +'<td style="padding:5px;text-align:center;color:'+(ok&&r.wordAcc>=95?'#3fae8e':'#f07')+'">'+( ok?r.wordAcc+'%':'—')+'</td>'
+      +'<td style="padding:5px;text-align:center;color:'+(ok&&r.wordAcc>=95?'#3fae8e':ok&&r.wordAcc>=70?'#eacc7e':'#f07')+'">'+( ok?r.wordAcc+'%':'—')+'</td>'
       +'<td style="padding:5px;text-align:center">'+( ok?r.procMs:'—')+'</td>'
       +'<td style="padding:5px;text-align:center">'+r.cand.sizeMB+'</td>'
       +'<td style="padding:5px;color:#aaa;font-size:11px">'+( r.err||'✓')+'</td></tr>';
   });
-  tbl.innerHTML=html+'</table>';
+  html+='</table>';
+  /* ── Per-segment detail per candidate ── */
+  _bmState.results.forEach(function(r){
+    if(r.err||!r.texts||!r.texts.length)return;
+    html+='<div style="margin-bottom:12px;border:1px solid rgba(234,204,126,.25);border-radius:6px;overflow:hidden">'
+      +'<div style="background:rgba(234,204,126,.1);padding:5px 10px;font-size:11px;font-weight:600;color:#eacc7e">'+r.cand.label+' — تفصيل المقاطع</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:10px">'
+      +'<tr style="background:rgba(255,255,255,.06);color:#888">'
+      +'<th style="padding:4px 6px;text-align:right">مقطع</th>'
+      +'<th style="padding:4px;text-align:right">المرجع (معيَّر)</th>'
+      +'<th style="padding:4px;text-align:right">الخام</th>'
+      +'<th style="padding:4px;text-align:right">المعيَّر</th>'
+      +'<th style="padding:4px">%</th></tr>';
+    _BM_SEGS.forEach(function(seg,wi){
+      var raw=r.texts[wi]||'';
+      var refNorm=seg.ref.trim().split(/\s+/).filter(Boolean).map(sn).join(' ');
+      var hypNorm=raw.trim().split(/\s+/).filter(Boolean).map(nm).join(' ');
+      var pct=r.segAccs?r.segAccs[wi]:Math.round((1-_bmWer(raw,seg.ref))*100);
+      var col=pct>=90?'#3fae8e':pct>=60?'#eacc7e':'#f07';
+      html+='<tr style="border-top:1px solid rgba(255,255,255,.04)">'
+        +'<td style="padding:4px 6px;color:#888;font-family:monospace">'+seg.key+'</td>'
+        +'<td style="padding:4px;color:#aaa;direction:rtl">'+refNorm+'</td>'
+        +'<td style="padding:4px;color:#666;direction:rtl;word-break:break-all">'+(raw||'(فارغ)')+'</td>'
+        +'<td style="padding:4px;color:#ccc;direction:rtl">'+(hypNorm||'(فارغ)')+'</td>'
+        +'<td style="padding:4px;text-align:center;color:'+col+';font-weight:700">'+pct+'%</td></tr>';
+    });
+    html+='</table></div>';
+  });
+  tbl.innerHTML=html;
 }
 function _bmPickWinner(){
   var vd=document.getElementById('bmVerdict');
