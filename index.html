@@ -4584,9 +4584,6 @@ function _normRec(x){
   // Word-level truncated form
   if(x==='اللا'||x==='اللاا')x='الله';
 
-  // ── Very common Whisper insertion: extra alef in الرحمن ──
-  x=x.replace(/الرحمان/g,'الرحمن');
-
   // ── Standalone hamza (ء U+0621): Whisper often drops it; snorm doesn't ──
   // Removing from both sides normalises the mismatch away
   x=x.replace(/ء/g,'');
@@ -4605,6 +4602,9 @@ function _normRec(x){
   x=x.replace(/اا+/g,'ا').replace(/وو+/g,'و').replace(/يي+/g,'ي');
 
   x=snorm(x);
+  // ── الرحمان→الرحمن: MUST run after snorm — snorm itself creates الرحمان
+  // from الرحمٰن (superscript alef U+0670→ا), so a pre-snorm fix never fires ──
+  x=x.replace(/الرحمان/g,'الرحمن');
   // Trailing bare alef → ya (covers هدى/يهدا/كفوا variations)
   if(x.length>=3)x=x.replace(/ا$/,'ي');
   return x;

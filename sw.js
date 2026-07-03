@@ -1,4 +1,4 @@
-const CACHE='mujaddid-v44';
+const CACHE='mujaddid-v45';
 const CORE=[
   './','./index.html','./manifest.json',
   './favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png','./icon-maskable-512.png',
@@ -13,17 +13,19 @@ self.addEventListener('fetch',e=>{
   const req=e.request;
   if(req.method!=='GET'){return;}
   const url=new URL(req.url);
-  if(url.origin===location.origin){
-    e.respondWith(caches.match(req).then(r=>r||fetch(req).then(resp=>{
-      // Only cache successful responses
+  if(url.origin!==location.origin){return;}
+  const isHTML=req.destination==='document'||(req.headers.get('accept')||'').includes('text/html')||url.pathname.endsWith('/index.html');
+  if(isHTML){
+    // network-first: تحديثات index.html تصل فوراً؛ الكاش احتياط للأوفلاين فقط
+    e.respondWith(fetch(req).then(resp=>{
       if(resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp)).catch(()=>{});}
       return resp;
-    }).catch(()=>{
-      // Only fall back to index.html for HTML navigation requests — never for scripts/assets
-      if(req.destination==='document'||(req.headers.get('accept')||'').includes('text/html')){
-        return caches.match('./index.html');
-      }
-      return new Response('',{status:503,statusText:'Offline'});
-    })));
+    }).catch(()=>caches.match(req).then(r=>r||caches.match('./index.html'))));
+    return;
   }
+  // بقية الأصول الثابتة: cache-first كما كان
+  e.respondWith(caches.match(req).then(r=>r||fetch(req).then(resp=>{
+    if(resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp)).catch(()=>{});}
+    return resp;
+  }).catch(()=>new Response('',{status:503,statusText:'Offline'}))));
 });
