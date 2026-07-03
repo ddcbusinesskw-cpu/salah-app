@@ -26,6 +26,7 @@
     var Haptics      = Plugins.Haptics;
     var LocalNotif   = Plugins.LocalNotifications;
     var Geo          = Plugins.Geolocation;
+    var App          = Plugins.App;
     var StatusBar    = Plugins.StatusBar;
     var SplashScreen = Plugins.SplashScreen;
 
@@ -182,27 +183,45 @@
         });
       };
 
-      /* إلغاء إشعارات الأذان (IDs 2000-2019) عند تعطيل الأذان */
+      /* إلغاء إشعارات الأذان (IDs 2000-2034 — 7 أيام × 5 صلوات) عند تعطيل الأذان */
       window.cancelAdhanNotifications = function () {
         var ids = [];
-        for (var i = 2000; i < 2020; i++) ids.push({ id: i });
+        for (var i = 2000; i < 2035; i++) ids.push({ id: i });
         LocalNotif.cancel({ notifications: ids }).catch(function () {});
       };
 
-      /* scheduleAdhanAlerts / scheduleTodayPrayers */
+      /* scheduleAdhanAlerts — يقبل مصفوفة خرائط يومية (7 أيام × 5 صلوات = 35 ID) */
       var _ADHAN_LABELS = { fajr:'الفجر', dhuhr:'الظهر', asr:'العصر', maghrib:'المغرب', isha:'العشاء' };
       var _ADHAN_KEYS   = ['fajr','dhuhr','asr','maghrib','isha'];
-      window.scheduleAdhanAlerts = function (todayMap, tomorrowMap) {
+      window.scheduleAdhanAlerts = function (mapsArr, legacyTomorrow) {
+        /* توافق خلفي: إذا نودي بـ (todayMap, tomorrowMap) بدل مصفوفة */
+        if (!Array.isArray(mapsArr)) mapsArr = legacyTomorrow ? [mapsArr, legacyTomorrow] : [mapsArr];
         var now = new Date(), notifs = [];
-        _ADHAN_KEYS.forEach(function (k, i) {
-          if (todayMap && todayMap[k] && new Date(todayMap[k]) > now)
-            notifs.push({ id: 2000 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: todayMap[k] });
-          if (tomorrowMap && tomorrowMap[k] && new Date(tomorrowMap[k]) > now)
-            notifs.push({ id: 2010 + i, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: tomorrowMap[k] });
+        mapsArr.forEach(function (dayMap, dayIdx) {
+          _ADHAN_KEYS.forEach(function (k, ki) {
+            if (dayMap && dayMap[k] && new Date(dayMap[k]) > now)
+              notifs.push({ id: 2000 + dayIdx * 5 + ki, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: dayMap[k] });
+          });
         });
-        if (notifs.length) window.scheduleNoorNotifications(notifs);
+        if (notifs.length) {
+          try { localStorage.setItem('_adhan_sched_ts', String(Date.now())); } catch (e) {}
+          window.scheduleNoorNotifications(notifs);
+        }
       };
-      window.scheduleTodayPrayers = function (prayerMap) { window.scheduleAdhanAlerts(prayerMap, null); };
+      window.scheduleTodayPrayers = function (prayerMap) { window.scheduleAdhanAlerts([prayerMap]); };
+
+      /* إعادة الجدولة تلقائياً عند العودة للتطبيق بعد 24 ساعة */
+      if (App) {
+        App.addListener('appStateChange', function (state) {
+          if (!state || !state.isActive) return;
+          try {
+            var ts = +(localStorage.getItem('_adhan_sched_ts') || 0);
+            if (Date.now() - ts > 86400000) {
+              if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
+            }
+          } catch (e) {}
+        });
+      }
 
       /**
        * _nativeHourlyDhikr(dhikrList)
