@@ -2190,7 +2190,7 @@ function _idbPut(store,key,val){
 }
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1,_m2PageMode=false;
-var _liveSR=null,_liveText='',_liveSRInterim='';
+var _liveSR=null,_liveText='',_liveSRInterim='',_liveSRDone=true;
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 function initMemorize(){
   _loadW2Ref();
@@ -2434,13 +2434,37 @@ function _startLiveSR(){
         if(lv)lv.textContent=(m2?m2+'د ':'')+s2+'ث · '+Math.min(wc,tot)+'/'+tot+' كلمة';
       }
     };
-    _liveSR.onerror=function(){_liveSR=null;};
-    _liveSR.onend=function(){if(MEM2.recActive&&_liveSR){try{_liveSR.start();}catch(e){}}};
+    _liveSR.onerror=function(){_liveSR=null;_liveSRDone=true;};
+    _liveSR.onend=function(){if(MEM2.recActive&&_liveSR){try{_liveSR.start();}catch(e){}}else if(!_liveSR){_liveSRDone=true;}};
     _liveSR.start();
-  }catch(e){_liveSR=null;}
+    _liveSRDone=false;
+  }catch(e){_liveSR=null;_liveSRDone=true;}
 }
 function _stopLiveSR(){
+  _liveSRDone=true;
   if(_liveSR){var sr=_liveSR;_liveSR=null;try{sr.onresult=null;sr.onerror=null;sr.onend=null;sr.stop();}catch(e){}}
+}
+/* إيقاف رشيق: يُبقي onresult حياً حتى onend كي تصل النتائج النهائية
+   المتأخرة (كانت تُفصل لحظة الضغط فيضيع ذيل النص في المقاطع القصيرة) */
+function _stopLiveSRSoft(){
+  if(!_liveSR){_liveSRDone=true;return;}
+  var sr=_liveSR;_liveSR=null; /* يمنع إعادة التشغيل داخل onend */
+  sr.onend=function(){_liveSRDone=true;try{sr.onresult=null;sr.onerror=null;sr.onend=null;}catch(e){}};
+  sr.onerror=function(){_liveSRDone=true;};
+  try{sr.stop();}catch(e){_liveSRDone=true;}
+  /* أمان: بعض المحرّكات لا تطلق onend بعد stop */
+  setTimeout(function(){if(!_liveSRDone){_liveSRDone=true;try{sr.onresult=null;}catch(e){}}},2000);
+}
+/* انتظار flush نتائج SR قبل تقييم الشلال — تكيفي: المقاطع القصيرة تنتظر
+   النهائي الفعلي (حتى 1400ms)؛ وضع الصفحة يبقى على سلوكه (250ms) */
+function _w2WaitSRFlush(cb){
+  var maxMs=_m2PageMode?250:1400;
+  var t0=Date.now();
+  (function _poll(){
+    var el=Date.now()-t0;
+    if(_liveSRDone||el>=maxMs){console.log('[tasmee] SR-flush '+el+'ms (final='+_liveSRDone+')');cb();return;}
+    setTimeout(_poll,80);
+  })();
 }
 function _tryCascade(){
   var lt=((_liveText||'')+' '+(_liveSRInterim||'')).trim();
@@ -2450,8 +2474,12 @@ function _tryCascade(){
   var ref=_mem2RefWords(seg);if(!ref.length)return false;
   var dist=_memED(h,ref);
   var acc=Math.round((1-dist/ref.length)*100);
-  if(acc<90){console.log('[cascade] match='+acc+'% <90 → Whisper');return false;}
-  console.log('[cascade] match='+acc+'% ≥90 → skip Whisper');
+  /* عتبة واعية بالطول: نسبة 90% تنهار بخطأ واحد في نص ≤5 كلمات —
+     تسامح مطلق (خطأ كلمة واحدة) بدلها؛ التقييم الكامل يعرض الأخطاء
+     للمستخدم على أي حال فلا أثر على الدقة المعروضة */
+  var pass=ref.length<=5?dist<=1:acc>=90;
+  if(!pass){console.log('[cascade] words='+ref.length+' dist='+dist+' match='+acc+'% → Whisper');return false;}
+  console.log('[cascade] words='+ref.length+' dist='+dist+' match='+acc+'% → skip Whisper ✓');
   _w2ClearXTO();W2.analyzing=false;
   var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
   if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
@@ -2553,7 +2581,8 @@ var _W2_WSRC=[
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'self.postMessage({type:"ws"});',
   'var asr=null,_dev="wasm",_wuDone=true,_wuProm=null;',
-  'function _tr(f32){var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-1600),Math.min(f32.length,e+W+1600));}',
+  // ≤4ث: لا قصّ (كان يبتر أول كلمة هادئة)؛ هامش الإبقاء 200ms قبل/بعد
+  'function _tr(f32){if(f32.length<=64000)return f32;var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-3200),Math.min(f32.length,e+W+3200));}',
   'self.onmessage=async function(ev){',
   '  var t=ev.data.type;',
   '  if(t==="load"){',
@@ -2632,7 +2661,7 @@ var _BM_WSRC=[
   'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'var asr=null;',
-  'function _tr(f32){var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-1600),Math.min(f32.length,e+W+1600));}',
+  'function _tr(f32){if(f32.length<=64000)return f32;var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-3200),Math.min(f32.length,e+W+3200));}',
   'self.onmessage=async function(ev){',
   '  var t=ev.data.type;',
   '  if(t==="load"){',
@@ -3168,7 +3197,7 @@ function _w2StartNativeCapture(){
   });
 }
 function _w2StopCapture(){
-  _stopLiveSR();_m2pgStopTimer();
+  _stopLiveSRSoft();_m2pgStopTimer();
   var live=document.getElementById('mem2Live');
   var mic=document.getElementById('mem2MicBtn');
   var lbl=document.getElementById('mem2MicLbl');
@@ -3209,6 +3238,7 @@ function _w2StopCapture(){
   if(W2.stream){W2.stream.getTracks().forEach(function(t){t.stop();});W2.stream=null;}
 }
 function _w2ProcessAudio(){
+  var _pT0=Date.now();
   var totalBytes=W2.chunks.reduce(function(s,c){return s+c.size;},0);
   if(!W2.chunks.length||totalBytes<200){
     W2.analyzing=false;
@@ -3229,9 +3259,10 @@ function _w2ProcessAudio(){
         var float32=new Float32Array(new Float32Array(rend.getChannelData(0)));
         if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;_mem2UpdateBar();return;}
         var _durS=(float32.length/16000).toFixed(1);
-        setTimeout(function(){
+        console.log('[tasmee] decode+resample '+(Date.now()-_pT0)+'ms, audio '+_durS+'s');
+        _w2WaitSRFlush(function(){
           W2._cascBuf=float32;
-          if(_tryCascade()){return;}
+          if(_tryCascade()){console.log('[tasmee] cascade total '+(Date.now()-_pT0)+'ms');return;}
           W2._cascBuf=null;
           if(W2.modelReady){
             _m2tr('بدأ التعرّف ('+_durS+' ث)…');
@@ -3244,7 +3275,7 @@ function _w2ProcessAudio(){
             var live=document.getElementById('mem2Live');
             if(live)live.textContent='جارٍ تحميل المحرّك… الرجاء الانتظار';
           }
-        },250);
+        });
       });
     },function(err){
       actx.close();
@@ -3282,7 +3313,7 @@ function _w2ProcessAudioBase64(b64,mime){
       var mic=document.getElementById('mem2MicBtn');var lbl=document.getElementById('mem2MicLbl');
       if(!W2.worker){toast('محرّك التعرّف غير متاح','error');W2.analyzing=false;if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;_mem2UpdateBar();return;}
       var _durS=(float32.length/16000).toFixed(1);
-      setTimeout(function(){
+      _w2WaitSRFlush(function(){
         W2._cascBuf=float32;
         if(_tryCascade()){return;}
         W2._cascBuf=null;
@@ -3297,7 +3328,7 @@ function _w2ProcessAudioBase64(b64,mime){
           var live=document.getElementById('mem2Live');
           if(live)live.textContent='جارٍ تحميل المحرّك… الرجاء الانتظار';
         }
-      },250);
+      });
     });
   },function(err){
     actx.close();
