@@ -2029,9 +2029,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <!-- مرحلة الدعوة -->
   <div id="sv_invite">
     <p class="sv-title">تهيئة أولى</p>
-    <p class="sv-desc">سيتم تحميل الملفات الأساسية مرة واحدة وتخزينها على جهازك (~290 MB):</p>
+    <p class="sv-desc">سيتم تحميل الملفات الأساسية مرة واحدة وتخزينها على جهازك (~145 MB):</p>
     <ul class="sv-list">
-      <li>نموذج التعرّف على صوت القرآن<span class="sv-size">~290 MB</span></li>
+      <li>نموذج التعرّف على صوت القرآن<span class="sv-size">~145 MB</span></li>
       <li>مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span></li>
     </ul>
     <button onclick="_setupRun()" class="btn" style="width:100%">تحميل وبدء</button>
@@ -2565,7 +2565,7 @@ var _W2_WSRC=[
   '    var _loadT0=Date.now();',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
-  '    var _dtp=ev.data.dtype||{encoder_model:"fp32",decoder_model_merged:"fp32"};',
+  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8"};', // q8 افتراضي الإنتاج — تطابق 100% مع نصف الحجم
   '    var _base={dtype:_dtp,progress_callback:_prog};',
   '    var _gpuOk=false;',
   '    if(!ev.data.forceWasm&&typeof navigator!=="undefined"&&navigator.gpu){',
@@ -2617,8 +2617,8 @@ var _W2_WSRC=[
 ].join('\n');
 /* ── Engine Benchmark (hidden dev panel — 7 taps on version div) ──────────── */
 var _BM_CANDIDATES=[
-  {id:'A',label:'base fp32 (الحالي)',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'fp32',decoder_model_merged:'fp32'},sizeMB:290},
-  {id:'B',label:'base q8 (مكمَّم)',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8'},sizeMB:145},
+  {id:'A',label:'base fp32',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'fp32',decoder_model_merged:'fp32'},sizeMB:290},
+  {id:'B',label:'base q8 (الافتراضي)',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8'},sizeMB:145},
   {id:'C',label:'tiny fp32 (Salama1429)',model:'Salama1429/tarteel-ai-whisper-tiny-ar-quran',dtype:{encoder_model:'fp32',decoder_model_merged:'fp32'},sizeMB:75},
 ];
 var _BM_SEGS=[
@@ -2642,7 +2642,7 @@ var _BM_WSRC=[
   '      catch(e2){self.postMessage({type:"error",text:"فشل الاستيراد"});return;}}',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
   '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
-  '    var _dtp=ev.data.dtype||{encoder_model:"fp32",decoder_model_merged:"fp32"};',
+  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8"};',
   '    var _t0=Date.now();',
   '    try{asr=await pip("automatic-speech-recognition",_mdl,{dtype:_dtp,progress_callback:function(){}});',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_t0});}',
@@ -2886,6 +2886,34 @@ function _bmFbCopy(txt){
   document.body.removeChild(ta);
 }
 
+/* بصمة نسخة المحرّك: عند الترقية لـq8 أعد فحص WebGPU الذاتي مرة واحدة —
+   نتيجة webgpu_ok المحفوظة قيست على أوزان fp32 القديمة */
+if(lsGet('w2_engine_v')!=='q8-v1'){
+  try{localStorage.removeItem('webgpu_ok');}catch(e){}
+  lsSet('w2_engine_v','q8-v1');
+}
+/* بعد نجاح تحميل q8: امسح ملفات fp32 القديمة من كاش transformers.js
+   (أسماء fp32 بلا لاحقة _quantized — لا تتقاطع مع ملفات q8) */
+function _w2PurgeFp32(){
+  if(lsGet('w2_fp32_purged')==='1')return;
+  if(lsGet('bm_engine'))return; /* تجاوز تطويري نشط — لا تمس الكاش */
+  if(typeof caches==='undefined')return;
+  try{
+    caches.open('transformers-cache').then(function(c){
+      return c.keys().then(function(reqs){
+        var del=reqs.filter(function(rq){
+          var u=rq.url||'';
+          return u.indexOf('whisper-base-ar-quran-ONNX-tjs-v2')>=0&&
+                 (u.indexOf('encoder_model.onnx')>=0||u.indexOf('decoder_model_merged.onnx')>=0);
+        });
+        return Promise.all(del.map(function(rq){return c.delete(rq);})).then(function(){
+          if(del.length)console.log('[w2] purged '+del.length+' fp32 cache files (~290MB freed)');
+          lsSet('w2_fp32_purged','1');
+        });
+      });
+    }).catch(function(){});
+  }catch(e){}
+}
 function _w2Init(forceWasm){
   if(W2.worker||W2.loading)return;
   W2.loading=true;
@@ -2964,6 +2992,7 @@ function _w2Msg(m){
   }else if(m.type==='ready'){
     clearTimeout(_w2LoadTO);_w2LoadTO=null;
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
+    _w2PurgeFp32(); /* q8 حُمّل وتحقق — حرّر ملفات fp32 القديمة (مرة واحدة) */
     if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
     _svOnModelReady();
     if(W2.pendingAudio){
@@ -5627,8 +5656,8 @@ var _svActive=false,_svModelDone=false,_svRefDone=false,_svTestDone=false,_svSel
 function _svFmt(b){return b>=1048576?(b/1048576).toFixed(0)+' MB':b>=1024?(b/1024).toFixed(0)+' KB':String(b)+' B';}
 function _svShortFile(f){
   if(!f)return'ملفات الضبط';
-  var _act=lsGet('bm_engine'),_dtp='fp32';
-  if(_act&&typeof _BM_CANDIDATES!=='undefined'){var _bc=_BM_CANDIDATES.find(function(c){return c.id===_act;});if(_bc&&_bc.dtype)_dtp=_bc.dtype.encoder_model||'fp32';}
+  var _act=lsGet('bm_engine'),_dtp='q8';
+  if(_act&&typeof _BM_CANDIDATES!=='undefined'){var _bc=_BM_CANDIDATES.find(function(c){return c.id===_act;});if(_bc&&_bc.dtype)_dtp=_bc.dtype.encoder_model||'q8';}
   if(f.indexOf('encoder')>=0)return'نموذج المستمع (encoder '+_dtp+')';
   if(f.indexOf('decoder')>=0)return'نموذج المولّد (decoder '+_dtp+')';
   if(f.indexOf('tokenizer')>=0||f.indexOf('vocab')>=0)return'قاموس الكلمات';
