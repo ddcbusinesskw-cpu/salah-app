@@ -2127,6 +2127,7 @@ function go(id){
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
   if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
   if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();var _mAu=document.getElementById('quranAudio');if(_mAu){_mAu.onended=null;try{_mAu.pause();}catch(ex){}}}
+  if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
@@ -3826,14 +3827,26 @@ function _lsDailyCleanup(){
   var _t=todayKey();
   if(lsGet('ls_cleanup_day')===_t)return;
   try{
-    var _pfx=['quran_opens_','adiya_opens_','allgoal_','daily_','adhkar_left_','tasmee_done_','khatmah_today_','achv_snap_'];
+    var _pfx=['quran_opens_','adiya_opens_','daily_','adhkar_left_','tasmee_done_','khatmah_today_','achv_snap_','tasbih_today_'];
+    /* لاحقة toDateString ("Sat Jul 05 2026") — regex الـYYYY-M-D لا يلتقطها */
+    var _pfxTS=['allgoal_','p5done_'];
     function _kDate(k){var m=k.match(/(\d{4})-(\d{1,2})-(\d{1,2})$/);return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
     var _cut=new Date();_cut.setDate(_cut.getDate()-60);
     var _del=[];
     for(var _i=localStorage.length-1;_i>=0;_i--){
       var _k=localStorage.key(_i);
+      if(!_k)continue;
+      var _matched=false;
       for(var _p=0;_p<_pfx.length;_p++){
-        if(_k&&_k.indexOf(_pfx[_p])===0){var _d=_kDate(_k);if(_d&&_d<_cut)_del.push(_k);break;}
+        if(_k.indexOf(_pfx[_p])===0){var _d=_kDate(_k);if(_d&&_d<_cut)_del.push(_k);_matched=true;break;}
+      }
+      if(_matched)continue;
+      for(var _p2=0;_p2<_pfxTS.length;_p2++){
+        if(_k.indexOf(_pfxTS[_p2])===0){
+          var _ts=Date.parse(_k.slice(_pfxTS[_p2].length));
+          if(_ts&&_ts<_cut.getTime())_del.push(_k);
+          break;
+        }
       }
     }
     _del.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
@@ -3841,8 +3854,10 @@ function _lsDailyCleanup(){
   }catch(e){}
 }
 setTimeout(_lsDailyCleanup,2000);
-function getDailyState(){var k='daily_'+todayKey();try{return JSON.parse(lsGet(k)||'{}');}catch(e){return {};}}
-function saveDailyState(s){var k='daily_'+todayKey();lsSet(k,JSON.stringify(s));}
+/* المفتاح الاختياري: أزواج القراءة→الكتابة تحسب todayKey مرة واحدة كي لا
+   يرث اليومُ الجديد حالةَ الأمس إذا وقعت النقرة على حدود منتصف الليل */
+function getDailyState(k){k=k||('daily_'+todayKey());try{return JSON.parse(lsGet(k)||'{}');}catch(e){return {};}}
+function saveDailyState(s,k){k=k||('daily_'+todayKey());lsSet(k,JSON.stringify(s));}
 function _playAdhkarChime(){
   try{
     var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
@@ -3865,14 +3880,15 @@ function markAdhkarDone(cat){
   /* cat may be the full ADHKAR key ('الصباح','المساء') or the short form ('صباح','مساء').
      Normalise to short form so the daily state key always matches renderDailyCards. */
   var stateKey=cat.indexOf('صباح')>-1?'صباح':cat.indexOf('مساء')>-1?'مساء':cat;
-  var s=getDailyState();var wasDone=!!s[stateKey];s[stateKey]=true;saveDailyState(s);
+  var _dayK='daily_'+todayKey();
+  var s=getDailyState(_dayK);var wasDone=!!s[stateKey];s[stateKey]=true;saveDailyState(s,_dayK);
   if(!wasDone){
     if(navigator.vibrate)try{navigator.vibrate([40,20,80]);}catch(e){}
     _playAdhkarChime();
     var dispName=stateKey==='صباح'?'أذكار الصباح':stateKey==='مساء'?'أذكار المساء':stateKey;
     toast('✅ '+dispName+' — تمّ بحمد الله','success');
-    if(stateKey==='صباح')checkBadge('morning');
-    else if(stateKey==='مساء')checkBadge('evening');
+    /* لا checkBadge('morning'/'evening') — لا شارة بهذين المعرّفين في BADGES؛
+       كانا يُدفعان أشباحاً في badges_earned بلا بطاقة ولا toast */
     var sKey=stateKey==='صباح'?'morn_streak':stateKey==='مساء'?'eve_streak':null;
     if(sKey){
       var lKey=sKey+'_last',today=new Date().toDateString();
@@ -3921,7 +3937,8 @@ function checkAllDailyGoal(s,doneCount,mDone,eDone){
   setTimeout(function(){toast('🌟 يوم مكتمل — الصلوات الخمس + الأذكار. بارك الله فيك','success');},500);
 }
 function togglePrayer(p){
-  var s=getDailyState();s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s);renderDailyCards();
+  var _dayK='daily_'+todayKey();
+  var s=getDailyState(_dayK);s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s,_dayK);renderDailyCards();
   // update times screen button live
   var btn=document.getElementById('pd_'+p);var done=!!s['prayer_'+p];
   if(btn){btn.classList.toggle('done',done);btn.textContent=done?'✓':'○';}
@@ -5308,6 +5325,7 @@ function renderTasbih(){
   document.getElementById('cof').textContent='من '+ar(item.m);
   btn.classList.toggle('tasbih-done',done);
 }
+var _tasbihDirty=false;
 function tap(){
   var item=_dhikrOrdered()[dIdx]||DHIKR_BASE[0];
   if(dCount>=item.m)return;
@@ -5316,9 +5334,13 @@ function tap(){
   renderTasbih();
   var _tt=+(lsGet('tasbih_total')||0)+1;lsSet('tasbih_total',String(_tt));
   var _td=+(lsGet('tasbih_today_'+todayKey())||0)+1;lsSet('tasbih_today_'+todayKey(),String(_td));
-  if(_td%10===0)_achvSaveSnap();
+  if(_td%10===0){_achvSaveSnap();_tasbihDirty=false;}else{_tasbihDirty=true;}
   if(_tt===1000)checkBadge('tasbih_1000');if(_tt===3000)checkBadge('tasbih_3000');
 }
+/* نقرات لم تُلتقط في لقطة الـ%10 — احفظها عند إخفاء التطبيق */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(e){}}
+});
 function tasbihReset(){dCount=0;renderTasbih();}
 function _showAddDhikr(){
   _cmShow('إضافة تسبيحة',[
@@ -6062,7 +6084,8 @@ function khatmahSaveToday(){
 }
 function khatmahReadToday(){
   var saved=lsGet('khatmah_data');if(!saved)return;
-  var data=JSON.parse(saved);
+  var data=null;try{data=JSON.parse(saved);}catch(e){}
+  if(!data)return;
   var pagesDay=Math.ceil(604/(data.days||30));
   data.pagesRead=Math.min(604,(data.pagesRead||0)+pagesDay);
   _khatmahCheckComplete(data);
@@ -6070,7 +6093,7 @@ function khatmahReadToday(){
   lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
   loadKhatmah();
 }
-function resetKhatmah(){lsSet('khatmah_data','');loadKhatmah();}
+function resetKhatmah(){lsSet('khatmah_data','');try{localStorage.removeItem('khatmah_today_'+todayKey());}catch(e){}loadKhatmah();}
 
 /* ===== v18: Streak System ===== */
 function updateStreak(){
@@ -6088,8 +6111,8 @@ function updateStreak(){
   var badge=document.getElementById('streakBadge');
   var cnt=document.getElementById('streakCount');
   if(badge&&count>0){badge.style.display='inline-flex';if(cnt)cnt.textContent=ar(count);}
-  if(count>=7)checkBadge('streak_7');
-  if(count>=30)checkBadge('streak_30');
+  /* شارتا streak_7/30 تُمنحان حصراً من سلسلة الصلوات الخمس (togglePrayer
+     wrapper) — سلسلة فتح التطبيق هذه للعرض فقط */
   return count;
 }
 
@@ -6152,15 +6175,21 @@ function achvTab(t){
   loadBadges();
 }
 function _achvAdhkarFrac(cat){
+  /* cat يصل قصيراً ('صباح'/'مساء')؛ شاشة الأذكار تكتب التقدّم والمخصّص
+     بالمفاتيح الكاملة ('الصباح'/'المساء') — القراءة يجب أن تطابقها */
   var _catMap={'صباح':'الصباح','مساء':'المساء'};
-  var base=(typeof ADHKAR!=='undefined'&&ADHKAR[_catMap[cat]||cat])||[];
-  var custom=_getAdhkarCustom(cat);
+  var full=_catMap[cat]||cat;
+  /* فلاغ اليوم (يكتبه markAdhkarDone بالمفتاح القصير) حاسم للاكتمال */
+  var ds=getDailyState();
+  if(ds[cat])return 1;
+  var base=(typeof ADHKAR!=='undefined'&&ADHKAR[full])||[];
+  var custom=_getAdhkarCustom(full);
   var all=base.concat(custom.map(function(c){return{r:c.r||1};}));
   if(!all.length)return 0;
-  var prog=_getAdhkarProg(cat,all.length);
+  var prog=_getAdhkarProg(full,all.length);
   var need=0,done=0;
   all.forEach(function(d,i){need+=d.r;var left=(prog[i]!==null&&prog[i]!==undefined)?prog[i]:d.r;done+=d.r-left;});
-  return need>0?done/need:0;
+  return need>0?Math.min(1,done/need):0;
 }
 function _achvTodayVals(){
   var ds=getDailyState(),t=todayKey();
@@ -6175,6 +6204,41 @@ function _achvTodayVals(){
 }
 function _achvSaveSnap(){try{lsSet('achv_snap_'+todayKey(),JSON.stringify(_achvTodayVals()));}catch(e){}}
 function _achvDayKey(ago){var d=new Date(Date.now()-ago*86400000);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+/* إصلاح تاريخي لمرة واحدة: لقطات الأيام الماضية خُبزت بـmorning/evening=0
+   بسبب قراءة مفاتيح خاطئة — أعد بناء الحقلين من فلاغات daily_ (اكتمال)
+   أو adhkar_left_ الكاملة (جزئي) دون لمس بقية حقول اللقطة */
+function _achvRepairSnaps(){
+  if(lsGet('achv_snap_fix1')==='1')return;
+  try{
+    var _catMap={'صباح':'الصباح','مساء':'المساء'};
+    for(var ago=1;ago<=60;ago++){
+      var dk=_achvDayKey(ago);
+      var raw=lsGet('achv_snap_'+dk);if(!raw)continue;
+      var snap;try{snap=JSON.parse(raw);}catch(e){continue;}
+      var ds={};try{ds=JSON.parse(lsGet('daily_'+dk)||'{}');}catch(e){}
+      var chg=false;
+      ['صباح','مساء'].forEach(function(sc){
+        var fld=sc==='صباح'?'morning':'evening';
+        if(+snap[fld]>0)return; /* قيمة موجودة (مستقبَلاً بعد الإصلاح) — لا تمس */
+        if(ds[sc]){snap[fld]=1;chg=true;return;}
+        var pr=null;try{pr=JSON.parse(lsGet('adhkar_left_'+_catMap[sc]+'_'+dk)||'null');}catch(e){}
+        if(pr&&pr.length){
+          var base=(typeof ADHKAR!=='undefined'&&ADHKAR[_catMap[sc]])||[];
+          var custom=_getAdhkarCustom(_catMap[sc]);
+          var all=base.concat(custom.map(function(c){return{r:c.r||1};}));
+          if(all.length){
+            var need=0,done=0;
+            all.forEach(function(d,i){need+=d.r;var left=(pr[i]!==null&&pr[i]!==undefined)?pr[i]:d.r;done+=d.r-left;});
+            if(need>0&&done>0){snap[fld]=Math.min(1,done/need);chg=true;}
+          }
+        }
+      });
+      if(chg)lsSet('achv_snap_'+dk,JSON.stringify(snap));
+    }
+    lsSet('achv_snap_fix1','1');
+  }catch(e){}
+}
+setTimeout(_achvRepairSnaps,2600);
 function _achvGetSnap(dk){
   if(dk===todayKey())return _achvTodayVals();
   var r=lsGet('achv_snap_'+dk);if(r){try{return JSON.parse(r);}catch(e){}}
@@ -6273,8 +6337,8 @@ function shareAchievementCard(period){
   var dateStr='';try{dateStr=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});}catch(_de){}
   toast('جارٍ رسم البطاقة…');
   try{
-    /* ── Canvas 1080×1380 (portrait — screenshot-style) ── */
-    var W=1080,H=1380;
+    /* ── Canvas 1080×1180 (portrait — مقصوص على نهاية المحتوى ~1148) ── */
+    var W=1080,H=1180;
     var c=document.createElement('canvas');c.width=W;c.height=H;
     var ctx=c.getContext('2d');
     /* خلفية */
@@ -7702,31 +7766,53 @@ go=function(id){
 var _origTogglePrayer=togglePrayer;
 togglePrayer=function(p){
   _origTogglePrayer(p);
-  var all=[];try{var e=lsGet('badges_earned');if(e)all=JSON.parse(e);}catch(ex){}
-  if(all.indexOf('first_prayer')<0)checkBadge('first_prayer');
-  if(p==='Fajr'){
-    var today=new Date().toDateString();
-    var lf=lsGet('fajr_last');var fc=+(lsGet('fajr_streak')||0);
-    if(lf){var ld=new Date(lf),nd=new Date(today);var df=Math.round((nd-ld)/86400000);
-      if(df===1){fc++;lsSet('fajr_streak',fc);}else if(df>=2){fc=1;lsSet('fajr_streak','1');}
-    }else{fc=1;lsSet('fajr_streak','1');}
-    lsSet('fajr_last',today);if(fc>=7)checkBadge('fajr_7');
-  }
-  // all-5 prayers celebration + streak
   var ds=getDailyState();
-  var allFive=['Fajr','Dhuhr','Asr','Maghrib','Isha'].every(function(pr){return !!ds['prayer_'+pr];});
-  if(allFive){
-    var t5=new Date().toDateString();
-    if(lsGet('p5done_'+t5)!=='1'){
-      lsSet('p5done_'+t5,'1');
-      toast('اكتملت الصلوات الخمس اليوم 🌟 بارك الله فيك','success');
-      var p5l=lsGet('p5_last');var p5c=+(lsGet('p5_streak')||0);
-      if(p5l){var p5d=Math.round((new Date(t5)-new Date(p5l))/86400000);
-        if(p5d===1){p5c++;}else if(p5d>=2){p5c=1;}}else{p5c=1;}
-      lsSet('p5_streak',String(p5c));lsSet('p5_last',t5);
-      if(p5c>=7)checkBadge('streak_7');if(p5c>=30)checkBadge('streak_30');
+  var nowOn=!!ds['prayer_'+p];
+  var today=new Date().toDateString();
+  if(nowOn){
+    var all=[];try{var e=lsGet('badges_earned');if(e)all=JSON.parse(e);}catch(ex){}
+    if(all.indexOf('first_prayer')<0)checkBadge('first_prayer');
+    if(p==='Fajr'){
+      var lf=lsGet('fajr_last');var fc=+(lsGet('fajr_streak')||0);
+      if(lf){var ld=new Date(lf),nd=new Date(today);var df=Math.round((nd-ld)/86400000);
+        if(df===1){fc++;lsSet('fajr_streak',fc);}else if(df>=2){fc=1;lsSet('fajr_streak','1');}
+      }else{fc=1;lsSet('fajr_streak','1');}
+      lsSet('fajr_last',today);if(fc>=7)checkBadge('fajr_7');
+    }
+    // all-5 prayers celebration + streak
+    var allFive=['Fajr','Dhuhr','Asr','Maghrib','Isha'].every(function(pr){return !!ds['prayer_'+pr];});
+    if(allFive){
+      if(lsGet('p5done_'+today)!=='1'){
+        lsSet('p5done_'+today,'1');
+        toast('اكتملت الصلوات الخمس اليوم 🌟 بارك الله فيك','success');
+        var p5l=lsGet('p5_last');var p5c=+(lsGet('p5_streak')||0);
+        if(p5l){var p5d=Math.round((new Date(today)-new Date(p5l))/86400000);
+          if(p5d===1){p5c++;}else if(p5d>=2){p5c=1;}}else{p5c=1;}
+        lsSet('p5_streak',String(p5c));lsSet('p5_last',today);
+        if(p5c>=7)checkBadge('streak_7');if(p5c>=30)checkBadge('streak_30');
+      }
+    }
+  }else{
+    /* إلغاء تعليم: تراجَع عن آثار اليوم في السلاسل والاحتفالات */
+    if(p==='Fajr'&&lsGet('fajr_last')===today){
+      var fc2=Math.max(0,(+lsGet('fajr_streak')||0)-1);
+      lsSet('fajr_streak',String(fc2));
+      if(fc2>0){var _y=new Date();_y.setDate(_y.getDate()-1);lsSet('fajr_last',_y.toDateString());}
+      else{try{localStorage.removeItem('fajr_last');}catch(ex){}}
+    }
+    var allFive2=['Fajr','Dhuhr','Asr','Maghrib','Isha'].every(function(pr){return !!ds['prayer_'+pr];});
+    if(!allFive2&&lsGet('p5done_'+today)==='1'){
+      try{localStorage.removeItem('p5done_'+today);}catch(ex){}
+      if(lsGet('p5_last')===today){
+        var p5c2=Math.max(0,(+lsGet('p5_streak')||0)-1);
+        lsSet('p5_streak',String(p5c2));
+        if(p5c2>0){var _y2=new Date();_y2.setDate(_y2.getDate()-1);lsSet('p5_last',_y2.toDateString());}
+        else{try{localStorage.removeItem('p5_last');}catch(ex){}}
+      }
     }
   }
+  /* لقطة اليوم تُحفظ في الاتجاهين — كان التسجيل اليدوي لا يحفظها إطلاقاً */
+  try{_achvSaveSnap();}catch(ex){}
 };
 /* حفظ/استرجاع جلسة العدّ — يصمد أمام مكالمة/إغلاق التطبيق (٦٠ دقيقة) */
 function _rakSaveSess(){
@@ -8698,7 +8784,7 @@ function _fbReadLocal(){
   var hifzKeys={};
   for(var i=0;i<ls.length;i++){
     var k=ls.key(i);
-    if(k&&(k.slice(0,4)==='q_s_'||k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today')){
+    if(k&&(k.slice(0,4)==='q_s_'||k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today'||k.slice(0,6)==='daily_')){
       var fk=k.replace(/[.#$/[\]]/g,'_');
       hifzKeys[fk]=ls.getItem(k);
     }
@@ -8726,6 +8812,7 @@ function _fbReadLocal(){
       fajr_streak:ls.getItem('fajr_streak')||null,
       fajr_last:ls.getItem('fajr_last')||null,
       morn_streak:ls.getItem('morn_streak')||null,
+      morn_streak_last:ls.getItem('morn_streak_last')||null,
       quran_opens:ls.getItem('quran_opens')||null,
       adiya_opens:ls.getItem('adiya_opens')||null,
       adhkarProg:(function(){var o={};try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(k&&k.indexOf('adhkar_left_')===0)o[k]=ls.getItem(k);}}catch(e){}return o;})(),
@@ -8856,6 +8943,26 @@ function _fbMerge(r){
         var rv=r.hifz.keys[fk];
         if(!rv||rv==='null') return;
         var lv=localStorage.getItem(fk);
+        if(fk.indexOf('daily_')===0){
+          /* فلاغات اليوم: دمج OR حقلاً بحقل — لا يفقد جهازٌ ما علّمه الآخر */
+          try{
+            var lo=lv?JSON.parse(lv):{};var ro=JSON.parse(rv);
+            Object.keys(ro).forEach(function(k2){if(ro[k2])lo[k2]=true;});
+            localStorage.setItem(fk,JSON.stringify(lo));
+          }catch(e){if(!lv)_ls(fk,rv);}
+          return;
+        }
+        if(fk.indexOf('achv_snap_')===0){
+          /* لقطات JSON: _numMax(parseFloat) عليها بلا معنى — max حقلاً بحقل */
+          try{
+            var ro2=JSON.parse(rv);
+            if(!lv){_ls(fk,rv);return;}
+            var lo2=JSON.parse(lv),out={};
+            ['prayers','morning','evening','khatmah','tasmee','tasbih'].forEach(function(f){out[f]=Math.max(+lo2[f]||0,+ro2[f]||0);});
+            localStorage.setItem(fk,JSON.stringify(out));
+          }catch(e){if(!lv)_ls(fk,rv);}
+          return;
+        }
         _ls(fk,_numMax(lv,rv));
       });
     }
@@ -8863,14 +8970,18 @@ function _fbMerge(r){
     // ── Dhikr ──
     if(r.dhikr){
       var rd=r.dhikr;
-      ['tasbih_total','streak_count','p5_streak','fajr_streak','morn_streak','quran_opens','adiya_opens'].forEach(function(k){
+      ['tasbih_total','quran_opens','adiya_opens'].forEach(function(k){
         _ls(k,_numMax(localStorage.getItem(k),rd[k]));
       });
-      // Last-date keys: take the more recent ISO date string
-      ['streak_last','p5_last','fajr_last'].forEach(function(k){
-        var lv=localStorage.getItem(k);
-        var rv=rd[k];
-        if(rv&&rv!=='null'&&(!lv||rv>lv)) _ls(k,rv);
+      // أزواج {عدّاد، تاريخ آخر يوم}: المقارنة زمنية (toDateString نصياً يقارن
+      // أسماء الأيام أبجدياً!) — صاحب التاريخ الأحدث يفوز بالزوج كاملاً كي لا
+      // تُخلط عدّادات طرف بتواريخ طرف آخر؛ وعند تساوي اليوم يؤخذ العدّاد الأكبر
+      [['streak_count','streak_last'],['p5_streak','p5_last'],['fajr_streak','fajr_last'],['morn_streak','morn_streak_last']].forEach(function(pair){
+        var ck=pair[0],lk=pair[1];
+        var lT=Date.parse(localStorage.getItem(lk)||'')||0;
+        var rT=Date.parse(rd[lk]||'')||0;
+        if(rT>lT){if(rd[lk]&&rd[lk]!=='null')_ls(lk,rd[lk]);if(rd[ck]&&rd[ck]!=='null')_ls(ck,rd[ck]);}
+        else if(rT===lT&&rT>0)_ls(ck,_numMax(localStorage.getItem(ck),rd[ck]));
       });
       // Adhkar per-dhikr progress: restore remote keys missing locally
       if(rd.adhkarProg&&typeof rd.adhkarProg==='object'){
