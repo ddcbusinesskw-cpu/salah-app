@@ -6101,8 +6101,11 @@ function khatmahSaveToday(){
   var el=document.getElementById('ktPagesIn');if(!el)return;
   var todayPages=Math.max(0,+el.value||0);
   var saved=lsGet('khatmah_data');if(!saved)return;
-  var data=JSON.parse(saved);
-  var pagesDay=Math.ceil(604/data.days);
+  var data=null;try{data=JSON.parse(saved);}catch(e){}
+  if(!data)return;
+  /* هجرة الصيغة القديمة (months بلا days) — كما في loadKhatmah */
+  if(data.months&&!data.days){data.days=data.months*30;}
+  var pagesDay=Math.ceil(604/(data.days||30));
   var dayIdx=_daysSince(data.startDate);
   var newPagesRead=Math.min(604,dayIdx*pagesDay+todayPages);
   if(newPagesRead>(data.pagesRead||0))data.pagesRead=newPagesRead;
