@@ -2126,7 +2126,7 @@ function go(id){
   if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
   if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
-  if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();}
+  if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();var _mAu=document.getElementById('quranAudio');if(_mAu){_mAu.onended=null;try{_mAu.pause();}catch(ex){}}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
@@ -2414,12 +2414,14 @@ function _startLiveSR(){
     _liveSR=new SR();
     _liveSR.lang='ar-SA';_liveSR.continuous=true;_liveSR.interimResults=true;_liveSR.maxAlternatives=3;
     _liveSR.onresult=function(ev){
-      var fin='';
+      var fin='',intr=null;
       for(var i=ev.resultIndex;i<ev.results.length;i++){
         if(ev.results[i].isFinal)fin+=ev.results[i][0].transcript+' ';
-        else _liveSRInterim=ev.results[i][0].transcript;
+        else intr=ev.results[i][0].transcript;
       }
-      if(fin){_liveText+=fin;}
+      /* نهائي بلا interim جديد → الـinterim القديم استُهلك في النهائي: صفّره كي لا يتضاعف الذيل */
+      if(fin){_liveText+=fin;_liveSRInterim=intr!==null?intr:'';}
+      else if(intr!==null)_liveSRInterim=intr;
       /* live progress in page mode */
       if(_m2PageMode&&MEM2.recActive){
         var all=(_liveText+' '+_liveSRInterim).trim();
@@ -2464,19 +2466,26 @@ function _tryCascade(){
       btn.id='_cascDiagBtn';btn.textContent='تشخيص دقيق';btn.className='mem2-back-btn';
       btn.style.cssText='background:rgba(234,204,126,.15);color:var(--gold);border-color:rgba(234,204,126,.3);';
       btn.onclick=function(){
-        btn.remove();
-        var buf=W2._cascBuf;W2._cascBuf=null;
-        if(!buf||!buf.length){toast('لا يوجد تسجيل محفوظ — أعِد التلاوة','warning');return;}
+        var buf=W2._cascBuf;
+        if(!buf||!buf.length){btn.remove();toast('لا يوجد تسجيل محفوظ — أعِد التلاوة','warning');return;}
+        if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
+        if(!W2.worker){toast('محرّك التعرّف غير متاح','error');return;}
+        btn.remove();W2._cascBuf=null;
         var sg=MEM2.segs[MEM2.cur];if(sg){sg.status='pending';sg.result=null;}
         _mem2Render();_mem2UpdateBar();
-        if(!W2.worker){toast('محرّك التعرّف غير متاح','error');return;}
         W2.analyzing=true;
         var _lbl=document.getElementById('mem2MicLbl'),_mic=document.getElementById('mem2MicBtn');
         if(_lbl)_lbl.textContent='يحلّل…';if(_mic)_mic.disabled=true;
-        _m2tr('تشخيص دقيق (Whisper)…');
-        _w2StartXTO(buf.length/16000);
-        if(_m2PageMode)_m2pgStartProc(buf.length/16000);
-        W2.worker.postMessage({type:'transcribe',buffer:buf.buffer,length:buf.length},[buf.buffer]);
+        if(W2.modelReady){
+          _m2tr('تشخيص دقيق (Whisper)…');
+          _w2StartXTO(buf.length/16000);
+          if(_m2PageMode)_m2pgStartProc(buf.length/16000);
+          W2.worker.postMessage({type:'transcribe',buffer:buf.buffer,length:buf.length},[buf.buffer]);
+        }else{
+          /* النموذج ما زال يُحمَّل — يلتقطه مسار pendingAudio عند ready */
+          W2.pendingAudio=buf;
+          _m2tr('جارٍ تحميل المحرّك — سيبدأ التشخيص تلقائياً…');
+        }
       };
       var foot=bar.querySelector('.mem2-bar-foot');if(foot)foot.appendChild(btn);
     }
@@ -2644,7 +2653,9 @@ var _BM_WSRC=[
   '      var raw=new Float32Array(ev.data.buffer,0,ev.data.length);',
   '      var audio=_tr(raw);',
   '      var _t0=Date.now();',
-  '      var r=await asr(audio,{language:"arabic",task:"transcribe",return_timestamps:false});',
+  '      var _dur=audio.length/16000;',
+  '      var _opts=_dur>20?{chunk_length_s:30,stride_length_s:5}:{};', // نفس معاملات الإنتاج حرفياً (_W2_WSRC)
+  '      var r=await asr(audio,_opts);',
   '      self.postMessage({type:"bm_result",text:r.text||"",procMs:Date.now()-_t0});}',
   '    catch(e){self.postMessage({type:"error",text:"استنتاج: "+(e&&e.message||String(e))});}}',
   '};'
@@ -2896,6 +2907,7 @@ function _w2Init(forceWasm){
   var _fwAsm=!!forceWasm||_isAndroidNative();
   var _bmEngId=lsGet('bm_engine');
   var _bmEngCfg=(_bmEngId&&typeof _BM_CANDIDATES!=='undefined')?_BM_CANDIDATES.find(function(c){return c.id===_bmEngId;}):null;
+  W2._customEng=!!_bmEngCfg;
   W2.worker.postMessage({type:'load',forceWasm:_fwAsm,model:_bmEngCfg?_bmEngCfg.model:null,dtype:_bmEngCfg?_bmEngCfg.dtype:null});
   /* مهلة "عدم تقدّم": تنطلق فقط إذا توقّف التقدّم 120ث — تُعاد عند كل progress event */
   _w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);
@@ -2940,6 +2952,8 @@ function _w2Msg(m){
   if(m.type==='ws'){
     // worker ready
   }else if(m.type==='progress'){
+    /* إعادة ضبط مهلة الركود عند كل تقدّم — دائماً، لا فقط عند شاشة التهيئة */
+    if(_w2LoadTO){clearTimeout(_w2LoadTO);_w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);}
     var p=m.data||{};
     if(p.status==='downloading'&&p.progress!=null){
       var pct=Math.round(p.progress);
@@ -2966,8 +2980,16 @@ function _w2Msg(m){
     _m2tr('['+(W2._dev==='webgpu'?'WebGPU':'WASM')+(m.procMs!=null?' '+m.procMs+'ms':'')+'] اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
     _mem2StopAndEval();
   }else if(m.type==='error'){
-    _w2ClearXTO();W2.analyzing=false;W2.loading=false;
+    _w2ClearXTO();W2.analyzing=false;W2.loading=false;_m2pgStopProc();
     var _errTxt=m.text||'';
+    /* فشل تحميل محرّك بديل من لوحة المقارنة → تراجع تلقائي للافتراضي */
+    if(W2._customEng&&!W2.modelReady&&(_errTxt.indexOf('تعذّر تحميل المحرّك')===0||_errTxt.indexOf('فشل استيراد')===0)){
+      try{localStorage.removeItem('bm_engine');}catch(e){}
+      W2._customEng=false;
+      toast('تعذّر تحميل المحرّك البديل — عاد الافتراضي','warning');
+      _w2Kill();_w2Init(lsGet('webgpu_ok')==='false');
+      return;
+    }
     if(_errTxt.toLowerCase().indexOf('quotaexceeded')>=0||_errTxt.indexOf('QuotaExceeded')>=0)
       _errTxt='مساحة التخزين ممتلئة — فرّغ مساحة وأعِد المحاولة';
     if(_svActive){_svShowErr(_errTxt||'فشل تحميل النموذج');}
@@ -3015,12 +3037,13 @@ var _w2XTO=null,_w2XWarnTO=null;
 function _w2StartXTO(durSec){
   _w2ClearXTO();
   var warnMs=Math.max(25000,durSec*4000);   /* warn after 4× audio, min 25 s */
-  var killMs=Math.max(150000,durSec*25000); /* kill after 25× audio, min 2.5 min */
+  var killMs=Math.min(Math.max(150000,durSec*25000),600000); /* kill after 25× audio, min 2.5 min, max 10 min */
   _w2XWarnTO=setTimeout(function(){
     if(W2.analyzing)_m2tr('النموذج يعمل… قد يستغرق دقيقة أو أكثر على هذا الجهاز');
   },warnMs);
   _w2XTO=setTimeout(function(){
     if(!W2.analyzing)return;
+    _m2pgStopProc();
     _m2tr('انتهت مهلة المعالجة — اضغط «سمّع» للمحاولة مجدداً');
     if(W2.worker){try{W2.worker.terminate();}catch(e){}}
     W2.worker=null;W2.modelReady=false;W2.loading=false;W2.analyzing=false;
@@ -3260,6 +3283,9 @@ function mem2ToggleRec(){
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
+  /* تسجيل جديد يُبطل تسجيل الشلال المحفوظ وزرّه */
+  W2._cascBuf=null;
+  var _odb=document.getElementById('_cascDiagBtn');if(_odb)_odb.remove();
   MEM2._tr='';MEM2._partial='';MEM2._retried=false;MEM2._lang='';
   _w2StartCapture();
 }
@@ -3435,6 +3461,11 @@ function _mem2StopAndEval(){
   var live=document.getElementById('mem2Live');if(live)live.textContent='';
   var words=tr.trim().split(/\s+/).filter(Boolean);
   if(!words.length){
+    /* لا إعادة محاولة إلا إذا كانت شاشة التسميع نشطة وجلستها قائمة — وإلا يُفتح المايك خفيةً */
+    var _scrOn=document.querySelector('.screen.on');
+    var _sessOn=document.getElementById('mem2SessionPane');
+    var _memActive=_scrOn&&_scrOn.id==='memorize'&&_sessOn&&_sessOn.style.display!=='none';
+    if(!_memActive){MEM2._retried=false;return;}
     if(!MEM2._retried){
       MEM2._retried=true;
       toast('لم أسمع — أعيد المحاولة…');
@@ -3466,7 +3497,9 @@ function _mem2StopAndEval(){
 }
 function _mem2StopRec(){
   _stopLiveSR();_m2pgStopTimer();_m2pgStopProc();
-  MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;W2._cascBuf=null;
+  /* W2._cascBuf يبقى محفوظاً هنا عمداً — يُمسح عند تسجيل جديد/مقطع آخر/مغادرة الشاشة
+     كي يظل «تشخيص دقيق» قادراً على إعادة استخدام التسجيل بعد نجاح الشلال */
+  MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;
   // Silence any old Web Speech Recognition instance so it doesn't fire onerror/onend
   if(MEM2.rec){try{MEM2.rec.onresult=null;MEM2.rec.onerror=null;MEM2.rec.onend=null;MEM2.rec.abort();}catch(e){}MEM2.rec=null;}
   if(W2.nativeRec){
@@ -3640,7 +3673,7 @@ function _mem2Score(seg,text){
   return pairs.length>0?ok/pairs.length:0;
 }
 function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
-function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
+function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();W2._cascBuf=null;var _ndb=document.getElementById('_cascDiagBtn');if(_ndb)_ndb.remove();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
 function mem2HearSeg(){
   if(MEM2.recActive){MEM2._partial='';_mem2StopRec();}
   var seg=MEM2.segs[MEM2.cur];if(!seg)return;
@@ -3648,7 +3681,9 @@ function mem2HearSeg(){
   var ed=ayEdition(),au=document.getElementById('quranAudio'),qi=0;
   function playNext(){
     if(qi>=seg.ayahs.length){au.onended=null;return;}
-    var g=globalAyah(MEM2.surah,seg.ayahs[qi].num);qi++;
+    var _ay=seg.ayahs[qi];qi++;
+    /* صفحات متعددة السور: لكل آية سورتها (a.surah) — لا سورة أول الصفحة */
+    var g=globalAyah(_ay.surah||MEM2.surah,_ay.num);
     au.src='https://cdn.islamic.network/quran/audio/'+ed[1]+'/'+ed[0]+'/'+g+'.mp3';
     au.onended=playNext;
     var p=au.play();if(p&&p.catch)p.catch(function(){toast('تعذّر الصوت — تأكد من الإنترنت','error');au.onended=null;});
@@ -3666,6 +3701,7 @@ function mem2Back(){
   else{_stopLiveSR();_m2pgStopTimer();_m2pgStopProc();}
   W2._cascBuf=null;
   var db=document.getElementById('_cascDiagBtn');if(db)db.remove();
+  var _bAu=document.getElementById('quranAudio');if(_bAu){_bAu.onended=null;try{_bAu.pause();}catch(e){}}
   var pfx=document.getElementById('mem2SegPfx');if(pfx)pfx.textContent='مقطع';
   document.getElementById('mem2SetupPane').style.display='';
   document.getElementById('mem2SessionPane').style.display='none';
@@ -5529,8 +5565,7 @@ function _svOnProgress(p){
   if(p.status==='done'&&_svFiles[p.file].t>0)_svFiles[p.file].l=_svFiles[p.file].t;
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent=_svShortFile(p.file);
   _svRedraw();
-  /* إعادة ضبط مهلة التوقف عند كل خطوة تقدّم — تنطلق فقط عند الركود الفعلي */
-  if(_w2LoadTO){clearTimeout(_w2LoadTO);_w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);}
+  /* إعادة ضبط مهلة الركود تتم مركزياً في _w2Msg فرع progress */
 }
 function _svOnModelReady(){
   if(!_svModelDone){_svModelDone=true;_svRedraw();}
@@ -5719,7 +5754,7 @@ function login(provider){
   }
 }
 function trialLeft(){var s=lsGet('trialStart');if(!s)return TRIAL_DAYS;var used=Math.floor((Date.now()-(+s))/86400000);return Math.max(0,TRIAL_DAYS-used);}
-function resetOnboarding(){['consent','session','sub','trialStart','setup_done','webgpu_ok'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});splashDone=false;boot();}
+function resetOnboarding(){['consent','session','sub','trialStart','setup_done','webgpu_ok','bm_engine'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});splashDone=false;boot();}
 function enterApp(){
   if(!lsGet('setup_done')){
     /* Reset setup UI to invite phase before showing */

@@ -9,14 +9,18 @@ echo "→ Copying web assets to www/"
 cp "$ROOT/index.html"            "$ROOT/www/index.html"
 cp "$ROOT/sw.js"                 "$ROOT/www/sw.js"
 cp "$ROOT/manifest.json"         "$ROOT/www/manifest.json"
+cp "$ROOT/privacy.html"          "$ROOT/www/privacy.html"
 for f in favicon.png apple-touch-icon.png icon-192.png icon-512.png icon-maskable-512.png; do
   [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$ROOT/www/$f"
 done
 
+# rm -rf قبل النسخ: cp -r فوق وجهة موجودة يعشّش المصدر داخلها (www/firebase/firebase)
 echo "→ Copying firebase/ SDK to www/"
+rm -rf "$ROOT/www/firebase"
 cp -r "$ROOT/firebase" "$ROOT/www/firebase"
 
 echo "→ Copying models/ to www/"
+rm -rf "$ROOT/www/models"
 cp -r "$ROOT/models" "$ROOT/www/models"
 
 echo "→ Injecting native-bridge.js into www/index.html"
