@@ -6926,6 +6926,7 @@ function salahTrackBack(){
 }
 function _stResetSession(){
   // Session counters & pose state
+  ST._logT0=Date.now(); /* مرجع الطابع الزمني لسجل [ST] */
   ST.pose='unknown';ST.poseConf=0;ST.pendPose='unknown';ST.pendTime=0;
   ST.inSujud=false;ST.inRuku=false;ST.inJalsa=false;ST.sujudInRak=0;
   ST.rakaat=0;ST.totalSujud=0;ST.totalRuku=0;ST.totalJalsa=0;
@@ -7132,13 +7133,17 @@ function _stPoseLoop(){
     _stDraw(pose,W,H);
     _stCheckWarnings(pose,W,H);
     // Debounce (shorter when a takbeer pulse was recently detected by VAD)
-    if(cls!==ST.pendPose){ST.pendPose=cls;ST.pendTime=now;}
+    if(cls!==ST.pendPose){
+      if(cls!==ST.pose)_stLog('👁 خام: مرشّح '+cls+' (ثقة '+Math.round(conf*100)+'%، الحالي '+ST.pose+')');
+      ST.pendPose=cls;ST.pendTime=now;
+    }
     else{
       var deb=ST.DEBOUNCE;
       if(ST.vadLastPulse&&now-ST.vadLastPulse<1500)deb=200;
       if(now-ST.pendTime>deb&&cls!==ST.pose){
         var prev=ST.pose;
         ST.pose=cls;
+        _stLog('👁 مُثبَّت: '+prev+'→'+cls+' (ثقة '+Math.round(conf*100)+'%، debounce '+deb+'ms)');
         _stOnPoseChange(prev,cls);
       }
     }
@@ -7202,13 +7207,16 @@ function _stGenerateSeq(target){
 }
 function _stSmAdvance(steps,skipped,reason){
   var sm=ST.sm,seq=sm.seq,now=Date.now();
+  var _rsn=reason==='audio'?'صوتي':reason==='resync'?'مزامنة':(skipped?'بصري-تخطٍّ':'بصري');
   for(var i=0;i<steps;i++){
     if(sm.idx>=seq.length)break;
     var from=seq[sm.idx];
     sm.idx++;sm.totalTransitions++;
+    _stLog('⚙ آلة: '+from.role+'→'+(sm.idx<seq.length?seq[sm.idx].role:'نهاية')+' (سبب: '+_rsn+(steps>1?' '+(i+1)+'/'+steps:'')+')');
     // Rakaat++ on leaving sujud2 — before end-of-seq break so it is never skipped
     if(from.role==='sujud2'){
       ST.rakaat++;ST.sujudInRak=0;ST._lastVisRak=now;
+      _stLog('🔢 ركعة ++ → '+ST.rakaat+' (مغادرة sujud2، سبب: '+_rsn+')');
       if(navigator.vibrate)navigator.vibrate([60,30,60]);
     }
     if(sm.idx>=seq.length)break;
@@ -7247,8 +7255,9 @@ function _stSmAdvance(steps,skipped,reason){
 function _stSmResync(cur){
   var sm=ST.sm,seq=sm.seq,idx=sm.idx;
   for(var i=idx+1;i<Math.min(idx+8,seq.length);i++){
-    if(seq[i].pose===cur){sm.stuckSince=null;_stSmAdvance(i-idx,false,'resync');return;}
+    if(seq[i].pose===cur){_stLog('↻ مزامنة: وضعية '+cur+' وُجدت بعد '+(i-idx)+' خطوة — قفز '+seq[idx].role+'→'+seq[i].role);sm.stuckSince=null;_stSmAdvance(i-idx,false,'resync');return;}
   }
+  _stLog('↻ مزامنة: لا خطوة قادمة تطابق '+cur+' خلال 8 — انتظار 20ث أخرى');
   sm.stuckSince=Date.now(); // no match found — wait another 20s before next attempt
 }
 function _stUpdateSmBar(){
@@ -7259,11 +7268,16 @@ function _stUpdateSmBar(){
   if(pe)pe.textContent=cur?'الركعة '+_stAr(cur.rak)+' · '+cur.label:'اكتمال الصلاة';
   if(ne)ne.textContent=nxt?nxt.label:'سلام';
 }
+/* سجل تشخيصي سلوكي مُوسَّم — طابع زمني بالثواني منذ بدء الجلسة */
+function _stLog(msg){
+  var t=ST._logT0?((Date.now()-ST._logT0)/1000).toFixed(1):'?';
+  console.log('[ST '+t+'s] '+msg);
+}
 function _stSmDiag(msg){
   if(ST.sm){
     if(!ST.sm._diagLog)ST.sm._diagLog=[];
     ST.sm._diagLog.push(msg);
-    if(ST.sm._diagLog.length>3)ST.sm._diagLog.shift();
+    if(ST.sm._diagLog.length>5)ST.sm._diagLog.shift();
   }
   var el=document.getElementById('stSmDiag');
   if(el)el.textContent=ST.sm&&ST.sm._diagLog?ST.sm._diagLog.join('\n'):msg;
@@ -7294,7 +7308,7 @@ function _stOnPoseChange(prev,cur){
   if(cur===curStep.pose){sm.stuckSince=null;return;}
   if(nxt&&cur===nxt.pose){sm.stuckSince=null;_stSmAdvance(1,false);return;}
   if(nxt2&&cur===nxt2.pose&&ST.poseConf>=0.25){sm.stuckSince=null;_stSmAdvance(2,true);return;}
-  if(!sm.stuckSince)sm.stuckSince=Date.now();
+  if(!sm.stuckSince){sm.stuckSince=Date.now();_stLog('⏳ تعثّر: الوضعية '+cur+' لا تطابق الحالية ('+curStep.pose+') ولا التاليتين — بدء عدّاد 20ث');}
   else if(Date.now()-sm.stuckSince>=20000)_stSmResync(cur);
 }
 function _stGetExpected(pose){
@@ -7539,11 +7553,19 @@ function _stKeywordScan(text){
   if(!ST.audioLayer||!text||!ST.active)return;
   var norm=typeof _normRec==='function'?_normRec(text):text;
   var now=Date.now();
+  var _cls=[];
   if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
-    if(now-ST._lastTasmi3>=1800){ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
+    if(now-ST._lastTasmi3>=1800){_cls.push('تسميع');ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
+    else _cls.push('تسميع⛔cooldown('+(now-ST._lastTasmi3)+'ms)');
   }
   if(norm.indexOf('اكبر')>=0){
-    if(now-ST._lastTakbir>=1800){ST._lastTakbir=now;_stOnKeyword('takbir');}
+    if(now-ST._lastTakbir>=1800){_cls.push('تكبير');ST._lastTakbir=now;_stOnKeyword('takbir');}
+    else _cls.push('تكبير⛔cooldown('+(now-ST._lastTakbir)+'ms)');
+  }
+  /* dedupe: النتائج الجزئية (native) تكرّر النص نفسه — سجّل عند التغيّر أو التصنيف فقط */
+  if(_cls.length||text!==ST._lastHeardLog){
+    ST._lastHeardLog=text;
+    _stLog('🎤 سُمع: |'+text+'| → مطبَّع |'+norm+'| → '+(_cls.length?_cls.join('+'):'متجاهَل (لا كلمة مفتاحية)'));
   }
 }
 function _stOnKeyword(word){
@@ -7568,25 +7590,31 @@ function _stOnKeyword(word){
   // After first ihram, subsequent takbirs at idx=0 pass to normal audio-recovery path.
   if(word==='takbir'&&sm.idx===0&&!ST._ihramHeard){
     _stSmDiag('🔊 تكبيرة الإحرام');
+    _stLog('🕋 إحرام: استُهلكت التكبيرة الأولى (idx=0) — لا تقدّم');
     ST._ihramHeard=true;_stMarkIhramHeard();
     return;
   }
   var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
-  if(!coolOk)return;
+  if(!coolOk){_stLog('🔊 '+word+': محجوب بكولداون التقدّم الصوتي ('+(now-(sm._lastAudioAdvance||0))+'ms)');return;}
   if(nxt.audioIn===word){
     var snapIdx=sm.idx;
+    _stLog('🔊 '+word+': يطابق المتوقَّع للخطوة التالية ('+nxt.role+') — جدولة تقدّم بعد 4ث (idx='+snapIdx+')');
     setTimeout(function(){
-      if(!ST.active||!ST.sm||ST.sm.idx!==snapIdx)return;
+      if(!ST.active||!ST.sm||ST.sm.idx!==snapIdx){_stLog('🔊 '+word+': أُلغي التقدّم المجدول (idx تغيّر '+snapIdx+'→'+(ST.sm?ST.sm.idx:'—')+')');return;}
       // Fix 2: if visual confidently shows user is still in current pose → defer
       var _cs=ST.sm.seq[snapIdx];
       if(_cs&&ST.pose===_cs.pose&&ST.poseConf>=0.4){
-        _stSmDiag('🔊 مؤجَّل: المستخدم ما زال في '+(_cs.label||_cs.pose));return;
+        _stSmDiag('🔊 مؤجَّل: المستخدم ما زال في '+(_cs.label||_cs.pose));
+        _stLog('🔊 '+word+': مؤجَّل — البصري يؤكد بقاء '+_cs.pose+' (ثقة '+Math.round(ST.poseConf*100)+'%)');return;
       }
       sm._lastAudioAdvance=Date.now();
       _stSmAdvance(1,false,'audio');
     },4000);
   }else if(word==='tasmi3'){
     _stSmDiag('🔊 تسميع خارج الموضع (متوقّع: '+(nxt.audioIn||'—')+')');
+    _stLog('🔊 tasmi3: خارج الموضع — الخطوة التالية '+nxt.role+' تتوقع '+(nxt.audioIn||'لا شيء'));
+  }else{
+    _stLog('🔊 '+word+': لا يطابق متوقَّع الخطوة التالية ('+nxt.role+' يتوقع '+(nxt.audioIn||'لا شيء')+') — تجاهُل');
   }
 }
 function _stUpdateAudioCtrs(){
