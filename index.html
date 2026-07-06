@@ -2734,9 +2734,145 @@ function _bmShowPanel(){
     +'<div id="bmTable" style="width:100%;overflow-x:auto;"></div>'
     +'<div id="bmVerdict" style="margin-top:14px;font-size:14px;font-weight:600;text-align:center;"></div>'
     +'<button id="bmCopyBtn" onclick="_bmCopyReport()" style="display:none;margin-top:12px;background:rgba(63,174,142,.15);color:#3fae8e;border:1px solid rgba(63,174,142,.6);border-radius:8px;padding:8px 22px;font-size:13px;cursor:pointer">📋 نسخ التقرير الكامل</button>'
+    +'<div style="width:100%;border-top:1px solid rgba(255,255,255,.12);margin-top:16px;padding-top:12px">'
+    +'<div style="font-size:14px;font-weight:700;color:#eacc7e;margin-bottom:8px">🧭 محرّك تتبّع الصلاة</div>'
+    +'<button id="bmStEng" onclick="_bmToggleStEngine()" style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 18px;font-size:12px;cursor:pointer"></button>'
+    +'<div style="font-size:14px;font-weight:700;color:#eacc7e;margin:14px 0 6px">🔁 إعادة تشغيل جلسة</div>'
+    +'<textarea id="bmReplayIn" placeholder="الصق هنا JSON سجل الجلسة (من زر النسخ في ملخّص التتبّع)" style="width:100%;height:80px;background:rgba(255,255,255,.05);color:#ccc;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px;font-size:11px;font-family:monospace;direction:ltr"></textarea>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px">'
+    +'<input id="bmReplayTruth" type="number" min="0" max="20" placeholder="الحقيقة؟" title="كم ركعة صلّيت فعلاً" style="width:90px;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px;font-size:12px;text-align:center">'
+    +'<button onclick="_bmReplayRun()" style="background:#3fae8e;color:#fff;border:none;border-radius:8px;padding:7px 18px;font-size:12px;cursor:pointer">شغّل الإعادة</button>'
+    +'</div>'
+    +'<div id="bmReplayOut" style="margin-top:10px;font-size:11px;max-height:320px;overflow-y:auto"></div>'
+    +'</div>'
     +'<button onclick="_bmHidePanel()" style="margin-top:10px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 24px;font-size:13px;cursor:pointer">إغلاق</button>';
   document.body.appendChild(d);
   _bmState.panel=d;
+  _bmStEngLbl();
+}
+function _bmStEngLbl(){
+  var b=document.getElementById('bmStEng');if(!b)return;
+  var cur=lsGet('st_engine')==='prob'?'prob':'sm';
+  b.textContent='المحرّك الحالي: '+(cur==='prob'?'⚗ احتمالي (prob)':'⚙ آلة الحالة (sm)')+' — اضغط للتبديل';
+  b.style.borderColor=cur==='prob'?'rgba(63,174,142,.7)':'rgba(255,255,255,.25)';
+}
+function _bmToggleStEngine(){
+  var nxt=lsGet('st_engine')==='prob'?'sm':'prob';
+  lsSet('st_engine',nxt);
+  _bmStEngLbl();
+  toast('محرّك التتبّع: '+(nxt==='prob'?'الاحتمالي':'آلة الحالة')+' — يسري من الجلسة القادمة','success');
+}
+/* ═══ مختبر الإعادة: يشغّل سجل جلسة على المحرّكين زمنياً ═══ */
+/* محاكي آلة الحالة الحالية (بوابات المدد + التخطّي + الصوتي المؤجَّل + المزامنة) */
+function _bmReplaySM(seq,evs,endT){
+  var s={idx:0,entered:0,pose:'unknown',conf:0,rak:0,trans:[],lastAudio:null,lastAdv:-99,ihram:false,stuck:null,pend:[]};
+  function adv(k,rsn,t){
+    for(var i=0;i<k&&s.idx<seq.length;i++){
+      var f=seq[s.idx];s.idx++;
+      if(f.role==='sujud2')s.rak++;
+      s.trans.push({t:t,from:f.role,to:s.idx<seq.length?seq[s.idx].role:'نهاية',rsn:rsn});
+    }
+    s.entered=t;s.stuck=null;s.pend=s.pend.filter(function(p){return p.type==='audio';});
+  }
+  function firePend(t){
+    s.pend=s.pend.filter(function(p){
+      if(p.at>t)return true;
+      if(p.type==='audio'){
+        if(s.idx===p.snap&&!(s.pose===seq[s.idx].pose&&s.conf>=0.4)){s.lastAdv=p.at;adv(1,'صوتي',p.at);}
+        return false;
+      }
+      if(p.type==='dwell'){
+        if(s.idx===p.snap&&seq[s.idx+1]&&s.pose===seq[s.idx+1].pose)adv(1,'بصري',p.at);
+        return false;
+      }
+      if(p.type==='resync'){
+        if(s.stuck!==null&&p.at-s.stuck>=0){
+          for(var i=s.idx+1;i<Math.min(s.idx+8,seq.length);i++)
+            if(seq[i].pose===s.pose){adv(i-s.idx,'مزامنة',p.at);return false;}
+          s.stuck=p.at;
+        }
+        return false;
+      }
+      return false;
+    });
+  }
+  var MD=typeof ST_MIN_DWELL!=='undefined'?ST_MIN_DWELL:{};
+  evs.forEach(function(e){
+    firePend(e.t);
+    if(e.type==='pose'){
+      s.pose=e.pose;s.conf=e.conf||0;
+      if(s.idx>=seq.length)return;
+      var cur=seq[s.idx],nxt=seq[s.idx+1],nxt2=seq[s.idx+2];
+      var minD=(MD[cur.role]||0)/1000,dw=e.t-s.entered;
+      function aProof(tg){return s.lastAudio&&tg&&tg.audioIn&&s.lastAudio.w===tg.audioIn&&(e.t-s.lastAudio.t)<4;}
+      if(s.pose===cur.pose){s.stuck=null;return;}
+      if(nxt&&s.pose===nxt.pose){
+        if(dw<minD&&!aProof(nxt)){s.pend.push({type:'dwell',at:s.entered+minD+0.12,snap:s.idx});return;}
+        adv(1,'بصري',e.t);return;
+      }
+      if(nxt2&&s.pose===nxt2.pose&&s.conf>=0.25){
+        if(dw<minD&&!aProof(nxt2))return;
+        adv(2,'بصري-تخطٍّ',e.t);return;
+      }
+      if(s.stuck===null){s.stuck=e.t;s.pend.push({type:'resync',at:e.t+20});}
+    }else if(e.type==='kw'){
+      var w=e.word;
+      if(w==='takbir'&&s.idx===0&&!s.ihram){s.ihram=true;return;}
+      s.lastAudio={w:w,t:e.t};
+      if(e.t-s.lastAdv<1.8)return;
+      var nx=seq[s.idx+1];
+      if(nx&&nx.audioIn===w)s.pend.push({type:'audio',at:e.t+4,snap:s.idx});
+    }
+  });
+  firePend(endT+30);
+  return s;
+}
+function _bmReplayProb(seq,evs,endT){
+  var st=_stProbCreate(seq,ST.PROB_CFG);
+  var pose='unknown',conf=0,ei=0,rak=0,trans=[];
+  for(var t=0;t<=endT+2;t+=0.13){
+    while(ei<evs.length&&evs[ei].t<=t){
+      var e=evs[ei++];
+      if(e.type==='pose'){pose=e.pose;conf=e.conf||0;}
+      else if(e.type==='kw')_stProbAudioCore(st,e.word);
+    }
+    _stProbStepCore(st,130,pose,conf);
+    var pre=st.c,k=_stProbCommitsCore(st);
+    for(var i=0;i<k;i++){
+      var f=seq[pre+i];
+      if(f.role==='sujud2')rak++;
+      trans.push({t:Math.round(t*10)/10,from:f.role,to:(pre+i+1<seq.length?seq[pre+i+1].role:'نهاية'),rsn:'احتمالي'});
+    }
+  }
+  return{rak:rak,trans:trans};
+}
+function _bmReplayRun(){
+  var out=document.getElementById('bmReplayOut');
+  var raw=(document.getElementById('bmReplayIn')||{}).value||'';
+  var truth=+((document.getElementById('bmReplayTruth')||{}).value||NaN);
+  var pl=null;try{pl=JSON.parse(raw);}catch(e){}
+  if(!pl||!pl.ledger||!pl.ledger.length){if(out)out.innerHTML='<span style="color:#f07">JSON غير صالح أو سجل فارغ</span>';return;}
+  var target=pl.target||2;
+  var seq=_stGenerateSeq(target);
+  var evs=pl.ledger.filter(function(e){return e.type==='pose'||e.type==='kw';}).sort(function(a,b){return a.t-b.t;});
+  var endT=evs.length?evs[evs.length-1].t:0;
+  var rk=pl.ledger.filter(function(e){return e.type==='count'&&e.counter==='reflex_takbir';}).length;
+  var rt=pl.ledger.filter(function(e){return e.type==='count'&&e.counter==='reflex_tasmi3';}).length;
+  var sm=_bmReplaySM(seq,evs,endT);
+  var pr=_bmReplayProb(seq,evs,endT);
+  function verdict(r){if(isNaN(truth))return'—';return r===truth?'<b style="color:#3fae8e">✓ أصاب</b>':'<b style="color:#f07">✗ ('+(r>truth?'+':'')+(r-truth)+')</b>';}
+  function transList(tr){return tr.map(function(x){return x.t.toFixed(1)+'s '+x.from+'→'+x.to+' ['+x.rsn+']';}).join('<br>')||'—';}
+  if(out)out.innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;direction:rtl">'
+    +'<tr style="background:rgba(255,255,255,.08)"><th style="padding:4px">المحرّك</th><th>ركعات</th><th>الحقيقة</th></tr>'
+    +'<tr><td style="padding:4px;color:#eacc7e">⚙ sm الحالي</td><td style="text-align:center">'+sm.rak+'</td><td style="text-align:center">'+verdict(sm.rak)+'</td></tr>'
+    +'<tr><td style="padding:4px;color:#4ecaa8">⚗ prob الجديد</td><td style="text-align:center">'+pr.rak+'</td><td style="text-align:center">'+verdict(pr.rak)+'</td></tr>'
+    +'</table>'
+    +'<div style="color:#888;margin:6px 0">🎙 تكبيرات: '+rk+' · تسميع: '+rt+' · أحداث: '+evs.length+' · مدة: '+Math.round(endT)+'ث</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;direction:rtl">'
+    +'<div><b style="color:#eacc7e">انتقالات sm ('+sm.trans.length+')</b><div style="font-family:monospace;font-size:10px;color:#aaa;direction:ltr;text-align:left;max-height:140px;overflow-y:auto;background:rgba(255,255,255,.03);padding:4px;border-radius:6px;margin-top:3px">'+transList(sm.trans)+'</div></div>'
+    +'<div><b style="color:#4ecaa8">انتقالات prob ('+pr.trans.length+')</b><div style="font-family:monospace;font-size:10px;color:#aaa;direction:ltr;text-align:left;max-height:140px;overflow-y:auto;background:rgba(255,255,255,.03);padding:4px;border-radius:6px;margin-top:3px">'+transList(pr.trans)+'</div></div>'
+    +'</div>';
 }
 function _bmHidePanel(){if(_bmState.panel)_bmState.panel.style.display='none';}
 function _bmLog(msg){console.log('[BM]',msg);var el=document.getElementById('bmStatus');if(el)el.textContent=msg;}
@@ -7135,6 +7271,15 @@ function _stGo(gen){
   ST.startTime=Date.now();
   ST.sm={seq:_stGenerateSeq(ST.target),idx:0,enteredAt:Date.now(),stuckSince:null,
          audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0,_diagLog:[]};
+  /* اختيار المحرّك: 'sm' الافتراضي | 'prob' الاحتمالي (علم st_engine) */
+  ST.engine=(lsGet('st_engine')==='prob')?'prob':'sm';
+  ST._probPreview=0;
+  if(ST.engine==='prob'){
+    ST.prob=_stProbCreate(ST.sm.seq,ST.PROB_CFG);
+    ST.prob._lastT=Date.now();
+    _stLog('⚗ المحرّك الاحتمالي نشط (st_engine=prob)');
+    _stLedger({type:'count',counter:'engine_prob',value:1});
+  }else ST.prob=null;
   // Update prayer chip + target
   var chip=document.getElementById('stPrayerChip');
   var PNAMES={fajr:'فجر',dhuhr:'ظهر',asr:'عصر',maghrib:'مغرب',isha:'عشاء'};
@@ -7247,6 +7392,21 @@ function _stPoseLoop(){
         }
       }
     }
+    /* نبضة المرشّح الاحتمالي: يستهلك الوضعية الحالية كل ~130ms */
+    if(ST.engine==='prob'&&ST.prob&&ST.sm){
+      var _pdt=Math.min(500,now-(ST.prob._lastT||now))||130;
+      ST.prob._lastT=now;
+      _stProbStepCore(ST.prob,_pdt,ST.pose,conf);
+      var _preC=ST.prob.c;
+      var _cm=_stProbCommitsCore(ST.prob);
+      if(_cm>0){
+        _stLog('⚗ التزام: +'+_cm+' خطوة (ذيل≥'+ST.PROB_CFG.commitThresh+')');
+        _stSmAdvance(_cm,false,'prob');
+        ST.prob.c=ST.sm.idx; /* مزامنة المؤشر مع الآلة المحاسبية */
+      }
+      var _pv=(ST.prob.tent>=ST.PROB_CFG.tentThresh&&ST.sm.idx<ST.sm.seq.length&&ST.sm.seq[ST.sm.idx].role==='sujud2')?1:0;
+      if(_pv!==ST._probPreview){ST._probPreview=_pv;_stUpdateCounters();}
+    }
     _stUpdatePoseBadge(ST.pose);
   })
   .catch(function(){});
@@ -7307,7 +7467,7 @@ function _stGenerateSeq(target){
 }
 function _stSmAdvance(steps,skipped,reason){
   var sm=ST.sm,seq=sm.seq,now=Date.now();
-  var _rsn=reason==='audio'?'صوتي':reason==='resync'?'مزامنة':(skipped?'بصري-تخطٍّ':'بصري');
+  var _rsn=reason==='audio'?'صوتي':reason==='resync'?'مزامنة':reason==='prob'?'احتمالي':(skipped?'بصري-تخطٍّ':'بصري');
   for(var i=0;i<steps;i++){
     if(sm.idx>=seq.length)break;
     var from=seq[sm.idx];
@@ -7410,6 +7570,7 @@ function _stReflexScan(text){
       ST._refTasT=now;ST.reflexTas++;
       var e=document.getElementById('stRefTasNum');if(e)e.textContent=_stAr(ST.reflexTas);
       _stLedger({type:'count',counter:'reflex_tasmi3',value:ST.reflexTas});
+      if(ST.engine==='prob')_stProbAudio('tasmi3');
     }
   }
   if(norm.indexOf('اكبر')>=0){
@@ -7417,6 +7578,7 @@ function _stReflexScan(text){
       ST._refTakT=now;ST.reflexTak++;
       var e2=document.getElementById('stRefTakNum');if(e2)e2.textContent=_stAr(ST.reflexTak);
       _stLedger({type:'count',counter:'reflex_takbir',value:ST.reflexTak});
+      if(ST.engine==='prob')_stProbAudio('takbir');
     }
   }
 }
@@ -7426,6 +7588,93 @@ var ST_MIN_DWELL={qiyam1:10000,ruku:2500,qiyam2:1500,sujud1:2500,sujud2:2500,jal
 function _stAudioProof(target,now){
   return !!(ST.sm&&ST.sm._lastAudio&&target&&target.audioIn&&
             ST.sm._lastAudio.word===target.audioIn&&(now-ST.sm._lastAudio.time)<4000);
+}
+/* ═══ المحرّك الاحتمالي (خلف علم st_engine='prob') ═══
+   مرشّح بايزي أمامي على خطوات التسلسل — كل المعاملات في ST.PROB_CFG.
+   النواة دوال نقية (state ممرَّر) تُشارَك بين المحرّك الحي ومختبر الإعادة */
+ST.PROB_CFG={
+  commitThresh:0.85,   /* الالتزام الرتيب */
+  tentThresh:0.6,      /* العرض المؤقت */
+  dwell:{ /* مدد الأدوار ms: {min,typ,max} — min من بوابات المدد */
+    qiyam1:{min:10000,typ:30000,max:120000},
+    ruku:{min:2500,typ:6000,max:30000},
+    qiyam2:{min:1500,typ:3500,max:20000},
+    sujud1:{min:2500,typ:5500,max:30000},
+    jalsa_bein:{min:1200,typ:2500,max:15000},
+    sujud2:{min:2500,typ:5500,max:30000},
+    tashahud1:{min:8000,typ:15000,max:60000},
+    tashahud_final:{min:8000,typ:20000,max:180000}
+  },
+  obs:{match:0.85,confusable:0.45,mismatch:0.06}, /* أرجحيات الدليل البصري */
+  audioBoost:6.0,      /* تعزيز الدليل الصوتي للخطوات المطابقة */
+  tickMs:130
+};
+function _stProbCreate(seq,cfg){
+  var P=new Array(seq.length).fill(0);P[0]=1;
+  return{seq:seq,cfg:cfg,P:P,age:new Array(seq.length).fill(0),c:0,tent:0,ihram:false,_lastT:0};
+}
+/* معدل الخطر لكل نبضة: ~صفر قبل min، يتصاعد حتى typ، مرتفع بعده */
+function _stProbHz(age,d,dt){
+  var f=dt/130;
+  if(age<d.min)return 0.0015*f;
+  if(age<d.typ)return (0.10*(age-d.min)/Math.max(d.typ-d.min,1))*f;
+  var over=(age-d.typ)/Math.max(d.max-d.typ,500);
+  return Math.min(0.10+0.35*over,0.6)*f;
+}
+function _stProbStepCore(st,dt,pose,conf){
+  var seq=st.seq,cfg=st.cfg,N=seq.length,j;
+  var DEF={min:1500,typ:5000,max:30000};
+  /* تنبؤ: تدفّق أمامي */
+  var nP=new Array(N).fill(0);
+  for(j=0;j<N;j++){
+    var flow=(j<N-1)?st.P[j]*_stProbHz(st.age[j],cfg.dwell[seq[j].role]||DEF,dt):0;
+    nP[j]+=st.P[j]-flow;
+    if(j<N-1)nP[j+1]+=flow;
+  }
+  /* أعمار الخطوات: تنمو حيث توجد كتلة، تُصفَّر حيث تغيب */
+  for(j=0;j<N;j++)st.age[j]=nP[j]>0.02?st.age[j]+dt:0;
+  /* تحديث بالدليل البصري (unknown = لا معلومة) */
+  if(pose&&pose!=='unknown'){
+    for(j=0;j<N;j++){
+      var sp=seq[j].pose,L;
+      if(sp===pose)L=cfg.obs.match*(0.5+Math.min(0.5,conf||0));
+      else if((sp==='jalsa'&&pose==='qiyam')||(sp==='qiyam'&&pose==='jalsa'))L=cfg.obs.confusable;
+      else L=cfg.obs.mismatch;
+      nP[j]*=L;
+    }
+  }
+  /* تطبيع */
+  var s=0;for(j=0;j<N;j++)s+=nP[j];
+  if(s<=0){nP.fill(0);nP[st.c]=1;s=1;}
+  for(j=0;j<N;j++)st.P[j]=nP[j]/s;
+}
+function _stProbAudioCore(st,word){
+  /* تكبيرة الإحرام: تُستهلك مرة واحدة عند البداية — لا تعزيز */
+  if(word==='takbir'&&st.c===0&&!st.ihram){st.ihram=true;return false;}
+  var any=false,j;
+  for(j=st.c;j<st.seq.length;j++)if(st.seq[j].audioIn===word){st.P[j]*=st.cfg.audioBoost;any=true;}
+  if(any){var s=0;for(j=0;j<st.P.length;j++)s+=st.P[j];for(j=0;j<st.P.length;j++)st.P[j]/=s;}
+  return any;
+}
+/* الالتزام الرتيب: يتقدّم فقط، عند P(≥j)≥commitThresh؛ يعيد عدد الخطوات الملتزَمة */
+function _stProbCommitsCore(st){
+  var out=0,j;
+  while(st.c<st.seq.length-1){
+    var tail=0;for(j=st.c+1;j<st.P.length;j++)tail+=st.P[j];
+    if(tail<st.cfg.commitThresh)break;
+    st.c++;out++;
+    var s=0;for(j=0;j<st.P.length;j++){if(j<st.c)st.P[j]=0;s+=st.P[j];}
+    if(s>0)for(j=0;j<st.P.length;j++)st.P[j]/=s;
+  }
+  var t2=0;for(j=st.c+1;j<st.P.length;j++)t2+=st.P[j];
+  st.tent=t2;
+  return out;
+}
+/* غلاف حي: الدليل الصوتي من عدّادات الانعكاس */
+function _stProbAudio(word){
+  if(!ST.prob)return;
+  var boosted=_stProbAudioCore(ST.prob,word);
+  if(boosted)_stLog('⚗ احتمالي: تعزيز صوتي ×'+ST.PROB_CFG.audioBoost+' ('+word+')');
 }
 function _stSmDiag(msg){
   if(ST.sm){
@@ -7456,6 +7705,7 @@ function _stCaptureSegment(prev,cur){
 function _stOnPoseChange(prev,cur){
   if(!ST.active||!ST.sm)return;
   _stCaptureSegment(prev,cur);
+  if(ST.engine==='prob')return; /* المرشّح يستهلك الوضعيات في نبضته — لا تقدّم مباشر */
   var sm=ST.sm,seq=sm.seq,idx=sm.idx;
   if(idx>=seq.length)return;
   var curStep=seq[idx],nxt=seq[idx+1],nxt2=seq[idx+2];
@@ -7720,9 +7970,14 @@ function _stUpdatePoseBadge(pose){
   if(ring){ring.className='st-pose-ring'+(info.cls?' '+info.cls:'');}
 }
 function _stUpdateCounters(){
-  /* الركعة المؤقتة تُعرض بشفافية + نقطة حتى يثبّتها انتقال داعم */
+  /* الركعة المؤقتة تُعرض بشفافية + نقطة حتى يثبّتها انتقال داعم؛
+     والمحرّك الاحتمالي يعاين +1 باهتة عند عبور عتبة الترشيح (0.6) */
   var rn=document.getElementById('stRakNum');
-  if(rn){rn.textContent=_stAr(ST.rakaat)+(ST._rakTent?' ·':'');rn.style.opacity=ST._rakTent?'.5':'';}
+  if(rn){
+    var _tv=ST.rakaat+(ST._probPreview||0);
+    rn.textContent=_stAr(_tv)+((ST._rakTent||ST._probPreview)?' ·':'');
+    rn.style.opacity=(ST._rakTent||ST._probPreview)?'.5':'';
+  }
   var ru=document.getElementById('stRukuNum');if(ru)ru.textContent=_stAr(ST.totalRuku);
   var su=document.getElementById('stSujudNum');if(su)su.textContent=_stAr(ST.totalSujud);
   var ja=document.getElementById('stJalsaNum');if(ja)ja.textContent=_stAr(ST.totalJalsa);
@@ -7779,6 +8034,7 @@ function _stOnKeyword(word){
     ST._ihramHeard=true;_stMarkIhramHeard();
     return;
   }
+  if(ST.engine==='prob')return; /* الدليل الصوتي يصل المرشّح عبر عدّادات الانعكاس */
   var coolOk=(now-(sm._lastAudioAdvance||0))>=1800;
   if(!coolOk){_stLog('🔊 '+word+': محجوب بكولداون التقدّم الصوتي ('+(now-(sm._lastAudioAdvance||0))+'ms)');return;}
   if(nxt.audioIn===word){
@@ -7824,6 +8080,7 @@ function salahTrackStop(_silent){
   ST.active=false;  /* halts _stPoseLoop, timers, VAD immediately */
   try{clearInterval(ST._qgInt);ST._qgInt=null;}catch(_e){}
   try{clearTimeout(ST._dwellTO);}catch(_e){}
+  ST.prob=null;ST._probPreview=0;
 
   var _traceEl=document.getElementById('stStopTrace');
   function _tr(step,ok,detail){
