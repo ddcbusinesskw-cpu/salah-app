@@ -1475,6 +1475,16 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div id="stSmBar" style="text-align:center;padding:1px 0 5px;font-size:12px;color:var(--muted);direction:rtl;min-height:18px">
         <span id="stSmPos" style="color:var(--text);font-weight:600">—</span><span style="margin:0 5px;opacity:.4">·</span>التالي: <span id="stSmNext" style="color:var(--gold)">—</span>
       </div>
+      <!-- Quality gate: pre-start framing check -->
+      <div id="stQGate" style="display:none;text-align:center;padding:10px 14px;margin:4px 0;background:rgba(234,204,126,.07);border:1px solid rgba(234,204,126,.3);border-radius:12px;direction:rtl">
+        <div id="stQGateMsg" style="font-size:13px;color:var(--gold);min-height:20px">🎯 فحص الإطار…</div>
+        <button onclick="_stQGateSkip()" style="margin-top:8px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 18px;font-size:12px;cursor:pointer;font-family:inherit">ابدأ رغم ذلك</button>
+      </div>
+      <!-- Reflex audio counters: instant, machine-independent -->
+      <div class="st-ctrs" id="stReflexRow" style="display:none;grid-template-columns:repeat(2,1fr)">
+        <div class="st-ctr-card"><span class="st-ctr-n" id="stRefTakNum" style="color:var(--gold)">٠</span><span class="st-ctr-k">🎙 الله أكبر</span></div>
+        <div class="st-ctr-card"><span class="st-ctr-n" id="stRefTasNum" style="color:#4ecaa8">٠</span><span class="st-ctr-k">🎙 سمع الله لمن حمده</span></div>
+      </div>
       <!-- Live counters -->
       <div class="st-ctrs">
         <div class="st-ctr-card st-ctr-gold">
@@ -1573,7 +1583,17 @@ button,a{-webkit-tap-highlight-color:transparent;}
         </div>
         <div class="st-segs-title">تفاصيل القراءة</div>
         <div id="stSegsList"></div>
+        <div id="stSumAutoOk" style="display:none;text-align:center;color:var(--green);font-size:13px;font-weight:700;padding:4px 0">🛡 تحقّق تلقائي ✓</div>
+        <div id="stConfirmSheet" style="display:none;text-align:center;background:rgba(234,204,126,.08);border:1px solid rgba(234,204,126,.35);border-radius:12px;padding:12px;margin:8px 0;direction:rtl">
+          <div style="font-size:14px;margin-bottom:10px">رصدتُ <b id="stConfNum" style="color:var(--gold);font-size:18px">٠</b> ركعات — تأكيد؟</div>
+          <div style="display:flex;gap:10px;justify-content:center;align-items:center">
+            <button onclick="_stConfAdj(-1)" style="background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:10px;width:42px;height:38px;font-size:18px;cursor:pointer;font-family:inherit">−</button>
+            <button onclick="_stConfAdj(1)" style="background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:10px;width:42px;height:38px;font-size:18px;cursor:pointer;font-family:inherit">+</button>
+            <button onclick="_stConfirmSave()" style="background:var(--gold);color:#1a1300;border:none;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">تأكيد وحفظ</button>
+          </div>
+        </div>
         <div id="stSumRegMsg" style="text-align:center;font-size:13px;padding:8px 0;min-height:20px;font-weight:600;"></div>
+        <button class="st-sum-btn" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)" onclick="_stCopyLedger()">📋 نسخ سجل الجلسة</button>
         <button class="st-sum-btn" onclick="salahTrackReset()">🔄 صلاة جديدة</button>
       </div>
     </div>
@@ -6927,6 +6947,11 @@ function salahTrackBack(){
 function _stResetSession(){
   // Session counters & pose state
   ST._logT0=Date.now(); /* مرجع الطابع الزمني لسجل [ST] */
+  ST.ledger=[]; /* دفتر أحداث الجلسة الخام — لا يُعدَّل ولا يُمحى أثناءها */
+  ST.reflexTak=0;ST.reflexTas=0;ST._refTakT=0;ST._refTasT=0;
+  ST._clsHist=[];ST._impLogged=false;ST._rakTent=false;ST._rakTentTrans=0;
+  var _rtk=document.getElementById('stRefTakNum');if(_rtk)_rtk.textContent='٠';
+  var _rts=document.getElementById('stRefTasNum');if(_rts)_rts.textContent='٠';
   ST.pose='unknown';ST.poseConf=0;ST.pendPose='unknown';ST.pendTime=0;
   ST.inSujud=false;ST.inRuku=false;ST.inJalsa=false;ST.sujudInRak=0;
   ST.rakaat=0;ST.totalSujud=0;ST.totalRuku=0;ST.totalJalsa=0;
@@ -7046,11 +7071,70 @@ function _stBeginSession(gen){
   var wrap=document.getElementById('stVidWrap');
   if(video){video.srcObject=ST.camStream;video.play().catch(function(e){console.error('[ST] video.play failed:',e&&e.message||String(e));if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}salahTrackStop(true);_stErrMsg('تعذّر تشغيل الكاميرا — حاول مجدداً');});}
   if(wrap)wrap.style.display='';
+  _stShowPane('stActivePane');
+  _stRunQualityGate(gen);
+}
+/* بوابة الجودة قبل البدء: ~3ث فحص جاهزية — النقاط الرئيسية (أنف/كتفان/
+   وركان/ركبتان) بثقة ≥0.35 مع هيكل حيّ على المعاينة وإرشاد محدَّد */
+function _stRunQualityGate(gen){
+  ST._qgGen=gen;
+  var g=document.getElementById('stQGate');if(g)g.style.display='';
+  var wrap=document.getElementById('stVidWrap');if(wrap)wrap.style.display='';
+  var lbl=document.getElementById('stCamLbl');if(lbl)lbl.textContent='إخفاء الكاميرا';
+  var msg=document.getElementById('stQGateMsg');
+  var video=document.getElementById('stVideo');
+  var good=0,samples=0;
+  clearInterval(ST._qgInt);
+  ST._qgInt=setInterval(function(){
+    if(gen!==ST._gen||ST._stopping){clearInterval(ST._qgInt);ST._qgInt=null;return;}
+    if(!video||video.readyState<2||!ST.detector)return;
+    ST.detector.estimatePoses(video,{maxPoses:1,flipHorizontal:true}).then(function(poses){
+      if(gen!==ST._gen||!ST._qgInt)return;
+      var pose=poses&&poses[0];
+      var W=video.videoWidth||320,H=video.videoHeight||240;
+      _stDraw(pose,W,H);
+      var m='';
+      if(!pose||!pose.keypoints){m='💡 الإضاءة ضعيفة أو لا يظهر أحد في الإطار';good=0;}
+      else{
+        var kp=pose.keypoints;
+        var KEY=[0,5,6,11,12,13,14];
+        var kSum=0;for(var i=0;i<KEY.length;i++)kSum+=kp[KEY[i]].score;
+        var kAvg=kSum/KEY.length;
+        var upper=(kp[0].score+kp[5].score+kp[6].score)/3;
+        var lower=(kp[11].score+kp[12].score+kp[13].score+kp[14].score)/4;
+        if(kAvg>=0.35){good++;m='✓ الإطار ممتاز — يبدأ التتبّع'+(good>=4?'…':'');}
+        else{
+          good=0;
+          if(upper<0.2)m='💡 الإضاءة ضعيفة — حسّن الإضاءة أو اقترب';
+          else if(lower<0.2)m='↔ ابتعد قليلاً — جسمك غير ظاهر كاملاً';
+          else m='🎯 عدّل موضع الهاتف حتى تظهر نقاط الجسم بوضوح';
+        }
+      }
+      if(msg)msg.textContent=m;
+      samples++;
+      if(good>=8){ /* ~2.5ث إطارات جيدة متتالية */
+        _stLog('🎯 بوابة الجودة: اجتياز بعد '+samples+' عيّنة');
+        _stLedger({type:'count',counter:'quality_gate_pass',value:1});
+        _stGo(gen);
+      }
+    }).catch(function(){});
+  },300);
+}
+function _stQGateSkip(){
+  _stLog('🎯 بوابة الجودة: تخطٍّ يدوي');
+  _stLedger({type:'count',counter:'quality_gate_skip',value:1});
+  _stGo(ST._qgGen);
+}
+/* البدء الفعلي — بعد اجتياز البوابة أو تخطّيها */
+function _stGo(gen){
+  if(gen!==ST._gen||ST.active)return;
+  if(ST._qgInt){clearInterval(ST._qgInt);ST._qgInt=null;}
+  var _qg=document.getElementById('stQGate');if(_qg)_qg.style.display='none';
+  var _rr=document.getElementById('stReflexRow');if(_rr)_rr.style.display=ST.srAvail?'grid':'none';
   ST.active=true;
   ST.startTime=Date.now();
   ST.sm={seq:_stGenerateSeq(ST.target),idx:0,enteredAt:Date.now(),stuckSince:null,
          audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0,_diagLog:[]};
-  _stShowPane('stActivePane');
   // Update prayer chip + target
   var chip=document.getElementById('stPrayerChip');
   var PNAMES={fajr:'فجر',dhuhr:'ظهر',asr:'عصر',maghrib:'مغرب',isha:'عشاء'};
@@ -7132,19 +7216,35 @@ function _stPoseLoop(){
     if(txt)txt.textContent=_stAr(Math.round(conf*100))+'٪';
     _stDraw(pose,W,H);
     _stCheckWarnings(pose,W,H);
+    // تنعيم: تصويت أغلبية على آخر 5 تصنيفات — يمتص الرفرفة قبل الـdebounce
+    if(!ST._clsHist)ST._clsHist=[];
+    ST._clsHist.push(cls);if(ST._clsHist.length>5)ST._clsHist.shift();
+    var _vt={},_smCls=cls,_vmx=0;
+    for(var _vi=0;_vi<ST._clsHist.length;_vi++){var _vk=ST._clsHist[_vi];_vt[_vk]=(_vt[_vk]||0)+1;if(_vt[_vk]>_vmx){_vmx=_vt[_vk];_smCls=_vk;}}
     // Debounce (shorter when a takbeer pulse was recently detected by VAD)
-    if(cls!==ST.pendPose){
-      if(cls!==ST.pose)_stLog('👁 خام: مرشّح '+cls+' (ثقة '+Math.round(conf*100)+'%، الحالي '+ST.pose+')');
-      ST.pendPose=cls;ST.pendTime=now;
+    if(_smCls!==ST.pendPose){
+      if(_smCls!==ST.pose)_stLog('👁 خام: مرشّح '+_smCls+(cls!==_smCls?' (لحظي '+cls+')':'')+' (ثقة '+Math.round(conf*100)+'%، الحالي '+ST.pose+')');
+      ST.pendPose=_smCls;ST.pendTime=now;ST._impLogged=false;
     }
     else{
       var deb=ST.DEBOUNCE;
       if(ST.vadLastPulse&&now-ST.vadLastPulse<1500)deb=200;
-      if(now-ST.pendTime>deb&&cls!==ST.pose){
-        var prev=ST.pose;
-        ST.pose=cls;
-        _stLog('👁 مُثبَّت: '+prev+'→'+cls+' (ثقة '+Math.round(conf*100)+'%، debounce '+deb+'ms)');
-        _stOnPoseChange(prev,cls);
+      if(now-ST.pendTime>deb&&_smCls!==ST.pose){
+        /* فلتر الفيزياء: قيام↔سجود مباشرة مستحيلة تحت 600ms ثبات — ضجيج */
+        var _imp=(ST.pose==='qiyam'&&_smCls==='sujud')||(ST.pose==='sujud'&&_smCls==='qiyam');
+        if(_imp&&now-ST.pendTime<600){
+          if(!ST._impLogged){
+            ST._impLogged=true;
+            _stLog('🚫 فيزياء: '+ST.pose+'→'+_smCls+' مباشرة — يُشترط ثبات 600ms');
+            _stLedger({type:'reject',what:ST.pose+'→'+_smCls,why:'قفزة فيزيائية مباشرة <600ms'});
+          }
+        }else{
+          var prev=ST.pose;
+          ST.pose=_smCls;ST._impLogged=false;
+          _stLog('👁 مُثبَّت: '+prev+'→'+_smCls+' (ثقة '+Math.round(conf*100)+'%، debounce '+deb+'ms)');
+          _stLedger({type:'pose',pose:_smCls,conf:Math.round(conf*100)/100});
+          _stOnPoseChange(prev,_smCls);
+        }
       }
     }
     _stUpdatePoseBadge(ST.pose);
@@ -7211,12 +7311,22 @@ function _stSmAdvance(steps,skipped,reason){
   for(var i=0;i<steps;i++){
     if(sm.idx>=seq.length)break;
     var from=seq[sm.idx];
+    /* ركعة مؤقتة → مؤكَّدة: أول انتقال تالٍ بعد زيادتها يثبّتها */
+    if(ST._rakTent&&sm.totalTransitions>ST._rakTentTrans){
+      ST._rakTent=false;
+      _stLog('🔢 ركعة '+ST.rakaat+' تأكّدت (انتقال داعم)');
+      _stLedger({type:'count',counter:'rakaat_confirmed',value:ST.rakaat});
+    }
     sm.idx++;sm.totalTransitions++;
-    _stLog('⚙ آلة: '+from.role+'→'+(sm.idx<seq.length?seq[sm.idx].role:'نهاية')+' (سبب: '+_rsn+(steps>1?' '+(i+1)+'/'+steps:'')+')');
+    var _toRole=sm.idx<seq.length?seq[sm.idx].role:'نهاية';
+    _stLog('⚙ آلة: '+from.role+'→'+_toRole+' (سبب: '+_rsn+(steps>1?' '+(i+1)+'/'+steps:'')+')');
+    _stLedger({type:'trans',from:from.role,to:_toRole,reason:_rsn});
     // Rakaat++ on leaving sujud2 — before end-of-seq break so it is never skipped
     if(from.role==='sujud2'){
       ST.rakaat++;ST.sujudInRak=0;ST._lastVisRak=now;
-      _stLog('🔢 ركعة ++ → '+ST.rakaat+' (مغادرة sujud2، سبب: '+_rsn+')');
+      ST._rakTent=true;ST._rakTentTrans=sm.totalTransitions;
+      _stLog('🔢 ركعة ++ → '+ST.rakaat+' [مؤقتة] (مغادرة sujud2، سبب: '+_rsn+')');
+      _stLedger({type:'count',counter:'rakaat',value:ST.rakaat});
       if(navigator.vibrate)navigator.vibrate([60,30,60]);
     }
     if(sm.idx>=seq.length)break;
@@ -7273,6 +7383,50 @@ function _stLog(msg){
   var t=ST._logT0?((Date.now()-ST._logT0)/1000).toFixed(1):'?';
   console.log('[ST '+t+'s] '+msg);
 }
+/* دفتر الأحداث: أحداث خام بطوابع نسبية — يُنسخ JSON كاملاً من الملخّص */
+function _stLedger(ev){
+  if(!ST.ledger)return;
+  ev.t=ST._logT0?Math.round((Date.now()-ST._logT0)/100)/10:0;
+  ST.ledger.push(ev);
+}
+function _stCopyLedger(){
+  var payload={prayer:ST.prayer,target:ST.target,rakaat:ST.rakaat,elapsedSec:ST.elapsed,
+               reflexTakbir:ST.reflexTak,reflexTasmi3:ST.reflexTas,ledger:ST.ledger||[]};
+  var txt=JSON.stringify(payload,null,1);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){toast('نُسخ سجل الجلسة ✓','success');})
+      .catch(function(){if(typeof _bmFbCopy==='function')_bmFbCopy(txt);});
+  }else if(typeof _bmFbCopy==='function')_bmFbCopy(txt);
+}
+/* عدّادات الانعكاس الفورية — مستقلة تماماً عن آلة الحالة، لا تحرّكها.
+   مطابقة مرنة (سميع/سمع، حمده/حمد) + كولداون 1200ms.
+   ويب: نتائج نهائية فقط؛ native: الجزئية هي المتاح والكولداون يمنع التكرار */
+function _stReflexScan(text){
+  if(!ST.active||!text)return;
+  var norm=typeof _normRec==='function'?_normRec(text):text;
+  var now=Date.now();
+  if(/سم[ي]?ع/.test(norm)&&norm.indexOf('حمد')>=0){
+    if(now-ST._refTasT>=1200){
+      ST._refTasT=now;ST.reflexTas++;
+      var e=document.getElementById('stRefTasNum');if(e)e.textContent=_stAr(ST.reflexTas);
+      _stLedger({type:'count',counter:'reflex_tasmi3',value:ST.reflexTas});
+    }
+  }
+  if(norm.indexOf('اكبر')>=0){
+    if(now-ST._refTakT>=1200){
+      ST._refTakT=now;ST.reflexTak++;
+      var e2=document.getElementById('stRefTakNum');if(e2)e2.textContent=_stAr(ST.reflexTak);
+      _stLedger({type:'count',counter:'reflex_takbir',value:ST.reflexTak});
+    }
+  }
+}
+/* بوابات المدد الدنيا لكل دور — كائن واحد قابل للضبط */
+var ST_MIN_DWELL={qiyam1:10000,ruku:2500,qiyam2:1500,sujud1:2500,sujud2:2500,jalsa_bein:1200,tashahud1:8000,tashahud_final:0};
+/* دليل صوتي مساند: الكلمة المتوقَّعة للخطوة الهدف سُمعت خلال 4ث */
+function _stAudioProof(target,now){
+  return !!(ST.sm&&ST.sm._lastAudio&&target&&target.audioIn&&
+            ST.sm._lastAudio.word===target.audioIn&&(now-ST.sm._lastAudio.time)<4000);
+}
 function _stSmDiag(msg){
   if(ST.sm){
     if(!ST.sm._diagLog)ST.sm._diagLog=[];
@@ -7306,8 +7460,36 @@ function _stOnPoseChange(prev,cur){
   if(idx>=seq.length)return;
   var curStep=seq[idx],nxt=seq[idx+1],nxt2=seq[idx+2];
   if(cur===curStep.pose){sm.stuckSince=null;return;}
-  if(nxt&&cur===nxt.pose){sm.stuckSince=null;_stSmAdvance(1,false);return;}
-  if(nxt2&&cur===nxt2.pose&&ST.poseConf>=0.25){sm.stuckSince=null;_stSmAdvance(2,true);return;}
+  if(nxt&&cur===nxt.pose){
+    /* بوابة المدة الدنيا: مغادرة مبكرة تُقبل فقط بدليلين (بصري+صوتي متوقَّع خلال 4ث) */
+    var _now=Date.now();
+    var _minD=ST_MIN_DWELL[curStep.role]||0;
+    var _dwell=_now-(sm.enteredAt||_now);
+    if(_dwell<_minD&&!_stAudioProof(nxt,_now)){
+      _stLog('⛔ بوابة مدّة: رفض '+curStep.role+'→'+nxt.role+' (مكوث '+(_dwell/1000).toFixed(1)+'ث < '+(_minD/1000)+'ث، لا دليل صوتي)');
+      _stLedger({type:'reject',what:curStep.role+'→'+nxt.role,why:'مكوث '+Math.round(_dwell/100)/10+'s < '+(_minD/1000)+'s'});
+      /* أعد المحاولة تلقائياً بعد استيفاء الحد إن بقيت الوضعية داعمة */
+      clearTimeout(ST._dwellTO);
+      var _tIdx=idx;
+      ST._dwellTO=setTimeout(function(){
+        if(!ST.active||!ST.sm||ST.sm.idx!==_tIdx)return;
+        if(ST.pose===nxt.pose){ST.sm.stuckSince=null;_stLog('⛔→✓ بوابة مدّة: استُوفي الحد والوضعية ثابتة — تقدّم');_stSmAdvance(1,false);}
+      },(_minD-_dwell)+120);
+      return;
+    }
+    sm.stuckSince=null;_stSmAdvance(1,false);return;
+  }
+  if(nxt2&&cur===nxt2.pose&&ST.poseConf>=0.25){
+    var _nowS=Date.now();
+    var _minS=ST_MIN_DWELL[curStep.role]||0;
+    var _dwS=_nowS-(sm.enteredAt||_nowS);
+    if(_dwS<_minS&&!_stAudioProof(nxt2,_nowS)){
+      _stLog('⛔ بوابة مدّة: رفض تخطّي '+curStep.role+'⇉'+nxt2.role+' (مكوث '+(_dwS/1000).toFixed(1)+'ث < '+(_minS/1000)+'ث)');
+      _stLedger({type:'reject',what:curStep.role+'⇉'+nxt2.role,why:'تخطٍّ مبكر '+Math.round(_dwS/100)/10+'s < '+(_minS/1000)+'s'});
+      return;
+    }
+    sm.stuckSince=null;_stSmAdvance(2,true);return;
+  }
   if(!sm.stuckSince){sm.stuckSince=Date.now();_stLog('⏳ تعثّر: الوضعية '+cur+' لا تطابق الحالية ('+curStep.pose+') ولا التاليتين — بدء عدّاد 20ث');}
   else if(Date.now()-sm.stuckSince>=20000)_stSmResync(cur);
 }
@@ -7365,7 +7547,7 @@ function _stStartSpeech(){
       }
       var display=final_||interim;
       ST.currentSpeech+=(final_?' '+final_:'');
-      if(final_)_stKeywordScan(final_);
+      if(final_){_stKeywordScan(final_);_stReflexScan(final_);}
       var el=document.getElementById('stSrHeard');
       if(el)el.textContent=display;
       var card=document.getElementById('stSrCard');
@@ -7392,6 +7574,7 @@ function _stStartSpeechNative(){
       var el=document.getElementById('stSrHeard');if(el)el.textContent=text;
       var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
       _stKeywordScan(text);
+      _stReflexScan(text); /* native: الجزئية هي المتاح — كولداون 1200ms يمنع التكرار */
       _stNsrUpdateDiag(text);
     });
   }catch(ex){}
@@ -7537,7 +7720,9 @@ function _stUpdatePoseBadge(pose){
   if(ring){ring.className='st-pose-ring'+(info.cls?' '+info.cls:'');}
 }
 function _stUpdateCounters(){
-  var rn=document.getElementById('stRakNum');if(rn)rn.textContent=_stAr(ST.rakaat);
+  /* الركعة المؤقتة تُعرض بشفافية + نقطة حتى يثبّتها انتقال داعم */
+  var rn=document.getElementById('stRakNum');
+  if(rn){rn.textContent=_stAr(ST.rakaat)+(ST._rakTent?' ·':'');rn.style.opacity=ST._rakTent?'.5':'';}
   var ru=document.getElementById('stRukuNum');if(ru)ru.textContent=_stAr(ST.totalRuku);
   var su=document.getElementById('stSujudNum');if(su)su.textContent=_stAr(ST.totalSujud);
   var ja=document.getElementById('stJalsaNum');if(ja)ja.textContent=_stAr(ST.totalJalsa);
@@ -7555,12 +7740,12 @@ function _stKeywordScan(text){
   var now=Date.now();
   var _cls=[];
   if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
-    if(now-ST._lastTasmi3>=1800){_cls.push('تسميع');ST._lastTasmi3=now;_stOnKeyword('tasmi3');}
-    else _cls.push('تسميع⛔cooldown('+(now-ST._lastTasmi3)+'ms)');
+    if(now-ST._lastTasmi3>=1800){_cls.push('تسميع');ST._lastTasmi3=now;_stLedger({type:'kw',raw:text,norm:norm,word:'tasmi3'});_stOnKeyword('tasmi3');}
+    else{_cls.push('تسميع⛔cooldown('+(now-ST._lastTasmi3)+'ms)');_stLedger({type:'reject',what:'kw:tasmi3',why:'cooldown'});}
   }
   if(norm.indexOf('اكبر')>=0){
-    if(now-ST._lastTakbir>=1800){_cls.push('تكبير');ST._lastTakbir=now;_stOnKeyword('takbir');}
-    else _cls.push('تكبير⛔cooldown('+(now-ST._lastTakbir)+'ms)');
+    if(now-ST._lastTakbir>=1800){_cls.push('تكبير');ST._lastTakbir=now;_stLedger({type:'kw',raw:text,norm:norm,word:'takbir'});_stOnKeyword('takbir');}
+    else{_cls.push('تكبير⛔cooldown('+(now-ST._lastTakbir)+'ms)');_stLedger({type:'reject',what:'kw:takbir',why:'cooldown'});}
   }
   /* dedupe: النتائج الجزئية (native) تكرّر النص نفسه — سجّل عند التغيّر أو التصنيف فقط */
   if(_cls.length||text!==ST._lastHeardLog){
@@ -7637,6 +7822,8 @@ function salahTrackStop(_silent){
   ST._stopping=true;
   ST._gen=(ST._gen||0)+1; // invalidate any in-flight salahTrackStart load chain
   ST.active=false;  /* halts _stPoseLoop, timers, VAD immediately */
+  try{clearInterval(ST._qgInt);ST._qgInt=null;}catch(_e){}
+  try{clearTimeout(ST._dwellTO);}catch(_e){}
 
   var _traceEl=document.getElementById('stStopTrace');
   function _tr(step,ok,detail){
@@ -7727,9 +7914,23 @@ function salahTrackFinish(){
         +'<span class="st-seg-sc st-sr-score-badge '+cls+'">'+sc+'</span></div>';
     }).join('')||'<div style="font-size:12px;color:var(--muted);padding:8px 0">لا توجد بيانات قراءة</div>';
   }
-  // Auto-mark prayer done in daily state + achievements
+  // عقد السلامة: الثوابت قبل التسجيل — لا حفظ بلا اجتياز أو تصديق المستخدم
   var pKey=ST.prayer.charAt(0).toUpperCase()+ST.prayer.slice(1);
-  _stMarkPrayerDone(pKey);
+  var _sc=_stSafetyCheck();
+  var _aok=document.getElementById('stSumAutoOk');
+  var _csh=document.getElementById('stConfirmSheet');
+  if(_sc.ok){
+    _stMarkPrayerDone(pKey);
+    if(_aok)_aok.style.display='';
+    if(_csh)_csh.style.display='none';
+    _stLog('🛡 عقد السلامة: اجتياز — تسجيل تلقائي');
+    _stLedger({type:'count',counter:'contract_pass',value:1});
+  }else{
+    if(_aok)_aok.style.display='none';
+    _stLog('🛡 عقد السلامة: كسر — '+_sc.issues.join(' | '));
+    _stLedger({type:'reject',what:'contract',why:_sc.issues.join(' | ')});
+    _stShowConfirm(pKey);
+  }
   var regMsg=document.getElementById('stSumRegMsg');
   if(regMsg){var _ds2=getDailyState();if(_ds2['prayer_'+pKey]){regMsg.style.color='var(--green)';regMsg.textContent='✓ تم تسجيل الصلاة في إنجازاتك';}else{regMsg.textContent='';}}
   _stShowPane('stSumPane');
@@ -7774,6 +7975,45 @@ function salahTrackReset(){
   var _rsc=document.getElementById('stSumAudConf');if(_rsc)_rsc.style.display='none';
   var _rih=document.getElementById('stIhramRow');if(_rih){_rih.style.display='none';_rih.style.color='var(--muted)';}
   var _rsih=document.getElementById('stSumIhram');if(_rsih)_rsih.style.display='none';
+  var _rqg=document.getElementById('stQGate');if(_rqg)_rqg.style.display='none';
+  var _rrf=document.getElementById('stReflexRow');if(_rrf)_rrf.style.display='none';
+  var _rao=document.getElementById('stSumAutoOk');if(_rao)_rao.style.display='none';
+  var _rcs=document.getElementById('stConfirmSheet');if(_rcs)_rcs.style.display='none';
+  var _rkn=document.getElementById('stRakNum');if(_rkn)_rkn.style.opacity='';
+}
+/* عقد السلامة: ثوابت الجلسة — تكبيرات قريبة من المتوقَّع، تسميع ضمن
+   [ركعات−1، ركعات+1]، مدة ≥25ث×الركعات. الثوابت الصوتية تُفحص فقط إن
+   وُجد نشاط صوتي (الصلاة السرّية بلا صوت لا تُعاقَب) */
+function _stSafetyCheck(){
+  var issues=[];
+  var expTak=ST.sm?ST.sm.seq.filter(function(s){return s.audioIn==='takbir';}).length+1:0;
+  var audioSeen=(ST.reflexTak+ST.reflexTas)>0;
+  if(audioSeen){
+    if(Math.abs(ST.reflexTak-expTak)>2)issues.push('تكبيرات '+ST.reflexTak+' بعيدة عن المتوقَّع '+expTak);
+    if(!(ST.reflexTas>=ST.rakaat-1&&ST.reflexTas<=ST.rakaat+1))issues.push('تسميع '+ST.reflexTas+' خارج ['+(ST.rakaat-1)+'-'+(ST.rakaat+1)+']');
+  }
+  if(ST.elapsed<25*ST.rakaat)issues.push('المدة '+ST.elapsed+'ث أقصر من '+(25*ST.rakaat)+'ث');
+  return{ok:!issues.length,issues:issues};
+}
+var _stConfVal=0,_stConfPKey='';
+function _stShowConfirm(pKey){
+  _stConfVal=ST.rakaat;_stConfPKey=pKey;
+  var n=document.getElementById('stConfNum');if(n)n.textContent=_stAr(_stConfVal);
+  var sh=document.getElementById('stConfirmSheet');if(sh)sh.style.display='';
+}
+function _stConfAdj(d){
+  _stConfVal=Math.max(0,Math.min(20,_stConfVal+d));
+  var n=document.getElementById('stConfNum');if(n)n.textContent=_stAr(_stConfVal);
+}
+function _stConfirmSave(){
+  ST.rakaat=_stConfVal;
+  var sr=document.getElementById('stSumRak');if(sr)sr.textContent=_stAr(ST.rakaat);
+  _stLedger({type:'count',counter:'rakaat_user_confirmed',value:_stConfVal});
+  _stMarkPrayerDone(_stConfPKey);
+  var sh=document.getElementById('stConfirmSheet');if(sh)sh.style.display='none';
+  var regMsg=document.getElementById('stSumRegMsg');
+  if(regMsg){regMsg.style.color='var(--green)';regMsg.textContent='✓ تم تسجيل الصلاة في إنجازاتك';}
+  toast('سُجّلت '+_stAr(_stConfVal)+' ركعات ✓','success');
 }
 function _stMarkPrayerDone(pKey){
   var s=getDailyState();
