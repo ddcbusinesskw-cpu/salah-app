@@ -2752,12 +2752,12 @@ function _bmShowPanel(){
 }
 function _bmStEngLbl(){
   var b=document.getElementById('bmStEng');if(!b)return;
-  var cur=lsGet('st_engine')==='prob'?'prob':'sm';
-  b.textContent='المحرّك الحالي: '+(cur==='prob'?'⚗ احتمالي (prob)':'⚙ آلة الحالة (sm)')+' — اضغط للتبديل';
+  var cur=lsGet('st_engine')==='sm'?'sm':'prob'; /* prob هو الافتراضي */
+  b.textContent='المحرّك الحالي: '+(cur==='prob'?'⚗ احتمالي (prob — الافتراضي)':'⚙ آلة الحالة (sm — تجاوز)')+' — اضغط للتبديل';
   b.style.borderColor=cur==='prob'?'rgba(63,174,142,.7)':'rgba(255,255,255,.25)';
 }
 function _bmToggleStEngine(){
-  var nxt=lsGet('st_engine')==='prob'?'sm':'prob';
+  var nxt=(lsGet('st_engine')==='sm')?'prob':'sm';
   lsSet('st_engine',nxt);
   _bmStEngLbl();
   toast('محرّك التتبّع: '+(nxt==='prob'?'الاحتمالي':'آلة الحالة')+' — يسري من الجلسة القادمة','success');
@@ -7086,6 +7086,7 @@ function _stResetSession(){
   ST.ledger=[]; /* دفتر أحداث الجلسة الخام — لا يُعدَّل ولا يُمحى أثناءها */
   ST.reflexTak=0;ST.reflexTas=0;ST._refTakT=0;ST._refTasT=0;
   ST._clsHist=[];ST._impLogged=false;ST._rakTent=false;ST._rakTentTrans=0;
+  ST.prob=null;ST._probPreview=0; /* تصفير حالة المرشّح الاحتمالي كاملة */
   var _rtk=document.getElementById('stRefTakNum');if(_rtk)_rtk.textContent='٠';
   var _rts=document.getElementById('stRefTasNum');if(_rts)_rts.textContent='٠';
   ST.pose='unknown';ST.poseConf=0;ST.pendPose='unknown';ST.pendTime=0;
@@ -7271,8 +7272,8 @@ function _stGo(gen){
   ST.startTime=Date.now();
   ST.sm={seq:_stGenerateSeq(ST.target),idx:0,enteredAt:Date.now(),stuckSince:null,
          audioConfirmed:0,totalTransitions:0,_lastAudio:null,_lastAudioAdvance:0,_diagLog:[]};
-  /* اختيار المحرّك: 'sm' الافتراضي | 'prob' الاحتمالي (علم st_engine) */
-  ST.engine=(lsGet('st_engine')==='prob')?'prob':'sm';
+  /* اختيار المحرّك: 'prob' الاحتمالي الافتراضي | 'sm' تجاوز للمقارنة من لوحة bench */
+  ST.engine=(lsGet('st_engine')==='sm')?'sm':'prob';
   ST._probPreview=0;
   if(ST.engine==='prob'){
     ST.prob=_stProbCreate(ST.sm.seq,ST.PROB_CFG);
