@@ -4845,22 +4845,29 @@ function _netProbe(cb){
       .catch(function(){clearTimeout(to);cb(false);});
   }catch(e){cb(false);}
 }
-var _netProbing=false;
+var _netProbing=false,_netRetryTO=null;
 function _netCheckAndBadge(showToast){
   if(_netProbing)return;_netProbing=true;
   _netProbe(function(ok){
     _netProbing=false;
     var b=document.getElementById('offlineBadge');
-    if(ok){if(b)b.classList.remove('show');}
-    else{
+    if(ok){
+      if(b)b.classList.remove('show');
+      clearTimeout(_netRetryTO);_netRetryTO=null;
+    }else{
       if(b)b.classList.add('show');
       if(showToast)toast('أنت الآن بدون إنترنت — التطبيق يعمل من الكاش','warning');
+      /* شفاء ذاتي: حدث online غير موثوق في WebView مثل offline —
+         ما دامت الشارة ظاهرة أعد المسبار كل 20ث وأخفها فور النجاح */
+      clearTimeout(_netRetryTO);
+      _netRetryTO=setTimeout(function(){_netRetryTO=null;_netCheckAndBadge(false);},20000);
     }
   });
 }
 window.addEventListener('offline',function(){_netCheckAndBadge(true);});
 window.addEventListener('online',function(){
   var b=document.getElementById('offlineBadge');if(b)b.classList.remove('show');
+  clearTimeout(_netRetryTO);_netRetryTO=null;
 });
 if(!navigator.onLine)_netCheckAndBadge(false);
 
