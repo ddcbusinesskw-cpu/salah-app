@@ -8164,32 +8164,73 @@ function _stStartSpeechNative(){
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr||!ST.active)return;
   ST._nsrMuted=false;ST._nsrRestarting=false;
+  /* عدّادات تغطية الاستماع — لقياس نسبة الوقت المسموع فعلاً عبر [ST-audio] */
+  ST._audT0=Date.now();ST._audListenMs=0;ST._audCycleT0=0;ST._audCycleN=0;ST._audLastEvT=Date.now();ST._audLastPartial='';
   try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(ex){}
+  function _audLog(msg){
+    var t=((Date.now()-ST._audT0)/1000).toFixed(1);
+    console.log('[ST-audio '+t+'s] '+msg);
+  }
+  ST._audLog=_audLog;
   try{
     nsr.addListener('partialResults',function(data){
       if(!ST.active||!data||!data.matches)return;
+      ST._audLastEvT=Date.now();
       var text=(data.matches[0]||'').trim();
       if(!text)return;
+      if(text!==ST._audLastPartial){ST._audLastPartial=text;_audLog('جزئي: |'+text+'|');}
       var el=document.getElementById('stSrHeard');if(el)el.textContent=text;
       var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
-      _stKeywordScan(text);
-      _stReflexScan(text); /* native: الجزئية هي المتاح — كولداون 1200ms يمنع التكرار */
+      /* امسح كل البدائل (maxResults:3) لا الأولى فقط — يرفع فرص التقاط
+         «الله أكبر/سمع الله» حين يخطئ البديل الأول */
+      for(var ai=0;ai<data.matches.length&&ai<3;ai++){
+        var alt=(data.matches[ai]||'').trim();
+        if(alt){_stKeywordScan(alt);_stReflexScan(alt);}
+      }
       _stNsrUpdateDiag(text);
     });
   }catch(ex){}
-  // listeningState: restart when recogniser stops naturally
+  // listeningState: أعد التشغيل فوراً عند التوقف — كل ms فجوة = كلمات ضائعة
   try{
     nsr.addListener('listeningState',function(ev){
       if(!ST.active||!ev)return;
-      if(ev.status==='stopped'&&!ST._nsrRestarting&&!ST._stopping){
-        ST._nsrRestarting=true;
-        setTimeout(function(){
-          ST._nsrRestarting=false;
-          if(ST.active&&!ST._stopping)_stNsrStart(nsr,'ar-SA');
-        },500);
+      ST._audLastEvT=Date.now();
+      if(ev.status==='started'){
+        ST._audCycleT0=Date.now();ST._audCycleN++;
+        _audLog('▶ دورة '+ST._audCycleN+' بدأت');
+      }
+      if(ev.status==='stopped'){
+        if(ST._audCycleT0){
+          var cyc=Date.now()-ST._audCycleT0;ST._audListenMs+=cyc;ST._audCycleT0=0;
+          var cov=Math.round(ST._audListenMs*100/Math.max(Date.now()-ST._audT0,1));
+          _audLog('⏹ دورة '+ST._audCycleN+' انتهت ('+(cyc/1000).toFixed(1)+'ث) — تغطية تراكمية '+cov+'%');
+        }
+        if(!ST._nsrRestarting&&!ST._stopping){
+          ST._nsrRestarting=true;
+          setTimeout(function(){
+            ST._nsrRestarting=false;
+            if(ST.active&&!ST._stopping)_stNsrStart(nsr,'ar-SA');
+          },50);
+        }
       }
     });
   }catch(ex){}
+  /* رقيب توقف صامت: بعض الأجهزة لا تطلق listeningState — إن مرّت 8ث بلا أي
+     حدث/جزئي أثناء جلسة نشطة فالمتعرّف ميت: أوقفه وأعد تشغيله قسراً */
+  if(ST._audWatch)clearInterval(ST._audWatch);
+  ST._audWatch=setInterval(function(){
+    if(!ST.active||ST._stopping){clearInterval(ST._audWatch);ST._audWatch=null;return;}
+    var idle=Date.now()-ST._audLastEvT;
+    if(idle>8000&&!ST._nsrRestarting){
+      _audLog('⚠ رقيب: لا أحداث منذ '+(idle/1000).toFixed(0)+'ث — إعادة تشغيل قسرية');
+      ST._nsrRestarting=true;
+      try{var _s=nsr.stop();if(_s&&_s.catch)_s.catch(function(){});}catch(e){}
+      setTimeout(function(){
+        ST._nsrRestarting=false;ST._audLastEvT=Date.now();
+        if(ST.active&&!ST._stopping)_stNsrStart(nsr,'ar-SA');
+      },300);
+    }
+  },4000);
   var permP;
   try{
     permP=nsr.checkPermissions().then(function(p){
@@ -8201,7 +8242,8 @@ function _stStartSpeechNative(){
       });
     }).catch(function(e){if(e&&e._stop)return Promise.reject(e);});
   }catch(ex){permP=Promise.resolve();}
-  permP.then(function(){_stNsrStart(nsr,'ar-SA');}).catch(function(){});
+  permP.then(function(){_audLog('تهيئة التعرّف الأصلي — بدء أول دورة');_stNsrStart(nsr,'ar-SA');})
+       .catch(function(){_audLog('✗ إذن المايك مرفوض — لا استماع');});
 }
 function _stNsrStart(nsr,lang,_retries){
   if(!ST.active)return;
@@ -8213,6 +8255,9 @@ function _stNsrStart(nsr,lang,_retries){
   }
   var ss=ST._silentSpeech;
   var muteP;
+  /* ملاحظة الكتم: SilentSpeech يكتم مخارج الصوت فقط (MUSIC/NOTIFICATION/
+     SYSTEM) — دخل الميكروفون لا يتأثر إطلاقاً، فالكتم لا يبتلع التعرّف.
+     نافذته 250ms فقط لتغطية بيب البدء (<200ms) ثم يُرفع. */
   try{muteP=ss?ss.muteBeep():Promise.resolve();}catch(ex){muteP=Promise.resolve();}
   muteP.then(function(){
     if(!ST.active||ST._stopping){
@@ -8221,21 +8266,38 @@ function _stNsrStart(nsr,lang,_retries){
     }
     ST._nsrMuted=true;
     _stNsrUpdateDiag(null);
-    // Unmute ~350ms after start — beep is <200ms
     setTimeout(function(){
       if(ST._nsrMuted){
         ST._nsrMuted=false;
         try{if(ss){var _u=ss.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}}catch(ex){}
         _stNsrUpdateDiag(null);
       }
-    },350);
+    },250);
     try{
+      if(ST._audLog)ST._audLog('start() دورة جديدة…');
       nsr.start({language:lang,maxResults:3,partialResults:true,popup:false})
+        .then(function(res){
+          /* بعض نسخ المكوّن تحلّ الوعد عند نهاية الجلسة ومعه النهائيات —
+             امسحها ثم أعد التشغيل (احتياط لأجهزة لا تطلق listeningState) */
+          ST._audLastEvT=Date.now();
+          if(res&&res.matches&&res.matches.length){
+            if(ST._audLog)ST._audLog('نهائي (وعد): |'+(res.matches[0]||'')+'|');
+            for(var ai=0;ai<res.matches.length&&ai<3;ai++){
+              var alt=(res.matches[ai]||'').trim();
+              if(alt&&ST.active){_stKeywordScan(alt);_stReflexScan(alt);}
+            }
+          }
+          if(ST.active&&!ST._stopping&&!ST._nsrRestarting){
+            ST._nsrRestarting=true;
+            setTimeout(function(){ST._nsrRestarting=false;if(ST.active&&!ST._stopping)_stNsrStart(nsr,lang);},50);
+          }
+        })
         .catch(function(e){
           var msg=(e&&(e.message||e.code))||String(e);
           var lc=msg.toLowerCase();
+          if(ST._audLog)ST._audLog('✗ start فشل: '+msg.slice(0,60));
           if(ST.active&&!ST._stopping&&!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
-            setTimeout(function(){if(ST.active&&!ST._stopping)_stNsrStart(nsr,lang);},2000);
+            setTimeout(function(){if(ST.active&&!ST._stopping)_stNsrStart(nsr,lang);},800);
           }
         });
     }catch(ex){}
@@ -8262,6 +8324,16 @@ function _stToggleCam(el){
 }
 function _stStopSpeech(){
   if(ST.rec){try{ST.rec.abort();}catch(e){}ST.rec=null;}
+  try{if(ST._audWatch){clearInterval(ST._audWatch);ST._audWatch=null;}}catch(e){}
+  /* سجل تغطية الاستماع الختامي */
+  try{
+    if(ST._audT0){
+      if(ST._audCycleT0){ST._audListenMs+=Date.now()-ST._audCycleT0;ST._audCycleT0=0;}
+      var _sesMs=Date.now()-ST._audT0;
+      console.log('[ST-audio] ختام: '+ST._audCycleN+' دورة، استماع '+(ST._audListenMs/1000).toFixed(0)+'ث من '+(_sesMs/1000).toFixed(0)+'ث = تغطية '+Math.round(ST._audListenMs*100/Math.max(_sesMs,1))+'%');
+      ST._audT0=0;
+    }
+  }catch(e){}
   if(ST._nativeSR){
     var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
     if(nsr){
