@@ -4198,7 +4198,7 @@ function fmtH(h){h=fixhour(h+0.5/60);var hh=Math.floor(h),mm=Math.floor((h-hh)*6
 
 var CITY_AR={'Kuwait':'الكويت','Riyadh':'الرياض','Jeddah':'جدة','Mecca':'مكة','Makkah':'مكة','Medina':'المدينة','Dubai':'دبي','Abu Dhabi':'أبوظبي','Doha':'الدوحة','Manama':'المنامة','Muscat':'مسقط','Amman':'عمّان','Jerusalem':'القدس','Baghdad':'بغداد','Beirut':'بيروت','Damascus':'دمشق','Cairo':'القاهرة','Khartoum':'الخرطوم','Sanaa':'صنعاء'};
 function tzCity(){try{var z=Intl.DateTimeFormat().resolvedOptions().timeZone,c=z.split('/').pop().replace(/_/g,' ');return CITY_AR[c]||c;}catch(e){return 'موقعك';}}
-function hijriStr(){try{return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(new Date())+' هـ';}catch(e){return '';}}
+function hijriStr(){try{var s=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(new Date());/* بعض منسّقات WebView تُلحق «هـ» بنفسها — لا تكرّرها */return s.indexOf('هـ')>=0?s:s+' هـ';}catch(e){return '';}}
 function gregStr(){try{return new Intl.DateTimeFormat('ar',{weekday:'long',day:'numeric',month:'long'}).format(new Date());}catch(e){return '';}}
 
 /* ===== بيانات أوقات الصلاة: أسماء وأيقونات وترتيب ===== */
