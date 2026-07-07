@@ -4195,6 +4195,14 @@ function sunAngleTime(jd,t,angle,lat,ccw){var decl=sunPos(jd+t).decl,noon=midDay
   var v=(-dsin(angle)-dsin(lat)*dsin(decl))/(dcos(lat)*dcos(decl));v=Math.max(-1,Math.min(1,v));
   var V=darccos(v)/15;return noon+(ccw?-V:V);}
 function asrTime(jd,t,factor,lat){var decl=sunPos(jd+t).decl;return sunAngleTime(jd,t,-darccot(factor+dtan(Math.abs(lat-decl))),lat,false);}
+/* الشهر الهجري (أم القرى) 1-12 لتاريخ ميلادي — لتحديد رمضان (9) */
+function _hijriMonth(date){
+  try{
+    var p=new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura',{month:'numeric'}).formatToParts(date);
+    for(var i=0;i<p.length;i++)if(p[i].type==='month')return +p[i].value;
+  }catch(e){}
+  return 0;
+}
 function computeTimes(date,lat,lng,tz){
   var jd=julian(date.getFullYear(),date.getMonth()+1,date.getDate())-lng/(15*24);
   // اقرأ طريقة الحساب المختارة من التخزين المحلي
@@ -4203,12 +4211,23 @@ function computeTimes(date,lat,lng,tz){
   if(!meth)meth=CALC_METHODS[0];
   // factor=1 جمهور (شافعي/مالكي/حنبلي) — factor=2 حنفي
   var factor=+(lsGet('calc_madhhab')||1)===2?2:1;
+  // أم القرى: العشاء = مغرب+120د في رمضان، +90د بقية السنة (لكل يوم على حدة)
+  var _ishaMin=meth.ishaMin;
+  if(meth.id==='umm'&&_ishaMin>0&&_hijriMonth(date)===9)_ishaMin=120;
   var fajr=sunAngleTime(jd,5/24,meth.fajr,lat,true),sunrise=sunAngleTime(jd,6/24,0.833,lat,true),
       dhuhr=midDay(jd,12/24),asr=asrTime(jd,13/24,factor,lat),
       sunset=sunAngleTime(jd,18/24,0.833,lat,false),
-      isha=meth.ishaMin>0?sunset+meth.ishaMin/60:sunAngleTime(jd,18/24,meth.isha,lat,false);
+      isha=_ishaMin>0?sunset+_ishaMin/60:sunAngleTime(jd,18/24,meth.isha,lat,false);
   var adj=tz-lng/15;function c(h){return fixhour(h+adj);}
   return {Fajr:c(fajr),Sunrise:c(sunrise),Dhuhr:c(dhuhr),Asr:c(asr),Maghrib:c(sunset),Isha:c(isha)};
+}
+/* افتراضي إقليمي (أول استخدام فقط): من الإحداثيات → الطريقة الأنسب محلياً */
+function _regionalDefaultMethod(lat,lng){
+  if(lng>=-170&&lng<=-52&&lat>=14&&lat<=72)return 'isna';   // أمريكا الشمالية
+  if(lat>=21.5&&lat<=32&&lng>=24&&lng<=35)return 'egypt';   // مصر (غرب البحر الأحمر)
+  if(lat>=12&&lat<=33&&lng>=34&&lng<=60)return 'umm';       // الخليج والجزيرة العربية
+  if(lat>=5&&lat<=39&&lng>=60&&lng<=93)return 'karachi';    // جنوب آسيا
+  return 'mwl';
 }
 function fmtH(h){h=fixhour(h+0.5/60);var hh=Math.floor(h),mm=Math.floor((h-hh)*60);return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;}
 
@@ -4319,6 +4338,8 @@ function buildTimes(lat,lng){
   if(lat==null||lng==null||isNaN(+lat)||isNaN(+lng)){
     toast('إحداثيات الموقع غير صالحة ('+lat+','+lng+')','error');return;
   }
+  /* افتراضي إقليمي عند أول استخدام فقط — لا يمسّ من اختار طريقة */
+  if(!lsGet('calc_method')){try{lsSet('calc_method',_regionalDefaultMethod(+lat,+lng));}catch(e){}}
   var tz,t,timings;
   try{
     tz=-new Date().getTimezoneOffset()/60;
