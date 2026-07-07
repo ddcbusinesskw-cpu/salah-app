@@ -2494,6 +2494,22 @@ function _stopLiveSRSoft(){
 }
 /* ═══ شلال التعرّف الأصلي (أندرويد) — يغذّي نفس _liveText/_liveSRInterim/_liveSRDone ═══
    بنية مطابقة لتتبّع الصلاة: partialResults + إعادة تشغيل عند التوقف + كتم البيب. */
+/* إلحاق نص الجلسة المنتهية مع إزالة التداخل (حتى 6 كلمات) — دورة جديدة قد
+   تعيد سماع ذيل السابقة، والتكرار يفسد مقارنة الشلال */
+function _liveNsrCommitSession(){
+  if(!_liveSRInterim)return;
+  var base=_liveText.trim().split(/\s+/).filter(Boolean);
+  var add=_liveSRInterim.trim().split(/\s+/).filter(Boolean);
+  _liveSRInterim='';
+  var k=Math.min(6,base.length,add.length),ov=0;
+  for(var n=k;n>0;n--){
+    var m=true;
+    for(var i=0;i<n;i++)if(base[base.length-n+i]!==add[i]){m=false;break;}
+    if(m){ov=n;break;}
+  }
+  _liveText=(base.join(' ')+' '+add.slice(ov).join(' ')).trim();
+  console.log('[tasmee-native] دورة ثُبِّتت: +'+(add.length-ov)+' كلمة (تداخل '+ov+') → مجمّع '+_liveText.split(/\s+/).filter(Boolean).length+' كلمة');
+}
 function _startLiveSRNative(){
   var C=window.Capacitor&&window.Capacitor.Plugins;
   var nsr=C&&C.SpeechRecognition;var sil=C&&C.SilentSpeech;
@@ -2523,10 +2539,11 @@ function _startLiveSRNative(){
     nsr.addListener('listeningState',function(ev){
       if(!_liveNsrActive||!ev)return;
       if(ev.status==='stopped'&&!_liveNsrRestarting&&MEM2.recActive){
-        /* نهاية جلسة صمت: ثبّت نص الجلسة ثم أعد التشغيل (يلزم للمقاطع الطويلة/الصفحة) */
-        if(_liveSRInterim){_liveText+=' '+_liveSRInterim;_liveSRInterim='';}
+        /* نهاية جلسة صمت (وقفة بين الآيات): ثبّت النص وأعد التشغيل بأسرع
+           فجوة ممكنة — كل ms إضافية تبتلع بداية الآية التالية */
+        _liveNsrCommitSession();
         _liveNsrRestarting=true;
-        setTimeout(function(){_liveNsrRestarting=false;if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},400);
+        setTimeout(function(){_liveNsrRestarting=false;if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},120);
       }
     });
   }catch(e){}
@@ -2558,7 +2575,8 @@ function _liveNsrStart(){
       _liveNsrPlug.start({language:'ar-SA',maxResults:3,partialResults:true,popup:false}).catch(function(e){
         var msg=((e&&(e.message||e.code))||String(e)).toLowerCase();
         if(MEM2.recActive&&_liveNsrActive&&msg.indexOf('cancel')<0&&msg.indexOf('stop')<0&&msg.indexOf('abort')<0&&msg.indexOf('destroy')<0){
-          setTimeout(function(){if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},1500);
+          /* تصادم «already listening» شائع بين الدورات — أعد بسرعة لا بثانية ونصف */
+          setTimeout(function(){if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},600);
         }
       });
     }catch(e){}
@@ -2572,15 +2590,16 @@ function _stopLiveSRNative(hard){
   try{if(_liveNsrPlug&&_liveNsrPlug.stop){var _s=_liveNsrPlug.stop();if(_s&&_s.catch)_s.catch(function(){});}}catch(e){}
   if(_liveNsrMuted&&_liveSilent){_liveNsrMuted=false;try{var _u=_liveSilent.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}catch(e){}}
   function _finish(){
-    if(!_liveNsrCollecting)return;
+    if(!_liveNsrCollecting){_liveSRDone=true;return;} /* ضمان: done يُضبط دائماً */
     _liveNsrCollecting=false;
-    if(_liveSRInterim){_liveText+=' '+_liveSRInterim;_liveSRInterim='';}
+    _liveNsrCommitSession();
     try{if(_liveNsrPlug){var _rl=_liveNsrPlug.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}}catch(e){}
     _liveSRDone=true;
-    console.log('[tasmee-native] SR نهائي بعد '+(Date.now()-_liveNsrT0)+'ms: |'+_liveText.trim()+'|');
+    var _wc=_liveText.trim()?_liveText.trim().split(/\s+/).filter(Boolean).length:0;
+    console.log('[tasmee-native] SR نهائي بعد '+(Date.now()-_liveNsrT0)+'ms — مجمّع '+_wc+' كلمة: |'+_liveText.trim()+'|');
   }
-  /* soft: أبقِ المستمع ~800ms لالتقاط النتيجة النهائية المتأخرة قبل التثبيت */
-  if(hard){_finish();}else{setTimeout(_finish,800);}
+  /* soft: أبقِ المستمع ~700ms للنهائي المتأخر؛ وحارس مطلق 1500ms — لا تعليق أبداً */
+  if(hard){_finish();}else{setTimeout(_finish,700);setTimeout(function(){if(!_liveSRDone)_finish();},1500);}
 }
 /* انتظار flush نتائج SR قبل تقييم الشلال — تكيفي: المقاطع القصيرة تنتظر
    النهائي الفعلي (حتى 1400ms)؛ وضع الصفحة يبقى على سلوكه (250ms) */
@@ -3435,9 +3454,12 @@ function _w2LeadIn(live){
 function _w2StartCapture(){
   if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
   if(_isAndroidNative()){
-    /* «تشخيص دقيق» سلّح المرة القادمة بـWhisper (تسجيل صوت فعلي) */
+    /* «تشخيص دقيق»/فشل البوّابة سلّح المرة القادمة بـWhisper (تسجيل فعلي) */
     if(W2._forceWhisper){W2._forceWhisper=false;_w2StartNativeCapture();return;}
-    /* الوضع الافتراضي: التعرّف الأصلي وحده (شلال فوري بلا Whisper) */
+    /* وضع الصفحة: تلاوة طويلة (~6 دقائق) لا يُعاد تسجيلها عند فشل بوّابة —
+       سجّل مباشرة لـWhisper (شريط النسبة يغطي الانتظار) */
+    if(_m2PageMode){_w2StartNativeCapture();return;}
+    /* الافتراضي (آية/3/5): التعرّف الأصلي وحده — بوّابة نجاح فورية */
     _w2StartNativeSRCapture();return;
   }
   // Web / iOS path
@@ -3534,21 +3556,26 @@ function _w2StopCapture(){
     var _nT0=Date.now();
     _w2WaitSRFlush(function(){
       var lt=((_liveText||'')+' '+(_liveSRInterim||'')).trim();
-      console.log('[tasmee-native] flush '+(Date.now()-_nT0)+'ms, نص=|'+lt+'|');
+      var _wc=lt?lt.split(/\s+/).filter(Boolean).length:0;
+      console.log('[tasmee-native] flush '+(Date.now()-_nT0)+'ms — مجمّع '+_wc+' كلمة');
       _w2ClearXTO();W2.analyzing=false;
       if(!lt){ /* لم يُسمع شيء → مسار إعادة المحاولة القياسي */
+        console.log('[tasmee-native] بوابة: نص فارغ → إعادة محاولة');
         var _m3=document.getElementById('mem2MicLbl');if(_m3)_m3.textContent='سمّع';
         var _m4=document.getElementById('mem2MicBtn');if(_m4)_m4.disabled=false;
         MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;
       }
-      /* نجاح الشلال (المتقن): رد فوري + زر تشخيص دقيق. الفشل: قيّم نص
-         التعرّف مباشرة (فوري) وأتِح «تشخيص دقيق» لإعادة التسجيل لـWhisper */
-      if(_tryCascade())return;
+      /* بوّابة نجاح فقط: تطابق نظيف عالٍ → «أحسنت» فوراً. غير ذلك: النص
+         المبتور لا يُعرض ولا يُقيَّم أبداً — انتقال مباشر لمسار Whisper
+         (تعرّف SR وحده لا يسجّل صوتاً → إعادة تسجيل تلقائية بعدّاد استعداد) */
+      if(_tryCascade()){console.log('[tasmee-native] بوابة: PASS ✓ (فوري، بلا Whisper)');return;}
+      console.log('[tasmee-native] بوابة: FALLBACK → Whisper (إعادة تسجيل تلقائية)');
+      MEM2._tr='';MEM2._partial='';
       var _l2=document.getElementById('mem2MicLbl');if(_l2)_l2.textContent='سمّع';
       var _b2=document.getElementById('mem2MicBtn');if(_b2)_b2.disabled=false;
-      MEM2._tr=lt;MEM2._partial='';
-      _mem2StopAndEval();
-      _mem2AddDiagBtn(); /* على أندرويد: يُسلّح Whisper بإعادة تسجيل */
+      toast('لنتحقق بدقة — أعِد التلاوة وسيحلّلها المحرّك كلمة كلمة','info');
+      W2._forceWhisper=true;
+      _w2StartCapture(); /* يسلك مسار AudioRecorder→Whisper مع عدّ الاستعداد ٣٢١ */
     });
     return;
   }
