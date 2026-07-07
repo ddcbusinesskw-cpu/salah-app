@@ -42,6 +42,17 @@
     }
 
     /* ════════════════════════════════════════════
+       1.b KeepAwake — بديل أصلي موثوق لـ navigator.wakeLock
+       (الغائب في كثير من WebView). جسر يستهلكه rakWakeLock في التطبيق.
+    ════════════════════════════════════════════ */
+    var KeepAwake = Plugins.KeepAwake;
+    if (KeepAwake) {
+      window._nativeKeepAwake = function (on) {
+        try { if (on) KeepAwake.keepAwake(); else KeepAwake.allowSleep(); } catch (e) {}
+      };
+    }
+
+    /* ════════════════════════════════════════════
        2. Haptics — يعترض buzz() الموجودة في التطبيق
           buzz() تُعرَّف في index.html وتستخدم navigator.vibrate
     ════════════════════════════════════════════ */
@@ -133,21 +144,27 @@
           importance: 5, sound: 'adhan_alert.wav', vibration: true, visibility: 1
         }).catch(function () {});
 
+        /* قناة جديدة بمعرّف جديد: القديمة 'reminder' مجمّدة على صوت النظام
+           الافتراضي (لا يمكن تصحيح قناة قائمة) — LOW(2) صامتة فعلاً */
         LocalNotif.createChannel({
-          id: 'reminder', name: 'تذكير ذِكر',
+          id: 'reminder_silent', name: 'تذكير ذِكر',
           description: 'ذِكر ساعي خفيف على شاشة القفل',
-          importance: 3, vibration: false, visibility: 1
+          importance: 2, vibration: false, visibility: 1
         }).catch(function () {});
       }
 
-      /* طلب الإذن — يُعيد جدولة الصلاة والذِكر فور المنح */
-      LocalNotif.requestPermissions().then(function (r) {
-        window._nativeNotifGranted = r.display === 'granted';
-        if (window._nativeNotifGranted) {
-          if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
-          if (typeof window.scheduleHourlyDhikr === 'function') window.scheduleHourlyDhikr();
-        }
-      });
+      /* لا نطلب الإذن عند الإقلاع (حوار مبكر بلا سياق = رفض ثم حظر).
+         نكتفي بمعرفة الحالة الحالية؛ الطلب الفعلي عند تفعيل الأذان من
+         شاشة المواقيت. ونعيد الجدولة إن كان الإذن ممنوحاً مسبقاً. */
+      if (LocalNotif.checkPermissions) {
+        LocalNotif.checkPermissions().then(function (r) {
+          window._nativeNotifGranted = r && r.display === 'granted';
+          if (window._nativeNotifGranted) {
+            if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
+            if (typeof window.scheduleHourlyDhikr === 'function') window.scheduleHourlyDhikr();
+          }
+        }).catch(function () {});
+      }
 
       /**
        * scheduleNoorNotifications(times) — لإشعارات الأذان
@@ -186,7 +203,7 @@
       /* إلغاء إشعارات الأذان (IDs 2000-2034 — 7 أيام × 5 صلوات) عند تعطيل الأذان */
       window.cancelAdhanNotifications = function () {
         var ids = [];
-        for (var i = 2000; i < 2035; i++) ids.push({ id: i });
+        for (var i = 2000; i <= 2035; i++) ids.push({ id: i }); /* 2035 = تذكير التجديد */
         LocalNotif.cancel({ notifications: ids }).catch(function () {});
       };
 
@@ -203,6 +220,13 @@
               notifs.push({ id: 2000 + dayIdx * 5 + ki, title: '🕌 ' + _ADHAN_LABELS[k], body: 'حان وقت صلاة ' + _ADHAN_LABELS[k], date: dayMap[k] });
           });
         });
+        /* إشعار تجديد في اليوم السادس (ID 2035) — يذكّر بفتح التطبيق قبل
+           نفاد أفق السبعة أيام إن غاب المستخدم طويلاً */
+        var _renew = new Date(now.getTime() + 6 * 86400000);
+        _renew.setHours(9, 0, 0, 0);
+        if (_renew > now) {
+          notifs.push({ id: 2035, title: '🕌 المجدّد', body: 'افتح التطبيق لتجديد مواقيت الأذان لهذا الأسبوع', date: _renew.toISOString() });
+        }
         if (notifs.length) {
           try { localStorage.setItem('_adhan_sched_ts', String(Date.now())); } catch (e) {}
           window.scheduleNoorNotifications(notifs);
@@ -210,17 +234,21 @@
       };
       window.scheduleTodayPrayers = function (prayerMap) { window.scheduleAdhanAlerts([prayerMap]); };
 
-      /* إعادة الجدولة تلقائياً عند العودة للتطبيق بعد 24 ساعة */
+      /* إعادة الجدولة عند كل عودة للتطبيق (لا فقط بعد 24 ساعة) — يضمن
+         تجديد الأفق قبل انقضائه ما دام المستخدم يفتح التطبيق دورياً */
       if (App) {
         App.addListener('appStateChange', function (state) {
           if (!state || !state.isActive) return;
           try {
-            var ts = +(localStorage.getItem('_adhan_sched_ts') || 0);
-            if (Date.now() - ts > 86400000) {
-              if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
-            }
+            if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
           } catch (e) {}
         });
+        /* نقر الإشعار → افتح شاشة المواقيت */
+        if (LocalNotif.addListener) {
+          LocalNotif.addListener('localNotificationActionPerformed', function () {
+            try { if (typeof window.go === 'function') window.go('times'); } catch (e) {}
+          });
+        }
       }
 
       /**
@@ -248,7 +276,7 @@
               title:     'المجدّد · ذِكر',
               body:      dhikrList[idx++ % dhikrList.length],
               schedule:  { at: dt, allowWhileIdle: true },
-              channelId: 'reminder',
+              channelId: 'reminder_silent',
               smallIcon: 'ic_stat_noor',
               iconColor: '#3fae8e'
             });

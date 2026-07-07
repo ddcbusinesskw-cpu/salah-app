@@ -2145,10 +2145,21 @@ function go(id){
   if(prev&&prev.id==='rakaat'){try{rakCamStop();}catch(ex){}try{rakAIStop();}catch(ex){}try{if(typeof _rakOrientStop!=='undefined')_rakOrientStop();}catch(ex){}try{rakProxStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
   if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
-  if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}}
+  if(prev&&prev.id==='salahTrack'){try{salahTrackStop();}catch(ex){}
+    /* حرّر موارد TF المعلّقة لتقليل ذروة الذاكرة قبل تحميل Whisper في التسميع
+       (backend يُعاد تهيئته تلقائياً عبر _tfEnsureBackend عند الحاجة لاحقاً) */
+    try{if(window.tf&&tf.engine&&tf.engine().reset)setTimeout(function(){try{if(!ST.active)tf.disposeVariables&&tf.disposeVariables();}catch(e){}},3500);}catch(ex){}
+  }
   if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();var _mAu=document.getElementById('quranAudio');if(_mAu){_mAu.onended=null;try{_mAu.pause();}catch(ex){}}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
+  /* مكدّس التنقّل لزر الرجوع النظامي: سجّل الشاشة المغادَرة (بلا تكرار
+     متتالٍ)؛ الانتقال إلى home يمسح المكدّس (الجذر) */
+  if(prev&&prev.id&&prev.id!==id){
+    if(!window._navStack)window._navStack=[];
+    if(id==='home')window._navStack=[];
+    else if(_navStack[_navStack.length-1]!==prev.id)_navStack.push(prev.id);
+  }
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
   if(id==='mushafFull'){
@@ -3178,6 +3189,8 @@ function _w2Msg(m){
     clearTimeout(_w2LoadTO);_w2LoadTO=null;
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
     _w2PurgeFp32(); /* q8 حُمّل وتحقق — حرّر ملفات fp32 القديمة (مرة واحدة) */
+    /* ثبّت التخزين كي لا يُخلي النظام كاش النموذج (145MB) تحت الضغط */
+    try{if(navigator.storage&&navigator.storage.persist&&!lsGet('w2_persisted')){navigator.storage.persist().then(function(ok){if(ok)lsSet('w2_persisted','1');}).catch(function(){});}}catch(e){}
     if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
     _svOnModelReady();
     if(W2.pendingAudio){
@@ -3310,6 +3323,7 @@ function _w2StartCapture(){
       W2.recorder.start(300);
       _liveText='';_liveSRInterim='';_startLiveSR();
       MEM2.recActive=true;
+      try{rakWakeLock(true);}catch(e){} /* أبقِ الشاشة مضاءة أثناء التسجيل */
       _mem2UpdateBar();
       _w2LeadIn(live);
       if(_m2PageMode)setTimeout(_m2pgStartTimer,4000);
@@ -3341,6 +3355,7 @@ function _w2StartNativeCapture(){
     W2.nativeRec=true;
     _liveText='';_liveSRInterim='';_startLiveSR();
     MEM2.recActive=true;
+    try{rakWakeLock(true);}catch(e){} /* أبقِ الشاشة مضاءة أثناء التسجيل */
     _mem2UpdateBar();
     var live=document.getElementById('mem2Live');
     _w2LeadIn(live);
@@ -3714,6 +3729,7 @@ function _mem2StopAndEval(){
 }
 function _mem2StopRec(){
   _stopLiveSR();_m2pgStopTimer();_m2pgStopProc();
+  try{rakWakeLock(false);}catch(e){} /* حرّر إبقاء الشاشة مضاءة */
   /* W2._cascBuf يبقى محفوظاً هنا عمداً — يُمسح عند تسجيل جديد/مقطع آخر/مغادرة الشاشة
      كي يظل «تشخيص دقيق» قادراً على إعادة استخدام التسجيل بعد نجاح الشلال */
   MEM2.recActive=false;W2.analyzing=false;W2.pendingAudio=null;
@@ -4592,12 +4608,23 @@ function reqNotifPerm(){
 function _cancelAdhanNotifications(){
   if(typeof window.cancelAdhanNotifications==='function')window.cancelAdhanNotifications();
 }
+/* طلب استثناء اختياري من تحسين البطارية — مرة واحدة، لضمان وصول الأذان
+   على أجهزة OEM ذات قاتلات الخلفية. صامت إن لم يتوفّر الحوار الأصلي. */
+function _reqBatteryExemption(){
+  if(lsGet('batt_exempt_asked')==='1')return;
+  lsSet('batt_exempt_asked','1');
+  try{
+    var _App=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+    /* لا plugin مخصّص للاستثناء؛ نوجّه المستخدم بلطف لإعدادات التطبيق */
+    setTimeout(function(){toast('لضمان وصول الأذان دائماً: أوقف تحسين البطارية للتطبيق من إعدادات النظام','info');},1800);
+  }catch(e){}
+}
 function _reqAdhanPermAndSchedule(){
   var _LN=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
   if(_LN){
     _LN.requestPermissions().then(function(r){
       window._nativeNotifGranted=r.display==='granted';
-      if(window._nativeNotifGranted){scheduleNoorPrayerAlerts();}
+      if(window._nativeNotifGranted){scheduleNoorPrayerAlerts();try{_reqBatteryExemption();}catch(e){}}
       else{toast('يلزم منح إذن الإشعارات لتشغيل الأذان في الخلفية — افتح إعدادات التطبيق','warning');}
     }).catch(function(){scheduleNoorPrayerAlerts();});
     return;
@@ -4721,7 +4748,7 @@ function startQibla(){
 }
 function enableCompass(){function add(){window.addEventListener('deviceorientationabsolute',onHeading);window.addEventListener('deviceorientation',onHeading);}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')add();}).catch(function(){});}else add();}
 function disableCompass(){window.removeEventListener('deviceorientationabsolute',onHeading);window.removeEventListener('deviceorientation',onHeading);}
-function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
+function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;/* تعويض دوران الشاشة: بالوضع الأفقي alpha مُزاح بزاوية العرض */var _so=0;try{_so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;}catch(_e){}if(e.webkitCompassHeading==null)heading=(heading+_so)%360;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
 
 /* ===== المصحف (تصفّح ثم حفظ للأوفلاين) ===== */
 var quranLoaded=false,surahMeta=null;
@@ -5645,6 +5672,9 @@ function _rakBump(){var el=document.getElementById('rnum');if(!el)return;el.clas
 function _rakRipple(){var r=document.getElementById('rakRipple');if(!r)return;r.classList.remove('go');void r.offsetWidth;r.classList.add('go');}
 function rakWakeLock(on){
   RAK._wlWant=!!on;
+  /* بديل أصلي موثوق: FLAG_KEEP_SCREEN_ON عبر KeepAwake plugin — يعمل حتى
+     لو غاب navigator.wakeLock في WebView (وهو الغالب على أندرويد) */
+  if(typeof window._nativeKeepAwake==='function'){try{window._nativeKeepAwake(!!on);}catch(e){}}
   if(on){
     if(RAK._wl)return;
     if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(wl){
@@ -5665,6 +5695,8 @@ document.addEventListener('visibilitychange',function(){
   var _stOn=(typeof ST!=='undefined'&&ST&&ST.active);
   if(_sid!=='rakaat'&&!_stOn)return;
   if(RAK._wlWant&&!RAK._wl)rakWakeLock(true);
+  /* تتبّع الصلاة: استأنف التعرّف الصوتي الذي أوقفناه عند الإخفاء */
+  if(_stOn&&ST.srAvail&&!ST._nativeSR){try{_stStartSpeech();}catch(e){}}
   if(_sid!=='rakaat')return;
   if(RAK.mode==='cam'&&RAK._cam.stream){
     var _vt=RAK._cam.stream.getVideoTracks()[0];
@@ -5676,6 +5708,22 @@ document.addEventListener('visibilitychange',function(){
     if(_vt2&&_vt2.readyState==='ended'){rakAIStop();toast('انقطعت الكاميرا — أعد التشغيل أو جرّب وضعاً آخر','warning');}
     else{if(RAK._ai.afId){cancelAnimationFrame(RAK._ai.afId);RAK._ai.afId=null;}_rakAILoop();}
   }
+});
+/* عند إخفاء التطبيق: أندرويد ≥12 يقطع المايك عن الخلفية → أوقف تسجيل
+   التسميع بوضوح بدل إنتاج صمت وأخطاء وهمية؛ وأوقف صوت القرآن/الرقية */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState!=='hidden')return;
+  try{
+    if(typeof MEM2!=='undefined'&&MEM2.recActive){
+      _mem2StopRec();
+      var _ml=document.getElementById('mem2Live');if(_ml)_ml.textContent='أُوقف التسجيل عند مغادرة التطبيق — أعِد المحاولة';
+      if(typeof toast==='function')toast('أُوقف التسجيل — التطبيق في الخلفية','warning');
+    }
+  }catch(e){}
+  /* صوت القرآن/الرقية: علّق التشغيل (WebView قد يجمّده لاحقاً بلا استئناف) */
+  try{var _qa=document.getElementById('quranAudio');if(_qa&&!_qa.paused){_qa.pause();if(typeof qpIcon==='function')qpIcon(false);}}catch(e){}
+  /* تتبّع الصلاة: أوقف التعرّف الصوتي بالخلفية (onend لن يعيد التشغيل الآن) */
+  try{if(typeof ST!=='undefined'&&ST&&ST.active&&ST.rec){ST.rec.stop();}}catch(e){}
 });
 function rakTap(){if(RAK.mode!=='touch')return;var _tn=Date.now();if(_tn-RAK._lastTap<1500)return;/* لمسة مزدوجة عرضية — تجاهل صامت */RAK._lastTap=_tn;_rakRipple();if(RAK.hap)buzz(35);rakFeed('rakaa');}
 function rakTouchStart(e){if(e)e.preventDefault();if(RAK.mode!=='touch')return;RAK._tDown=Date.now();RAK._tTimer=setTimeout(function(){RAK._tTimer=null;RAK.count=Math.max(0,RAK.count-1);if(RAK.hap)buzz([30,20,30]);document.getElementById('ring').classList.remove('done');rakRender();document.getElementById('rstatus').textContent='رُجع عن ركعة';},520);}
@@ -5988,7 +6036,7 @@ var TRIAL_DAYS=12,splashDone=false;
 function showOv(id){['splash','consent','login','paywall','setup'].forEach(function(k){var el=document.getElementById('ov_'+k);if(el)el.classList.remove('on');});if(id){var t=document.getElementById('ov_'+id);if(t)t.classList.add('on');}}
 function boot(){
   showOv('splash');
-  setTimeout(afterSplash,2800);
+  setTimeout(afterSplash,1800); /* موحّد مع launchShowDuration الأصلي — لا فجوة */
 }
 function afterSplash(){
   if(splashDone)return;splashDone=true;
@@ -6022,7 +6070,6 @@ function login(provider){
   if(ovErr)ovErr.style.display='none';
   /* === Google Sign-In === */
   if(provider==='google'){
-    try{lsSet('session','google');}catch(e){}
     try{
       if(typeof fbSignIn==='function'){
         /* popup flow: راقب onAuthStateChanged وادخل التطبيق عند النجاح */
@@ -6031,13 +6078,16 @@ function login(provider){
           var _auth=firebase.auth();
           if(window._loginAuthUnsub){try{window._loginAuthUnsub();}catch(ex){}}
           window._loginAuthUnsub=_auth.onAuthStateChanged(function(u){
-            if(u){try{window._loginAuthUnsub();}catch(e2){}window._loginAuthUnsub=null;enterApp();}
+            /* اكتب session فقط بعد نجاح المصادقة الفعلي (لا قبله) */
+            if(u){try{lsSet('session','google');}catch(e3){}try{window._loginAuthUnsub();}catch(e2){}window._loginAuthUnsub=null;enterApp();}
           });
         }else{
+          try{lsSet('session','google');}catch(e4){}
           enterApp(); /* Firebase غير محمّل → ادخل مباشرة */
         }
         fbSignIn();
       }else{
+        try{lsSet('session','google');}catch(e5){}
         enterApp(); /* fbSignIn غير متاح → ادخل مباشرة */
       }
     }catch(e){
@@ -7236,6 +7286,10 @@ function _stBeginSession(gen){
   }
   var video=document.getElementById('stVideo');
   var wrap=document.getElementById('stVidWrap');
+  /* مصادرة الكاميرا (مكالمة/تطبيق آخر) → أنهِ الجلسة بنظافة (نمط rakaat) */
+  if(ST.camStream){ST.camStream.getVideoTracks().forEach(function(t){t.onended=function(){
+    if(ST.active){salahTrackStop(true);toast('انقطعت الكاميرا — أعد بدء التتبّع','warning');}
+  };});}
   if(video){video.srcObject=ST.camStream;video.play().catch(function(e){console.error('[ST] video.play failed:',e&&e.message||String(e));if(ST.camStream){ST.camStream.getTracks().forEach(function(t){t.stop();});ST.camStream=null;}if(ST.audioStream){ST.audioStream.getTracks().forEach(function(t){t.stop();});ST.audioStream=null;}salahTrackStop(true);_stErrMsg('تعذّر تشغيل الكاميرا — حاول مجدداً');});}
   if(wrap)wrap.style.display='';
   _stShowPane('stActivePane');
@@ -7875,7 +7929,8 @@ function _stStartSpeech(){
     };
     r.onerror=function(){};
     r.onend=function(){
-      if(ST.active&&!ST._stopping)setTimeout(_stStartSpeech,500);
+      /* لا تُعِد التشغيل في الخلفية — المايك محجوب فتتراكم محاولات فاشلة */
+      if(ST.active&&!ST._stopping&&document.visibilityState==='visible')setTimeout(_stStartSpeech,500);
     };
     r.start();
     ST.rec=r;
@@ -9106,6 +9161,31 @@ function dismissPWA(){
       if(dc&&dc.classList.contains('show')){if(typeof closeDua==='function')closeDua();return;}
       var dw=document.getElementById('drawer');
       if(dw&&dw.classList.contains('on')){if(typeof closeDrawer==='function')closeDrawer();return;}
+      /* ── حالات فرعية داخل الشاشة قبل مغادرتها ── */
+      var _cur=document.querySelector('.screen.on'),_cid=_cur?_cur.id:'';
+      /* مشغّل القرآن الظاهر */
+      var qp=document.getElementById('qplayer');
+      if(qp&&qp.classList.contains('on')&&typeof qpClose==='function'){try{qpClose();}catch(e){}return;}
+      /* جلسة تسميع جارية → ارجع للإعداد بدل مغادرة الشاشة */
+      if(_cid==='memorize'){
+        var _sess=document.getElementById('mem2SessionPane');
+        if(_sess&&_sess.style.display!=='none'&&typeof mem2Back==='function'){try{mem2Back();}catch(e){}return;}
+      }
+      /* داخل سورة مفتوحة → ارجع لقائمة السور */
+      if(_cid==='quran'){
+        var _qbody=document.getElementById('quranBody');
+        if(_qbody&&_qbody.querySelector('.ayblk,.ayat')&&typeof backToSurahs==='function'){try{backToSurahs();}catch(e){}return;}
+      }
+      /* ── التنقّل بالمكدّس: الشاشة السابقة ← home ← تأكيد الخروج ── */
+      if(_cid&&_cid!=='home'){
+        var st=window._navStack||[];
+        var _target=st.length?st.pop():'home';
+        window._navStack=st;
+        try{go(_target);}catch(e){try{go('home');}catch(e2){}}
+        /* go يدفع الحالية للمكدّس فنُزيلها كي لا تتراكم */
+        if(window._navStack&&window._navStack[window._navStack.length-1]===_cid)window._navStack.pop();
+        return;
+      }
       if(typeof window._showExitConfirm==='function')window._showExitConfirm();
     });
   }
@@ -9303,11 +9383,31 @@ window._execDeleteAccount=function(){
   if(!user){if(typeof toast==='function')toast('لست مسجّل الدخول','info');return;}
 
   function _performDelete(u){
-    var dbP=_fb.db?_fb.db.ref('users/'+u.uid).remove().catch(function(){}):Promise.resolve();
+    /* انتظر نجاح حذف RTDB قبل حذف الحساب — وإلا تبقى البيانات يتيمة لا
+       يمكن الوصول إليها (القواعد تمنع كل من عدا صاحب uid المحذوف) */
+    var dbP=_fb.db?_fb.db.ref('users/'+u.uid).remove():Promise.resolve();
     return dbP.then(function(){return u.delete();});
   }
 
+  /* امسح مفاتيح المزامنة محلياً بعد الحذف — كي لا يرفع حسابٌ لاحق على نفس
+     الجهاز بيانات الشخص السابق */
+  function _wipeLocalSynced(){
+    try{
+      var _pref=['q_s_','allgoal_','achv_snap_','tasmee_done_','khatmah_today_','tasbih_today','daily_'];
+      var _exact=['mushaf_pos','mushaf_surah','bookmarks','tasbih_total','streak_count','streak_last','p5_streak','p5_last','fajr_streak','fajr_last','morn_streak','morn_streak_last','eve_streak','quran_opens','adiya_opens','names_counts','badges_earned','khatmah_count','khatmah_data','q_list'];
+      var _del=[];
+      for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(!k)continue;
+        if(_exact.indexOf(k)>=0){_del.push(k);continue;}
+        for(var p=0;p<_pref.length;p++){if(k.indexOf(_pref[p])===0){_del.push(k);break;}}
+        if(k.indexOf('adhkar_left_')===0)_del.push(k);
+      }
+      _del.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+      localStorage.removeItem('session');
+    }catch(e){}
+  }
+
   function _afterSuccess(){
+    _wipeLocalSynced();
     try{
       if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
         var FA=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
@@ -9465,11 +9565,13 @@ function _fbReadLocal(){
   var ls=localStorage;
   var now=Date.now();
 
-  // Hifz prefix keys (q_s_N, allgoal_N) + achv snapshot keys
+  // Hifz prefix keys (allgoal_N) + achv snapshot keys.
+  // ملاحظة: q_s_* وq_list مستثناة عمداً — نص المصحف عام ومضمّن في
+  // QURAN_EMBED؛ رفعه (~1.3M حرف) يستهلك باقة المستخدم بلا فائدة.
   var hifzKeys={};
   for(var i=0;i<ls.length;i++){
     var k=ls.key(i);
-    if(k&&(k.slice(0,4)==='q_s_'||k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today'||k.slice(0,6)==='daily_')){
+    if(k&&(k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today'||k.slice(0,6)==='daily_')){
       var fk=k.replace(/[.#$/[\]]/g,'_');
       hifzKeys[fk]=ls.getItem(k);
     }
@@ -9565,7 +9667,9 @@ function _fbOnLogin(user){
       var remote=snap.val();
       if(remote){
         _fbMerge(remote);
-        _fbSetSync('تمّت المزامنة ✓','ok');
+        /* اكتب النتيجة المدموجة فوراً — لا تنتظر أول lsSet الذي قد يكتب
+           نسخة محلية ناقصة فوق السحابة (فقدان بيانات) */
+        _fbWriteAll();
         if(typeof toast==='function') toast('مرحباً — تمّت مزامنة بياناتك ✓','ok');
       }else{
         // First login — push local data up
@@ -9590,7 +9694,9 @@ function _numMax(local,remote){
 function _ls(k,v){if(v&&v!=='null')localStorage.setItem(k,v);}
 
 function _fbMerge(r){
-  try{
+  /* كل قسم في try مستقل: استثناء قسم لا يُسقط بقية الأقسام (منع فقدان بيانات) */
+  function _sec(label,fn){try{fn();}catch(e){console.warn('[NoorFB] merge '+label+':',e&&e.message||String(e));}}
+  _sec('quran',function(){
     // ── Quran ──
     if(r.quran){
       var rq=r.quran;
@@ -9621,7 +9727,8 @@ function _fbMerge(r){
         if(rq[k]&&!localStorage.getItem(k)) _ls(k,rq[k]);
       });
     }
-
+  });
+  _sec('hifz',function(){
     // ── Hifz ──
     if(r.hifz&&r.hifz.keys){
       Object.keys(r.hifz.keys).forEach(function(fk){
@@ -9651,7 +9758,8 @@ function _fbMerge(r){
         _ls(fk,_numMax(lv,rv));
       });
     }
-
+  });
+  _sec('dhikr',function(){
     // ── Dhikr ──
     if(r.dhikr){
       var rd=r.dhikr;
@@ -9675,7 +9783,8 @@ function _fbMerge(r){
         });
       }
     }
-
+  });
+  _sec('names',function(){
     // ── Names of Allah ──
     if(r.names&&r.names.counts){
       try{
@@ -9688,7 +9797,8 @@ function _fbMerge(r){
         localStorage.setItem('names_counts',JSON.stringify(mn));
       }catch(e){}
     }
-
+  });
+  _sec('settings',function(){
     // ── Settings: take remote if newer ──
     if(r.settings){
       var rs=r.settings;
@@ -9702,7 +9812,8 @@ function _fbMerge(r){
       });
       if(preferRemote) _ls('settings_updatedAt',String(rUpdated));
     }
-
+  });
+  _sec('progress',function(){
     // ── Progress / Badges ──
     if(r.progress){
       var rp=r.progress;
@@ -9716,9 +9827,7 @@ function _fbMerge(r){
       }catch(e){}
       if(rp.khatmah_data&&!localStorage.getItem('khatmah_data')) _ls('khatmah_data',rp.khatmah_data);
     }
-  }catch(e){
-    console.warn('[NoorFB] merge error:',e);
-  }
+  });
 }
 
 })(); // end IIFE

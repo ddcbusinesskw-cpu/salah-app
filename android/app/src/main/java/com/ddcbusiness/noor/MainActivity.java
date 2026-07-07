@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ProximitySensorPlugin.class);
         registerPlugin(AudioRecorderPlugin.class);
         registerPlugin(SilentSpeechPlugin.class);
+        registerPlugin(KeepAwakePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

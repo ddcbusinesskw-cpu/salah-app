@@ -151,6 +151,18 @@ public class AudioRecorderPlugin extends Plugin {
         call.resolve();
     }
 
+    /* ── تحرير المسجّل إن دُمّر النشاط أثناء تسجيل جارٍ (يمنع حجز المايك) ── */
+    @Override
+    protected void handleOnDestroy() {
+        if (recorder != null) {
+            try { recorder.stop(); } catch (Exception ignored) {}
+            try { recorder.release(); } catch (Exception ignored) {}
+            recorder = null;
+            if (outputPath != null) { try { new File(outputPath).delete(); } catch (Exception ignored) {} }
+        }
+        super.handleOnDestroy();
+    }
+
     /* ── Helpers ── */
 
     private boolean sysPermGranted() {

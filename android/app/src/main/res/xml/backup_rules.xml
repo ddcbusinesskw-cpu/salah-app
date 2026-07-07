@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup (API ≤ 31): استثنِ بيانات WebView الضخمة وحالة الجلسة الحسّاسة.
+     نموذج Whisper (~145MB) وكاش النماذج لا يجوز نسخهما (يتجاوزان سقف 25MB). -->
+<full-backup-content>
+    <exclude domain="file" path="app_webview/Default/Service Worker" />
+    <exclude domain="file" path="app_webview/Default/Cache" />
+    <exclude domain="file" path="app_webview/Default/blob_storage" />
+    <exclude domain="file" path="app_webview/Default/IndexedDB" />
+    <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+</full-backup-content>

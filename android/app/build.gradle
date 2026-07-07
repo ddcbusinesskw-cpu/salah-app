@@ -7,8 +7,11 @@ android {
         applicationId "com.ddcbusiness.noor"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // versionCode ديناميكي من رقم بناء codemagic — كل رفعة أكبر من سابقتها
+        // (المتجر يرفض إعادة استخدام versionCode). محلياً بلا env → يبقى 1.
+        def _bn = System.getenv("PROJECT_BUILD_NUMBER") ?: System.getenv("BUILD_NUMBER")
+        versionCode _bn ? _bn.toInteger() : 1
+        versionName "1.0." + (_bn ?: "0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

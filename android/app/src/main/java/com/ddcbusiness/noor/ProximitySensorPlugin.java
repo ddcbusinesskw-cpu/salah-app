@@ -53,6 +53,16 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
         call.resolve();
     }
 
+    /* ── إلغاء تسجيل المستمع إن دُمّر النشاط أثناء التشغيل (يمنع التسريب) ── */
+    @Override
+    protected void handleOnDestroy() {
+        if (running) {
+            try { sensorManager.unregisterListener(this); } catch (Exception ignored) {}
+            running = false;
+        }
+        super.handleOnDestroy();
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_PROXIMITY) return;

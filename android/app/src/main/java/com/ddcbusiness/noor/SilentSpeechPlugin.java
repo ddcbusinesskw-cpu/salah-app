@@ -64,4 +64,33 @@ public class SilentSpeechPlugin extends Plugin {
     public void isMuted(PluginCall call) {
         call.resolve(new JSObject().put("muted", muted));
     }
+
+    /* ── شبكة أمان: لا يبقى الهاتف مكتوماً إن قُتل التطبيق داخل نافذة الكتم ── */
+    private void unmuteAllSafe() {
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am != null && muted) {
+                for (int stream : MUTE_STREAMS) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        am.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0);
+                    } else {
+                        am.setStreamMute(stream, false);
+                    }
+                }
+                muted = false;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void handleOnPause() {
+        if (muted) unmuteAllSafe();
+        super.handleOnPause();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (muted) unmuteAllSafe();
+        super.handleOnDestroy();
+    }
 }
