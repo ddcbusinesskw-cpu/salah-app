@@ -2222,6 +2222,8 @@ function _idbPut(store,key,val){
 function _m2tr(s){var el=document.getElementById('mem2Live');if(el)el.textContent=s;}
 var _m2sl=1,_m2PageMode=false;
 var _liveSR=null,_liveText='',_liveSRInterim='',_liveSRDone=true;
+/* التعرّف الأصلي (Capacitor) كمصدر شلال على أندرويد — WebSpeech غير متاح في WebView */
+var _liveNsrPlug=null,_liveNsrActive=false,_liveNsrCollecting=false,_liveNsrMuted=false,_liveNsrRestarting=false,_liveSilent=null,_liveNsrT0=0;
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 function initMemorize(){
   _loadW2Ref();
@@ -2439,6 +2441,8 @@ function _m2pgStartProc(durSec){
 function _m2pgStopProc(){clearInterval(_m2pgProcInt);_m2pgProcInt=null;}
 /* ── Cascade: live SpeechRecognition alongside MediaRecorder ── */
 function _startLiveSR(){
+  /* أندرويد أصلي: التعرّف الأصلي بدل WebSpeech (الغائب في WebView) */
+  if(_isAndroidNative()&&_startLiveSRNative())return;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
   _liveText='';_liveSRInterim='';
@@ -2473,11 +2477,13 @@ function _startLiveSR(){
 }
 function _stopLiveSR(){
   _liveSRDone=true;
+  if(_liveNsrActive||_liveNsrCollecting){_stopLiveSRNative(true);}
   if(_liveSR){var sr=_liveSR;_liveSR=null;try{sr.onresult=null;sr.onerror=null;sr.onend=null;sr.stop();}catch(e){}}
 }
 /* إيقاف رشيق: يُبقي onresult حياً حتى onend كي تصل النتائج النهائية
    المتأخرة (كانت تُفصل لحظة الضغط فيضيع ذيل النص في المقاطع القصيرة) */
 function _stopLiveSRSoft(){
+  if(_liveNsrActive||_liveNsrCollecting){_stopLiveSRNative(false);return;}
   if(!_liveSR){_liveSRDone=true;return;}
   var sr=_liveSR;_liveSR=null; /* يمنع إعادة التشغيل داخل onend */
   sr.onend=function(){_liveSRDone=true;try{sr.onresult=null;sr.onerror=null;sr.onend=null;}catch(e){}};
@@ -2485,6 +2491,96 @@ function _stopLiveSRSoft(){
   try{sr.stop();}catch(e){_liveSRDone=true;}
   /* أمان: بعض المحرّكات لا تطلق onend بعد stop */
   setTimeout(function(){if(!_liveSRDone){_liveSRDone=true;try{sr.onresult=null;}catch(e){}}},2000);
+}
+/* ═══ شلال التعرّف الأصلي (أندرويد) — يغذّي نفس _liveText/_liveSRInterim/_liveSRDone ═══
+   بنية مطابقة لتتبّع الصلاة: partialResults + إعادة تشغيل عند التوقف + كتم البيب. */
+function _startLiveSRNative(){
+  var C=window.Capacitor&&window.Capacitor.Plugins;
+  var nsr=C&&C.SpeechRecognition;var sil=C&&C.SilentSpeech;
+  if(!nsr)return false;
+  _liveNsrPlug=nsr;_liveSilent=sil||null;
+  _liveNsrActive=true;_liveNsrCollecting=true;_liveNsrRestarting=false;_liveNsrMuted=false;
+  _liveText='';_liveSRInterim='';_liveSRDone=false;_liveNsrT0=Date.now();
+  try{var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
+  try{
+    nsr.addListener('partialResults',function(data){
+      if(!_liveNsrCollecting||!data||!data.matches)return;
+      var text=(data.matches[0]||'').trim();
+      if(!text)return;
+      _liveSRInterim=text; /* نص الجلسة الحالية كاملاً */
+      if(_m2PageMode&&MEM2.recActive){
+        var all=(_liveText+' '+_liveSRInterim).trim();
+        var wc=all.split(/\s+/).filter(Boolean).length;
+        var seg=MEM2.segs[MEM2.cur];
+        var tot=seg?seg.ayahs.reduce(function(s,a){return s+a.words.length;},0):0;
+        var m2=Math.floor(_m2pgTimerSec/60),s2=_m2pgTimerSec%60;
+        var lv=document.getElementById('mem2Live');
+        if(lv)lv.textContent=(m2?m2+'د ':'')+s2+'ث · '+Math.min(wc,tot)+'/'+tot+' كلمة';
+      }
+    });
+  }catch(e){}
+  try{
+    nsr.addListener('listeningState',function(ev){
+      if(!_liveNsrActive||!ev)return;
+      if(ev.status==='stopped'&&!_liveNsrRestarting&&MEM2.recActive){
+        /* نهاية جلسة صمت: ثبّت نص الجلسة ثم أعد التشغيل (يلزم للمقاطع الطويلة/الصفحة) */
+        if(_liveSRInterim){_liveText+=' '+_liveSRInterim;_liveSRInterim='';}
+        _liveNsrRestarting=true;
+        setTimeout(function(){_liveNsrRestarting=false;if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},400);
+      }
+    });
+  }catch(e){}
+  var permP;
+  try{
+    permP=nsr.checkPermissions().then(function(p){
+      var ok=p&&(p.speechRecognition==='granted'||p.microphone==='granted');
+      if(ok)return;
+      return nsr.requestPermissions().then(function(p2){
+        var ok2=p2&&(p2.speechRecognition==='granted'||p2.microphone==='granted');
+        if(!ok2)return Promise.reject({_perm:true});
+      });
+    }).catch(function(e){if(e&&e._perm)return Promise.reject(e);});
+  }catch(e){permP=Promise.resolve();}
+  permP.then(function(){_liveNsrStart();}).catch(function(){
+    toast('فعّل الميكروفون من إعدادات الجهاز > التطبيقات > المجدّد','error');
+  });
+  return true;
+}
+function _liveNsrStart(){
+  if(!MEM2.recActive||!_liveNsrActive||!_liveNsrPlug)return;
+  var ss=_liveSilent,muteP;
+  try{muteP=ss?ss.muteBeep():Promise.resolve();}catch(e){muteP=Promise.resolve();}
+  muteP.then(function(){
+    if(!MEM2.recActive||!_liveNsrActive){if(ss&&_liveNsrMuted){_liveNsrMuted=false;try{ss.unmuteBeep();}catch(e){}}return;}
+    _liveNsrMuted=true;
+    setTimeout(function(){if(_liveNsrMuted){_liveNsrMuted=false;try{if(ss){var _u=ss.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}}catch(e){}}},350);
+    try{
+      _liveNsrPlug.start({language:'ar-SA',maxResults:3,partialResults:true,popup:false}).catch(function(e){
+        var msg=((e&&(e.message||e.code))||String(e)).toLowerCase();
+        if(MEM2.recActive&&_liveNsrActive&&msg.indexOf('cancel')<0&&msg.indexOf('stop')<0&&msg.indexOf('abort')<0&&msg.indexOf('destroy')<0){
+          setTimeout(function(){if(MEM2.recActive&&_liveNsrActive)_liveNsrStart();},1500);
+        }
+      });
+    }catch(e){}
+  }).catch(function(){
+    _liveNsrMuted=false;
+    try{_liveNsrPlug.start({language:'ar-SA',maxResults:3,partialResults:true,popup:false}).catch(function(){});}catch(e){}
+  });
+}
+function _stopLiveSRNative(hard){
+  _liveNsrRestarting=true;_liveNsrActive=false;
+  try{if(_liveNsrPlug&&_liveNsrPlug.stop){var _s=_liveNsrPlug.stop();if(_s&&_s.catch)_s.catch(function(){});}}catch(e){}
+  if(_liveNsrMuted&&_liveSilent){_liveNsrMuted=false;try{var _u=_liveSilent.unmuteBeep();if(_u&&_u.catch)_u.catch(function(){});}catch(e){}}
+  function _finish(){
+    if(!_liveNsrCollecting)return;
+    _liveNsrCollecting=false;
+    if(_liveSRInterim){_liveText+=' '+_liveSRInterim;_liveSRInterim='';}
+    try{if(_liveNsrPlug){var _rl=_liveNsrPlug.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}}catch(e){}
+    _liveSRDone=true;
+    console.log('[tasmee-native] SR نهائي بعد '+(Date.now()-_liveNsrT0)+'ms: |'+_liveText.trim()+'|');
+  }
+  /* soft: أبقِ المستمع ~800ms لالتقاط النتيجة النهائية المتأخرة قبل التثبيت */
+  if(hard){_finish();}else{setTimeout(_finish,800);}
 }
 /* انتظار flush نتائج SR قبل تقييم الشلال — تكيفي: المقاطع القصيرة تنتظر
    النهائي الفعلي (حتى 1400ms)؛ وضع الصفحة يبقى على سلوكه (250ms) */
@@ -2518,39 +2614,50 @@ function _tryCascade(){
   if(live)live.innerHTML='<span style="color:#3fae8e">✓ أحسنت · '+acc+'%</span>';
   MEM2._tr=lt;MEM2._partial='';
   _mem2StopAndEval();
-  /* زر تشخيص دقيق */
+  _mem2AddDiagBtn();
+  return true;
+}
+/* زر «تشخيص دقيق»: على الويب يعيد استخدام الصوت المحفوظ (W2._cascBuf)؛
+   على أندرويد (لا صوت في وضع الشلال) يُسلّح إعادة تسجيل لـWhisper */
+function _mem2AddDiagBtn(){
   setTimeout(function(){
     var bar=document.getElementById('mem2Bar');
-    if(bar&&!document.getElementById('_cascDiagBtn')){
-      var btn=document.createElement('button');
-      btn.id='_cascDiagBtn';btn.textContent='تشخيص دقيق';btn.className='mem2-back-btn';
-      btn.style.cssText='background:rgba(234,204,126,.15);color:var(--gold);border-color:rgba(234,204,126,.3);';
-      btn.onclick=function(){
-        var buf=W2._cascBuf;
-        if(!buf||!buf.length){btn.remove();toast('لا يوجد تسجيل محفوظ — أعِد التلاوة','warning');return;}
+    if(!bar||document.getElementById('_cascDiagBtn'))return;
+    var btn=document.createElement('button');
+    btn.id='_cascDiagBtn';btn.textContent='تشخيص دقيق';btn.className='mem2-back-btn';
+    btn.style.cssText='background:rgba(234,204,126,.15);color:var(--gold);border-color:rgba(234,204,126,.3);';
+    btn.onclick=function(){
+      if(_isAndroidNative()){
+        /* لا صوت محفوظ في وضع التعرّف الأصلي → أعِد التسجيل بـWhisper */
+        btn.remove();
         if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
-        if(!W2.worker){toast('محرّك التعرّف غير متاح','error');return;}
-        btn.remove();W2._cascBuf=null;
-        var sg=MEM2.segs[MEM2.cur];if(sg){sg.status='pending';sg.result=null;}
-        _mem2Render();_mem2UpdateBar();
-        W2.analyzing=true;
-        var _lbl=document.getElementById('mem2MicLbl'),_mic=document.getElementById('mem2MicBtn');
-        if(_lbl)_lbl.textContent='يحلّل…';if(_mic)_mic.disabled=true;
-        if(W2.modelReady){
-          _m2tr('تشخيص دقيق (Whisper)…');
-          _w2StartXTO(buf.length/16000);
-          if(_m2PageMode)_m2pgStartProc(buf.length/16000);
-          W2.worker.postMessage({type:'transcribe',buffer:buf.buffer,length:buf.length},[buf.buffer]);
-        }else{
-          /* النموذج ما زال يُحمَّل — يلتقطه مسار pendingAudio عند ready */
-          W2.pendingAudio=buf;
-          _m2tr('جارٍ تحميل المحرّك — سيبدأ التشخيص تلقائياً…');
-        }
-      };
-      var foot=bar.querySelector('.mem2-bar-foot');if(foot)foot.appendChild(btn);
-    }
+        W2._forceWhisper=true;
+        _m2tr('اضغط «سمّع» وأعِد التلاوة — سيحلّلها المحرّك بدقة');
+        toast('أعِد التلاوة للتحليل الدقيق','info');
+        return;
+      }
+      var buf=W2._cascBuf;
+      if(!buf||!buf.length){btn.remove();toast('لا يوجد تسجيل محفوظ — أعِد التلاوة','warning');return;}
+      if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
+      if(!W2.worker){toast('محرّك التعرّف غير متاح','error');return;}
+      btn.remove();W2._cascBuf=null;
+      var sg=MEM2.segs[MEM2.cur];if(sg){sg.status='pending';sg.result=null;}
+      _mem2Render();_mem2UpdateBar();
+      W2.analyzing=true;
+      var _lbl=document.getElementById('mem2MicLbl'),_mic=document.getElementById('mem2MicBtn');
+      if(_lbl)_lbl.textContent='يحلّل…';if(_mic)_mic.disabled=true;
+      if(W2.modelReady){
+        _m2tr('تشخيص دقيق (Whisper)…');
+        _w2StartXTO(buf.length/16000);
+        if(_m2PageMode)_m2pgStartProc(buf.length/16000);
+        W2.worker.postMessage({type:'transcribe',buffer:buf.buffer,length:buf.length},[buf.buffer]);
+      }else{
+        W2.pendingAudio=buf;
+        _m2tr('جارٍ تحميل المحرّك — سيبدأ التشخيص تلقائياً…');
+      }
+    };
+    var foot=bar.querySelector('.mem2-bar-foot');if(foot)foot.appendChild(btn);
   },400);
-  return true;
 }
 function _mem2Render(){
   var mush=document.getElementById('mem2Mushaf');if(!mush)return;
@@ -2622,6 +2729,10 @@ var _W2_WSRC=[
   '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
   '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
+  // WASM: فعّل SIMD دائماً؛ تعدد الخيوط يحتاج SharedArrayBuffer (crossOriginIsolated).
+  // لا نحقن COOP/COEP لأنها تحجب موارد cross-origin (CDN المكتبة، النموذج، الصوت).
+  // فالخيوط تُفعَّل تلقائياً فقط إن كانت البيئة معزولة، وإلا خيط واحد + SIMD.
+  '    try{if(env.backends&&env.backends.onnx&&env.backends.onnx.wasm){var _wc=env.backends.onnx.wasm;var _iso=(typeof crossOriginIsolated!=="undefined"&&crossOriginIsolated);_wc.numThreads=_iso?Math.min(4,(typeof navigator!=="undefined"&&navigator.hardwareConcurrency)||2):1;_wc.simd=true;self.postMessage({type:"wasmcfg",iso:_iso,threads:_wc.numThreads});}}catch(e){}',
   '    var _loadT0=Date.now();',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
@@ -3176,6 +3287,8 @@ function _w2Msg(m){
   var lbl=document.getElementById('mem2MicLbl');
   if(m.type==='ws'){
     // worker ready
+  }else if(m.type==='wasmcfg'){
+    console.log('[w2] WASM config: SIMD=on threads='+m.threads+' (crossOriginIsolated='+m.iso+')');
   }else if(m.type==='progress'){
     /* إعادة ضبط مهلة الركود عند كل تقدّم — دائماً، لا فقط عند شاشة التهيئة */
     if(_w2LoadTO){clearTimeout(_w2LoadTO);_w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);}
@@ -3260,19 +3373,35 @@ function _w2Msg(m){
     }
   }
 }
+/* ── عدّاد نبض مرئي أثناء تحليل Whisper (المقاطع القصيرة) — يزيل الإحساس بالتعليق ── */
+var _w2PulseInt=null,_w2PulseT0=0;
+function _w2StartProcPulse(){
+  if(_m2PageMode)return; /* وضع الصفحة له شريط نسبة خاص (_m2pgStartProc) */
+  _w2StopProcPulse();_w2PulseT0=Date.now();var d=0;
+  _w2PulseInt=setInterval(function(){
+    if(!W2.analyzing){_w2StopProcPulse();return;}
+    var el=Math.floor((Date.now()-_w2PulseT0)/1000);d=(d+1)%4;
+    var live=document.getElementById('mem2Live');
+    if(live)live.textContent='⏳ جارٍ التحليل على جهازك… '+el+'ث '+'·'.repeat(d);
+  },500);
+}
+function _w2StopProcPulse(){if(_w2PulseInt){clearInterval(_w2PulseInt);_w2PulseInt=null;}}
 /* ── Transcription timeout: restart worker if inference hangs ──────────────── */
 var _w2XTO=null,_w2XWarnTO=null;
 function _w2StartXTO(durSec){
   _w2ClearXTO();
-  var warnMs=Math.max(25000,durSec*4000);   /* warn after 4× audio, min 25 s */
-  var killMs=Math.min(Math.max(150000,durSec*25000),600000); /* kill after 25× audio, min 2.5 min, max 10 min */
+  /* مقطع قصير (≤8ث، غير وضع صفحة): مهلة قتل 60ث بدل 150 — لا انتظار أبدي */
+  var shortSeg=durSec<=8&&!_m2PageMode;
+  var warnMs=Math.max(20000,durSec*4000);   /* warn after 4× audio, min 20 s */
+  var killMs=shortSeg?60000:Math.min(Math.max(150000,durSec*25000),600000);
+  _w2StartProcPulse();
   _w2XWarnTO=setTimeout(function(){
-    if(W2.analyzing)_m2tr('النموذج يعمل… قد يستغرق دقيقة أو أكثر على هذا الجهاز');
+    if(W2.analyzing&&_m2PageMode)_m2tr('النموذج يعمل… قد يستغرق دقيقة أو أكثر على هذا الجهاز');
   },warnMs);
   _w2XTO=setTimeout(function(){
     if(!W2.analyzing)return;
-    _m2pgStopProc();
-    _m2tr('انتهت مهلة المعالجة — اضغط «سمّع» للمحاولة مجدداً');
+    _m2pgStopProc();_w2StopProcPulse();
+    _m2tr(shortSeg?'تعذّر التحليل — أعد المحاولة':'انتهت مهلة المعالجة — اضغط «سمّع» للمحاولة مجدداً');
     if(W2.worker){try{W2.worker.terminate();}catch(e){}}
     W2.worker=null;W2.modelReady=false;W2.loading=false;W2.analyzing=false;
     MEM2.recActive=false;
@@ -3281,7 +3410,7 @@ function _w2StartXTO(durSec){
     _mem2UpdateBar();
   },killMs);
 }
-function _w2ClearXTO(){clearTimeout(_w2XTO);clearTimeout(_w2XWarnTO);}
+function _w2ClearXTO(){clearTimeout(_w2XTO);clearTimeout(_w2XWarnTO);_w2StopProcPulse();}
 function _w2Kill(){
   _w2ClearXTO();
   clearTimeout(_w2LoadTO);_w2LoadTO=null;
@@ -3305,7 +3434,12 @@ function _w2LeadIn(live){
 }
 function _w2StartCapture(){
   if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
-  if(_isAndroidNative()){_w2StartNativeCapture();return;}
+  if(_isAndroidNative()){
+    /* «تشخيص دقيق» سلّح المرة القادمة بـWhisper (تسجيل صوت فعلي) */
+    if(W2._forceWhisper){W2._forceWhisper=false;_w2StartNativeCapture();return;}
+    /* الوضع الافتراضي: التعرّف الأصلي وحده (شلال فوري بلا Whisper) */
+    _w2StartNativeSRCapture();return;
+  }
   // Web / iOS path
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     toast('التسجيل الصوتي غير مدعوم (يلزم HTTPS)','error');return;
@@ -3337,6 +3471,22 @@ function _w2StartCapture(){
       if(live)live.textContent='';
     });
 }
+/* التقاط أصلي بالتعرّف الصوتي وحده (بلا AudioRecorder) — الشلال الفوري */
+function _w2StartNativeSRCapture(){
+  var C=window.Capacitor&&window.Capacitor.Plugins;
+  if(!C||!C.SpeechRecognition){
+    /* لا مكوّن تعرّف (بناء قديم) → ارجع لمسار AudioRecorder+Whisper */
+    _w2StartNativeCapture();return;
+  }
+  W2._nativeSRMode=true;W2.nativeRec=false;
+  _startLiveSR(); /* يبدأ التعرّف الأصلي (يغذّي _liveText/_liveSRDone) */
+  MEM2.recActive=true;
+  try{rakWakeLock(true);}catch(e){}
+  _mem2UpdateBar();
+  var live=document.getElementById('mem2Live');
+  _w2LeadIn(live);
+  if(_m2PageMode)setTimeout(_m2pgStartTimer,4000);
+}
 function _w2StartNativeCapture(){
   var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
   if(!ar){
@@ -3352,8 +3502,10 @@ function _w2StartNativeCapture(){
     return ar.start();
   }).then(function(v){
     if(v===undefined&&!(W2.nativeRec)){}
-    W2.nativeRec=true;
-    _liveText='';_liveSRInterim='';_startLiveSR();
+    W2.nativeRec=true;W2._nativeSRMode=false; /* مسار Whisper لا مسار الشلال */
+    /* مسار AudioRecorder→Whisper: لا تشغّل التعرّف الأصلي (تنازع المايك) —
+       الشلال فارغ فيمرّ الصوت مباشرة إلى Whisper */
+    _liveText='';_liveSRInterim='';_liveSRDone=true;
     MEM2.recActive=true;
     try{rakWakeLock(true);}catch(e){} /* أبقِ الشاشة مضاءة أثناء التسجيل */
     _mem2UpdateBar();
@@ -3376,6 +3528,30 @@ function _w2StopCapture(){
   if(live)live.textContent='انتهى التسجيل — جارٍ المعالجة…';
   if(lbl)lbl.textContent='جارٍ…';if(mic)mic.disabled=true;
   _mem2UpdateBar();
+  /* ── وضع التعرّف الأصلي (بلا صوت): قيّم نص الشلال مباشرة — فوري ── */
+  if(W2._nativeSRMode){
+    W2._nativeSRMode=false;
+    var _nT0=Date.now();
+    _w2WaitSRFlush(function(){
+      var lt=((_liveText||'')+' '+(_liveSRInterim||'')).trim();
+      console.log('[tasmee-native] flush '+(Date.now()-_nT0)+'ms, نص=|'+lt+'|');
+      _w2ClearXTO();W2.analyzing=false;
+      if(!lt){ /* لم يُسمع شيء → مسار إعادة المحاولة القياسي */
+        var _m3=document.getElementById('mem2MicLbl');if(_m3)_m3.textContent='سمّع';
+        var _m4=document.getElementById('mem2MicBtn');if(_m4)_m4.disabled=false;
+        MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;
+      }
+      /* نجاح الشلال (المتقن): رد فوري + زر تشخيص دقيق. الفشل: قيّم نص
+         التعرّف مباشرة (فوري) وأتِح «تشخيص دقيق» لإعادة التسجيل لـWhisper */
+      if(_tryCascade())return;
+      var _l2=document.getElementById('mem2MicLbl');if(_l2)_l2.textContent='سمّع';
+      var _b2=document.getElementById('mem2MicBtn');if(_b2)_b2.disabled=false;
+      MEM2._tr=lt;MEM2._partial='';
+      _mem2StopAndEval();
+      _mem2AddDiagBtn(); /* على أندرويد: يُسلّح Whisper بإعادة تسجيل */
+    });
+    return;
+  }
   if(W2.nativeRec){
     W2.nativeRec=false;
     var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
