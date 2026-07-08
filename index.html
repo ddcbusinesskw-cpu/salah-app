@@ -619,6 +619,23 @@
   max-width:520px;margin:0 auto;
   box-shadow:0 -12px 50px rgba(0,0,0,.5);}
 .weekly-sheet.show{transform:translateY(0);}
+/* ===== نظام «كيفية الاستخدام» ===== */
+.help-btn{background:var(--card);border:1px solid var(--line2);color:var(--gold);width:36px;height:36px;border-radius:11px;font-size:18px;line-height:1;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.18s;padding:0;}
+.help-btn:active{transform:scale(.9);}
+.help-bk{position:fixed;inset:0;z-index:340;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;transition:opacity .3s;pointer-events:none;}
+.help-bk.show{opacity:1;pointer-events:auto;}
+.help-sheet{background:var(--bg2);border-radius:24px 24px 0 0;padding:16px 20px calc(22px + env(safe-area-inset-bottom));position:fixed;bottom:0;left:0;right:0;z-index:350;max-height:85vh;overflow-y:auto;transform:translateY(105%);transition:transform .38s cubic-bezier(.22,.8,.36,1);max-width:520px;margin:0 auto;box-shadow:0 -12px 50px rgba(0,0,0,.5);display:none;}
+.help-sheet.show{transform:translateY(0);}
+.help-grip{width:40px;height:4px;background:rgba(255,255,255,.22);border-radius:2px;margin:2px auto 16px;}
+.help-title{font-size:19px;font-weight:700;color:var(--gold);margin-bottom:4px;text-align:center;}
+.help-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:18px;}
+.help-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:13px;}
+.help-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:rgba(234,204,126,.15);border:1px solid rgba(234,204,126,.35);color:var(--gold);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.help-step-txt{font-size:14px;line-height:1.75;color:var(--text);padding-top:2px;}
+.help-tip{background:rgba(78,202,168,.08);border:1px solid rgba(78,202,168,.2);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.7;color:var(--muted);margin-top:8px;display:flex;gap:9px;align-items:flex-start;}
+.help-tip b{color:var(--green);flex-shrink:0;}
+.help-close{width:100%;margin-top:18px;padding:14px;border-radius:14px;border:none;background:var(--gold);color:#1a1300;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;}
+.help-dismiss{width:100%;margin-top:8px;padding:11px;border-radius:12px;border:1px solid var(--line);background:none;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer;}
 .calc-method-selector{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
 .calc-method-selector button{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;color:var(--text);font-size:14px;text-align:right;cursor:pointer;font-family:inherit;}
 .calc-method-selector button.active{border-color:var(--gold);background:rgba(234,204,126,.15);color:var(--gold);}
@@ -8769,7 +8786,135 @@ go=function(id){
   if(actualId==='account')loadSettingsScreen();
   if(actualId==='salahTrack')initSalahTrack();
   if(actualId==='rakaat')rakInit();
+  _maybeAutoHelp(actualId);
 };
+
+/* ═══ نظام «كيفية الاستخدام» لكل خدمة ═══ */
+var HELP_GUIDES={
+  salahTrack:{title:'كيف تستخدم تتبّع الصلاة',sub:'عدّاد ركعات ذكي يرصد حركتك وصوتك',
+    steps:[
+      'ضع الهاتف على الأرض بجانبك مائلاً قليلاً بحيث تظهر كامل حركاتك (وقوف، ركوع، سجود) — إن اختفيت أثناء السجود لن يعدّ بدقّة.',
+      'انتظر رسالة «الإطار ممتاز ✓» قبل أن يبدأ التتبّع.',
+      'فعّل «التحليل الصوتي» وكبّر وسمّع بصوت مسموع — الصوت يرفع الدقّة.',
+      'تظهر العدّادات فوراً مع كل حركة، وفي النهاية يعرض ملخّصاً ويطلب تأكيدك إن شكّ في العدد.'
+    ],tips:['أضِئ المكان جيداً وابتعد قليلاً حتى يظهر جسمك كاملاً في الكاميرا.']},
+  rakaat:{title:'كيف تستخدم عدّاد الركعات',sub:'اختر الطريقة التي تناسبك',
+    steps:[
+      'اضبط نوع الصلاة والقصر أولاً من الأعلى.',
+      'اختر الوضع الأنسب لك: اللمس (اضغط الحلقة بعد كل ركعة)، الحركة (أمِل الهاتف مع كل حركة)، أو الكاميرا/الذكاء (يرصد سجودك تلقائياً).',
+      'في وضع الحركة أو الكاميرا راقب مؤشّر التشخيص للتأكّد أن الحسّاس يعمل.'
+    ],tips:['زر «شككت؟» يبني على الأقل وينبّهك إلى سجود السهو.']},
+  memorize:{title:'كيف تستخدم التسميع',sub:'راجِع حفظك ونل تقييماً فورياً',
+    steps:[
+      'اختر السورة والطول (آية / ٣ / ٥ / صفحة)، وحدّد الصفحة إن لزم.',
+      'اضغط «سمّع» واقرأ المقطع بوضوح — التلاوة الصحيحة تُقيَّم فوراً.',
+      'عند الخطأ يُعرض تشخيص كلمة-بكلمة: الأخضر صحيح، والأحمر يحتاج مراجعة.',
+      'زر «تشخيص دقيق» يفحص تلاوتك بعمق عند الحاجة.'
+    ],tips:['اقرأ بتمهّل وبصوت واضح، وابتعد عن الضوضاء لأفضل نتيجة.']},
+  qibla:{title:'كيف تجد القبلة',
+    steps:[
+      'حدّد موقعك أولاً (من الرئيسية) ليُحسب الاتجاه.',
+      'امسك الهاتف مسطّحاً وحرّكه على شكل «٨» لمعايرة البوصلة.',
+      'اتبع السهم حتى يشير إلى اتجاه القبلة.'
+    ],tips:['ابتعد عن المعادن والأجهزة الإلكترونية أثناء القياس لدقّة أعلى.']},
+  times:{title:'مواقيت الصلاة والأذان',
+    steps:[
+      'اسمح بالوصول لموقعك ليُحسب توقيت مدينتك — أو اختر مدينة يدوياً.',
+      'فعّل تنبيه الأذان لتصلك إشعارات دخول الأوقات.',
+      'غيّر طريقة الحساب أو المذهب من الإعدادات (⚙️) إن لزم.'
+    ],tips:['إن تأخّرت الإشعارات، أوقِف تحسين البطارية للتطبيق من إعدادات النظام.']},
+  quran:{title:'قراءة القرآن والاستماع',
+    steps:[
+      'اختر السورة من القائمة لقراءتها.',
+      'اضغط ▶ للاستماع بصوت القارئ، وبدّل القارئ من قائمة المشغّل.',
+      'للقراءة دون إنترنت: حمّل السور مرة واحدة وتبقى محفوظة على جهازك.'
+    ],tips:['«المصحف كامل» يعرض المصحف بصفحاته للتصفّح المتواصل.']},
+  mushafFull:{title:'المصحف كامل',
+    steps:[
+      'مرّر لأعلى وأسفل لتصفّح المصحف بصفحاته المتّصلة.',
+      'استخدم قائمة الانتقال لأعلى للقفز إلى سورة معيّنة.'
+    ],tips:['يُحفظ آخر موضع وصلت إليه تلقائياً.']},
+  adhkar:{title:'الأذكار اليومية',
+    steps:[
+      'اختر تصنيف الأذكار (صباح، مساء، بعد الصلاة...).',
+      'اضغط على عدّاد كل ذكر بعدد مرّاته حتى يكتمل.',
+      'يُحفَظ تقدّمك تلقائياً ويُعاد ضبطه في يوم جديد.'
+    ],tips:['يمكنك إضافة أذكارك الخاصة بزر «+».']},
+  tasbih:{title:'السبحة الإلكترونية',
+    steps:[
+      'اختر التسبيحة أو أضِف واحدة بزر «+».',
+      'اضغط الزر الكبير مع كل تسبيحة — يهتز عند بلوغ العدد.',
+      'زر «تصفير» يبدأ العدّ من جديد.'
+    ],tips:['يُحسب مجموع تسبيحك اليومي ضمن الإنجازات.']},
+  ruqya:{title:'الرقية الشرعية',
+    steps:[
+      'تصفّح آيات وأدعية الرقية المأثورة.',
+      'اضغط «استماع» لتشغيل التلاوة صوتياً.'
+    ],tips:['كرّر الرقية على نفسك أو من تريد بنيّة الشفاء والتوكّل على الله.']},
+  names:{title:'أسماء الله الحسنى',
+    steps:[
+      'تصفّح الأسماء التسعة والتسعين.',
+      'اضغط أي اسم لقراءة معناه وعدّ ذكرك له.'
+    ],tips:['اجعل لك ورداً يومياً من ذكرها.']},
+  adiya:{title:'الأدعية المأثورة',
+    steps:[
+      'اختر تصنيف الأدعية.',
+      'تصفّح الأدعية مع مصادرها.'
+    ],tips:['أضِف ما تحبّ إلى وردك اليومي.']},
+  khatmah:{title:'متتبّع الختمة',
+    steps:[
+      'حدّد مدّة ختمتك (عدد الأيام) ليوزّع الورد عليك.',
+      'سجّل وردك كل يوم ليتقدّم العدّاد نحو الإتمام.'
+    ],tips:['يحتفي التطبيق بإتمام كل ختمة.']},
+  search:{title:'البحث في القرآن والحديث',
+    steps:[
+      'اكتب كلمة أو أكثر للبحث.',
+      'البحث يتجاهل التشكيل ويطابق صيغ الهمزة، فاكتب كما تشاء.'
+    ],tips:['اضغط أي نتيجة لفتحها في موضعها.']}
+};
+var _AUTO_HELP={salahTrack:1,rakaat:1,memorize:1}; /* دليل تلقائي مرة واحدة */
+var _helpCur=null,_helpAuto=false;
+function openHelp(id,auto){
+  if(!id){var s=document.querySelector('.screen.on');id=s?s.id:'';}
+  if(id==='calcSettings')id='account';
+  var g=HELP_GUIDES[id];if(!g)return;
+  _helpCur=id;_helpAuto=!!auto;
+  var html='<div class="help-grip"></div><div class="help-title">'+g.title+'</div>';
+  if(g.sub)html+='<div class="help-sub">'+g.sub+'</div>';
+  (g.steps||[]).forEach(function(s,i){html+='<div class="help-step"><div class="help-num">'+ar(i+1)+'</div><div class="help-step-txt">'+s+'</div></div>';});
+  (g.tips||[]).forEach(function(t){html+='<div class="help-tip"><b>💡</b><span>'+t+'</span></div>';});
+  html+='<button class="help-close" onclick="closeHelp('+(auto?'true':'false')+')">'+(auto?'فهمت — لنبدأ':'إغلاق')+'</button>';
+  if(auto)html+='<button class="help-dismiss" onclick="closeHelp(true)">لا تُظهر هذا الدليل ثانيةً</button>';
+  var body=document.getElementById('helpBody');if(body)body.innerHTML=html;
+  var bk=document.getElementById('helpBk'),sh=document.getElementById('helpSheet');
+  if(sh){sh.style.display='block';requestAnimationFrame(function(){sh.classList.add('show');});}
+  if(bk)bk.classList.add('show');
+}
+function closeHelp(markSeen){
+  var bk=document.getElementById('helpBk'),sh=document.getElementById('helpSheet');
+  if(sh)sh.classList.remove('show');if(bk)bk.classList.remove('show');
+  setTimeout(function(){if(sh&&!sh.classList.contains('show'))sh.style.display='none';},400);
+  if((markSeen||_helpAuto)&&_helpCur){try{lsSet('help_seen_'+_helpCur,'1');}catch(e){}}
+  _helpAuto=false;
+}
+function _maybeAutoHelp(id){
+  if(!_AUTO_HELP[id]||lsGet('help_seen_'+id))return;
+  setTimeout(function(){var s=document.querySelector('.screen.on');if(s&&s.id===id)openHelp(id,true);},650);
+}
+function _injectHelpButtons(){
+  Object.keys(HELP_GUIDES).forEach(function(id){
+    var scr=document.getElementById(id);if(!scr)return;
+    var top=scr.querySelector('.top');if(!top||top.querySelector('.help-btn'))return;
+    var h2=top.querySelector('h2');if(h2&&!h2.style.flex)h2.style.flex='1';
+    var b=document.createElement('button');
+    b.className='help-btn';b.type='button';b.textContent='ⓘ';
+    b.setAttribute('aria-label','كيفية الاستخدام');b.title='كيفية الاستخدام';
+    b.onclick=(function(sid){return function(){openHelp(sid,false);};})(id);
+    top.appendChild(b);
+  });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_injectHelpButtons);
+else _injectHelpButtons();
 
 /* ===== Hook togglePrayer: badges + fajr streak + all-5 celebration ===== */
 var _origTogglePrayer=togglePrayer;
@@ -9487,6 +9632,9 @@ function dismissPWA(){
   }
 })();
 </script>
+<!-- ورقة «كيفية الاستخدام» — خارج كل الشاشات -->
+<div id="helpBk" class="help-bk" onclick="closeHelp()"></div>
+<div id="helpSheet" class="help-sheet"><div id="helpBody"></div></div>
 <!-- Weekly Report Sheet — خارج كل الشاشات لتجنّب stacking context -->
 <div id="weeklyBk" onclick="closeWeeklySheet()" style="display:none;position:fixed;inset:0;z-index:290;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);"></div>
 <div id="weeklySheet" class="weekly-sheet">
