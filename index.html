@@ -986,7 +986,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .mw2.hidden{color:transparent;background:rgba(255,255,255,.1);border-radius:3px;}
 .mw2.pending{color:rgba(255,255,255,.09);background:rgba(255,255,255,.04);border-radius:3px;}
 .mw2.ok{color:var(--green);}
-.mw2.err{color:var(--red);}
+.mw2.err{color:#e8a54b;} /* ❌ سُمعت مخالفة — برتقالي (الأحكام الثلاثية) */
+.mw2.miss{color:rgba(255,255,255,.38);background:rgba(255,255,255,.08);border-radius:3px;} /* ⬜ لم تُسمع — لا تُحسب خطأً */
+.mw2.recheck{color:var(--gold);background:rgba(234,204,126,.16);border-radius:3px;} /* نطاق الفحص الموضعي */
 #mem2Mushaf.revealed .mw2.hidden,#mem2Mushaf.revealed .mw2.pending{color:rgba(255,255,255,.4)!important;background:none!important;}
 @keyframes mw2pop{0%{opacity:0;transform:scale(.82);}100%{opacity:1;transform:scale(1);}}
 .mw2.ok,.mw2.err{animation:mw2pop .22s ease-out;}
@@ -2480,6 +2482,7 @@ function _startLiveSR(){
       /* نهائي بلا interim جديد → الـinterim القديم استُهلك في النهائي: صفّره كي لا يتضاعف الذيل */
       if(fin){_liveText+=fin;_liveSRInterim=intr!==null?intr:'';}
       else if(intr!==null)_liveSRInterim=intr;
+      _ltFeed(); /* المتابعة الحيّة (الويب): نفس المسار */
       /* live progress in page mode */
       if(_m2PageMode&&MEM2.recActive){
         var all=(_liveText+' '+_liveSRInterim).trim();
@@ -2535,6 +2538,7 @@ function _liveNsrCommitSession(){
   console.log('[tasmee-native] دورة ثُبِّتت: +'+(add.length-ov)+' كلمة (تداخل '+ov+') → مجمّع '+_twc+' كلمة');
   if(W2._diag)W2._diag.cycles++;
   _w2Diag('دورة: +'+(add.length-ov)+' كلمة (تداخل '+ov+') → مجمّع '+_twc);
+  _ltFeed(); /* جمّد ما ثبت في المتابعة الحيّة */
 }
 function _startLiveSRNative(){
   var C=window.Capacitor&&window.Capacitor.Plugins;
@@ -2552,6 +2556,7 @@ function _startLiveSRNative(){
       var text=(data.matches[0]||'').trim();
       if(!text)return;
       _liveSRInterim=text; /* نص الجلسة الحالية كاملاً */
+      _ltFeed(); /* المتابعة الحيّة: لوّن الكلمات لحظياً */
       if(_m2PageMode&&MEM2.recActive){
         var all=(_liveText+' '+_liveSRInterim).trim();
         var wc=all.split(/\s+/).filter(Boolean).length;
@@ -2674,6 +2679,220 @@ function _w2WaitSRFlush(cb){
     setTimeout(_poll,80);
   })();
 }
+/* ═══ المتابعة الحيّة بمفتاح الإجابة ═══
+   النص المستهدف معروف سلفاً — التقييم محاذاة حيّة لا تفريغ كامل.
+   كل نتيجة تعرّف (جزئية/نهائية، ويب/native) تُحاذى من المؤشر بنافذة
+   تسامح صغيرة، والكلمات تتلوّن لحظياً. عند الإنهاء: أحكام ثلاثية لكل
+   كلمة: ✅ صحيحة / ❌ مخالفة (مع المسموع) / ⬜ لم تُسمع (لا تُحسب خطأً). */
+var LT=null;
+function _ltWordMatch(a,b){
+  if(a===b)return true;
+  var la=a.length,lb=b.length;
+  if(la<3||lb<3||Math.abs(la-lb)>1)return false;
+  if(la===lb){var d=0;for(var i=0;i<la;i++){if(a[i]!==b[i]&&++d>1)return false;}return true;}
+  var s=la<lb?a:b,l=la<lb?b:a;
+  for(var j=0;j<l.length;j++){if(l.slice(0,j)+l.slice(j+1)===s)return true;}
+  return false;
+}
+function _ltInit(seg){
+  if(!seg){LT=null;return;}
+  var ref=[];
+  seg.ayahs.forEach(function(a){a.words.forEach(function(w){ref.push(_normRec(w.w));});});
+  var st=[],heard=[];
+  for(var i=0;i<ref.length;i++){st[i]=0;heard[i]='';}
+  LT={ref:ref,st:st,heard:heard,p:0,consumed:0,live:null};
+}
+/* شظايا الدورات قد تعيد ذيل ما تأكّد — قصّ المقدّمة المطابقة لما قبل المؤشر
+   (إلا إذا كانت الكلمة هي المتوقَّعة تالياً: تكرار قرآني حقيقي لا تداخل) */
+function _ltTrimOverlap(state,words){
+  var start=0;
+  while(start<words.length){
+    var w=words[start],found=false;
+    if(state.p<state.ref.length&&_ltWordMatch(w,state.ref[state.p]))break;
+    for(var b=Math.max(0,state.p-6);b<state.p;b++){
+      if(state.st[b]===1&&_ltWordMatch(w,state.ref[b])){found=true;break;}
+    }
+    if(found)start++;else break;
+  }
+  return start?words.slice(start):words;
+}
+/* المحاذاة من المؤشر: تطابق (مسافة تحرير ≤1) → ✅ وتقدّم؛ تطابق ضمن نافذة
+   تقدّم 3 → ما قبله يبقى ⬜؛ لا تطابق → ❌ بالمسموع وتقدّم بحذر */
+function _ltAdvance(state,words){
+  for(var k=0;k<words.length;k++){
+    var w=words[k];if(!w)continue;
+    if(state.p>=state.ref.length)break;
+    var hit=-1;
+    for(var d=0;d<3&&state.p+d<state.ref.length;d++){
+      if(_ltWordMatch(w,state.ref[state.p+d])){hit=d;break;}
+    }
+    if(hit<0){state.st[state.p]=2;state.heard[state.p]=w;state.p++;}
+    else{
+      state.p+=hit; /* المتخطّاة تبقى ⬜ (فجوة حسّاس لا خطأ) */
+      state.st[state.p]=1;state.heard[state.p]=w;state.p++;
+    }
+  }
+}
+function _ltHeardAny(){
+  if(!LT)return false;
+  if((_liveText||'').trim()||(_liveSRInterim||'').trim())return true;
+  for(var i=0;i<LT.st.length;i++)if(LT.st[i])return true;
+  return false;
+}
+/* تغذية المتتبّع: يجمّد النهائي المثبَّت (_liveText) ويعرض الجزئي تفاؤلياً */
+function _ltFeed(){
+  if(!LT||_m2PageMode||W2._recheck)return;
+  var _sg=MEM2.segs&&MEM2.segs[MEM2.cur];
+  if(_sg&&_sg.status==='done')return; /* نهائي متأخر بعد الحسم — لا تلوين فوق النتيجة */
+  var comm=(_liveText||'').trim()?_liveText.trim().split(/\s+/).filter(Boolean):[];
+  if(comm.length>LT.consumed){
+    var fresh=comm.slice(LT.consumed).map(function(w){return _normRec(w);});
+    LT.consumed=comm.length;
+    _ltAdvance(LT,_ltTrimOverlap(LT,fresh));
+  }
+  var vol={ref:LT.ref,st:LT.st.slice(),heard:LT.heard.slice(),p:LT.p};
+  var intr=(_liveSRInterim||'').trim();
+  if(intr)_ltAdvance(vol,_ltTrimOverlap(vol,intr.split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);})));
+  LT.live=vol;
+  _ltPaint(vol);
+}
+function _ltPaint(v){
+  if(!LT)return;
+  var si=MEM2.cur,okC=0;
+  for(var i=0;i<v.st.length;i++){
+    if(v.st[i]===1)okC++;
+    var el=document.getElementById('m2w_'+si+'_'+i);
+    if(!el)continue;
+    var cls='mw2 '+(v.st[i]===1?'ok':v.st[i]===2?'err':'hidden');
+    if(el.className!==cls)el.className=cls;
+  }
+  if(MEM2.recActive&&okC){
+    var lv=document.getElementById('mem2Live');
+    if(lv)lv.textContent='🟢 يتابعك: '+okC+'/'+v.st.length+' كلمة';
+  }
+}
+/* الإنهاء: أحكام ثلاثية فورية — كل مسار يصل شاشة نتيجة خلال ثوانٍ محدودة */
+function _ltFinishAndShow(){
+  var seg=MEM2.segs[MEM2.cur];
+  if(!LT||!seg){MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;}
+  _ltFeed();
+  var intr=(_liveSRInterim||'').trim();
+  if(intr){_ltAdvance(LT,_ltTrimOverlap(LT,intr.split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);})));_liveSRInterim='';}
+  var streamTxt=((_liveText||'')+' '+intr).trim();
+  if(!streamTxt&&!_ltHeardAny()){ /* صمت تام → مسار إعادة المحاولة القياسي */
+    if(W2._diag){W2._diag.path=W2._diag.path||'متابعة حيّة';W2._diag.fail='لم يصل أي نص من التعرّف';}
+    MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;
+  }
+  var ok=0,err=0,miss=0,N=LT.ref.length,pairs=[];
+  for(var i=0;i<N;i++){
+    var s=LT.st[i];
+    if(s===1){ok++;pairs.push({ok:true});}
+    else if(s===2){err++;pairs.push({ok:false,heard:LT.heard[i]});}
+    else{miss++;pairs.push({ok:false,miss:true});}
+  }
+  seg.status='done';
+  seg.result={pairs:pairs,ok:ok,err:err,miss:miss,raw:streamTxt};
+  MEM2._tr='';MEM2._partial='';MEM2._retried=false;
+  _mem2StopRec();
+  _w2ClearXTO();W2.analyzing=false;
+  var mic=document.getElementById('mem2MicBtn'),lbl=document.getElementById('mem2MicLbl');
+  if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+  if(W2._diag){
+    if(!W2._diag.path||W2._diag.path.indexOf('بوابة')===0)W2._diag.path='متابعة حيّة — أحكام ثلاثية فورية';
+    W2._diag.verdict='✅'+ok+' ❌'+err+' ⬜'+miss;
+  }
+  _w2Diag('أحكام: ✅'+ok+' ❌'+err+' ⬜'+miss+' من '+N);
+  var live=document.getElementById('mem2Live');
+  if(err===0&&miss===0){
+    if(live)live.innerHTML='<span style="color:#3fae8e">✓ أحسنت · ١٠٠٪</span>';
+  }else if(err===0&&miss<=Math.ceil(N*0.2)){
+    if(live)live.innerHTML='<span style="color:#3fae8e">✓ نجاح</span> <span style="color:var(--muted);font-size:11px">كلمات لم تُسمع بوضوح: '+miss+'</span>';
+  }else{
+    if(live)live.textContent='';
+  }
+  try{if(RAK&&RAK.hap!==undefined?RAK.hap:true)buzz(err===0&&miss===0?[60,30,80]:ok>0?35:0);}catch(e){}
+  _mem2AddDiagBtn(); /* «تشخيص دقيق» الكامل يبقى خياراً أخيراً */
+  _mem2Render();
+  var allDone=MEM2.segs.every(function(x){return x.status==='done';});
+  if(allDone)setTimeout(mem2Finish,err===0?500:900);
+  else{
+    var nb=document.getElementById('mem2NextBtn');
+    if(nb){nb.style.boxShadow='0 0 0 3px rgba(234,204,126,.5)';setTimeout(function(){if(nb)nb.style.boxShadow='';},1400);}
+  }
+  _mem2UpdateBar();
+}
+/* ── الفحص الموضعي: أول نطاق مشكوك (❌/⬜) موسَّعاً لحدود الآية ── */
+function _ltSuspectRange(){
+  for(var si=0;si<MEM2.segs.length;si++){
+    var seg=MEM2.segs[si],r=seg&&seg.result;
+    if(!r||!r.pairs||!r.pairs.length)continue;
+    var from=-1,to=-1;
+    for(var i=0;i<r.pairs.length;i++){if(!r.pairs[i].ok){if(from<0)from=i;to=i;}}
+    if(from<0)continue;
+    var start=0,aS=from,aE=to;
+    seg.ayahs.forEach(function(a){
+      var end=start+a.words.length-1;
+      if(from>=start&&from<=end)aS=start;
+      if(to>=start&&to<=end)aE=end;
+      start=end+1;
+    });
+    return {si:si,from:aS,to:aE};
+  }
+  return null;
+}
+function _ltStartRecheck(){
+  var r=_ltSuspectRange();
+  if(!r){toast('لا يوجد جزء مشكوك','info');return;}
+  W2._recheck=r;
+  MEM2.cur=r.si;
+  document.getElementById('mem2ResultsPane').style.display='none';
+  document.getElementById('mem2SessionPane').style.display='block';
+  document.getElementById('mem2Bar').style.display='block';
+  _mem2Render();_mem2UpdateBar();
+  for(var i=r.from;i<=r.to;i++){
+    var el=document.getElementById('m2w_'+r.si+'_'+i);
+    if(el)el.className='mw2 recheck';
+  }
+  _m2tr('اقرأ الجزء المظلَّل فقط ثم اضغط «أوقف»');
+  toast('أعد تلاوة الجزء المظلَّل بالذهبي فقط','info');
+  if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');
+  W2._forceWhisper=true; /* native → تسجيل صوتي؛ الويب → MediaRecorder المعتاد */
+  _w2Diag('فحص موضعي: الكلمات '+(r.from+1)+'–'+(r.to+1));
+  _w2StartCapture();
+}
+/* دمج حكم Whisper الموضعي في نتيجة المقطع */
+function _ltMergeRecheck(text){
+  var r=W2._recheck;W2._recheck=null;
+  _w2ClearXTO();W2.analyzing=false;
+  var mic=document.getElementById('mem2MicBtn'),lbl=document.getElementById('mem2MicLbl');
+  if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
+  MEM2._tr='';MEM2._partial='';
+  var seg=r&&MEM2.segs[r.si];
+  if(!seg||!seg.result){_mem2UpdateBar();return;}
+  var refAll=[];
+  seg.ayahs.forEach(function(a){a.words.forEach(function(w){refAll.push(_normRec(w.w));});});
+  var hyp=(text||'').trim().split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);});
+  var sub=refAll.slice(r.from,r.to+1),st=[],heard=[];
+  for(var i=0;i<sub.length;i++){st[i]=0;heard[i]='';}
+  var tmp={ref:sub,st:st,heard:heard,p:0};
+  _ltAdvance(tmp,hyp);
+  var ps=seg.result.pairs;
+  for(var k=0;k<sub.length;k++){
+    var gi=r.from+k;
+    if(tmp.st[k]===1)ps[gi]={ok:true};
+    else if(tmp.st[k]===2)ps[gi]={ok:false,heard:tmp.heard[k]};
+    else if(!ps[gi].ok)ps[gi]={ok:false,miss:true};
+  }
+  var ok=0,err=0,miss=0;
+  ps.forEach(function(p){if(p.ok)ok++;else if(p.miss)miss++;else err++;});
+  seg.result.ok=ok;seg.result.err=err;seg.result.miss=miss;
+  seg.result.raw=((seg.result.raw||'')+' ⟦فحص موضعي: '+(text||'—')+'⟧').trim();
+  _w2Diag('فحص موضعي دُمج → ✅'+ok+' ❌'+err+' ⬜'+miss);
+  toast('دُمجت نتيجة الفحص الموضعي ✓','success');
+  var allDone=MEM2.segs.every(function(x){return x.status==='done';});
+  if(allDone)mem2Finish();
+  else{_mem2Render();_mem2UpdateBar();}
+}
 function _tryCascade(){
   var lt=((_liveText||'')+' '+(_liveSRInterim||'')).trim();
   if(!lt)return false;
@@ -2785,11 +3004,12 @@ function _mem2Render(){
       ayah.words.forEach(function(w,wi){
         var cls;
         if(seg.status==='done'&&seg.result){
-          cls=seg.result.pairs[wOffset+wi]&&seg.result.pairs[wOffset+wi].ok?'ok':'err';
+          var _pr=seg.result.pairs[wOffset+wi];
+          cls=_pr&&_pr.ok?'ok':(_pr&&_pr.miss?'miss':'err'); /* أحكام ثلاثية: ✅/⬜/❌ */
         }else if(si===MEM2.cur){cls='hidden';}
         else if(si<MEM2.cur){cls=seg.result?'ok':'hidden';}
         else{cls='pending';}
-        html+='<span class="mw2 '+cls+'">'+w.w+'</span> ';
+        html+='<span class="mw2 '+cls+'" id="m2w_'+si+'_'+(wOffset+wi)+'">'+w.w+'</span> ';
       });
       html+='<span class="mem2-ayend">'+ar(ayah.num)+'</span> ';
     });
@@ -2984,10 +3204,26 @@ function _bmShowPanel(){
     +'</div>'
     +'<div id="bmReplayOut" style="margin-top:10px;font-size:11px;max-height:320px;overflow-y:auto"></div>'
     +'</div>'
+    +'<div style="width:100%;border-top:1px solid rgba(255,255,255,.12);margin-top:16px;padding-top:12px">'
+    +'<div style="font-size:14px;font-weight:700;color:#eacc7e;margin-bottom:4px">🏆 حزمة الذهب (ضمان الانحدار)</div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:8px">سجّل مقاطع مرجعية (آية صحيحة، آية بخطأ متعمَّد، ٣ آيات صحيحة) مع الحكم المتوقَّع — ثم شغّل الحزمة بعد أي تعديل على التسميع.</div>'
+    +'<textarea id="gsRef" placeholder="النص المستهدف (الآية/الآيات كما ينبغي أن تُتلى)" style="width:100%;height:54px;background:rgba(255,255,255,.05);color:#ccc;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px;font-size:12px"></textarea>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">'
+    +'<input id="gsLabel" placeholder="اسم المقطع" style="flex:1;min-width:110px;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px;font-size:12px">'
+    +'<select id="gsExpect" style="background:#1a2233;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px;font-size:12px">'
+    +'<option value="pass">متوقَّع: نجاح (بلا أخطاء)</option><option value="errors">متوقَّع: كشف أخطاء</option></select>'
+    +'<button id="gsRecBtn" onclick="_gsToggleRec()" style="background:rgba(142,63,174,.8);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer">🎙 تسجيل</button>'
+    +'<button onclick="_gsRun()" style="background:#3fae8e;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer">▶ تشغيل الحزمة</button>'
+    +'</div>'
+    +'<div id="gsStatus" style="font-size:11px;color:#aaa;margin-top:6px;min-height:14px"></div>'
+    +'<div id="gsList" style="margin-top:6px;font-size:11px"></div>'
+    +'<div id="gsTable" style="margin-top:8px;width:100%;overflow-x:auto"></div>'
+    +'</div>'
     +'<button onclick="_bmHidePanel()" style="margin-top:10px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 24px;font-size:13px;cursor:pointer">إغلاق</button>';
   document.body.appendChild(d);
   _bmState.panel=d;
   _bmStEngLbl();
+  _gsRefresh();
 }
 function _bmStEngLbl(){
   var b=document.getElementById('bmStEng');if(!b)return;
@@ -3309,6 +3545,183 @@ function _bmFbCopy(txt){
   catch(e){if(typeof toast==='function')toast('تعذّر النسخ — انسخ من الـ console','error');}
   document.body.removeChild(ta);
 }
+/* ═══ 🏆 حزمة الذهب: مقاطع مرجعية في IndexedDB تُمرَّر على مسار التقييم الكامل ═══ */
+var _gsRec=null;
+function _gsEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _gsDb(cb){
+  try{
+    var rq=indexedDB.open('noor_golden',1);
+    rq.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains('clips'))db.createObjectStore('clips',{keyPath:'id',autoIncrement:true});};
+    rq.onsuccess=function(e){cb(e.target.result);};
+    rq.onerror=function(){if(typeof toast==='function')toast('IndexedDB غير متاح','error');};
+  }catch(e){if(typeof toast==='function')toast('IndexedDB غير متاح','error');}
+}
+function _gsAll(cb){
+  _gsDb(function(db){
+    var out=[];
+    try{
+      var cur=db.transaction('clips').objectStore('clips').openCursor();
+      cur.onsuccess=function(e){var c=e.target.result;if(c){out.push(c.value);c.continue();}else cb(out);};
+      cur.onerror=function(){cb(out);};
+    }catch(e){cb(out);}
+  });
+}
+function _gsToggleRec(){
+  var btn=document.getElementById('gsRecBtn'),st=document.getElementById('gsStatus');
+  if(_gsRec){ /* أوقف واحفظ */
+    if(_gsRec.native){
+      var ar=window.Capacitor.Plugins.AudioRecorder;
+      ar.stop().then(function(data){
+        _gsRec=null;if(btn)btn.textContent='🎙 تسجيل';
+        if(!(data&&data.recordDataBase64&&data.recordDataBase64.length>100)){if(st)st.textContent='لم يُسجَّل صوت';return;}
+        _gsSave({b64:data.recordDataBase64,mime:data.mimeType||'audio/mp4'});
+      }).catch(function(){_gsRec=null;if(btn)btn.textContent='🎙 تسجيل';if(st)st.textContent='فشل إيقاف التسجيل';});
+    }else{
+      var g=_gsRec;_gsRec=null;if(btn)btn.textContent='🎙 تسجيل';
+      g.rec.onstop=function(){
+        if(g.stream)g.stream.getTracks().forEach(function(t){t.stop();});
+        var blob=new Blob(g.chunks,{type:g.mime||'audio/webm'});
+        if(blob.size<200){if(st)st.textContent='لم يُسجَّل صوت';return;}
+        _gsSave({blob:blob,mime:g.mime||'audio/webm'});
+      };
+      try{g.rec.stop();}catch(e){if(st)st.textContent='فشل إيقاف التسجيل';}
+    }
+    return;
+  }
+  var ref=(document.getElementById('gsRef').value||'').trim();
+  if(!ref){toast('اكتب النص المستهدف أولاً','error');return;}
+  var natAR=_isAndroidNative()&&window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
+  if(natAR){
+    natAR.requestPermissions().then(function(p){
+      if(!(p&&p.microphone==='granted'))return Promise.reject({_p:1});
+      return natAR.start();
+    }).then(function(){_gsRec={native:true};if(btn)btn.textContent='⏹ أوقف واحفظ';if(st)st.textContent='جارٍ التسجيل… اقرأ المقطع';})
+    .catch(function(){if(st)st.textContent='تعذّر بدء التسجيل — تحقق من إذن المايك';});
+  }else if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder){
+    navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
+      var mime=['audio/webm;codecs=opus','audio/webm','audio/ogg'].find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+      var rec=new MediaRecorder(stream,mime?{mimeType:mime}:{});
+      var chunks=[];rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};
+      rec.start(300);
+      _gsRec={rec:rec,chunks:chunks,stream:stream,mime:mime};
+      if(btn)btn.textContent='⏹ أوقف واحفظ';if(st)st.textContent='جارٍ التسجيل… اقرأ المقطع';
+    }).catch(function(){if(st)st.textContent='تعذّر الوصول للميكروفون';});
+  }else{if(st)st.textContent='لا وسيلة تسجيل متاحة';}
+}
+function _gsSave(audio){
+  var clip={
+    label:(document.getElementById('gsLabel').value||'').trim()||('مقطع '+(Date.now()%100000)),
+    ref:(document.getElementById('gsRef').value||'').trim(),
+    expect:(document.getElementById('gsExpect')||{}).value||'pass',
+    mime:audio.mime,b64:audio.b64||null,blob:audio.blob||null,created:Date.now()
+  };
+  _gsDb(function(db){
+    var tx=db.transaction('clips','readwrite');
+    tx.objectStore('clips').add(clip);
+    tx.oncomplete=function(){toast('حُفظ في حزمة الذهب ✓','success');_gsRefresh();};
+    tx.onerror=function(){toast('فشل الحفظ','error');};
+  });
+}
+function _gsDel(id){_gsDb(function(db){var tx=db.transaction('clips','readwrite');tx.objectStore('clips').delete(id);tx.oncomplete=function(){_gsRefresh();};});}
+function _gsRefresh(){
+  var el=document.getElementById('gsList');if(!el)return;
+  _gsAll(function(clips){
+    if(!clips.length){el.innerHTML='<span style="color:#666">لا مقاطع محفوظة بعد</span>';return;}
+    el.innerHTML=clips.map(function(c){
+      return '<div style="display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        +'<span style="flex:1">'+_gsEsc(c.label)+' <span style="color:#888">('+(c.expect==='pass'?'متوقَّع نجاح':'متوقَّع أخطاء')+' · '+_gsEsc((c.ref||'').split(/\s+/).filter(Boolean).length)+' كلمة)</span></span>'
+        +'<button onclick="_gsDel('+c.id+')" style="background:none;border:none;color:#e06060;cursor:pointer;font-size:13px">✕</button></div>';
+    }).join('');
+  });
+}
+function _gsDecode(clip,cb,fail){
+  var pAB;
+  if(clip.blob)pAB=clip.blob.arrayBuffer();
+  else{
+    try{
+      var bin=atob(clip.b64);var ab=new ArrayBuffer(bin.length);var v=new Uint8Array(ab);
+      for(var i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);
+      pAB=Promise.resolve(ab);
+    }catch(e){fail('فشل فك الترميز');return;}
+  }
+  pAB.then(function(ab){
+    var actx=new(window.AudioContext||window.webkitAudioContext)();
+    actx.decodeAudioData(ab,function(dec){
+      actx.close();
+      var n=Math.ceil(dec.duration*16000);
+      var off=new OfflineAudioContext(1,n,16000);
+      var src=off.createBufferSource();src.buffer=dec;src.connect(off.destination);src.start(0);
+      off.startRendering().then(function(r){cb(new Float32Array(r.getChannelData(0)));});
+    },function(){actx.close();fail('فشل قراءة الصوت');});
+  }).catch(function(){fail('فشل قراءة الملف');});
+}
+/* نفس محاذاة المتابعة الحيّة حرفياً — الحكم كما يراه المستخدم */
+function _gsVerdict(refText,hypText){
+  var ref=refText.trim().split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);});
+  var hyp=hypText.trim().split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);});
+  var st=[],heard=[];for(var i=0;i<ref.length;i++){st[i]=0;heard[i]='';}
+  var s={ref:ref,st:st,heard:heard,p:0};
+  _ltAdvance(s,hyp);
+  var ok=0,err=0,miss=0;
+  st.forEach(function(x){if(x===1)ok++;else if(x===2)err++;else miss++;});
+  return {ok:ok,err:err,miss:miss,cat:(err===0&&miss<=Math.ceil(ref.length*0.2))?'pass':'errors'};
+}
+function _gsRun(){
+  var st=document.getElementById('gsStatus'),tbl=document.getElementById('gsTable');
+  _gsAll(function(clips){
+    if(!clips.length){if(st)st.textContent='لا مقاطع في الحزمة — سجّل أولاً';return;}
+    if(st)st.textContent='تحميل محرّك q8…';
+    var w;
+    try{w=new Worker(URL.createObjectURL(new Blob([_BM_WSRC],{type:'application/javascript'})),{type:'module'});}
+    catch(e){if(st)st.textContent='تعذّر إنشاء Worker';return;}
+    var rows=[],idx=0;
+    var loadTO=setTimeout(function(){try{w.terminate();}catch(e){}if(st)st.textContent='تجاوز مهلة تحميل النموذج (٣ دقائق)';},180000);
+    function done(){
+      try{w.terminate();}catch(e){}
+      var okAll=rows.length&&rows.every(function(r){return r.pass;});
+      if(st)st.textContent=okAll?'✅ الحزمة كلها ناجحة ('+rows.length+'/'+rows.length+')':'⚠ '+rows.filter(function(r){return !r.pass;}).length+' من '+rows.length+' فاشل';
+      if(tbl)tbl.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'
+        +'<tr style="color:#eacc7e"><th style="text-align:right;padding:4px">المقطع</th><th>المتوقَّع</th><th>الفعلي</th><th>✅/❌/⬜</th><th>الحكم</th></tr>'
+        +rows.map(function(r){
+          return '<tr style="border-top:1px solid rgba(255,255,255,.08)">'
+            +'<td style="padding:4px;text-align:right">'+_gsEsc(r.label)+'</td>'
+            +'<td style="text-align:center">'+(r.expect==='pass'?'نجاح':'أخطاء')+'</td>'
+            +'<td style="text-align:center">'+(r.fail?'—':(r.cat==='pass'?'نجاح':'أخطاء'))+'</td>'
+            +'<td style="text-align:center;direction:ltr">'+(r.fail?'—':r.okN+'/'+r.errN+'/'+r.missN)+'</td>'
+            +'<td style="text-align:center">'+(r.pass?'<span style="color:#3fae8e">ناجح ✓</span>':'<span style="color:#e06060">فاشل ✗'+(r.fail?' ('+_gsEsc(r.fail)+')':'')+'</span>')+'</td></tr>';
+        }).join('')+'</table>';
+    }
+    function runNext(){
+      if(idx>=clips.length){done();return;}
+      var c=clips[idx];idx++;
+      if(st)st.textContent='تشغيل «'+c.label+'» ('+idx+'/'+clips.length+')…';
+      _gsDecode(c,function(f32){
+        /* ميزانية صارمة: 60ث لكل مقطع ثم فشل صريح — لا تعليق */
+        var segTO=setTimeout(function(){rows.push({label:c.label,expect:c.expect,fail:'مهلة 60ث',pass:false});runNext();},60000);
+        w.onmessage=function(ev){
+          var d=ev.data||{};
+          if(d.type==='bm_result'){
+            clearTimeout(segTO);
+            var v=_gsVerdict(c.ref,d.text||'');
+            rows.push({label:c.label,expect:c.expect,cat:v.cat,okN:v.ok,errN:v.err,missN:v.miss,pass:v.cat===c.expect});
+            runNext();
+          }else if(d.type==='error'){
+            clearTimeout(segTO);
+            rows.push({label:c.label,expect:c.expect,fail:d.text||'خطأ',pass:false});
+            runNext();
+          }
+        };
+        w.postMessage({type:'run',buffer:f32.buffer,length:f32.length},[f32.buffer]);
+      },function(why){rows.push({label:c.label,expect:c.expect,fail:why,pass:false});runNext();});
+    }
+    w.onmessage=function(ev){
+      var d=ev.data||{};
+      if(d.type==='ready'){clearTimeout(loadTO);runNext();}
+      else if(d.type==='error'){clearTimeout(loadTO);if(st)st.textContent='فشل تحميل النموذج: '+(d.text||'');try{w.terminate();}catch(e){}}
+    };
+    w.postMessage({type:'load',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8'}});
+  });
+}
 
 /* بصمة نسخة المحرّك: عند الترقية لـq8 أعد فحص WebGPU الذاتي مرة واحدة —
    نتيجة webgpu_ok المحفوظة قيست على أوزان fp32 القديمة */
@@ -3437,10 +3850,14 @@ function _w2Msg(m){
     var _wc=(MEM2._tr.trim().split(/\s+/).filter(Boolean).length);
     if(W2._diag){W2._diag.whisperMs=m.procMs||0;if(!W2._diag.path)W2._diag.path='Whisper ('+(W2._dev==='webgpu'?'WebGPU':'WASM')+')';}
     _w2Diag('Whisper اكتمل '+(m.procMs||0)+'ms — '+_wc+' كلمة');
+    /* فحص موضعي: يُدمج الحكم في النتيجة القائمة بدل تقييم كامل جديد */
+    if(W2._recheck){var _rtx=MEM2._tr;MEM2._tr='';_ltMergeRecheck(_rtx);return;}
     _m2tr('['+(W2._dev==='webgpu'?'WebGPU':'WASM')+(m.procMs!=null?' '+m.procMs+'ms':'')+'] اكتمل التعرّف: '+_wc+' كلمة — بدأت المطابقة…');
     _mem2StopAndEval();
   }else if(m.type==='error'){
     _w2ClearXTO();W2.analyzing=false;W2.loading=false;_m2pgStopProc();
+    W2._recheck=null;
+    if(W2._diag)W2._diag.fail=W2._diag.fail||('خطأ محرّك: '+(m.text||''));
     var _errTxt=m.text||'';
     /* فشل تحميل محرّك بديل من لوحة المقارنة → تراجع تلقائي للافتراضي */
     if(W2._customEng&&!W2.modelReady&&(_errTxt.indexOf('تعذّر تحميل المحرّك')===0||_errTxt.indexOf('فشل استيراد')===0)){
@@ -3525,6 +3942,7 @@ function _w2StartXTO(durSec){
     _m2tr(shortSeg?'تعذّر التحليل — أعد المحاولة':'انتهت مهلة المعالجة — اضغط «سمّع» للمحاولة مجدداً');
     if(W2.worker){try{W2.worker.terminate();}catch(e){}}
     W2.worker=null;W2.modelReady=false;W2.loading=false;W2.analyzing=false;
+    W2._recheck=null;
     MEM2.recActive=false;
     var lbl=document.getElementById('mem2MicLbl');if(lbl)lbl.textContent='سمّع';
     var mic=document.getElementById('mem2MicBtn');if(mic)mic.disabled=false;
@@ -3582,7 +4000,9 @@ function _w2StartCapture(){
       W2.recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)W2.chunks.push(e.data);};
       W2.recorder.onstop=function(){_w2ProcessAudio();};
       W2.recorder.start(300);
-      _liveText='';_liveSRInterim='';_startLiveSR();
+      _liveText='';_liveSRInterim='';
+      if(!_m2PageMode&&!W2._recheck){_ltInit(MEM2.segs[MEM2.cur]);W2._ltLive=true;}
+      _startLiveSR();
       MEM2.recActive=true;
       try{rakWakeLock(true);}catch(e){} /* أبقِ الشاشة مضاءة أثناء التسجيل */
       _mem2UpdateBar();
@@ -3606,6 +4026,7 @@ function _w2StartNativeSRCapture(){
     _w2StartNativeCapture();return;
   }
   W2._nativeSRMode=true;W2.nativeRec=false;
+  if(!_m2PageMode){_ltInit(MEM2.segs[MEM2.cur]);W2._ltLive=true;}
   _startLiveSR(); /* يبدأ التعرّف الأصلي (يغذّي _liveText/_liveSRDone) */
   MEM2.recActive=true;
   try{rakWakeLock(true);}catch(e){}
@@ -3629,7 +4050,7 @@ function _w2StartNativeCapture(){
     return ar.start();
   }).then(function(v){
     if(v===undefined&&!(W2.nativeRec)){}
-    W2.nativeRec=true;W2._nativeSRMode=false; /* مسار Whisper لا مسار الشلال */
+    W2.nativeRec=true;W2._nativeSRMode=false;W2._ltLive=false; /* مسار Whisper لا مسار المتابعة */
     _w2Diag('التسجيل الصوتي بدأ (AudioRecorder)');
     /* مسار AudioRecorder→Whisper: لا تشغّل التعرّف الأصلي (تنازع المايك) —
        الشلال فارغ فيمرّ الصوت مباشرة إلى Whisper */
@@ -3666,26 +4087,12 @@ function _w2StopCapture(){
       console.log('[tasmee-native] flush '+(Date.now()-_nT0)+'ms — مجمّع '+_wc+' كلمة');
       if(W2._diag){W2._diag.flushMs=Date.now()-_nT0;W2._diag.words=_wc;}
       _w2Diag('تثبيت '+(Date.now()-_nT0)+'ms — مجمّع '+_wc+' كلمة');
-      _w2ClearXTO();W2.analyzing=false;
-      if(!lt){ /* لم يُسمع شيء → مسار إعادة المحاولة القياسي */
-        console.log('[tasmee-native] بوابة: نص فارغ → إعادة محاولة');
-        if(W2._diag){W2._diag.path='لا نص → إعادة محاولة';W2._diag.fail='لم يصل أي نص من التعرّف الأصلي';}
-        var _m3=document.getElementById('mem2MicLbl');if(_m3)_m3.textContent='سمّع';
-        var _m4=document.getElementById('mem2MicBtn');if(_m4)_m4.disabled=false;
-        MEM2._tr='';MEM2._partial='';_mem2StopAndEval();return;
-      }
-      /* بوّابة نجاح فقط: تطابق نظيف عالٍ → «أحسنت» فوراً. غير ذلك: النص
-         المبتور لا يُعرض ولا يُقيَّم أبداً — انتقال مباشر لمسار Whisper
-         (تعرّف SR وحده لا يسجّل صوتاً → إعادة تسجيل تلقائية بعدّاد استعداد) */
-      if(_tryCascade()){console.log('[tasmee-native] بوابة: PASS ✓ (فوري، بلا Whisper)');return;}
-      console.log('[tasmee-native] بوابة: FALLBACK → Whisper (إعادة تسجيل تلقائية)');
-      if(W2._diag)W2._diag.path='بوابة ✗ → Whisper (إعادة تسجيل تلقائية)';
-      MEM2._tr='';MEM2._partial='';
-      var _l2=document.getElementById('mem2MicLbl');if(_l2)_l2.textContent='سمّع';
-      var _b2=document.getElementById('mem2MicBtn');if(_b2)_b2.disabled=false;
-      toast('لنتحقق بدقة — أعِد التلاوة وسيحلّلها المحرّك كلمة كلمة','info');
-      W2._forceWhisper=true;
-      _w2StartCapture(); /* يسلك مسار AudioRecorder→Whisper مع عدّ الاستعداد ٣٢١ */
+      _w2ClearXTO();W2.analyzing=false;W2._ltLive=false;
+      var _m3=document.getElementById('mem2MicLbl');if(_m3)_m3.textContent='سمّع';
+      var _m4=document.getElementById('mem2MicBtn');if(_m4)_m4.disabled=false;
+      /* المتابعة الحيّة حكمت أثناء التلاوة — أحكام ثلاثية فورية، لا إعادة
+         تسجيل تلقائية: الفحص الموضعي/«تشخيص دقيق» خياران في شاشة النتيجة */
+      _ltFinishAndShow();
     });
     return;
   }
@@ -3746,7 +4153,15 @@ function _w2ProcessAudio(){
         console.log('[tasmee] decode+resample '+(Date.now()-_pT0)+'ms, audio '+_durS+'s');
         _w2WaitSRFlush(function(){
           W2._cascBuf=float32;
-          if(_tryCascade()){console.log('[tasmee] cascade total '+(Date.now()-_pT0)+'ms');return;}
+          if(!W2._recheck){
+            if(!_m2PageMode&&W2._ltLive&&LT){
+              W2._ltLive=false;
+              /* المتابعة الحيّة تحكم — الصوت يبقى محفوظاً لـ«تشخيص دقيق» */
+              if(_ltHeardAny()){_ltFinishAndShow();return;}
+              _w2Diag('لا التقاط حيّ رغم وجود صوت — تحويل للتحليل الكامل');
+            }
+            if(_tryCascade()){console.log('[tasmee] cascade total '+(Date.now()-_pT0)+'ms');return;}
+          }
           W2._cascBuf=null;
           if(W2.modelReady){
             _m2tr('بدأ التعرّف ('+_durS+' ث)…');
@@ -3799,7 +4214,7 @@ function _w2ProcessAudioBase64(b64,mime){
       var _durS=(float32.length/16000).toFixed(1);
       _w2WaitSRFlush(function(){
         W2._cascBuf=float32;
-        if(_tryCascade()){return;}
+        if(!W2._recheck&&_tryCascade()){return;}
         W2._cascBuf=null;
         if(W2.modelReady){
           _m2tr('بدأ التعرّف ('+_durS+' ث)…');
@@ -3828,8 +4243,8 @@ function mem2ToggleRec(){
   var seg=MEM2.segs[MEM2.cur];
   if(!seg){toast('اضغط "ابدأ التسميع" أولاً','error');return;}
   if(seg.status==='done'){seg.status='pending';seg.result=null;_mem2Render();}
-  /* تسجيل جديد يُبطل تسجيل الشلال المحفوظ وزرّه */
-  W2._cascBuf=null;
+  /* تسجيل جديد يُبطل تسجيل الشلال المحفوظ وزرّه وحالة المتابعة/الفحص */
+  W2._cascBuf=null;LT=null;W2._recheck=null;W2._ltLive=false;
   var _odb=document.getElementById('_cascDiagBtn');if(_odb)_odb.remove();
   MEM2._tr='';MEM2._partial='';MEM2._retried=false;MEM2._lang='';
   _w2StartCapture();
@@ -4218,8 +4633,8 @@ function _mem2Score(seg,text){
   var ok=0;pairs.forEach(function(p){if(p.ok)ok++;});
   return pairs.length>0?ok/pairs.length:0;
 }
-function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
-function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();W2._cascBuf=null;var _ndb=document.getElementById('_cascDiagBtn');if(_ndb)_ndb.remove();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
+function mem2PrevSeg(){if(MEM2.recActive)_mem2StopRec();LT=null;W2._ltLive=false;if(MEM2.cur>0){MEM2.cur--;_mem2Render();_mem2UpdateBar();}}
+function mem2NextSeg(){if(MEM2.recActive)_mem2StopRec();W2._cascBuf=null;LT=null;W2._ltLive=false;var _ndb=document.getElementById('_cascDiagBtn');if(_ndb)_ndb.remove();if(MEM2.cur<MEM2.segs.length-1){MEM2.cur++;_mem2Render();_mem2UpdateBar();}}
 function mem2HearSeg(){
   if(MEM2.recActive){MEM2._partial='';_mem2StopRec();}
   var seg=MEM2.segs[MEM2.cur];if(!seg)return;
@@ -4245,7 +4660,7 @@ function mem2ToggleReveal(){
 function mem2Back(){
   if(MEM2.recActive)_mem2StopRec();
   else{_stopLiveSR();_m2pgStopTimer();_m2pgStopProc();}
-  W2._cascBuf=null;
+  W2._cascBuf=null;LT=null;W2._recheck=null;W2._ltLive=false;
   var db=document.getElementById('_cascDiagBtn');if(db)db.remove();
   var _bAu=document.getElementById('quranAudio');if(_bAu){_bAu.onended=null;try{_bAu.pause();}catch(e){}}
   var pfx=document.getElementById('mem2SegPfx');if(pfx)pfx.textContent='مقطع';
@@ -4263,8 +4678,9 @@ function mem2Finish(){
   document.getElementById('mem2SessionPane').style.display='none';
   document.getElementById('mem2Bar').style.display='none';
   document.getElementById('mem2RevealBtn').style.display='none';
-  var totalOk=0,totalErr=0;
-  MEM2.segs.forEach(function(s){if(s.result){totalOk+=s.result.ok;totalErr+=s.result.err;}});
+  var totalOk=0,totalErr=0,totalMiss=0;
+  MEM2.segs.forEach(function(s){if(s.result){totalOk+=s.result.ok;totalErr+=s.result.err;totalMiss+=(s.result.miss||0);}});
+  /* ⬜ لم تُسمع (فجوة حسّاس) لا تُحسب خطأً أبداً — النسبة من المسموع فقط */
   var total=totalOk+totalErr||1;
   var pct=Math.round(totalOk/total*100);
   var stars=pct>=95?'★★★★★':pct>=80?'★★★★☆':pct>=60?'★★★☆☆':pct>=40?'★★☆☆☆':'★☆☆☆☆';
@@ -4276,7 +4692,7 @@ function mem2Finish(){
       var off=0;for(var a=0;a<ai;a++)off+=seg.ayahs[a].words.length;
       ayah.words.forEach(function(w,wi){
         var p=seg.result&&seg.result.pairs[off+wi];
-        revH+='<span class="mw2 '+(p&&p.ok?'ok':'err')+'">'+w.w+'</span> ';
+        revH+='<span class="mw2 '+(p&&p.ok?'ok':(p&&p.miss?'miss':'err'))+'"'+(p&&p.heard?' title="سُمع: '+p.heard.replace(/"/g,'')+'"':'')+'>'+w.w+'</span> ';
       });
       revH+='<span class="mem2-ayend">'+ar(ayah.num)+'</span> ';
     });
@@ -4292,6 +4708,8 @@ function mem2Finish(){
         '<div class="mem2-gc" style="background:rgba(255,255,255,.05)"><div style="font-size:22px;font-weight:700;color:var(--muted)">'+ar(MEM2.segs.length)+'</div><div style="font-size:11px;color:var(--muted)">مقطع</div></div>'+
       '</div>'+
       '<div class="mem2-result-mushaf">'+revH+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);text-align:center">🟢 صحيحة · 🟠 مخالفة · ⬜ لم تُسمع (لا تُحسب خطأً)'+(totalMiss?' — كلمات لم تُسمع بوضوح: '+ar(totalMiss):'')+'</div>'+
+      ((totalErr>0||totalMiss>0)?'<button class="btn" style="background:rgba(234,204,126,.15);color:var(--gold);border:1px solid rgba(234,204,126,.35)" onclick="_ltStartRecheck()">🔍 إعادة فحص الجزء المشكوك</button>':'')+
       (W2._diag?_mem2DiagHtml():'')+
       '<div style="display:flex;gap:10px">'+
         '<button class="btn" onclick="mem2StartAgain()">أعِد التسميع</button>'+
@@ -4304,6 +4722,7 @@ function mem2Finish(){
 function mem2StartAgain(){
   MEM2.segs.forEach(function(s){s.status='pending';s.result=null;});
   MEM2.cur=0;MEM2.recActive=false;MEM2.revealed=false;MEM2._tr='';
+  LT=null;W2._recheck=null;W2._ltLive=false;
   document.getElementById('mem2ResultsPane').style.display='none';
   document.getElementById('mem2SessionPane').style.display='block';
   document.getElementById('mem2Bar').style.display='block';
