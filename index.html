@@ -3088,7 +3088,8 @@ function _mem2DiagText(){
   var d=W2._diag;if(!d)return'';
   var seg=MEM2.segs&&MEM2.segs[MEM2.cur];var r=seg&&seg.result;
   var L=['تقرير تسميع تقني — وضع: '+d.mode,
-    d.devMode?'وضع الجهاز: '+d.devMode+' · فحص صحة التعرّف: '+(d.srHealth||'—'):'',
+    d.devMode?'وضع الصوت: '+(d.devMode==='Whisper خالص'?'Whisper خالص (التعرّف معطّل على الجهاز)':'تعرّف حي (شلال)')+' · فحص الصحة: '+(d.srHealth||'—'):'',
+    (d.ev&&d.ev.length?'آخر أحداث صوتية: '+d.ev.slice(-3).join(' · '):''),
     'المسار المتّخذ: '+(d.path||'—'),
     'نص التعرّف المجمّع: '+(d.words||0)+' كلمة · دورات: '+(d.cycles||0)+(d.watchdog?' · إنعاش رقيب: '+d.watchdog:''),
     d.gate?'البوابة: '+d.gate:'',
@@ -8088,6 +8089,7 @@ function _stSelPrayer(btn){
 }
 function initSalahTrack(){
   if(ST.active)salahTrackStop(true);
+  _srHealthProbe(); /* مصدر واحد للحقيقة: يُفحص عند أول ميزة صوتية تُفتح */
   var _nsrPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   var _silPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SilentSpeech;
   var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
@@ -8139,6 +8141,8 @@ function _stResetSession(){
   ST.reflexTak=0;ST.reflexTas=0;ST._refTakT=0;ST._refTasT=0;
   ST._clsHist=[];ST._impLogged=false;ST._rakTent=false;ST._rakTentTrans=0;
   ST.prob=null;ST._probPreview=0; /* تصفير حالة المرشّح الاحتمالي كاملة */
+  /* طبقة الصوت: وضع (حي/إيقاع/معطّل) + كاشف إخفاقات التعرّف + آخر 3 أحداث */
+  ST._rhythm=false;ST._audioOff=false;ST._srHeard=false;ST._srFailN=0;ST._audEv3=[];
   /* دفعة الحواس: موثوقية القنوات + حالة vanish/motion/raw_kp */
   ST.chanRel=_stChanInit();
   ST._visInit=false;ST._visState=true;ST._visCand=true;ST._visCandT=0;
@@ -8383,6 +8387,7 @@ function _stGo(gen){
   }
   // Speech recognition
   if(ST.srAvail){_stStartSpeech();}
+  _stAudioModeDiag(); /* سطر «وضع الصوت» منذ أول لحظة */
   // Show audio UI elements if audioLayer active
   var _sac=document.getElementById('stAudCtrs');if(_sac)_sac.style.display=ST.audioLayer?'grid':'none';
   var _sad=document.getElementById('stAudDiag');if(_sad)_sad.style.display=ST.audioLayer?'flex':'none';
@@ -8412,6 +8417,19 @@ function _stVADTick(){
       /* قناة إيقاع الصوت: نبضة قصيرة بطول تكبيرة = دليل ضعيف على انتقال منطوق */
       _stLedger({type:'vad',kind:'pulse',dur:Math.round(dur)});
       if(ST.engine==='prob'&&ST.prob)_stProbBoost(ST.prob,'vad',ST.chanRel,function(s){return !!s.audioIn;},1.8,3);
+      _stAudEvPush('نبضة '+Math.round(dur)+'ms');
+      /* وضع الإيقاع: النبضات تقدير لعدّادَي الانعكاس — تُعرض بعلامة ~ */
+      if(ST._rhythm){
+        if(dur<=1200){
+          ST.reflexTak++;
+          _stLedger({type:'count',counter:'reflex_takbir_est',value:ST.reflexTak});
+          var _rt=document.getElementById('stRefTakNum');if(_rt)_rt.textContent='~'+_stAr(ST.reflexTak);
+        }else{
+          ST.reflexTas++;
+          _stLedger({type:'count',counter:'reflex_tasmi3_est',value:ST.reflexTas});
+          var _rs=document.getElementById('stRefTasNum');if(_rs)_rs.textContent='~'+_stAr(ST.reflexTas);
+        }
+      }
     }
   }
   ST.speaking=speaking;
@@ -8713,6 +8731,7 @@ function _stLedger(ev){
 function _stCopyLedger(){
   var payload={prayer:ST.prayer,target:ST.target,rakaat:ST.rakaat,elapsedSec:ST.elapsed,
                reflexTakbir:ST.reflexTak,reflexTasmi3:ST.reflexTas,
+               audioMode:_stAudioMode(),lastAudioEv:ST._audEv3||[],
                channels:ST.chanRel||null,ledger:ST.ledger||[]};
   var txt=JSON.stringify(payload,null,1);
   if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -9147,9 +9166,82 @@ function _stStartSpeech(){
     ST.rec=r;
   }catch(e){}
 }
+/* ═══ طبقة الصوت الموحّدة: sr_health='bad' ⇒ لا يُلمس التعرّف الأصلي إطلاقاً ═══ */
+/* آخر 3 أحداث صوتية — تُعرض في التشخيص وتُنسخ مع السجل */
+function _stAudEvPush(s){
+  if(!ST._audEv3)ST._audEv3=[];
+  ST._audEv3.push(((Date.now()-(ST._logT0||Date.now()))/1000).toFixed(1)+'ث '+s);
+  if(ST._audEv3.length>3)ST._audEv3.shift();
+  _stAudioModeDiag();
+}
+function _stAudioMode(){return ST._rhythm?'إيقاع بلا تعرّف':(ST._audioOff?'معطّل':'تعرّف حي');}
+function _stAudioModeDiag(){
+  var el=document.getElementById('stSrDiag');if(!el)return;
+  el.textContent='وضع الصوت: '+_stAudioMode()+(ST._audEv3&&ST._audEv3.length?' — '+ST._audEv3.join(' · '):'');
+}
+/* وضع الإيقاع بلا تعرّف: مايك + AnalyserNode فقط — كشف طاقة (كلام/صمت/نبضة)
+   يغذّي قناة vad كما هي، والنبضات تقدير لعدّادَي الانعكاس (~) */
+function _stRhythmMode(){
+  if(ST._rhythm)return;
+  ST._rhythm=true;
+  _stLedger({type:'count',counter:'audio_rhythm_mode',value:1});
+  _stLog('🎤 وضع الإيقاع: خدمة التعرّف معطوبة على هذا الجهاز — محلّل طاقة فقط، صفر تعرّف');
+  function _banner(){
+    var hd=document.getElementById('stSrHeard');if(hd)hd.textContent='🎤 وضع الإيقاع (التعرّف غير متاح على جهازك)';
+    var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
+    _stAudioModeDiag();
+  }
+  if(ST.audioStream){_banner();return;} /* محلّل VAD موصول أصلاً في _stGo */
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
+    ST._rhythm=false;ST._audioOff=true;_stAudioModeDiag();return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(s){
+    if(!ST.active){s.getTracks().forEach(function(t){t.stop();});return;}
+    ST.audioStream=s;
+    try{ /* وصّل المحلّل الآن — فات دور التوصيل في _stGo */
+      if(!ST.audioCtx){
+        ST.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+        ST.analyser=ST.audioCtx.createAnalyser();ST.analyser.fftSize=512;
+        ST._vadData=new Uint8Array(ST.analyser.frequencyBinCount);
+        ST.audioCtx.createMediaStreamSource(s).connect(ST.analyser);
+      }
+      if(!ST.vadId)ST.vadId=setInterval(_stVADTick,80);
+    }catch(e){}
+    _banner();
+  }).catch(function(){
+    /* رُفض المايك: بصري/حساسات فقط — بيان واضح، لا محاولات صامتة متكررة */
+    ST._rhythm=false;ST._audioOff=true;
+    _stLog('✗ المايك مرفوض — تتبّع بصري/حساسات فقط');
+    var hd=document.getElementById('stSrHeard');if(hd)hd.textContent='🎤 الصوت معطّل — تتبّع بصري/حساسات فقط';
+    var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
+    _stAudioModeDiag();
+  });
+}
+/* كاشف إخفاقات التعرّف في التتبّع: 3 متتالية بلا أي جزئي ⇒ sr_health=bad + إيقاع فوراً */
+function _stSrFail(why){
+  if(lsGet('sr_health')==='bad')return;
+  if(ST._srHeard)return;
+  ST._srFailN=(ST._srFailN||0)+1;
+  _stLog('إخفاق تعرّف #'+ST._srFailN+' ('+String(why).slice(0,40)+')');
+  _stAudEvPush('إخفاق تعرّف #'+ST._srFailN);
+  if(ST._srFailN<3)return;
+  lsSet('sr_health','bad');
+  _stLog('sr_health=bad — الجهاز لا يُعاند مرتين: تحويل فوري لوضع الإيقاع');
+  _stLedger({type:'count',counter:'sr_health_flip',value:1});
+  try{
+    var nsr=window.Capacitor.Plugins.SpeechRecognition;
+    var _s=nsr.stop();if(_s&&_s.catch)_s.catch(function(){});
+    var _rl=nsr.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});
+  }catch(e){}
+  if(ST._audWatch){clearInterval(ST._audWatch);ST._audWatch=null;}
+  _stRhythmMode();
+}
 function _stStartSpeechNative(){
   var nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   if(!nsr||!ST.active)return;
+  /* القاعدة الموحّدة: جهاز تعرّفه معطوب ⇒ وضع الإيقاع — صفر صفير بالبنية */
+  if(lsGet('sr_health')==='bad'){_stRhythmMode();return;}
+  ST._srHeard=false;ST._srFailN=0;
   ST._nsrMuted=false;ST._nsrRestarting=false;
   /* عدّادات تغطية الاستماع — لقياس نسبة الوقت المسموع فعلاً عبر [ST-audio] */
   ST._audT0=Date.now();ST._audListenMs=0;ST._audCycleT0=0;ST._audCycleN=0;ST._audLastEvT=Date.now();ST._audLastPartial='';
@@ -9165,6 +9257,7 @@ function _stStartSpeechNative(){
       ST._audLastEvT=Date.now();
       var text=(data.matches[0]||'').trim();
       if(!text)return;
+      ST._srHeard=true;ST._srFailN=0; /* الخدمة حيّة — صفّر كاشف العطب */
       if(text!==ST._audLastPartial){ST._audLastPartial=text;_audLog('جزئي: |'+text+'|');}
       var el=document.getElementById('stSrHeard');if(el)el.textContent=text;
       var card=document.getElementById('stSrCard');if(card)card.style.display='flex';
@@ -9284,6 +9377,9 @@ function _stNsrStart(nsr,lang,_retries){
           var lc=msg.toLowerCase();
           if(ST._audLog)ST._audLog('✗ start فشل: '+msg.slice(0,60));
           if(ST.active&&!ST._stopping&&!lc.includes('cancel')&&!lc.includes('stop')&&!lc.includes('abort')&&!lc.includes('destroy')){
+            /* عطب حقيقي (ليس تصادماً ولا صمتاً طبيعياً) → كاشف الجهاز المعطوب */
+            if(lc.indexOf('already')<0&&lc.indexOf('match')<0&&lc.indexOf('timeout')<0)_stSrFail(msg);
+            if(lsGet('sr_health')==='bad')return; /* تحوّلنا للإيقاع — لا إعادة تشغيل */
             setTimeout(function(){if(ST.active&&!ST._stopping)_stNsrStart(nsr,lang);},800);
           }
         });
@@ -9299,7 +9395,8 @@ function _stNsrUpdateDiag(lastText){
   if(!diag||!ST.audioLayer)return;
   var muteStr=ST._nsrMuted?'مكتوم':'غير مكتوم';
   var textStr=lastText?(' — آخر: '+lastText.slice(-20)):'';
-  diag.textContent='🎙️ أصلي — '+muteStr+textStr;
+  diag.textContent='وضع الصوت: '+_stAudioMode()+' · 🎙️ '+muteStr+textStr
+    +(ST._audEv3&&ST._audEv3.length?' — '+ST._audEv3.join(' · '):'');
 }
 function _stToggleCam(el){
   var wrap=document.getElementById('stVidWrap');
@@ -9403,11 +9500,11 @@ function _stKeywordScan(text){
   var now=Date.now();
   var _cls=[];
   if(norm.indexOf('سمع')>=0&&(norm.indexOf('حمده')>=0||norm.indexOf('لمن')>=0)){
-    if(now-ST._lastTasmi3>=1800){_cls.push('تسميع');ST._lastTasmi3=now;_stLedger({type:'kw',raw:text,norm:norm,word:'tasmi3'});_stOnKeyword('tasmi3');}
+    if(now-ST._lastTasmi3>=1800){_cls.push('تسميع');ST._lastTasmi3=now;_stLedger({type:'kw',raw:text,norm:norm,word:'tasmi3'});_stAudEvPush('كلمة: تسميع');_stOnKeyword('tasmi3');}
     else{_cls.push('تسميع⛔cooldown('+(now-ST._lastTasmi3)+'ms)');_stLedger({type:'reject',what:'kw:tasmi3',why:'cooldown'});}
   }
   if(norm.indexOf('اكبر')>=0){
-    if(now-ST._lastTakbir>=1800){_cls.push('تكبير');ST._lastTakbir=now;_stLedger({type:'kw',raw:text,norm:norm,word:'takbir'});_stOnKeyword('takbir');}
+    if(now-ST._lastTakbir>=1800){_cls.push('تكبير');ST._lastTakbir=now;_stLedger({type:'kw',raw:text,norm:norm,word:'takbir'});_stAudEvPush('كلمة: تكبير');_stOnKeyword('takbir');}
     else{_cls.push('تكبير⛔cooldown('+(now-ST._lastTakbir)+'ms)');_stLedger({type:'reject',what:'kw:takbir',why:'cooldown'});}
   }
   /* dedupe: النتائج الجزئية (native) تكرّر النص نفسه — سجّل عند التغيّر أو التصنيف فقط */
@@ -9995,6 +10092,7 @@ function _rsmToggleChan(ch){
 function rakSmartToggle(){RSM.active?rakSmartStop():rakSmartStart();}
 function rakSmartStart(){
   if(RSM.active)return;
+  _srHealthProbe(); /* مصدر واحد للحقيقة قبل أي لمس للتعرّف */
   RAK.count=0;RAK._sujudInRak=0;rakRender();
   RSM.seq=_stGenerateSeq(RAK.target);
   RSM.prob=_stProbCreate(RSM.seq,ST.PROB_CFG);
@@ -10147,9 +10245,67 @@ function _rsmCamLoop(){
     if(best!=='unknown')RSM.lastEvT=Date.now();
   }).catch(function(){});
 }
+/* ═══ وضع الإيقاع للعدّاد الذكي (sr_health=bad): مايك + محلّل طاقة، صفر تعرّف ═══ */
+function _rsmRhythmStart(){
+  if(RSM.rhy)return;
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
+    _rsmStatus('⚠ الصوت معطّل — حساسات فقط');return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(s){
+    if(!RSM.active||!RSM.micOn){s.getTracks().forEach(function(t){t.stop();});return;}
+    var ctx,an,data;
+    try{
+      ctx=new(window.AudioContext||window.webkitAudioContext)();
+      an=ctx.createAnalyser();an.fftSize=512;
+      data=new Uint8Array(an.frequencyBinCount);
+      ctx.createMediaStreamSource(s).connect(an);
+    }catch(e){try{s.getTracks().forEach(function(t){t.stop();});}catch(x){}return;}
+    var speaking=false,t0=0;
+    var iv=setInterval(function(){
+      if(!RSM.active){_rsmRhythmStop();return;}
+      an.getByteFrequencyData(data);
+      var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];
+      var sp=(sum/data.length)>24,now=Date.now();
+      if(sp&&!speaking)t0=now;
+      if(!sp&&speaking){
+        var dur=now-t0;
+        if(dur>=400&&dur<=2500&&RSM.prob){ /* نبضة بطول تكبيرة → دليل ضعيف */
+          RSM.lastEvT=now;
+          _stProbBoost(RSM.prob,'vad',RSM.rel,function(x){return !!x.audioIn;},1.8,3);
+        }
+      }
+      speaking=sp;
+    },80);
+    RSM.rhy={stream:s,ctx:ctx,iv:iv};
+    _rsmStatus('يعمل — 🎤 وضع الإيقاع (التعرّف غير متاح على جهازك)');
+  }).catch(function(){
+    /* رُفض المايك: حساسات فقط — بيان واضح بلا محاولات متكررة */
+    _rsmStatus('⚠ المايك مرفوض — حساسات فقط (IMU/قرب/لمس)');
+  });
+}
+function _rsmRhythmStop(){
+  var r=RSM.rhy;if(!r)return;RSM.rhy=null;
+  try{clearInterval(r.iv);}catch(e){}
+  try{r.ctx.close();}catch(e){}
+  try{r.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+}
+/* كاشف إخفاقات التعرّف في العدّاد الذكي — يقلب sr_health لأول ميزة اكتشفته */
+function _rsmSrFail(e){
+  if(lsGet('sr_health')==='bad')return;
+  var lc=((e&&(e.message||e.code))||String(e)).toLowerCase();
+  if(lc.indexOf('cancel')>=0||lc.indexOf('stop')>=0||lc.indexOf('abort')>=0||lc.indexOf('destroy')>=0||lc.indexOf('already')>=0||lc.indexOf('match')>=0||lc.indexOf('timeout')>=0)return;
+  if(RSM._srHeard)return;
+  RSM._srFailN=(RSM._srFailN||0)+1;
+  if(RSM._srFailN<3)return;
+  lsSet('sr_health','bad');
+  console.log('[RSM] sr_health=bad — تحويل فوري لوضع الإيقاع');
+}
 /* صوت اختياري: كلمات الانتقال (تكبير/تسميع) تعزّز الخطوات المطابقة */
 function _rsmMicStart(){
-  if(RSM.sr||RSM._srNative)return;
+  if(RSM.sr||RSM._srNative||RSM.rhy)return;
+  /* القاعدة الموحّدة: جهاز تعرّفه معطوب ⇒ إيقاع بلا تعرّف — صفر صفير */
+  if(_isAndroidNative()&&lsGet('sr_health')==='bad'){_rsmRhythmStart();return;}
+  RSM._srHeard=false;RSM._srFailN=0;
   var C=window.Capacitor&&window.Capacitor.Plugins;
   if(_isAndroidNative()&&C&&C.SpeechRecognition){
     var nsr=C.SpeechRecognition;
@@ -10158,6 +10314,7 @@ function _rsmMicStart(){
     try{
       nsr.addListener('partialResults',function(d){
         if(!RSM.active||!RSM.micOn||!d||!d.matches)return;
+        RSM._srHeard=true;RSM._srFailN=0;
         for(var i=0;i<d.matches.length&&i<3;i++)_rsmKwScan((d.matches[i]||'').trim());
       });
     }catch(e){}
@@ -10166,7 +10323,13 @@ function _rsmMicStart(){
       try{
         nsr.start({language:'ar-SA',maxResults:3,partialResults:true,popup:false})
           .then(function(){setTimeout(_cycle,150);})
-          .catch(function(){setTimeout(_cycle,800);});
+          .catch(function(e){
+            _rsmSrFail(e);
+            if(lsGet('sr_health')==='bad'){ /* الجهاز حُسم — إيقاع فوراً */
+              RSM._srNative=false;_rsmMicStop();_rsmRhythmStart();return;
+            }
+            setTimeout(_cycle,800);
+          });
       }catch(e){setTimeout(_cycle,1000);}
     }
     nsr.requestPermissions&&nsr.requestPermissions().then(function(){_cycle();}).catch(function(){_cycle();});
@@ -10193,6 +10356,7 @@ function _rsmMicStart(){
   }
 }
 function _rsmMicStop(){
+  _rsmRhythmStop();
   if(RSM.sr){var s=RSM.sr;RSM.sr=null;try{s.onresult=null;s.onend=null;s.stop();}catch(e){}}
   if(RSM._srNative){
     RSM._srNative=false;
