@@ -3551,7 +3551,9 @@ var _W2_WSRC=[
   '    var _loadT0=Date.now();',
   '    var _prog=function(p){self.postMessage({type:"progress",data:p});};',
   '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
-  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8"};', // q8 افتراضي الإنتاج — تطابق 100% مع نصف الحجم
+  // q8 لكل مكوّنات whisper الممكنة — أي مكوّن غير مذكور يسقط افتراضياً إلى fp32
+  // في transformers.js (تصدير tjs-v2 يشمل decoder_model و with_past بحجم كامل)
+  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8",decoder_model:"q8",decoder_with_past_model:"q8"};',
   '    var _base={dtype:_dtp,progress_callback:_prog};',
   '    var _gpuOk=false;',
   '    if(!ev.data.forceWasm&&typeof navigator!=="undefined"&&navigator.gpu){',
@@ -3638,7 +3640,7 @@ var _BM_WSRC=[
   '      catch(e2){self.postMessage({type:"error",text:"فشل الاستيراد"});return;}}',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
   '    var _mdl=ev.data.model||"Oa-4/whisper-base-ar-quran-ONNX-tjs-v2";',
-  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8"};',
+  '    var _dtp=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8",decoder_model:"q8",decoder_with_past_model:"q8"};',
   '    var _t0=Date.now();',
   '    try{asr=await pip("automatic-speech-recognition",_mdl,{dtype:_dtp,progress_callback:function(){}});',
   '      self.postMessage({type:"ready",loadMs:Date.now()-_t0});}',
@@ -4262,7 +4264,7 @@ function _gsRun(){
       if(d.type==='ready'){clearTimeout(loadTO);runNext();}
       else if(d.type==='error'){clearTimeout(loadTO);if(st)st.textContent='فشل تحميل النموذج: '+(d.text||'');try{w.terminate();}catch(e){}}
     };
-    w.postMessage({type:'load',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8'}});
+    w.postMessage({type:'load',model:'Oa-4/whisper-base-ar-quran-ONNX-tjs-v2',dtype:{encoder_model:'q8',decoder_model_merged:'q8',decoder_model:'q8',decoder_with_past_model:'q8'}});
   });
 }
 
@@ -4275,7 +4277,7 @@ if(lsGet('w2_engine_v')!=='q8-v1'){
 /* بعد نجاح تحميل q8: امسح ملفات fp32 القديمة من كاش transformers.js
    (أسماء fp32 بلا لاحقة _quantized — لا تتقاطع مع ملفات q8) */
 function _w2PurgeFp32(){
-  if(lsGet('w2_fp32_purged')==='1')return;
+  if(lsGet('w2_fp32_purged')==='2')return; /* v2: يشمل decoder_model و with_past */
   if(lsGet('bm_engine'))return; /* تجاوز تطويري نشط — لا تمس الكاش */
   if(typeof caches==='undefined')return;
   try{
@@ -4283,12 +4285,13 @@ function _w2PurgeFp32(){
       return c.keys().then(function(reqs){
         var del=reqs.filter(function(rq){
           var u=rq.url||'';
-          return u.indexOf('whisper-base-ar-quran-ONNX-tjs-v2')>=0&&
-                 (u.indexOf('encoder_model.onnx')>=0||u.indexOf('decoder_model_merged.onnx')>=0);
+          if(u.indexOf('whisper-base-ar-quran-ONNX-tjs-v2')<0)return false;
+          /* fp32 = بلا لاحقة _quantized: encoder + كل متغيّرات decoder (merged/عادي/with_past) */
+          return /\/(encoder_model|decoder_model_merged|decoder_model|decoder_with_past_model)\.onnx($|\?)/.test(u);
         });
         return Promise.all(del.map(function(rq){return c.delete(rq);})).then(function(){
-          if(del.length)console.log('[w2] purged '+del.length+' fp32 cache files (~290MB freed)');
-          lsSet('w2_fp32_purged','1');
+          if(del.length)console.log('[w2] purged '+del.length+' fp32 cache files');
+          lsSet('w2_fp32_purged','2');
         });
       });
     }).catch(function(){});
