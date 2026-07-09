@@ -7,6 +7,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "→ Copying web assets to www/"
 cp "$ROOT/index.html"            "$ROOT/www/index.html"
+
+# بصمة البناء: hash + وقت — تُحقن في www فقط (يبقى الجذر «dev»).
+# Codemagic يوفّر CM_COMMIT؛ محلياً git؛ وإلا "local".
+STAMP_HASH="${CM_COMMIT:-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo local)}"
+STAMP_HASH="$(printf '%s' "$STAMP_HASH" | cut -c1-7)"
+BUILD_STAMP="${STAMP_HASH} · $(date -u '+%Y-%m-%d %H:%M UTC')"
+echo "→ Injecting build stamp: $BUILD_STAMP"
+perl -i -pe "s/__BUILD_STAMP__/${BUILD_STAMP}/g" "$ROOT/www/index.html"
+
 cp "$ROOT/sw.js"                 "$ROOT/www/sw.js"
 cp "$ROOT/manifest.json"         "$ROOT/www/manifest.json"
 cp "$ROOT/privacy.html"          "$ROOT/www/privacy.html"
