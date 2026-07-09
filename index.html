@@ -11495,7 +11495,7 @@ function _supportAction(type){
 
 /* ===== INIT ===== */
 buildDhikr();renderTasbih();rakInit();
-document.getElementById('locName').textContent=tzCity();
+var _lnEl=document.getElementById('locName');if(_lnEl)_lnEl.textContent=tzCity();
 (function(){
   var ios=(window.Capacitor&&typeof window.Capacitor.getPlatform==='function'&&window.Capacitor.getPlatform()==='ios')||(/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream);
   if(ios){var b=document.getElementById('appleSignInBtn');if(b)b.style.display='';}
