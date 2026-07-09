@@ -136,6 +136,10 @@ public class AudioRecorderPlugin extends Plugin {
             result.put("mimeType", "audio/mp4");
             call.resolve(result);
         } catch (Exception e) {
+            // فشل الإيقاف (إيقاف فوري بعد البدء مثلاً): حرّر المسجّل — لا يبقى المايك محجوزاً
+            try { if (recorder != null) recorder.release(); } catch (Exception ignored) {}
+            recorder = null;
+            if (outputPath != null) { try { new File(outputPath).delete(); } catch (Exception ignored) {} }
             call.reject(buildExceptionDetail(e));
         }
     }

@@ -2755,6 +2755,8 @@ function _afpStart(existingStream,onSeg){
   function _wire(stream,own){
     try{
       AFP.ctx=new(window.AudioContext||window.webkitAudioContext)();
+      /* WebView قد ينشئ السياق معلَّقاً (سياسة autoplay) → onaudioprocess لا يعمل أبداً */
+      if(AFP.ctx.state==='suspended'){var _rp=AFP.ctx.resume();if(_rp&&_rp.catch)_rp.catch(function(){});}
       var srcRate=AFP.ctx.sampleRate;
       AFP.proc=AFP.ctx.createScriptProcessor(4096,1,1);
       var src=AFP.ctx.createMediaStreamSource(stream);
@@ -7192,7 +7194,12 @@ document.addEventListener('visibilitychange',function(){
   if(_sid!=='rakaat'&&!_stOn)return;
   if(RAK._wlWant&&!RAK._wl)rakWakeLock(true);
   /* تتبّع الصلاة: استأنف التعرّف الصوتي الذي أوقفناه عند الإخفاء */
-  if(_stOn&&ST.srAvail&&!ST._nativeSR){try{_stStartSpeech();}catch(e){}}
+  if(_stOn&&ST.srAvail&&!ST._nativeSR&&!ST._rhythm&&!ST._afp){try{_stStartSpeech();}catch(e){}}
+  /* بصمة/إيقاع: WebView يعلّق AudioContext بالخلفية — استأنفه وإلا مات الصوت بصمت */
+  if(_stOn){
+    try{if(ST.audioCtx&&ST.audioCtx.state==='suspended')ST.audioCtx.resume();}catch(e){}
+    try{if(typeof AFP!=='undefined'&&AFP.ctx&&AFP.ctx.state==='suspended')AFP.ctx.resume();}catch(e){}
+  }
   if(_sid!=='rakaat')return;
   if(RAK.mode==='cam'&&RAK._cam.stream){
     var _vt=RAK._cam.stream.getVideoTracks()[0];
@@ -8621,8 +8628,13 @@ function initSalahTrack(){
   var note=document.getElementById('stOfflineNote');
   if(note)note.style.display=ST.srAvail?'none':'block';
   var _srEngine=ST._nativeSR?'أصلي (Capacitor)':(ST.srAvail?'ويب (WebSpeech)':'غير متاح');
+  /* سياسة الصوت: على native التعرّف معزول — الوضع الفعلي بصمة/إيقاع */
+  if(_isAndroidNative()&&!_apSrAllowed()){
+    _srEngine=_afpHasTemplates()?'بصمة صوتية شخصية':'إيقاع صوتي (بلا تعرّف)';
+    ST.srAvail=_apCaps().gum||ST.srAvail; /* الطبقة الصوتية متاحة عبر المايك مباشرة */
+  }
   var status=document.getElementById('stLoadStatus');
-  if(status)status.textContent=ST.srAvail?('✅ التعرّف الصوتي متاح — محرّك: '+_srEngine):'⚠️ التعرّف الصوتي غير متاح في هذا المتصفّح';
+  if(status)status.textContent=ST.srAvail?('✅ التحليل الصوتي جاهز — '+_srEngine):'⚠️ التحليل الصوتي غير متاح على هذا الجهاز';
   var _stDiag=document.getElementById('stSrDiag');
   var _initDiagMsg='';
   if(_isNative&&!!_nsrPlug&&!_silPlug){
@@ -8899,6 +8911,7 @@ function _stGo(gen){
   if(ST.audioStream){
     try{
       ST.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      if(ST.audioCtx.state==='suspended'){var _rpv=ST.audioCtx.resume();if(_rpv&&_rpv.catch)_rpv.catch(function(){});}
       ST.analyser=ST.audioCtx.createAnalyser();
       ST.analyser.fftSize=512;
       ST._vadData=new Uint8Array(ST.analyser.frequencyBinCount);
@@ -9658,6 +9671,15 @@ function _stShowSrScore(score){
 }
 function _stStartSpeech(){
   if(!ST.active)return;
+  /* AudioPolicy: على native والتعرّف معزول — بصمة/إيقاع مباشرة (حتى بلا plugin) */
+  if(_isAndroidNative()&&!_apSrAllowed()){
+    if(!ST.audioLayer)return;
+    if(_afpHasTemplates())_stAfpMode();else{
+      _stRhythmMode();
+      if(!lsGet('afp_prompt_seen')){lsSet('afp_prompt_seen','1');setTimeout(function(){if(ST.active)_afpEnrollOpen();},1200);}
+    }
+    return;
+  }
   if(ST._nativeSR){
     if(!ST.audioLayer)return;
     _stStartSpeechNative();return;
@@ -9725,6 +9747,7 @@ function _stRhythmMode(){
     try{ /* وصّل المحلّل الآن — فات دور التوصيل في _stGo */
       if(!ST.audioCtx){
         ST.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+        if(ST.audioCtx.state==='suspended'){var _rp2=ST.audioCtx.resume();if(_rp2&&_rp2.catch)_rp2.catch(function(){});}
         ST.analyser=ST.audioCtx.createAnalyser();ST.analyser.fftSize=512;
         ST._vadData=new Uint8Array(ST.analyser.frequencyBinCount);
         ST.audioCtx.createMediaStreamSource(s).connect(ST.analyser);
@@ -10827,6 +10850,7 @@ function _rsmRhythmStart(){
     var ctx,an,data;
     try{
       ctx=new(window.AudioContext||window.webkitAudioContext)();
+      if(ctx.state==='suspended'){var _rp3=ctx.resume();if(_rp3&&_rp3.catch)_rp3.catch(function(){});}
       an=ctx.createAnalyser();an.fftSize=512;
       data=new Uint8Array(an.frequencyBinCount);
       ctx.createMediaStreamSource(s).connect(an);
