@@ -2243,6 +2243,12 @@ var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null
    تظهر في شاشة التسميع وفي «عن التطبيق» ليعرف المستخدم أي نسخة يجرّب. */
 var BUILD_STAMP='__BUILD_STAMP__';
 function _buildStamp(){return (BUILD_STAMP.indexOf('__BUILD')===0)?'dev':BUILD_STAMP;}
+/* الموديل الصغير للمرحلة السريعة — مملوك بالكامل (بلا اعتماد على تعرّف الجهاز).
+   يُحمَّل مسبقاً عند فتح الشاشة؛ إن غاب المستودع (لم يُنشر بعد) يسقط الشلال
+   إلى base وحده بأمان. W2._tinyReady يحسم المسار. */
+var TINY_MODEL='Oa-4/whisper-tiny-ar-quran-ONNX-tjs';
+var WIN_SEC=8;      /* طول نافذة المرحلة السريعة (ث) */
+var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر الكلمات على الحدود */
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
@@ -2289,10 +2295,11 @@ var _liveNsrLastEvT=0,_liveNsrSesN=0,_liveNsrComSes=0,_liveNsrWatch=null;
 function _w2Diag(m){var d=W2._diag;if(!d)return;d.ev.push(((Date.now()-d.t0)/1000).toFixed(1)+'ث '+m);}
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 function initMemorize(){
-  try{_srProbe();}catch(e){} /* فحص صادق للتعرّف — مرة واحدة، بيب مكتوم */
   var _mb=document.getElementById('mem2Build');if(_mb)_mb.textContent='build '+_buildStamp();
-  /* حمّل نموذج q8 مسبقاً عند فتح الشاشة — جاهز قبل أول «سمّع» */
+  /* حمّل base مسبقاً عند فتح الشاشة — جاهز قبل أول «سمّع» */
   try{if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');}catch(e){}
+  /* حمّل tiny مسبقاً (المرحلة السريعة) — إن كان base جاهزاً أصلاً ولم يُحمّل tiny */
+  try{if(W2.worker&&W2.modelReady&&!W2._tinyReady&&!W2._tinyTried){W2._tinyTried=true;W2.worker.postMessage({type:'loadTiny',model:TINY_MODEL});}}catch(e){}
   _loadW2Ref();
   var sel=document.getElementById('memSurah');
   if(sel&&!sel.options.length){
@@ -3444,9 +3451,11 @@ function _mem2DiagText(){
     (d.ev&&d.ev.length?'آخر أحداث صوتية: '+d.ev.slice(-3).join(' · '):''),
     'المسار المتّخذ: '+(d.path||'—'),
     'نص التعرّف المجمّع: '+(d.words||0)+' كلمة · دورات: '+(d.cycles||0)+(d.watchdog?' · إنعاش رقيب: '+d.watchdog:''),
-    d.gate?'البوابة: '+d.gate:'',
+    d.gate?'حكم سريع: '+d.gate:'',
+    (d.winMs&&d.winMs.length)?'نوافذ tiny: '+d.winMs.join('ms · ')+'ms':'',
+    'الموديل الصغير: '+(W2._tinyReady?'جاهز ✓':'غير متاح (base وحده)'),
     d.flushMs?'زمن تثبيت التعرّف: '+d.flushMs+'ms':'',
-    d.whisperMs?'زمن Whisper: '+d.whisperMs+'ms':'',
+    d.whisperMs?'زمن base: '+d.whisperMs+'ms':'',
     r?'النتيجة: ✅'+(r.ok||0)+' ❌'+(r.err||0)+(r.miss?' ⬜'+r.miss+' (لم تُسمع)':''):'',
     d.fp32?'⚠ fp32 fallback: '+d.fp32.trim()+' (ملف أوزان بلا q8 — حجم كبير)':'',
     d.fail?'سبب الفشل: '+d.fail:''];
@@ -3544,7 +3553,7 @@ var _W2_WSRC=[
   'const P="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";',
   'const F="https://esm.sh/@huggingface/transformers@3.5.0";',
   'self.postMessage({type:"ws"});',
-  'var asr=null,_dev="wasm",_wuDone=true,_wuProm=null;',
+  'var asr=null,_dev="wasm",_wuDone=true,_wuProm=null,asrTiny=null,_pipFn=null,_envRef=null;',
   // ≤4ث: لا قصّ (كان يبتر أول كلمة هادئة)؛ هامش الإبقاء 200ms قبل/بعد
   'function _tr(f32){if(f32.length<=64000)return f32;var W=320,T=0.003;function rms(b,s){var x=0;for(var i=s;i<s+W&&i<b.length;i++)x+=b[i]*b[i];return Math.sqrt(x/W);}var s=0;while(s+W<f32.length&&rms(f32,s)<T)s+=W;var e=f32.length-W;while(e>s&&rms(f32,e)<T)e-=W;return f32.slice(Math.max(0,s-3200),Math.min(f32.length,e+W+3200));}',
   'self.onmessage=async function(ev){',
@@ -3555,6 +3564,7 @@ var _W2_WSRC=[
   '    catch(e1){try{var m2=await import(F);pip=m2.pipeline;env=m2.env;}',
   '      catch(e2){self.postMessage({type:"error",text:"فشل استيراد Transformers.js"});return;}}',
   '    env.allowLocalModels=false;env.allowRemoteModels=true;env.useBrowserCache=true;',
+  '    _pipFn=pip;_envRef=env;', // احفظ المرجع لتحميل الموديل الصغير لاحقاً
   // WASM: فعّل SIMD دائماً؛ تعدد الخيوط يحتاج SharedArrayBuffer (crossOriginIsolated).
   // لا نحقن COOP/COEP لأنها تحجب موارد cross-origin (CDN المكتبة، النموذج، الصوت).
   // فالخيوط تُفعَّل تلقائياً فقط إن كانت البيئة معزولة، وإلا خيط واحد + SIMD.
@@ -3612,6 +3622,27 @@ var _W2_WSRC=[
   '      var r=await asr(audio,_opts);',
   '      self.postMessage({type:"result",text:r.text||"",procMs:Date.now()-_procT0,iL:_iL,tL:audio.length});}',
   '    catch(err){self.postMessage({type:"error",text:"خطأ في التعرّف: "+(err&&err.message||String(err))});}}',
+  // ── تحميل الموديل الصغير (tiny) للمرحلة السريعة — بلا كسر إن غاب المستودع ──
+  '  if(t==="loadTiny"){',
+  '    if(asrTiny){self.postMessage({type:"tinyReady"});return;}',
+  '    if(!_pipFn){self.postMessage({type:"tinyErr",text:"pip غير جاهز"});return;}',
+  '    var _tm=ev.data.model;',
+  '    var _tdt=ev.data.dtype||{encoder_model:"q8",decoder_model_merged:"q8",decoder_model:"q8",decoder_with_past_model:"q8"};',
+  '    try{asrTiny=await _pipFn("automatic-speech-recognition",_tm,{dtype:_tdt});',
+  '      try{await asrTiny(new Float32Array(8000),{});}catch(e){}',
+  '      self.postMessage({type:"tinyReady"});}',
+  '    catch(e){asrTiny=null;self.postMessage({type:"tinyErr",text:(e&&e.message||String(e))});}',
+  '    return;}',
+  // ── نافذة سريعة أثناء التلاوة: PCM خام (مستقل، بلا webm) → tiny → نص فوري ──
+  '  if(t==="win"){',
+  '    var _eng=asrTiny||asr;', // إن غاب tiny استعمل base (أبطأ لكن يعمل)
+  '    if(!_eng){self.postMessage({type:"win_result",seq:ev.data.seq,text:"",err:"notready"});return;}',
+  '    try{',
+  '      var _wraw=new Float32Array(ev.data.buffer,0,ev.data.length);',
+  '      var _wt0=Date.now();',
+  '      var _wr=await _eng(_wraw,{});', // نافذة ≤10ث → بلا chunking
+  '      self.postMessage({type:"win_result",seq:ev.data.seq,text:_wr.text||"",procMs:Date.now()-_wt0,tiny:!!asrTiny});}',
+  '    catch(e2){self.postMessage({type:"win_result",seq:ev.data.seq,text:"",err:String(e2&&e2.message||e2)});}}',
   '};'
 ].join('\n');
 /* ── Engine Benchmark (hidden dev panel — 7 taps on version div) ──────────── */
@@ -4405,6 +4436,19 @@ function _w2Msg(m){
       _w2StartXTO(pa.length/16000);
       W2.worker.postMessage({type:'transcribe',buffer:pa.buffer,length:pa.length},[pa.buffer]);
     }
+    /* بعد جاهزية base: حمّل الموديل الصغير للمرحلة السريعة (بلا كسر إن غاب) */
+    if(!W2._tinyReady&&!W2._tinyTried){
+      W2._tinyTried=true;
+      try{W2.worker.postMessage({type:'loadTiny',model:TINY_MODEL});}catch(e){}
+    }
+  }else if(m.type==='tinyReady'){
+    W2._tinyReady=true;
+    console.log('[w2] الموديل الصغير جاهز — المرحلة السريعة مفعّلة');
+  }else if(m.type==='tinyErr'){
+    W2._tinyReady=false;
+    console.log('[w2] الموديل الصغير غير متاح ('+(m.text||'')+') — الشلال يعمل بـbase وحده');
+  }else if(m.type==='win_result'){
+    _w2OnWinResult(m);
   }else if(m.type==='result'){
     _w2ClearXTO();W2.analyzing=false;_m2pgStopProc();
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
@@ -4539,20 +4583,24 @@ function _w2StartCapture(){
   /* سجل تشخيصي جديد لكل محاولة — استمرارية عند إعادة التسجيل التلقائية لـWhisper */
   if(!W2._forceWhisper||!W2._diag)W2._diag={t0:Date.now(),mode:_m2PageMode?'صفحة':'مقطع',path:'',gate:'',cycles:0,watchdog:0,words:0,flushMs:0,whisperMs:0,fail:'',ev:[]};
   if(_isAndroidNative()){
-    /* ═══ مسار واحد صريح ═══
-       التعرّف الأصلي يعمل فعلاً (فحص صادق)؟ → الشلال الفوري (مكتوم البيب).
-       غير ذلك (أو صفحة أو فحص موضعي أو «تشخيص دقيق») → Whisper الكامل المُثبَت. */
-    var _nsr=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
-    var _srOK=lsGet('sr_works')==='true'&&!!_nsr;
-    if(W2._diag){W2._diag.srWorks=lsGet('sr_works')||'غير مفحوص';}
-    if(_srOK&&!_m2PageMode&&!W2._forceWhisper&&!W2._recheck){
-      if(W2._diag)W2._diag.devMode='شلال حي (تعرّف أصلي)';
-      _w2Diag('بدء: شلال حي (تعرّف أصلي، بيب مكتوم)');
-      _w2StartNativeSRCapture();return;
+    /* ═══ شلال ثنائي الموديل — مملوك بالكامل، صفر اعتماد على تعرّف الجهاز ═══
+       الافتراضي: التقاط PCM بنوافذ → tiny يغذّي المتابعة الحية → عند الإيقاف
+       حكم سريع؛ الشك/الفشل → base للتشخيص كلمة-بكلمة. الفحص الموضعي/«تشخيص
+       دقيق» يذهب مباشرة لـbase الكامل. */
+    if(W2._forceWhisper||W2._recheck){
+      W2._forceWhisper=false;
+      if(W2._diag)W2._diag.devMode='base كامل (تشخيص دقيق)';
+      _w2Diag('بدء: base كامل'+(W2._recheck?' (فحص موضعي)':''));
+      _w2StartNativeCapture();return;
     }
-    W2._forceWhisper=false;
-    if(W2._diag)W2._diag.devMode='Whisper كامل';
-    _w2Diag('بدء: Whisper كامل'+(_m2PageMode?' (صفحة)':'')+(W2._recheck?' (فحص موضعي)':''));
+    if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+      if(W2._diag)W2._diag.devMode=W2._tinyReady?'شلال (tiny→base)':'شلال (base نوافذ)';
+      _w2Diag('بدء: شلال '+(W2._tinyReady?'tiny→base':'base'));
+      _w2StartCascadeCapture();return;
+    }
+    /* لا getUserMedia → التسجيل الكامل عبر AudioRecorder ثم base */
+    if(W2._diag)W2._diag.devMode='base كامل';
+    _w2Diag('بدء: base كامل (بلا getUserMedia)');
     _w2StartNativeCapture();return;
   }
   // Web / iOS path
@@ -4588,23 +4636,145 @@ function _w2StartCapture(){
       if(live)live.textContent='';
     });
 }
-/* التقاط أصلي بالتعرّف الصوتي وحده (بلا AudioRecorder) — الشلال الفوري */
-function _w2StartNativeSRCapture(){
-  var C=window.Capacitor&&window.Capacitor.Plugins;
-  if(!C||!C.SpeechRecognition){
-    /* لا مكوّن تعرّف (بناء قديم) → ارجع لمسار AudioRecorder+Whisper */
-    _w2StartNativeCapture();return;
-  }
-  W2._nativeSRMode=true;W2.nativeRec=false;
-  W2._srEverHeard=false;W2._srFails=0; /* كاشف عطب الخدمة — لكل جلسة */
-  if(!_m2PageMode){_ltInit(MEM2.segs[MEM2.cur]);W2._ltLive=true;}
-  _startLiveSR(); /* يبدأ التعرّف الأصلي (يغذّي _liveText/_liveSRDone) */
-  MEM2.recActive=true;
-  try{rakWakeLock(true);}catch(e){}
-  _mem2UpdateBar();
+/* ═══ الشلال ثنائي الموديل: التقاط PCM خام بنوافذ → tiny أثناء التلاوة ═══
+   PCM خام (لا webm) فالنوافذ مستقلة الفكّ بلا مشكلة O(n²). النص المتراكم
+   يغذّي مؤشر المتابعة الحية. عند الإيقاف: النافذة الأخيرة ثم حكم سريع. */
+function _w2StartCascadeCapture(){
   var live=document.getElementById('mem2Live');
-  _w2LeadIn(live);
-  if(_m2PageMode)setTimeout(_m2pgStartTimer,4000);
+  navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
+    var ctx;
+    try{
+      ctx=new(window.AudioContext||window.webkitAudioContext)();
+      if(ctx.state==='suspended'){var _r=ctx.resume();if(_r&&_r.catch)_r.catch(function(){});}
+    }catch(e){stream.getTracks().forEach(function(t){t.stop();});_w2StartNativeCapture();return;}
+    var srcRate=ctx.sampleRate,ratio=srcRate/16000;
+    var proc=ctx.createScriptProcessor(4096,1,1);
+    var src=ctx.createMediaStreamSource(stream);
+    src.connect(proc);proc.connect(ctx.destination);
+    W2._casc={ctx:ctx,proc:proc,stream:stream,pcm:[],total:0,lastEnd:0,seq:0,pend:0,stopping:false,winMs:[],usedTiny:false,cap:null};
+    W2.nativeRec=false;W2._nativeSRMode=false;
+    _liveText='';_liveSRInterim='';_liveSRDone=true;
+    if(!_m2PageMode&&!W2._recheck){_ltInit(MEM2.segs[MEM2.cur]);W2._ltLive=true;}
+    proc.onaudioprocess=function(ev){
+      var c=W2._casc;if(!c||c.stopping)return;
+      var inp=ev.inputBuffer.getChannelData(0);
+      var outN=Math.floor(inp.length/ratio),ds=new Float32Array(outN);
+      for(var i=0;i<outN;i++)ds[i]=inp[Math.floor(i*ratio)];
+      c.pcm.push(ds);c.total+=outN;
+      /* نافذة جديدة كل WIN_SEC من الصوت المتراكم */
+      if(c.total-c.lastEnd>=WIN_SEC*16000)_w2CascWindow(false);
+    };
+    MEM2.recActive=true;
+    try{rakWakeLock(true);}catch(e){}
+    _mem2UpdateBar();
+    _w2LeadIn(live);
+    if(_m2PageMode)setTimeout(_m2pgStartTimer,4000);
+    if(!W2.modelReady&&live)setTimeout(function(){if(MEM2.recActive&&!W2.modelReady&&live.textContent.indexOf('اقرأ')>=0)live.textContent='🎤 يسمع';},4200);
+  }).catch(function(err){
+    _w2Diag('getUserMedia فشل ('+((err&&err.name)||'')+') → تسجيل كامل');
+    _w2StartNativeCapture();
+  });
+}
+/* استخراج نافذة PCM [lastEnd-تداخل .. total] وإرسالها للموديل السريع */
+function _w2CascWindow(isFinal){
+  var c=W2._casc;if(!c||!W2.worker)return;
+  var startS=Math.max(0,c.lastEnd-WIN_OVERLAP*16000);
+  var endS=c.total;
+  var len=endS-startS;
+  var minLen=isFinal?16000*0.25:16000*1.0;
+  if(len<minLen){if(isFinal)_w2CascJudge();return;}
+  /* اجمع الشرائح ضمن [startS,endS] في مصفوفة واحدة */
+  var win=new Float32Array(len),w=0,pos=0;
+  for(var i=0;i<c.pcm.length&&w<len;i++){
+    var chunk=c.pcm[i],cs=pos,ce=pos+chunk.length;
+    pos=ce;
+    if(ce<=startS)continue;
+    var a=Math.max(startS,cs)-cs,b=Math.min(endS,ce)-cs;
+    for(var j=a;j<b&&w<len;j++)win[w++]=chunk[j];
+  }
+  c.lastEnd=endS;c.seq++;c.pend++;
+  var buf=win.buffer;
+  W2.worker.postMessage({type:'win',seq:c.seq,buffer:buf,length:w},[buf]);
+  if(isFinal)c._finalSeq=c.seq;
+}
+function _w2OnWinResult(m){
+  var c=W2._casc;if(!c)return;
+  c.pend=Math.max(0,c.pend-1);
+  if(m.tiny)c.usedTiny=true;
+  if(m.procMs){c.winMs.push(m.procMs);_w2Diag('نافذة '+m.seq+': '+m.procMs+'ms'+(m.tiny?' (tiny)':' (base)')+' — '+((m.text||'').split(/\s+/).filter(Boolean).length)+' كلمة');}
+  if(m.err){_w2Diag('نافذة '+m.seq+' فشلت: '+String(m.err).slice(0,40));}
+  var _stx=(m.text||'').trim();
+  if(_stx){
+    _liveSRInterim=_stx;
+    _liveNsrCommitSession(); /* إلحاق بإزالة التداخل + تلوين حي */
+    if(_m2PageMode&&MEM2.recActive){
+      var _all=(_liveText||'').trim(),_wc2=_all?_all.split(/\s+/).filter(Boolean).length:0;
+      var _sg2=MEM2.segs[MEM2.cur],_tot2=_sg2?_sg2.ayahs.reduce(function(s,a){return s+a.words.length;},0):0;
+      var _lv2=document.getElementById('mem2Live');if(_lv2)_lv2.textContent='🎤 يسمع · '+Math.min(_wc2,_tot2)+'/'+_tot2+' كلمة';
+    }
+  }
+  if(c.stopping&&c.pend<=0&&c._finalSeq&&m.seq>=c._finalSeq)_w2CascJudge();
+}
+/* حكم سريع بعد الإيقاف: تطابق نظيف عالٍ (عتبة واعية بالطول) → «أحسنت» فوراً؛
+   شك/فشل → base على التسجيل الكامل للتشخيص كلمة-بكلمة (الأحكام الثلاثية) */
+function _w2CascJudge(){
+  var c=W2._casc;if(!c||c._judged)return;c._judged=true;
+  clearTimeout(c.cap);
+  _w2ClearXTO();
+  var lbl=document.getElementById('mem2MicLbl');if(lbl)lbl.textContent='سمّع';
+  var mic=document.getElementById('mem2MicBtn');if(mic)mic.disabled=false;
+  var seg=MEM2.segs[MEM2.cur];
+  var lt=(_liveText||'').trim();
+  if(W2._diag){W2._diag.words=lt?lt.split(/\s+/).filter(Boolean).length:0;W2._diag.winMs=c.winMs.slice();}
+  /* المرحلة السريعة: هل تطابق نظيف عالٍ؟ (نفس عتبة _tryCascade الواعية بالطول) */
+  var fastPass=false;
+  if(!_m2PageMode&&seg&&lt){
+    try{
+      var h=lt.split(/\s+/).filter(Boolean).map(function(w){return _normRec(w);});
+      var ref=_mem2RefWords(seg);
+      if(ref.length){
+        var dist=_memED(h,ref),acc=Math.round((1-dist/ref.length)*100);
+        fastPass=ref.length<=5?dist<=1:acc>=90;
+        if(W2._diag)W2._diag.gate='مرجع='+ref.length+' مسافة='+dist+' تطابق='+acc+'%';
+        _w2Diag('حكم سريع: '+(fastPass?'PASS ✓ ':'شك → base ')+acc+'%');
+      }
+    }catch(e){}
+  }
+  /* PCM الكامل يُحفظ لـ«تشخيص دقيق» */
+  var full=_w2CascConcat(c);W2._cascBuf=full?new Float32Array(full):null;
+  _w2CascStopCapture(c);
+  W2._casc=null;
+  if(fastPass){
+    if(W2._diag)W2._diag.path='شلال سريع — أحسنت فوري';
+    _ltFinishAndShow(); /* كل الكلمات خضراء → «أحسنت 100%» */
+    return;
+  }
+  /* شك/فشل أو صفحة: base على التسجيل الكامل — تشخيص كلمة-بكلمة */
+  if(W2._diag)W2._diag.path='شك → base كامل';
+  W2.analyzing=true;
+  if(!full||!full.length||!W2.worker||!W2.modelReady){
+    /* لا صوت/محرّك غير جاهز → قيّم بما تجمّع (قد يكون فارغاً → إعادة محاولة) */
+    _ltFinishAndShow();return;
+  }
+  var live=document.getElementById('mem2Live');if(live)live.textContent='⏳ يقيّم بدقة…';
+  var _durS=(full.length/16000).toFixed(1);
+  _m2tr('تحليل دقيق ('+_durS+' ث)…');
+  _w2StartXTO(full.length/16000);
+  if(_m2PageMode)_m2pgStartProc(full.length/16000);
+  var fb=full.buffer;
+  W2.worker.postMessage({type:'transcribe',buffer:fb,length:full.length},[fb]);
+}
+function _w2CascConcat(c){
+  if(!c||!c.total)return null;
+  var out=new Float32Array(c.total),o=0;
+  for(var i=0;i<c.pcm.length;i++){out.set(c.pcm[i],o);o+=c.pcm[i].length;}
+  return out;
+}
+function _w2CascStopCapture(c){
+  if(!c)return;
+  try{if(c.proc){c.proc.onaudioprocess=null;c.proc.disconnect();}}catch(e){}
+  try{if(c.ctx)c.ctx.close();}catch(e){}
+  try{if(c.stream)c.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
 }
 function _w2StartNativeCapture(){
   var ar=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AudioRecorder;
@@ -4648,6 +4818,16 @@ function _w2StopCapture(){
   if(live)live.textContent='⏳ يقيّم…';
   if(lbl)lbl.textContent='جارٍ…';if(mic)mic.disabled=true;
   _mem2UpdateBar();
+  /* ── الشلال ثنائي الموديل: النافذة الأخيرة ثم الحكم (سقف صارم) ── */
+  if(W2._casc){
+    var _c=W2._casc;_c.stopping=true;
+    _w2CascWindow(true); /* النافذة الأخيرة */
+    /* سقف حتمي: لا انتظار أبدي للنوافذ المعلّقة */
+    _c.cap=setTimeout(function(){if(W2._casc===_c)_w2CascJudge();},_m2PageMode?9000:4000);
+    /* إن لم تبقَ نوافذ معلّقة، احكم فوراً */
+    if(_c.pend<=0&&_c._finalSeq==null)_w2CascJudge();
+    return;
+  }
   /* ── وضع التعرّف الأصلي (بلا صوت): قيّم نص الشلال مباشرة — فوري ── */
   if(W2._nativeSRMode){
     W2._nativeSRMode=false;
@@ -5027,6 +5207,8 @@ function _mem2StopAndEval(){
   _mem2UpdateBar();
 }
 function _mem2StopRec(){
+  /* شلال نشط (مغادرة/خلفية): أوقف الالتقاط فوراً بلا حكم */
+  if(W2._casc){var _cc=W2._casc;W2._casc=null;clearTimeout(_cc.cap);_w2CascStopCapture(_cc);W2.analyzing=false;}
   _stopLiveSR();_m2pgStopTimer();_m2pgStopProc();
   try{rakWakeLock(false);}catch(e){} /* حرّر إبقاء الشاشة مضاءة */
   /* W2._cascBuf يبقى محفوظاً هنا عمداً — يُمسح عند تسجيل جديد/مقطع آخر/مغادرة الشاشة
