@@ -2283,7 +2283,7 @@ var _liveNsrLastEvT=0,_liveNsrSesN=0,_liveNsrComSes=0,_liveNsrWatch=null;
 function _w2Diag(m){var d=W2._diag;if(!d)return;d.ev.push(((Date.now()-d.t0)/1000).toFixed(1)+'ث '+m);}
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 function initMemorize(){
-  _srHealthProbe(); /* فحص صلاحية التعرّف الأصلي — مرة واحدة، بصمت (تجريبي فقط) */
+  try{_srHealthProbe();}catch(e){} /* فحص صلاحية التعرّف — مرة واحدة، بصمت (تجريبي) */
   /* حمّل نموذج q8 مسبقاً عند فتح الشاشة — جاهز قبل أول «سمّع» */
   try{if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');}catch(e){}
   _loadW2Ref();
@@ -2587,7 +2587,7 @@ function _apCaps(){
   var mime='';
   try{
     if(window.MediaRecorder&&MediaRecorder.isTypeSupported){
-      mime=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'].find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+      mime=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'].find(function(x){return window.MediaRecorder&&MediaRecorder.isTypeSupported(x);})||'';
     }
   }catch(e){}
   var caps={v:1,mr:!!(window.MediaRecorder&&mime),mime:mime,gum:!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)};
@@ -4146,7 +4146,7 @@ function _gsToggleRec(){
     .catch(function(){if(st)st.textContent='تعذّر بدء التسجيل — تحقق من إذن المايك';});
   }else if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder){
     navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
-      var mime=['audio/webm;codecs=opus','audio/webm','audio/ogg'].find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+      var mime=['audio/webm;codecs=opus','audio/webm','audio/ogg'].find(function(x){return window.MediaRecorder&&MediaRecorder.isTypeSupported(x);})||'';
       var rec=new MediaRecorder(stream,mime?{mimeType:mime}:{});
       var chunks=[];rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};
       rec.start(300);
@@ -4600,7 +4600,7 @@ function _w2StartCapture(){
     .then(function(stream){
       W2.stream=stream;W2.chunks=[];
       W2.recMime=['audio/webm;codecs=opus','audio/webm','audio/ogg']
-        .find(function(x){return MediaRecorder.isTypeSupported(x);})||'';
+        .find(function(x){return window.MediaRecorder&&MediaRecorder.isTypeSupported(x);})||'';
       W2.recorder=new MediaRecorder(stream,W2.recMime?{mimeType:W2.recMime}:{});
       W2.recorder.ondataavailable=function(e){if(e.data&&e.data.size>0)W2.chunks.push(e.data);};
       W2.recorder.onstop=function(){_w2ProcessAudio();};
@@ -8682,7 +8682,7 @@ function _stSelPrayer(btn){
 }
 function initSalahTrack(){
   if(ST.active)salahTrackStop(true);
-  _srHealthProbe(); /* مصدر واحد للحقيقة: يُفحص عند أول ميزة صوتية تُفتح */
+  try{_srHealthProbe();}catch(e){} /* مصدر واحد للحقيقة: يُفحص عند أول ميزة صوتية */
   var _nsrPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
   var _silPlug=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SilentSpeech;
   var _isNative=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
@@ -9740,7 +9740,8 @@ function _stStartSpeech(){
     if(!ST.audioLayer)return;
     if(_afpHasTemplates())_stAfpMode();else{
       _stRhythmMode();
-      if(!lsGet('afp_prompt_seen')){lsSet('afp_prompt_seen','1');setTimeout(function(){if(ST.active)_afpEnrollOpen();},1200);}
+      /* لا فتح تلقائي لتسجيل البصمة أثناء جلسة نشطة (كان يغطّي الشاشة ويوهم
+         بالتجمّد) — وضع الإيقاع يعمل فوراً، والبصمة تُسجَّل يدوياً من زر «بصمتي» */
     }
     return;
   }
@@ -9893,8 +9894,8 @@ function _stStartSpeechNative(){
     if(_afpHasTemplates()){_stAfpMode();}
     else{
       _stRhythmMode();
-      /* دعوة لطيفة مرة واحدة لتسجيل البصمة (دقة أعلى) */
-      if(!lsGet('afp_prompt_seen')){lsSet('afp_prompt_seen','1');setTimeout(function(){if(ST.active)_afpEnrollOpen();},1200);}
+      /* لا فتح تلقائي لتسجيل البصمة أثناء جلسة نشطة (كان يغطّي الشاشة كاملةً
+         بعد 1.2ث ويوهم بالتجمّد) — البصمة تُسجَّل يدوياً من زر «بصمتي» */
     }
     return;
   }
@@ -10750,7 +10751,7 @@ function _rsmToggleChan(ch){
 function rakSmartToggle(){RSM.active?rakSmartStop():rakSmartStart();}
 function rakSmartStart(){
   if(RSM.active)return;
-  _srHealthProbe(); /* مصدر واحد للحقيقة قبل أي لمس للتعرّف */
+  try{_srHealthProbe();}catch(e){} /* مصدر واحد للحقيقة قبل أي لمس للتعرّف */
   RAK.count=0;RAK._sujudInRak=0;rakRender();
   RSM.seq=_stGenerateSeq(RAK.target);
   RSM.prob=_stProbCreate(RSM.seq,ST.PROB_CFG);
