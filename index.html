@@ -4369,11 +4369,15 @@ function _w2Msg(m){
     /* إعادة ضبط مهلة الركود عند كل تقدّم — دائماً، لا فقط عند شاشة التهيئة */
     if(_w2LoadTO){clearTimeout(_w2LoadTO);_w2LoadTO=setTimeout(_w2OnLoadTimeout,120000);}
     var p=m.data||{};
+    _svOnProgress(p); /* يجمّع البايتات الفعلية في _svFiles أولاً */
     if(p.status==='downloading'&&p.progress!=null){
       var pct=Math.round(p.progress);
-      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%…';
+      /* اعرض الميجابايت الفعلية المُنزَّلة/الإجمالية (من ترويسات الاستجابة) لا رقماً ثابتاً */
+      var _ld=0,_tt=0;
+      try{Object.keys(_svFiles).forEach(function(f){_ld+=_svFiles[f].l||0;_tt+=_svFiles[f].t||0;});}catch(e){}
+      var _mb=_tt>0?' · '+_svFmt(_ld)+'/'+_svFmt(_tt):'';
+      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%'+_mb;
     }
-    _svOnProgress(p);
   }else if(m.type==='ready'){
     clearTimeout(_w2LoadTO);_w2LoadTO=null;
     W2.modelReady=true;W2.loading=false;W2._dev=m.device||'wasm';
