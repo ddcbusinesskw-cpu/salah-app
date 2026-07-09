@@ -2874,6 +2874,7 @@ function _afpEnrollOpen(){
   var d=document.createElement('div');
   d.id='afpOv';
   d.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;direction:rtl;';
+  d.onclick=function(e){if(e.target===d)_afpEnrollClose();}; /* نقرة الخلفية تُغلق */
   d.innerHTML='<div style="background:var(--card,#0f3a35);border-radius:20px;padding:24px;width:100%;max-width:360px;text-align:center">'
     +'<div style="font-size:18px;font-weight:700;color:var(--gold,#eacc7e);margin-bottom:6px">🎙 بصمتك الصوتية</div>'
     +'<div style="font-size:12px;color:var(--muted,#9ab);line-height:1.8;margin-bottom:14px">تُحفظ على جهازك فقط وترفع دقة التتبّع الصوتي — بلا أي خدمة تعرّف.</div>'
@@ -11718,6 +11719,13 @@ function dismissPWA(){
   /* Android hardware back button — dismiss overlays in priority order */
   if(_isAndroid()&&_cap.Plugins&&_cap.Plugins.App){
     _cap.Plugins.App.addListener('backButton',function(){
+      /* أوراق/طبقات كاملة الشاشة تُغلَق أولاً كي لا تُعلَّق فوق شاشة أخرى */
+      var _afpO=document.getElementById('afpOv');
+      if(_afpO){if(typeof _afpEnrollClose==='function')_afpEnrollClose();else _afpO.remove();return;}
+      var _lo=document.getElementById('langOv');
+      if(_lo&&_lo.style.display==='flex'){_lo.style.display='none';return;}
+      var _bm=document.getElementById('bmPanel');
+      if(_bm&&_bm.style.display&&_bm.style.display!=='none'){if(typeof _bmHidePanel==='function')_bmHidePanel();else _bm.style.display='none';return;}
       var _dlg=['deleteAccountConfirm','signoutConfirm','exitAppConfirm','customModal','nameModal'];
       for(var i=0;i<_dlg.length;i++){
         var el=document.getElementById(_dlg[i]);
