@@ -31,10 +31,11 @@ workflows:
         script: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             cp "$GOOGLE_SERVICES_JSON" android/app/google-services.json
-            echo "google-services.json placed"
+            echo "google-services.json placed from Codemagic secret"
+          elif [ -f android/app/google-services.json ]; then
+            echo "google-services.json: using committed file in repo"
           else
-            echo "WARNING: GOOGLE_SERVICES_JSON not set — FirebaseAuthentication.load() will fail at runtime"
-            exit 1
+            echo "WARNING: no GOOGLE_SERVICES_JSON secret and no committed file — FirebaseAuthentication.load() will fail at runtime"
           fi
       - name: Prepare www
         script: npm run prepare:www
