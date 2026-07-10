@@ -2490,24 +2490,15 @@ function lmOnPartial(ev){
   var t=(ev&&ev.text||'').trim();
   if(ev){
     if(ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
-    if(LM._wins){LM._wins.push({t:t,ms:ev.ms||0,n:ev.samples||0,pk:ev.peak||0,rms:ev.rms||0,pl:ev.prompt_len||0,th:ev.threads||0});if(LM._wins.length>40)LM._wins.shift();}
+    if(LM._wins){LM._wins.push({t:t,ms:ev.ms||0,n:ev.samples||0,ws:ev.win_sec,an:ev.anchor_sec,pk:ev.peak||0,rms:ev.rms||0,th:ev.threads||0});if(LM._wins.length>40)LM._wins.shift();}
     if(ev.text!=null)LM._heard=t;
   }
   if(!t)return;
   var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
-  var before=LM.cursor;
+  /* النص خام متنامٍ (نافذة العبارة الكاملة) — المحاذاة رتيبة تتقدّم بالكلمات الجديدة */
   lmAdvance(heard);
-  /* تقدّم المؤشر → حدّث سياق prompt المحرّك حول الموضع الجديد */
-  if(LM.cursor!==before){try{var P=_wnPlug();if(P&&P.setPrompt)P.setPrompt({prompt:_lmPromptAt(LM.cursor)});}catch(e){}}
 }
 function lmToggleRec(){LM.rec?lmStop():lmStart();}
-/* prompt قصير حول المؤشر (~12 كلمة): سياق يوجّه whisper دون تجاوز حدّ tokens.
-   الصفحة كاملة كـinitial_prompt (مئات الكلمات) تُقصَّ وتكتم المخرَج → شظية. */
-function _lmPromptAt(cur){
-  if(LM._noPrompt)return '';
-  var a=Math.max(0,(cur||0)-3),b=Math.min(LM.words.length,(cur||0)+12);
-  return LM.words.slice(a,b).map(function(w){return w.raw;}).join(' ');
-}
 function lmStart(){
   var st=document.getElementById('lmStatus');
   /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
@@ -2521,7 +2512,6 @@ function lmStart(){
   }
   var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
   LM._captureErr='';
-  var prompt=_lmPromptAt(0);
   var _begin=function(){
     LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
@@ -2531,7 +2521,8 @@ function lmStart(){
     try{rakWakeLock(true);}catch(e){}
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     try{P.addListener('partial',lmOnPartial);}catch(e){}
-    P.startStream({window_sec:2.5,slide_sec:1.0,prompt:prompt}).catch(function(e){
+    /* نافذة نامية (عبارة كاملة) + تعرّف حرّ (بلا prompt): whisper يرى عبارة كاملة كما في 🧪 */
+    P.startStream({slide_sec:1.5,max_sec:18,prompt:''}).catch(function(e){
       LM.rec=false;
       var msg=String(e&&e.message||e);LM._captureErr=msg;
       var perm=/permission|إذن|مرفوض/i.test(msg);
@@ -2607,9 +2598,8 @@ function _lmDiagText(){
     'بصمة البناء: '+_buildStamp(),
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
-    'whisper سمع (آخر نافذة): '+(LM._heard||'—'),
-    'الprompt: '+(LM._noPrompt?'مُعطَّل (تشخيص خام)':'قصير حول المؤشر (~'+_lmPromptAt(LM.cursor||0).split(/\s+/).filter(Boolean).length+' كلمة)'),
-    'سياق الprompt الحالي: '+(_lmPromptAt(LM.cursor||0)||'—'),
+    'whisper سمع (النافذة النامية): '+(LM._heard||'—'),
+    'الطريقة: نافذة نامية (عبارة كاملة) · تعرّف حرّ بلا prompt · ارتساء عند صمت VAD/سقف 18ث',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
   /* ١ — اختبار المحرّك على صوت معروف (يحسم: الموديل أم الالتقاط) */
   if(LM._engTest){
@@ -2619,11 +2609,11 @@ function _lmDiagText(){
       'الناتج الخام: '+(e.err?('⚠ '+e.err):('«'+(e.text||'…')+'»')),
       'عيّنات='+(e.samples||'—')+'  ذروة='+e.peak+'  rms='+e.rms+'  ('+(e.ms||0)+'ms)');
   }
-  /* ٣ — تفريغ كل نافذة حيّة: عيّنات/peak/rms/threads/طول prompt/النص الخام */
+  /* ٣ — تفريغ كل نافذة نامية: طول النافذة/بدايتها/ذروة/rms/النص الخام المتنامي */
   if(LM._wins&&LM._wins.length){
-    L.push('── النوافذ الحيّة (آخر '+Math.min(12,LM._wins.length)+') · عيّنات/ذروة/rms/خيوط/طول prompt/النص ──');
+    L.push('── النوافذ النامية (آخر '+Math.min(12,LM._wins.length)+') · طول/بداية/ذروة/rms/النص ──');
     LM._wins.slice(-12).forEach(function(w,i){
-      L.push('#'+(i+1)+'  n='+w.n+'  ذروة='+w.pk+'  rms='+w.rms+'  th='+(w.th||'—')+'  pl='+w.pl+'  «'+(w.t||'—')+'»');
+      L.push('#'+(i+1)+'  نافذة='+(w.ws||(w.n/16000).toFixed(1))+'ث  بداية='+(w.an!=null?w.an+'ث':'—')+'  ذروة='+w.pk+'  rms='+w.rms+'  «'+(w.t||'—')+'»');
     });
   }
   /* ٤ — هل نافذة whisper = صوت التشغيل نفسه؟ قارن الذروات (كشف انفصال buffer) */
@@ -2674,13 +2664,6 @@ function _lmEngineTest(){
     });
   }catch(e){LM._engTest.err=String(e&&e.message||e);_refresh();}
 }
-/* عزل الprompt: تشغيل whisper بلا initial_prompt للمقارنة (تشخيص السبب) */
-function _lmTogglePrompt(){
-  LM._noPrompt=!LM._noPrompt;
-  try{var P=_wnPlug();if(P&&P.setPrompt)P.setPrompt({prompt:_lmPromptAt(LM.cursor||0)});}catch(e){}
-  try{toast(LM._noPrompt?'أُوقف الprompt — اضغط «استمع» لاختبار خام':'أُعيد الprompt القصير','info');}catch(e){}
-  var res=document.getElementById('lmResult');if(res)res.innerHTML=_lmDiagHtml();
-}
 function _lmCopyDiag(){
   var t=_lmDiagText();
   if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -2697,7 +2680,6 @@ function _lmDiagHtml(){
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
     +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
     +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
-    +'<button onclick="_lmTogglePrompt()" style="margin-inline-start:6px;background:rgba(234,204,126,.12);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">'+(LM._noPrompt?'إعادة prompt':'اختبار بلا prompt')+'</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
 }

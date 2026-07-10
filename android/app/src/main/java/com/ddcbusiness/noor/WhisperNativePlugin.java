@@ -52,10 +52,19 @@ public class WhisperNativePlugin extends Plugin {
     private final ArrayList<short[]> buf = new ArrayList<>(); // شرائح PCM بالترتيب
     private int total = 0;          // إجمالي العيّنات الملتقَطة
     private int emittedUpTo = 0;    // آخر عيّنة أُرسلت نافذتها
-    private int winSamples = (int)(SR * 2.5);   // طول النافذة المنزلقة (~2.5ث)
-    private int slideSamples = SR;              // مقدار الانزلاق (~1ث) — كل 1ث نافذة جديدة
-    private volatile String prompt = "";        // النص المتوقّع حول المؤشر (توجيه)
+    /* نافذة نامية: من نقطة الارتساء (بداية العبارة) حتى الآن — whisper يرى عبارة
+       كاملة لا شريحة مقطوعة. تُعاد نقطة الارتساء عند صمت VAD أو تجاوز السقف. */
+    private int anchorSample = 0;               // بداية النافذة النامية
+    private int slideSamples = (int)(SR * 1.5); // أعد النسخ كل ~1.5ث من الصوت الجديد
+    private int maxWinSamples = SR * 18;         // سقف النافذة (~18ث) — تفادي النمو اللانهائي
+    private int silenceRun = 0;                  // عدّاد السكوت المتصل (عيّنات)
+    private boolean hadSpeech = false;           // سُمع كلام منذ آخر ارتساء؟
+    private volatile boolean busy = false;       // المحرّك يفرّغ الآن؟ (أسقِط النوافذ المتراكمة)
+    private volatile String prompt = "";        // (تعرّف حرّ: يبقى فارغاً في البثّ الحي)
     private int seq = 0;
+    /* عتبة السكوت: ذروة كتلة < ~0.012 مطبَّع = صمت. 0.6ث سكوت بعد كلام → ارتساء جديد. */
+    private static final int SILENCE_PEAK = 380;
+    private static final int SILENCE_RESET = (int)(SR * 0.6);
 
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
@@ -157,11 +166,11 @@ public class WhisperNativePlugin extends Plugin {
             return;
         }
 
-        double winSec  = call.getDouble("window_sec", 2.5);
-        double slideSec = call.getDouble("slide_sec", 1.0);
-        winSamples   = Math.max(SR, (int) (winSec * SR));
-        slideSamples = Math.max(SR / 2, (int) (slideSec * SR));
-        prompt = call.getString("prompt", "");
+        double slideSec = call.getDouble("slide_sec", 1.5);
+        double maxSec   = call.getDouble("max_sec", 18.0);
+        slideSamples  = Math.max(SR / 2, (int) (slideSec * SR));
+        maxWinSamples = Math.max(4 * SR, (int) (maxSec * SR));
+        prompt = call.getString("prompt", ""); // تعرّف حرّ: فارغ عادةً
 
         int minBuf = AudioRecord.getMinBufferSize(SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         if (minBuf <= 0) minBuf = SR; // احتياط
@@ -185,7 +194,11 @@ public class WhisperNativePlugin extends Plugin {
             return;
         }
 
-        synchronized (buf) { buf.clear(); total = 0; emittedUpTo = 0; seq = 0; }
+        synchronized (buf) {
+            buf.clear(); total = 0; emittedUpTo = 0; seq = 0;
+            anchorSample = 0; silenceRun = 0; hadSpeech = false;
+        }
+        busy = false;
         listening = true;
         recorder.startRecording();
 
@@ -196,14 +209,25 @@ public class WhisperNativePlugin extends Plugin {
                 if (nr > 0) {
                     short[] chunk = new short[nr];
                     System.arraycopy(block, 0, chunk, 0, nr);
+                    // VAD بسيط: ذروة الكتلة → كشف السكوت لإعادة الارتساء عند الوقفات
+                    int bpk = 0;
+                    for (int i = 0; i < nr; i++) { int a = Math.abs(block[i]); if (a > bpk) bpk = a; }
+                    boolean silent = bpk < SILENCE_PEAK;
                     int nowTotal;
                     synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
-                    // نافذة منزلقة: كل slideSamples من الصوت الجديد، بطول winSamples
-                    if (nowTotal - emittedUpTo >= slideSamples) {
-                        final int from = Math.max(0, nowTotal - winSamples);
-                        final int to = nowTotal;
+                    // ارتساء جديد: 0.6ث سكوت بعد كلام = نهاية عبارة → ابدأ النافذة من هنا
+                    if (silent) {
+                        silenceRun += nr;
+                        if (hadSpeech && silenceRun >= SILENCE_RESET) { anchorSample = nowTotal; hadSpeech = false; }
+                    } else {
+                        silenceRun = 0; hadSpeech = true;
+                    }
+                    // سقف صلب: لا تدع النافذة النامية تتجاوز maxWinSamples
+                    if (nowTotal - anchorSample > maxWinSamples) anchorSample = nowTotal - maxWinSamples;
+                    // نافذة نامية [anchorSample, now): أعد النسخ كل slideSamples، وأسقِط إن كان المحرّك مشغولاً
+                    if (!busy && nowTotal - emittedUpTo >= slideSamples) {
                         emittedUpTo = nowTotal;
-                        dispatchWindow(from, to, ++seq, false);
+                        dispatchWindow(anchorSample, nowTotal, ++seq, false);
                     }
                 } else if (nr < 0) {
                     break; // خطأ قراءة
@@ -253,8 +277,8 @@ public class WhisperNativePlugin extends Plugin {
         try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
 
         final int from, to, mySeq;
-        synchronized (buf) { from = Math.max(0, total - winSamples); to = total; mySeq = ++seq; }
-        // النافذة الأخيرة ثم النتيجة النهائية + PCM الكامل (لـ«استمع للمسجَّل»)
+        synchronized (buf) { from = Math.max(0, anchorSample); to = total; mySeq = ++seq; }
+        // النافذة الأخيرة (العبارة النامية الحالية) ثم النتيجة + PCM الكامل (لـ«استمع للمسجَّل»)
         exec.execute(() -> {
             try {
                 if (to > from) {
@@ -281,6 +305,7 @@ public class WhisperNativePlugin extends Plugin {
     }
 
     private void dispatchWindow(final int from, final int to, final int mySeq, final boolean isFinal) {
+        busy = true; // يُصفَّر في finally — يمنع تراكم النوافذ أثناء التفريغ
         exec.execute(() -> {
             try {
                 if (ctx == 0 || to <= from) return;
@@ -298,13 +323,23 @@ public class WhisperNativePlugin extends Plugin {
                 ev.put("ms", System.currentTimeMillis() - t0);
                 ev.put("final", isFinal);
                 ev.put("samples", w.length);
+                ev.put("win_sec", Math.round((w.length / (double) SR) * 10) / 10.0);
+                ev.put("anchor_sec", Math.round((from / (double) SR) * 10) / 10.0);
                 ev.put("peak", Math.round(peak * 1000) / 1000.0);
                 ev.put("rms", Math.round(rms * 1000) / 1000.0);
                 ev.put("prompt_len", prompt == null ? 0 : prompt.length());
                 ev.put("threads", threadCount());
                 notifyListeners("partial", ev);
             } catch (Throwable ignored) {}
+            finally { busy = false; }
         });
+    }
+
+    /** إعادة ضبط نقطة الارتساء يدوياً (JS عند حدود آية) — النافذة النامية تبدأ من الآن. */
+    @PluginMethod
+    public void resetWindow(PluginCall call) {
+        synchronized (buf) { anchorSample = total; hadSpeech = false; silenceRun = 0; }
+        call.resolve();
     }
 
     /** نسخ العيّنات [from,to) من قائمة الشرائح إلى short[] واحد. */
