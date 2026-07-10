@@ -60,6 +60,8 @@ public class WhisperNativePlugin extends Plugin {
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
     private static native void nativeFree(long ctx);
+    private static native String nativeModelInfo(long ctx);
+    private static native String nativeConfig();
 
     private static int threadCount() {
         return Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
@@ -217,6 +219,25 @@ public class WhisperNativePlugin extends Plugin {
         call.resolve(r);
     }
 
+    /** تشخيص: معلومات النموذج المحمَّل + معاملات whisper الفعلية. */
+    @PluginMethod
+    public void modelInfo(PluginCall call) {
+        if (!libOk) { call.reject("lib-missing"); return; }
+        if (ctx == 0) { call.reject("not-loaded"); return; }
+        final long c = ctx;
+        exec.execute(() -> {
+            try {
+                JSObject r = new JSObject();
+                r.put("info", nativeModelInfo(c));
+                r.put("config", nativeConfig());
+                r.put("threads", threadCount());
+                call.resolve(r);
+            } catch (Throwable t) {
+                call.reject("modelinfo-error: " + t.getMessage());
+            }
+        });
+    }
+
     /** تحديث النص المتوقّع مع تقدّم المؤشر (توجيه لحظي). */
     @PluginMethod
     public void setPrompt(PluginCall call) {
@@ -280,6 +301,7 @@ public class WhisperNativePlugin extends Plugin {
                 ev.put("peak", Math.round(peak * 1000) / 1000.0);
                 ev.put("rms", Math.round(rms * 1000) / 1000.0);
                 ev.put("prompt_len", prompt == null ? 0 : prompt.length());
+                ev.put("threads", threadCount());
                 notifyListeners("partial", ev);
             } catch (Throwable ignored) {}
         });

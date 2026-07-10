@@ -3,7 +3,37 @@
 #include <jni.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "whisper.h"
+
+/* تشخيص: معلومات النموذج المحمَّل — يثبت أن GGUF كامل وصالح (لا تالف/ناقص المفردات) */
+JNIEXPORT jstring JNICALL
+Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeModelInfo(JNIEnv *env, jclass cls, jlong ptr) {
+    (void) cls;
+    struct whisper_context *ctx = (struct whisper_context *) (intptr_t) ptr;
+    if (!ctx) return (*env)->NewStringUTF(env, "no-ctx");
+    char buf[512];
+    snprintf(buf, sizeof(buf),
+        "n_vocab=%d n_audio_ctx=%d n_text_ctx=%d n_mels=%d ftype=%d multilingual=%d type=%s",
+        whisper_model_n_vocab(ctx), whisper_model_n_audio_ctx(ctx), whisper_model_n_text_ctx(ctx),
+        whisper_model_n_mels(ctx), whisper_model_ftype(ctx), whisper_is_multilingual(ctx),
+        whisper_model_type_readable(ctx));
+    return (*env)->NewStringUTF(env, buf);
+}
+
+/* تشخيص: معاملات whisper الفعلية المستخدمة في التفريغ (نفس ضبط nativeTranscribe) */
+JNIEXPORT jstring JNICALL
+Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeConfig(JNIEnv *env, jclass cls) {
+    (void) cls;
+    struct whisper_full_params wp = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    wp.language = "ar"; wp.translate = false; wp.no_timestamps = true; wp.suppress_blank = true;
+    char buf[512];
+    snprintf(buf, sizeof(buf),
+        "strategy=greedy language=%s translate=%d single_segment=%d no_timestamps=%d suppress_blank=%d temperature=%.2f n_max_text_ctx=%d",
+        wp.language ? wp.language : "?", wp.translate ? 1 : 0, wp.single_segment ? 1 : 0,
+        wp.no_timestamps ? 1 : 0, wp.suppress_blank ? 1 : 0, (double) wp.temperature, wp.n_max_text_ctx);
+    return (*env)->NewStringUTF(env, buf);
+}
 
 JNIEXPORT jlong JNICALL
 Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeInit(JNIEnv *env, jclass cls, jstring path) {

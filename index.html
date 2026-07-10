@@ -2259,6 +2259,8 @@ function _wnEnsure(){
       }).then(function(r){
         WN.ready=true;WN.loading=false;WN.threads=(r&&r.threads)||WN.threads;WN.diag.stage='جاهز';
         console.log('[wn] المحرّك الأصلي جاهز — '+WN.threads+' خيوط · '+WN.diag.modelPath);
+        /* تشخيص: اسحب معلومات النموذج + معاملات whisper الفعلية */
+        try{if(P.modelInfo)P.modelInfo().then(function(mi){WN.diag.modelInfo=mi&&mi.info;WN.diag.config=mi&&mi.config;console.log('[wn] model: '+(mi&&mi.info)+' | '+(mi&&mi.config));}).catch(function(){});}catch(e){}
         var _mb=document.getElementById('mem2Build');
         if(_mb&&_mb.textContent.indexOf('أصلي')<0)_mb.textContent+=' · محرّك أصلي ✓';
       }).catch(function(e){
@@ -2471,7 +2473,7 @@ function lmOnPartial(ev){
   var t=(ev&&ev.text||'').trim();
   if(ev){
     if(ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
-    if(LM._wins){LM._wins.push({t:t,ms:ev.ms||0,n:ev.samples||0,pk:ev.peak||0,rms:ev.rms||0,pl:ev.prompt_len||0});if(LM._wins.length>40)LM._wins.shift();}
+    if(LM._wins){LM._wins.push({t:t,ms:ev.ms||0,n:ev.samples||0,pk:ev.peak||0,rms:ev.rms||0,pl:ev.prompt_len||0,th:ev.threads||0});if(LM._wins.length>40)LM._wins.shift();}
     if(ev.text!=null)LM._heard=t;
   }
   if(!t)return;
@@ -2579,9 +2581,12 @@ function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec)lmStop(
 /* «تفاصيل تقنية» للمصحف الحي */
 function _lmDiagText(){
   var target=LM.words.map(function(w){return w.raw;}).join(' ');
+  var g=WN.diag||{};
   var L=['تقرير المصحف الحي — صفحة '+LM.page,
     'المحرّك: '+(WN.ready?'أصلي whisper.cpp ('+WN.threads+' خيوط)':'غير مفعّل'),
-    'مصدر الصوت: AudioRecord أصلي 16kHz (بلا WebView/إعادة تشكيل)',
+    'معلومات النموذج (whisper_init): '+(g.modelInfo||'—'),
+    'معاملات whisper الفعلية: '+(g.config||'—'),
+    'مصدر الصوت: AudioRecord أصلي 16kHz mono PCM16 (بلا WebView/إعادة تشكيل)',
     'بصمة البناء: '+_buildStamp(),
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
@@ -2589,14 +2594,68 @@ function _lmDiagText(){
     'الprompt: '+(LM._noPrompt?'مُعطَّل (تشخيص خام)':'قصير حول المؤشر (~'+_lmPromptAt(LM.cursor||0).split(/\s+/).filter(Boolean).length+' كلمة)'),
     'سياق الprompt الحالي: '+(_lmPromptAt(LM.cursor||0)||'—'),
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
+  /* ١ — اختبار المحرّك على صوت معروف (يحسم: الموديل أم الالتقاط) */
+  if(LM._engTest){
+    var e=LM._engTest;
+    L.push('── 🧪 اختبار المحرّك (صوت معروف: الفاتحة ١:١) ──',
+      'المتوقَّع: '+e.expected,
+      'الناتج الخام: '+(e.err?('⚠ '+e.err):('«'+(e.text||'…')+'»')),
+      'عيّنات='+(e.samples||'—')+'  ذروة='+e.peak+'  rms='+e.rms+'  ('+(e.ms||0)+'ms)');
+  }
+  /* ٣ — تفريغ كل نافذة حيّة: عيّنات/peak/rms/threads/طول prompt/النص الخام */
   if(LM._wins&&LM._wins.length){
-    L.push('── النوافذ (آخر '+Math.min(12,LM._wins.length)+') · عيّنات/ذروة/rms/طول prompt/النص ──');
+    L.push('── النوافذ الحيّة (آخر '+Math.min(12,LM._wins.length)+') · عيّنات/ذروة/rms/خيوط/طول prompt/النص ──');
     LM._wins.slice(-12).forEach(function(w,i){
-      L.push('#'+(i+1)+'  n='+w.n+'  ذروة='+w.pk+'  rms='+w.rms+'  pl='+w.pl+'  «'+(w.t||'—')+'»');
+      L.push('#'+(i+1)+'  n='+w.n+'  ذروة='+w.pk+'  rms='+w.rms+'  th='+(w.th||'—')+'  pl='+w.pl+'  «'+(w.t||'—')+'»');
     });
+  }
+  /* ٤ — هل نافذة whisper = صوت التشغيل نفسه؟ قارن الذروات (كشف انفصال buffer) */
+  if(W2._lastAudio16k&&W2._lastAudio16k.length){
+    var pf=W2._lastAudio16k,ppk=0;for(var _i=0;_i<pf.length;_i++){var _a=pf[_i]<0?-pf[_i]:pf[_i];if(_a>ppk)ppk=_a;}
+    ppk=Math.round(ppk*1000)/1000;
+    var lw=LM._wins&&LM._wins.length?LM._wins[LM._wins.length-1]:null;
+    var verdict=lw?((lw.pk<0.02&&ppk>0.05)?'⚠ الصوت لا يصل النافذة (انفصال buffer الالتقاط)':(ppk<0.02?'⚠ حتى صوت التشغيل صامت (الالتقاط لا يلتقط)':'✅ النافذة تحمل نفس مستوى صوت التشغيل')):'—';
+    L.push('── مقارنة الوصول (النافذة ↔ التشغيل) ──',
+      'ذروة buffer التشغيل («استمع للمسجَّل»): '+ppk+' ('+pf.length+' عيّنة)',
+      'ذروة آخر نافذة أُرسلت لـwhisper: '+(lw?lw.pk:'—'),
+      'الحكم: '+verdict);
   }
   if(typeof _wnDownDiag==='function'){var dd=_wnDownDiag();if(dd)L.push('── تنزيل GGUF ──',dd);}
   return L.filter(Boolean).join('\n');
+}
+/* ١ — الاختبار الحاسم: صوت قرآني معروف (الفاتحة ١:١) → whisper.cpp GGUF مباشرة
+   (نفس مسار _wnTranscribe الأصلي). نتيجة صحيحة = المحرّك سليم والعطل في الالتقاط. */
+function _lmEngineTest(){
+  var st=document.getElementById('lmStatus'),res=document.getElementById('lmResult');
+  if(!WN.ready){if(st)st.textContent='المحرّك غير جاهز — افتح التسميع وانتظر التحميل';return;}
+  if(st)st.textContent='🧪 اختبار المحرّك على صوت معروف…';
+  LM._engTest={expected:'بسم الله الرحمن الرحيم',text:'…',peak:0,rms:0,ms:0,samples:0,err:''};
+  var _refresh=function(){if(res)res.innerHTML=_lmDiagHtml();};
+  var _run=function(ab){
+    try{
+      var ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+      ac.decodeAudioData(ab,function(buf){
+        try{ac.close();}catch(e){}
+        var f32=new Float32Array(buf.getChannelData(0));
+        var pk=0,sq=0;for(var i=0;i<f32.length;i++){var a=f32[i]<0?-f32[i]:f32[i];if(a>pk)pk=a;sq+=f32[i]*f32[i];}
+        LM._engTest.peak=Math.round(pk*1000)/1000;LM._engTest.rms=Math.round(Math.sqrt(sq/(f32.length||1))*1000)/1000;LM._engTest.samples=f32.length;
+        var t0=Date.now();
+        _wnTranscribe(f32,function(r){
+          LM._engTest.text=(r.text||'').trim()||'(فارغ)';LM._engTest.ms=r.ms||(Date.now()-t0);
+          if(st)st.textContent='🧪 نتيجة الاختبار: '+LM._engTest.text;_refresh();
+        },function(why){LM._engTest.err=why||'فشل التفريغ';if(st)st.textContent='🧪 فشل: '+LM._engTest.err;_refresh();},'');
+      },function(){LM._engTest.err='فشل فك ترميز الصوت المعروف';_refresh();});
+    }catch(e){LM._engTest.err=String(e&&e.message||e);_refresh();}
+  };
+  try{
+    _idbGet('audio','001001',function(cached){
+      if(cached){_run(cached.slice(0));return;}
+      fetch('https://everyayah.com/data/Alafasy_64kbps/001001.mp3')
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
+        .then(function(ab){try{_idbPut('audio','001001',ab.slice(0));}catch(e){}_run(ab);})
+        .catch(function(e){LM._engTest.err='تعذّر جلب صوت الاختبار: '+String(e&&e.message||e);_refresh();});
+    });
+  }catch(e){LM._engTest.err=String(e&&e.message||e);_refresh();}
 }
 /* عزل الprompt: تشغيل whisper بلا initial_prompt للمقارنة (تشخيص السبب) */
 function _lmTogglePrompt(){
@@ -2618,7 +2677,8 @@ function _lmDiagHtml(){
   return '<details class="mem2-diag" dir="rtl" style="margin:10px 6px;color:var(--muted)">'
     +'<summary style="cursor:pointer;font-size:11px;opacity:.65">تفاصيل تقنية</summary>'
     +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
-    +'<button onclick="_lmCopyDiag()" style="background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
+    +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
+    +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
     +'<button onclick="_lmTogglePrompt()" style="margin-inline-start:6px;background:rgba(234,204,126,.12);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">'+(LM._noPrompt?'إعادة prompt':'اختبار بلا prompt')+'</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
