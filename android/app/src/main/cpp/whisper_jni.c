@@ -19,7 +19,8 @@ Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeInit(JNIEnv *env, jclass cls
 JNIEXPORT jstring JNICALL
 Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeTranscribe(JNIEnv *env, jclass cls,
                                                                jlong ptr, jshortArray pcm,
-                                                               jstring lang, jint threads) {
+                                                               jstring lang, jint threads,
+                                                               jstring prompt) {
     (void) cls;
     struct whisper_context *ctx = (struct whisper_context *) (intptr_t) ptr;
     if (!ctx) return NULL;
@@ -34,6 +35,7 @@ Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeTranscribe(JNIEnv *env, jcla
     (*env)->ReleaseShortArrayElements(env, pcm, s, JNI_ABORT);
 
     const char *lg = (*env)->GetStringUTFChars(env, lang, NULL);
+    const char *pr = prompt ? (*env)->GetStringUTFChars(env, prompt, NULL) : NULL;
 
     struct whisper_full_params wp = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wp.language        = lg ? lg : "ar";
@@ -45,10 +47,13 @@ Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeTranscribe(JNIEnv *env, jcla
     wp.print_timestamps= false;
     wp.no_timestamps   = true;
     wp.suppress_blank  = true;
+    /* توجيه النص المتوقّع (النص حول المؤشر) — يرفع دقة تعرّف القرآن */
+    if (pr && pr[0]) wp.initial_prompt = pr;
 
     int rc = whisper_full(ctx, wp, f, (int) n);
     free(f);
     if (lg) (*env)->ReleaseStringUTFChars(env, lang, lg);
+    if (pr) (*env)->ReleaseStringUTFChars(env, prompt, pr);
     if (rc != 0) return NULL;
 
     int ns = whisper_full_n_segments(ctx);

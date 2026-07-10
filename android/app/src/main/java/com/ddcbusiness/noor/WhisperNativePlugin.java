@@ -1,5 +1,8 @@
 package com.ddcbusiness.noor;
 
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.util.Base64;
 
 import com.getcapacitor.JSObject;
@@ -10,14 +13,18 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** محرّك Whisper أصلي (whisper.cpp) — استدلال على المعالج مباشرة (معمارية ترتيل).
- *  الصوت يُمرَّر PCM 16kHz mono 16-bit LE بترميز base64.
+/** محرّك Whisper أصلي (whisper.cpp) — استدلال والتقاط صوت على المعالج مباشرة (معمارية ترتيل).
+ *  الالتقاط عبر Android AudioRecord: PCM 16kHz mono 16-bit من المايك — بلا ضغط ولا فك
+ *  ولا WebView ولا إعادة تشكيل JS. الصوت لا يغادر الطبقة الأصلية حتى يصير نصاً.
  *  فشل تحميل المكتبة/الموديل لا يكسر التطبيق — الجانب الجافاسكربتي يسقط لـWASM. */
 @CapacitorPlugin(name = "WhisperNative")
 public class WhisperNativePlugin extends Plugin {
+
+    private static final int SR = 16000;
 
     private static boolean libOk = false;
     static {
@@ -29,8 +36,20 @@ public class WhisperNativePlugin extends Plugin {
     /* منفّذ أحادي: يسلسل النوافذ — whisper_full ليس آمناً للتوازي على سياق واحد */
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
 
+    // ── حالة الالتقاط الحي ──
+    private AudioRecord recorder = null;
+    private Thread readThread = null;
+    private volatile boolean listening = false;
+    private final ArrayList<short[]> buf = new ArrayList<>(); // شرائح PCM بالترتيب
+    private int total = 0;          // إجمالي العيّنات الملتقَطة
+    private int emittedUpTo = 0;    // آخر عيّنة أُرسلت نافذتها
+    private int winSamples = SR * 2;      // طول النافذة (افتراضي 2ث)
+    private int overlapSamples = SR / 2;  // تداخل (افتراضي 0.5ث)
+    private volatile String prompt = "";  // النص المتوقّع حول المؤشر (توجيه)
+    private int seq = 0;
+
     private static native long nativeInit(String path);
-    private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads);
+    private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
     private static native void nativeFree(long ctx);
 
     private static int threadCount() {
@@ -43,6 +62,7 @@ public class WhisperNativePlugin extends Plugin {
         r.put("value", libOk);
         r.put("loaded", ctx != 0);
         r.put("threads", threadCount());
+        r.put("sampleRate", SR);
         call.resolve(r);
     }
 
@@ -68,12 +88,14 @@ public class WhisperNativePlugin extends Plugin {
         });
     }
 
+    /** تفريغ مقطع كامل (لحزمة الذهب / التشخيص) — PCM base64 16kHz mono. */
     @PluginMethod
     public void transcribe(PluginCall call) {
         if (!libOk) { call.reject("lib-missing"); return; }
         if (ctx == 0) { call.reject("not-loaded"); return; }
         String b64 = call.getString("pcm");
         final String lang = call.getString("language", "ar");
+        final String pr = call.getString("prompt", "");
         if (b64 == null || b64.isEmpty()) { call.reject("no-pcm"); return; }
         final String pcmB64 = b64;
         exec.execute(() -> {
@@ -83,7 +105,7 @@ public class WhisperNativePlugin extends Plugin {
                 ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcm);
                 int th = threadCount();
                 long t0 = System.currentTimeMillis();
-                String text = nativeTranscribe(ctx, pcm, lang, th);
+                String text = nativeTranscribe(ctx, pcm, lang, th, pr);
                 if (text == null) { call.reject("transcribe-failed"); return; }
                 JSObject r = new JSObject();
                 r.put("text", text);
@@ -96,17 +118,170 @@ public class WhisperNativePlugin extends Plugin {
         });
     }
 
+    // ── الالتقاط الحي: AudioRecord → نوافذ → whisper.cpp → أحداث للـJS ──
+
+    @PluginMethod
+    public void startListening(PluginCall call) {
+        if (!libOk) { call.reject("lib-missing"); return; }
+        if (ctx == 0) { call.reject("not-loaded"); return; }
+        if (listening) { call.resolve(); return; }
+
+        double winSec = call.getDouble("window_sec", 2.0);
+        double ovSec  = call.getDouble("overlap_sec", 0.5);
+        winSamples = Math.max(SR, (int) (winSec * SR));
+        overlapSamples = Math.max(0, (int) (ovSec * SR));
+        prompt = call.getString("prompt", "");
+
+        int minBuf = AudioRecord.getMinBufferSize(SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        if (minBuf <= 0) minBuf = SR; // احتياط
+        final int recBuf = Math.max(minBuf, SR); // ≥1ث تخزين مؤقت
+
+        try {
+            recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                    SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recBuf * 2);
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+                recorder.release(); recorder = null;
+                call.reject("audiorecord-init-failed");
+                return;
+            }
+        } catch (Throwable t) {
+            recorder = null;
+            call.reject("audiorecord-error: " + t.getMessage());
+            return;
+        }
+
+        synchronized (buf) { buf.clear(); total = 0; emittedUpTo = 0; seq = 0; }
+        listening = true;
+        recorder.startRecording();
+
+        readThread = new Thread(() -> {
+            short[] block = new short[2048];
+            while (listening) {
+                int nr = recorder.read(block, 0, block.length);
+                if (nr > 0) {
+                    short[] chunk = new short[nr];
+                    System.arraycopy(block, 0, chunk, 0, nr);
+                    int nowTotal;
+                    synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
+                    // نافذة جديدة كل winSamples من الصوت الجديد
+                    if (nowTotal - emittedUpTo >= winSamples) {
+                        final int from = Math.max(0, emittedUpTo - overlapSamples);
+                        final int to = nowTotal;
+                        emittedUpTo = nowTotal;
+                        dispatchWindow(from, to, ++seq, false);
+                    }
+                } else if (nr < 0) {
+                    break; // خطأ قراءة
+                }
+            }
+        }, "whisper-audiorecord");
+        readThread.setPriority(Thread.MAX_PRIORITY);
+        readThread.start();
+
+        JSObject r = new JSObject();
+        r.put("ok", true);
+        r.put("sampleRate", SR);
+        call.resolve(r);
+    }
+
+    /** تحديث النص المتوقّع مع تقدّم المؤشر (توجيه لحظي). */
+    @PluginMethod
+    public void setPrompt(PluginCall call) {
+        prompt = call.getString("prompt", "");
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopListening(PluginCall call) {
+        if (!listening) { call.resolve(); return; }
+        listening = false;
+        try { if (readThread != null) readThread.join(1500); } catch (InterruptedException ignored) {}
+        try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
+
+        final int from, to, mySeq;
+        synchronized (buf) { from = Math.max(0, emittedUpTo - overlapSamples); to = total; mySeq = ++seq; }
+        // النافذة الأخيرة ثم النتيجة النهائية + PCM الكامل (لـ«استمع للمسجَّل»)
+        exec.execute(() -> {
+            try {
+                if (to > from) {
+                    short[] w = slice(from, to);
+                    String text = nativeTranscribe(ctx, w, "ar", threadCount(), prompt);
+                    JSObject ev = new JSObject();
+                    ev.put("seq", mySeq);
+                    ev.put("text", text == null ? "" : text);
+                    ev.put("final", true);
+                    notifyListeners("partial", ev);
+                }
+            } catch (Throwable ignored) {}
+            // بناء PCM الكامل base64 LE
+            short[] all = slice(0, total);
+            byte[] bytes = new byte[all.length * 2];
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(all);
+            JSObject res = new JSObject();
+            res.put("pcm", Base64.encodeToString(bytes, Base64.NO_WRAP));
+            res.put("sampleRate", SR);
+            res.put("samples", total);
+            releaseRecorder();
+            call.resolve(res);
+        });
+    }
+
+    private void dispatchWindow(final int from, final int to, final int mySeq, final boolean isFinal) {
+        exec.execute(() -> {
+            try {
+                if (ctx == 0 || to <= from) return;
+                short[] w = slice(from, to);
+                long t0 = System.currentTimeMillis();
+                String text = nativeTranscribe(ctx, w, "ar", threadCount(), prompt);
+                JSObject ev = new JSObject();
+                ev.put("seq", mySeq);
+                ev.put("text", text == null ? "" : text);
+                ev.put("ms", System.currentTimeMillis() - t0);
+                ev.put("final", isFinal);
+                notifyListeners("partial", ev);
+            } catch (Throwable ignored) {}
+        });
+    }
+
+    /** نسخ العيّنات [from,to) من قائمة الشرائح إلى short[] واحد. */
+    private short[] slice(int from, int to) {
+        synchronized (buf) {
+            int len = Math.max(0, to - from);
+            short[] out = new short[len];
+            int pos = 0, w = 0;
+            for (int i = 0; i < buf.size() && w < len; i++) {
+                short[] ch = buf.get(i);
+                int cs = pos, ce = pos + ch.length; pos = ce;
+                if (ce <= from) continue;
+                int a = Math.max(from, cs) - cs;
+                int b = Math.min(to, ce) - cs;
+                for (int j = a; j < b && w < len; j++) out[w++] = ch[j];
+            }
+            return out;
+        }
+    }
+
+    private void releaseRecorder() {
+        try { if (recorder != null) { recorder.release(); } } catch (Throwable ignored) {}
+        recorder = null; readThread = null;
+    }
+
     @PluginMethod
     public void unload(PluginCall call) {
+        listening = false;
         exec.execute(() -> {
+            releaseRecorder();
             if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
             call.resolve();
         });
     }
 
-    /* تحرير السياق عند تدمير النشاط — لا تسريب لذاكرة الموديل */
+    /* تحرير كل الموارد عند تدمير النشاط — لا تسريب مايك/ذاكرة موديل */
     @Override
     protected void handleOnDestroy() {
+        listening = false;
+        try { if (readThread != null) readThread.join(500); } catch (InterruptedException ignored) {}
+        releaseRecorder();
         if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
         super.handleOnDestroy();
     }
