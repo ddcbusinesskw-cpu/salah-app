@@ -2380,11 +2380,16 @@ function _vkOnProgress(ev){
     else if(ev.phase==='unzip')st.textContent='⏳ فكّ محرّك الستريمنغ… ('+(ev.files||0)+' ملف)';
   }
 }
-/* المرحلة ١: تخزين الجزئية فقط (المحاذاة في المرحلة ٢) */
 function _vkOnPartial(ev){
   if(!ev)return;
   VK.lastPartial=(ev.text||'').trim();
-  if(typeof _vkAlign==='function')_vkAlign(VK.lastPartial,!!ev.final); /* المرحلة ٢ */
+  if(ev.raw!=null)VK.lastRaw=ev.raw;
+  if(typeof _vkAlign==='function')_vkAlign(VK.lastPartial,!!ev.final);
+}
+/* تشخيص: اسحب إحصاء Vosk (عيّنات مُغذّاة/استدعاءات/آخر نتيجة خام/ملفات الموديل) */
+function _vkPollStats(){
+  var P=_vkPlug();if(!P||!P.voskStats)return;
+  P.voskStats().then(function(s){VK.stats=s;}).catch(function(){});
 }
 /* تهيئة Vosk: تحقّق التوفّر → تنزيل الموديل → تحميله. مرّة واحدة. */
 function _vkEnsure(cb){
@@ -2596,12 +2601,14 @@ function lmStart(){
     try{rakWakeLock(true);}catch(e){}
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     try{P.addListener('partial',lmOnPartial);}catch(e){}
-    /* الطبقة الفورية Vosk: مفعّلة إن جاهزة، وإلا تُنزَّل في الخلفية (whisper يقود حتى تجهز) */
+    /* إصلاح: removeAllListeners أعلاه يزيل مستمعات Vosk — أعد ربطها دائماً
+       (وإلا لا تصل أحداث vosk_partial بعد أول جلسة → Vosk صامت في JS). */
+    VK._wired=false;_vkWire(P);
     VK.listening=true;
+    try{if(VK._statIv)clearInterval(VK._statIv);VK._statIv=setInterval(_vkPollStats,1000);}catch(e){}
     if(!VK.ready&&!VK.tried){try{_vkEnsure(function(ok){var s2=document.getElementById('lmStatus');if(ok&&s2&&LM.rec)s2.textContent='🎙 يستمع (فوري)…';});}catch(e){}}
-    else if(VK.ready){_vkWire(P);}
-    /* نافذة نامية (عبارة كاملة) + تعرّف حرّ (بلا prompt): whisper يرى عبارة كاملة كما في 🧪 */
-    P.startStream({slide_sec:1.5,max_sec:18,prompt:''}).catch(function(e){
+    /* نافذة قصيرة (سقف ~7ث) + تعرّف حرّ: تمريرات ~1-2ث لا 3-4ث */
+    P.startStream({slide_sec:1.2,max_sec:7,prompt:''}).catch(function(e){
       LM.rec=false;
       var msg=String(e&&e.message||e);LM._captureErr=msg;
       var perm=/permission|إذن|مرفوض/i.test(msg);
@@ -2625,6 +2632,8 @@ function lmStart(){
 }
 function lmStop(){
   if(!LM.rec)return;LM.rec=false;VK.listening=false;
+  try{if(VK._statIv){clearInterval(VK._statIv);VK._statIv=null;}}catch(e){}
+  try{_vkPollStats();}catch(e){}
   try{var _vp=_vkPlug();if(_vp&&_vp.voskReset)_vp.voskReset();}catch(e){}
   var P=_wnPlug(),st=document.getElementById('lmStatus');
   var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='🎙 استمع';
@@ -2676,7 +2685,10 @@ function _lmDiagText(){
     'الطبقة الفورية (Vosk): '+_vkS,
     'التأكيد الدقيق (whisper.cpp): '+(WN.ready?'جاهز ('+WN.threads+' خيوط)':'غير مفعّل'),
     'تقدّم المؤشر: Vosk='+(LM._nV||0)+' كلمة · whisper='+(LM._nW||0)+' كلمة'+(LM._vkFirstMs?' · أول توهّج Vosk بعد '+LM._vkFirstMs+'ms':''),
-    'Vosk سمع (جزئي): '+(LM._vkHeard||'—'),
+    'Vosk سمع (جزئي): '+(LM._vkHeard||VK.lastPartial||'—'),
+    'Vosk نتيجة خام: '+(VK.lastRaw||(VK.stats&&VK.stats.lastRaw)||'—'),
+    (VK.stats?('Vosk تغذية: '+(VK.stats.secFed||0)+'ث ('+(VK.stats.samplesFed||0)+' عيّنة · '+(VK.stats.calls||0)+' استدعاء) · معدّل='+(VK.stats.sampleRate||0)+'Hz · إعادات VAD='+(VK.stats.vadResets||0)):'Vosk تغذية: — (سجّل لرؤيتها)'),
+    (VK.stats&&VK.stats.files?'Vosk ملفات الموديل: '+Object.keys(VK.stats.files).map(function(k){var v=VK.stats.files[k];return v>=0?(k+'='+(v>1048576?(v/1048576).toFixed(0)+'MB':v>1024?(v/1024).toFixed(0)+'KB':v+'B')):(k+'✗');}).join(' · '):''),
     'معلومات النموذج (whisper_init): '+(g.modelInfo||'—'),
     'معاملات whisper الفعلية: '+(g.config||'—'),
     'مصدر الصوت: AudioRecord أصلي 16kHz mono PCM16 (يغذّي المحرّكين — لا مايك ثانٍ)',

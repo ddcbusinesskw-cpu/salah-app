@@ -70,15 +70,15 @@ public class WhisperNativePlugin extends Plugin {
        كاملة لا شريحة مقطوعة. تُعاد نقطة الارتساء عند صمت VAD أو تجاوز السقف. */
     private int anchorSample = 0;               // بداية النافذة النامية
     private int slideSamples = (int)(SR * 1.5); // أعد النسخ كل ~1.5ث من الصوت الجديد
-    private int maxWinSamples = SR * 18;         // سقف النافذة (~18ث) — تفادي النمو اللانهائي
+    private int maxWinSamples = SR * 7;          // سقف النافذة (~7ث) — تمريرات whisper سريعة
     private int silenceRun = 0;                  // عدّاد السكوت المتصل (عيّنات)
     private boolean hadSpeech = false;           // سُمع كلام منذ آخر ارتساء؟
     private volatile boolean busy = false;       // المحرّك يفرّغ الآن؟ (أسقِط النوافذ المتراكمة)
     private volatile String prompt = "";        // (تعرّف حرّ: يبقى فارغاً في البثّ الحي)
     private int seq = 0;
-    /* عتبة السكوت: ذروة كتلة < ~0.012 مطبَّع = صمت. 0.6ث سكوت بعد كلام → ارتساء جديد. */
-    private static final int SILENCE_PEAK = 380;
-    private static final int SILENCE_RESET = (int)(SR * 0.6);
+    /* عتبة السكوت (RMS ~0.008 مطبَّع). 0.45ث سكوت بعد كلام → ارتساء جديد (وقفة آية). */
+    private static final double SILENCE_RMS = 260.0;
+    private static final int SILENCE_RESET = (int)(SR * 0.45);
 
     // ── Vosk: تعرّف ستريمنغ لحظي (طبقة فورية تقود التوهّج) ──
     private Model voskModel = null;
@@ -88,6 +88,11 @@ public class WhisperNativePlugin extends Plugin {
     private String voskModelPath = "";
     private final Object voskLock = new Object();   // يحمي إنشاء/إغلاق/تغذية Recognizer
     private String lastVoskPartial = "";            // لا تُرسل نفس الجزئية مرّتين
+    // تشخيص Vosk: إثبات وصول الصوت وما يعيده فعلاً
+    private volatile long voskSamplesFed = 0;
+    private volatile int voskCalls = 0;
+    private volatile String lastVoskRaw = "";
+    private volatile int vadResets = 0;             // كم مرّة أعاد VAD الارتساء
 
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
@@ -189,8 +194,8 @@ public class WhisperNativePlugin extends Plugin {
             return;
         }
 
-        double slideSec = call.getDouble("slide_sec", 1.5);
-        double maxSec   = call.getDouble("max_sec", 18.0);
+        double slideSec = call.getDouble("slide_sec", 1.2);
+        double maxSec   = call.getDouble("max_sec", 7.0);
         slideSamples  = Math.max(SR / 2, (int) (slideSec * SR));
         maxWinSamples = Math.max(4 * SR, (int) (maxSec * SR));
         prompt = call.getString("prompt", ""); // تعرّف حرّ: فارغ عادةً
@@ -222,6 +227,7 @@ public class WhisperNativePlugin extends Plugin {
             anchorSample = 0; silenceRun = 0; hadSpeech = false;
         }
         busy = false;
+        voskSamplesFed = 0; voskCalls = 0; lastVoskRaw = ""; lastVoskPartial = ""; vadResets = 0;
         listening = true;
         recorder.startRecording();
 
@@ -238,7 +244,9 @@ public class WhisperNativePlugin extends Plugin {
                             if (voskRec != null) {
                                 try {
                                     boolean vend = voskRec.acceptWaveForm(block, nr);
+                                    voskCalls++; voskSamplesFed += nr;
                                     String vjs = vend ? voskRec.getResult() : voskRec.getPartialResult();
+                                    lastVoskRaw = vjs;   // تشخيص: النتيجة الخام كما يعيدها Vosk (ولو فارغة)
                                     String vtxt = "";
                                     try { vtxt = new JSONObject(vjs).optString(vend ? "text" : "partial", ""); } catch (Throwable ig) {}
                                     if (vend || !vtxt.equals(lastVoskPartial)) {
@@ -246,22 +254,24 @@ public class WhisperNativePlugin extends Plugin {
                                         JSObject vev = new JSObject();
                                         vev.put("text", vtxt);
                                         vev.put("final", vend);
+                                        vev.put("raw", vjs);
                                         notifyListeners("vosk_partial", vev);
                                     }
                                 } catch (Throwable ig) {}
                             }
                         }
                     }
-                    // VAD بسيط: ذروة الكتلة → كشف السكوت لإعادة الارتساء عند الوقفات
-                    int bpk = 0;
-                    for (int i = 0; i < nr; i++) { int a = Math.abs(block[i]); if (a > bpk) bpk = a; }
-                    boolean silent = bpk < SILENCE_PEAK;
+                    // VAD بـRMS (أمتن من الذروة ضدّ ضجيج عابر) → إعادة الارتساء عند وقفات الآيات
+                    long bsq = 0;
+                    for (int i = 0; i < nr; i++) { bsq += (long) block[i] * block[i]; }
+                    double brms = nr > 0 ? Math.sqrt((double) bsq / nr) : 0;
+                    boolean silent = brms < SILENCE_RMS;
                     int nowTotal;
                     synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
-                    // ارتساء جديد: 0.6ث سكوت بعد كلام = نهاية عبارة → ابدأ النافذة من هنا
+                    // ارتساء جديد: سكوت SILENCE_RESET بعد كلام = نهاية عبارة → ابدأ النافذة من هنا
                     if (silent) {
                         silenceRun += nr;
-                        if (hadSpeech && silenceRun >= SILENCE_RESET) { anchorSample = nowTotal; hadSpeech = false; }
+                        if (hadSpeech && silenceRun >= SILENCE_RESET) { anchorSample = nowTotal; hadSpeech = false; vadResets++; }
                     } else {
                         silenceRun = 0; hadSpeech = true;
                     }
@@ -410,7 +420,7 @@ public class WhisperNativePlugin extends Plugin {
                 File base = new File(getContext().getFilesDir(), "vosk");
                 if (!base.exists()) base.mkdirs();
                 File modelDir = new File(base, name);
-                if (modelDir.exists() && new File(modelDir, "conf").exists()) {
+                if (voskModelOk(modelDir)) {
                     JSObject r0 = new JSObject(); r0.put("path", modelDir.getAbsolutePath()); r0.put("cached", true);
                     call.resolve(r0); return;
                 }
@@ -436,8 +446,8 @@ public class WhisperNativePlugin extends Plugin {
                 JSObject uz = new JSObject(); uz.put("phase", "unzip"); notifyListeners("vosk_progress", uz);
                 unzip(zip, base);
                 zip.delete();
-                if (!modelDir.exists() || !new File(modelDir, "conf").exists()) {
-                    call.reject("vosk-unzip-bad: مجلد الموديل غير مكتمل"); return;
+                if (!voskModelOk(modelDir)) {
+                    call.reject("vosk-unzip-bad: ملفات الموديل ناقصة (am/final.mdl أو conf/model.conf أو graph مفقود — قد تكون المساحة نفدت)"); return;
                 }
                 JSObject r = new JSObject(); r.put("path", modelDir.getAbsolutePath());
                 call.resolve(r);
@@ -479,6 +489,40 @@ public class WhisperNativePlugin extends Plugin {
         synchronized (voskLock) { if (voskRec != null) { try { voskRec.reset(); } catch (Throwable ignored) {} } }
         lastVoskPartial = "";
         call.resolve();
+    }
+
+    /** تشخيص Vosk: يثبت وصول الصوت وما يعيده فعلاً + سلامة ملفات الموديل. */
+    @PluginMethod
+    public void voskStats(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("ready", voskReady);
+        r.put("loading", voskLoading);
+        r.put("sampleRate", SR);
+        r.put("samplesFed", voskSamplesFed);
+        r.put("secFed", Math.round((voskSamplesFed / (double) SR) * 10) / 10.0);
+        r.put("calls", voskCalls);
+        r.put("lastRaw", lastVoskRaw);
+        r.put("vadResets", vadResets);
+        r.put("modelPath", voskModelPath);
+        JSObject files = new JSObject();
+        if (voskModelPath != null && !voskModelPath.isEmpty()) {
+            String[] keys = {"conf/model.conf", "conf/mfcc.conf", "am/final.mdl",
+                    "graph/HCLG.fst", "graph/HCLr.fst", "graph/Gr.fst",
+                    "graph/phones/word_boundary.int", "ivector/final.ie"};
+            for (String k : keys) { File f = new File(voskModelPath, k); files.put(k, f.exists() ? f.length() : -1); }
+        }
+        r.put("files", files);
+        call.resolve(r);
+    }
+
+    /** تحقّق سلامة موديل Vosk: الملفات الأساسية موجودة (لا مجرّد وجود المجلد). */
+    private boolean voskModelOk(File dir) {
+        if (dir == null || !dir.isDirectory()) return false;
+        if (!new File(dir, "am/final.mdl").exists()) return false;
+        if (!new File(dir, "conf/model.conf").exists()) return false;
+        return new File(dir, "graph/HCLG.fst").exists()
+            || new File(dir, "graph/HCLr.fst").exists()
+            || new File(dir, "graph/Gr.fst").exists();
     }
 
     /** فكّ zip بثّاً إلى مجلد (بحماية zip-slip). */
