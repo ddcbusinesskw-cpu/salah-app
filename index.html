@@ -2469,13 +2469,26 @@ function lmAdvance(heard){
 function lmOnPartial(ev){
   if(!LM.rec)return;
   var t=(ev&&ev.text||'').trim();
-  if(ev&&ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
-  if(ev&&ev.text!=null)LM._heard=t;
+  if(ev){
+    if(ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
+    if(LM._wins){LM._wins.push({t:t,ms:ev.ms||0,n:ev.samples||0,pk:ev.peak||0,rms:ev.rms||0,pl:ev.prompt_len||0});if(LM._wins.length>40)LM._wins.shift();}
+    if(ev.text!=null)LM._heard=t;
+  }
   if(!t)return;
   var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
+  var before=LM.cursor;
   lmAdvance(heard);
+  /* تقدّم المؤشر → حدّث سياق prompt المحرّك حول الموضع الجديد */
+  if(LM.cursor!==before){try{var P=_wnPlug();if(P&&P.setPrompt)P.setPrompt({prompt:_lmPromptAt(LM.cursor)});}catch(e){}}
 }
 function lmToggleRec(){LM.rec?lmStop():lmStart();}
+/* prompt قصير حول المؤشر (~12 كلمة): سياق يوجّه whisper دون تجاوز حدّ tokens.
+   الصفحة كاملة كـinitial_prompt (مئات الكلمات) تُقصَّ وتكتم المخرَج → شظية. */
+function _lmPromptAt(cur){
+  if(LM._noPrompt)return '';
+  var a=Math.max(0,(cur||0)-3),b=Math.min(LM.words.length,(cur||0)+12);
+  return LM.words.slice(a,b).map(function(w){return w.raw;}).join(' ');
+}
 function lmStart(){
   var st=document.getElementById('lmStatus');
   /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
@@ -2489,9 +2502,9 @@ function lmStart(){
   }
   var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
   LM._captureErr='';
-  var prompt=LM.words.map(function(w){return w.raw;}).join(' ');
+  var prompt=_lmPromptAt(0);
   var _begin=function(){
-    LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._t0=Date.now();
+    LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
     var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='⏹ إيقاف';
     var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
@@ -2573,9 +2586,24 @@ function _lmDiagText(){
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
     'whisper سمع (آخر نافذة): '+(LM._heard||'—'),
+    'الprompt: '+(LM._noPrompt?'مُعطَّل (تشخيص خام)':'قصير حول المؤشر (~'+_lmPromptAt(LM.cursor||0).split(/\s+/).filter(Boolean).length+' كلمة)'),
+    'سياق الprompt الحالي: '+(_lmPromptAt(LM.cursor||0)||'—'),
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
+  if(LM._wins&&LM._wins.length){
+    L.push('── النوافذ (آخر '+Math.min(12,LM._wins.length)+') · عيّنات/ذروة/rms/طول prompt/النص ──');
+    LM._wins.slice(-12).forEach(function(w,i){
+      L.push('#'+(i+1)+'  n='+w.n+'  ذروة='+w.pk+'  rms='+w.rms+'  pl='+w.pl+'  «'+(w.t||'—')+'»');
+    });
+  }
   if(typeof _wnDownDiag==='function'){var dd=_wnDownDiag();if(dd)L.push('── تنزيل GGUF ──',dd);}
   return L.filter(Boolean).join('\n');
+}
+/* عزل الprompt: تشغيل whisper بلا initial_prompt للمقارنة (تشخيص السبب) */
+function _lmTogglePrompt(){
+  LM._noPrompt=!LM._noPrompt;
+  try{var P=_wnPlug();if(P&&P.setPrompt)P.setPrompt({prompt:_lmPromptAt(LM.cursor||0)});}catch(e){}
+  try{toast(LM._noPrompt?'أُوقف الprompt — اضغط «استمع» لاختبار خام':'أُعيد الprompt القصير','info');}catch(e){}
+  var res=document.getElementById('lmResult');if(res)res.innerHTML=_lmDiagHtml();
 }
 function _lmCopyDiag(){
   var t=_lmDiagText();
@@ -2591,6 +2619,7 @@ function _lmDiagHtml(){
     +'<summary style="cursor:pointer;font-size:11px;opacity:.65">تفاصيل تقنية</summary>'
     +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
     +'<button onclick="_lmCopyDiag()" style="background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
+    +'<button onclick="_lmTogglePrompt()" style="margin-inline-start:6px;background:rgba(234,204,126,.12);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">'+(LM._noPrompt?'إعادة prompt':'اختبار بلا prompt')+'</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
 }

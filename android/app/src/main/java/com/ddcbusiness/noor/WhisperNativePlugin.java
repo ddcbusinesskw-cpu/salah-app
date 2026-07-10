@@ -264,6 +264,11 @@ public class WhisperNativePlugin extends Plugin {
             try {
                 if (ctx == 0 || to <= from) return;
                 short[] w = slice(from, to);
+                /* مقاييس السعة (float مطبَّع /32768): تثبت أن النافذة تحمل صوتاً فعلياً لا صمتاً */
+                int pk = 0; long sq = 0;
+                for (int i = 0; i < w.length; i++) { int a = Math.abs(w[i]); if (a > pk) pk = a; sq += (long) w[i] * w[i]; }
+                double peak = pk / 32768.0;
+                double rms = w.length > 0 ? Math.sqrt((double) sq / w.length) / 32768.0 : 0;
                 long t0 = System.currentTimeMillis();
                 String text = nativeTranscribe(ctx, w, "ar", threadCount(), prompt);
                 JSObject ev = new JSObject();
@@ -271,6 +276,10 @@ public class WhisperNativePlugin extends Plugin {
                 ev.put("text", text == null ? "" : text);
                 ev.put("ms", System.currentTimeMillis() - t0);
                 ev.put("final", isFinal);
+                ev.put("samples", w.length);
+                ev.put("peak", Math.round(peak * 1000) / 1000.0);
+                ev.put("rms", Math.round(rms * 1000) / 1000.0);
+                ev.put("prompt_len", prompt == null ? 0 : prompt.length());
                 notifyListeners("partial", ev);
             } catch (Throwable ignored) {}
         });
