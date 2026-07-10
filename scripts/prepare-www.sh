@@ -32,6 +32,10 @@ echo "→ Copying models/ to www/"
 rm -rf "$ROOT/www/models"
 cp -r "$ROOT/models" "$ROOT/www/models"
 
+echo "→ Copying mushaf/ (QCF fonts + layout) to www/"
+rm -rf "$ROOT/www/mushaf"
+cp -r "$ROOT/mushaf" "$ROOT/www/mushaf"
+
 echo "→ Injecting native-bridge.js into www/index.html"
 # Append script tag before </body> — only if not already present
 if ! grep -q 'native-bridge.js' "$ROOT/www/index.html"; then
