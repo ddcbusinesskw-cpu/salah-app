@@ -2764,6 +2764,7 @@ function _lmDiagHtml(){
     +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
     +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
+    +((!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
     +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
