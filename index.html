@@ -2249,6 +2249,82 @@ function _buildStamp(){return (BUILD_STAMP.indexOf('__BUILD')===0)?'dev':BUILD_S
 var TINY_MODEL='Oa-4/whisper-tiny-ar-quran-ONNX-tjs';
 var WIN_SEC=8;      /* طول نافذة المرحلة السريعة (ث) */
 var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر الكلمات على الحدود */
+/* ═══ المحرّك الأصلي (whisper.cpp عبر WhisperNative) — معمارية ترتيل ═══
+   استدلال على المعالج مباشرة: نافذة 10ث ≈ ≤1.5ث على جهاز متوسط.
+   أي فشل (plugin/موديل/تنزيل) → مسار WASM كما هو، بسطر تشخيصي. */
+var WN={ready:false,tried:false,loading:false,threads:0,pend:0,fails:0};
+var WN_GGUF_URL='https://huggingface.co/Oa-4/whisper-tiny-ar-quran-gguf/resolve/main/ggml-tiny-ar-quran-q8_0.bin';
+var WN_GGUF_FILE='ggml-tiny-ar-quran-q8_0.bin';
+function _wnPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
+function _wnDiag(s){console.log('[wn] '+s);_w2Diag('أصلي: '+s);}
+/* تهيئة مرة واحدة: تحقّق من المكتبة → الملف (تنزيل بتقدّم إن لزم) → تحميل */
+function _wnEnsure(){
+  if(WN.ready||WN.loading||WN.tried)return;
+  var P=_wnPlug(),FS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
+  if(!_isAndroidNative()||!P||!FS){WN.tried=true;return;}
+  WN.loading=true;
+  P.isAvailable().then(function(av){
+    if(!(av&&av.value)){WN.tried=true;WN.loading=false;_wnDiag('مكتبة whisper_jni غير متاحة على هذا الجهاز — WASM');return;}
+    WN.threads=av.threads||2;
+    function _load(){
+      FS.getUri({path:WN_GGUF_FILE,directory:'DATA'}).then(function(u){
+        return P.loadModel({path:u.uri});
+      }).then(function(r){
+        WN.ready=true;WN.loading=false;WN.threads=(r&&r.threads)||WN.threads;
+        console.log('[wn] المحرّك الأصلي جاهز — '+WN.threads+' خيوط');
+        var _mb=document.getElementById('mem2Build');
+        if(_mb&&_mb.textContent.indexOf('أصلي')<0)_mb.textContent+=' · محرّك أصلي ✓';
+      }).catch(function(e){
+        WN.tried=true;WN.loading=false;
+        _wnDiag('فشل تحميل الموديل ('+String(e&&e.message||e).slice(0,50)+') — WASM');
+      });
+    }
+    FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(st){
+      if(st&&st.size>1000000){_load();return;}
+      return Promise.reject();
+    }).catch(function(){
+      /* تنزيل مرة واحدة — بتقدّم ومهلة (نفس فلسفة نظام التنزيل الحالي) */
+      var _mb=document.getElementById('mem2Build');
+      var prog=null;
+      try{prog=FS.addListener('progress',function(p){
+        if(_mb&&p&&p.contentLength>0)_mb.textContent='build '+_buildStamp()+' · تنزيل المحرّك الأصلي '+Math.round(p.bytes*100/p.contentLength)+'%';
+      });}catch(e){}
+      var dlTO=setTimeout(function(){WN.tried=true;WN.loading=false;_wnDiag('مهلة تنزيل الموديل (120ث) — WASM');},120000);
+      FS.downloadFile({url:WN_GGUF_URL,path:WN_GGUF_FILE,directory:'DATA',progress:true})
+        .then(function(){
+          clearTimeout(dlTO);
+          try{if(prog&&prog.then)prog.then(function(h){h.remove();});}catch(e){}
+          if(_mb)_mb.textContent='build '+_buildStamp();
+          if(!WN.tried)_load();
+        })
+        .catch(function(e){
+          clearTimeout(dlTO);
+          try{if(prog&&prog.then)prog.then(function(h){h.remove();});}catch(e2){}
+          WN.tried=true;WN.loading=false;
+          if(_mb)_mb.textContent='build '+_buildStamp();
+          _wnDiag('فشل تنزيل الموديل ('+String(e&&e.message||e).slice(0,40)+') — WASM');
+        });
+    });
+  }).catch(function(){WN.tried=true;WN.loading=false;});
+}
+/* تفريغ نافذة PCM عبر المحرّك الأصلي: Float32 → Int16 LE → base64 */
+function _wnTranscribe(f32,cb,fail){
+  var P=_wnPlug();
+  if(!P||!WN.ready){fail('not-ready');return;}
+  var n=f32.length,i16=new Int16Array(n);
+  for(var i=0;i<n;i++){var v=f32[i];v=v>1?1:(v<-1?-1:v);i16[i]=(v*32767)|0;}
+  var bytes=new Uint8Array(i16.buffer),bin='',CH=32768;
+  for(var o=0;o<bytes.length;o+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(o,Math.min(o+CH,bytes.length)));
+  var b64=btoa(bin);
+  P.transcribe({pcm:b64,language:'ar'}).then(function(r){
+    WN.fails=0;
+    cb({text:(r&&r.text)||'',ms:(r&&r.ms)||0,threads:(r&&r.threads)||WN.threads});
+  }).catch(function(e){
+    WN.fails++;
+    if(WN.fails>=2){WN.ready=false;_wnDiag('تعطّل بعد فشلين — سقوط لـWASM');}
+    fail(String(e&&e.message||e).slice(0,60));
+  });
+}
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
@@ -2300,6 +2376,8 @@ function initMemorize(){
   try{if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');}catch(e){}
   /* حمّل tiny مسبقاً (المرحلة السريعة) — إن كان base جاهزاً أصلاً ولم يُحمّل tiny */
   try{if(W2.worker&&W2.modelReady&&!W2._tinyReady&&!W2._tinyTried){W2._tinyTried=true;W2.worker.postMessage({type:'loadTiny',model:TINY_MODEL});}}catch(e){}
+  /* المحرّك الأصلي (whisper.cpp): تنزيل/تحميل مرة — فشله لا يمسّ شيئاً */
+  try{_wnEnsure();}catch(e){}
   _loadW2Ref();
   var sel=document.getElementById('memSurah');
   if(sel&&!sel.options.length){
@@ -3452,8 +3530,8 @@ function _mem2DiagText(){
     'المسار المتّخذ: '+(d.path||'—'),
     'نص التعرّف المجمّع: '+(d.words||0)+' كلمة · دورات: '+(d.cycles||0)+(d.watchdog?' · إنعاش رقيب: '+d.watchdog:''),
     d.gate?'حكم سريع: '+d.gate:'',
-    (d.winMs&&d.winMs.length)?'نوافذ tiny: '+d.winMs.join('ms · ')+'ms':'',
-    'الموديل الصغير: '+(W2._tinyReady?'جاهز ✓':'غير متاح (base وحده)'),
+    'محرّك النوافذ: '+(WN.ready?'أصلي whisper.cpp ('+WN.threads+' خيوط)':(W2._tinyReady?'WASM tiny':'WASM base')),
+    (d.winMs&&d.winMs.length)?'أزمنة النوافذ: '+d.winMs.join('ms · ')+'ms':'',
     d.flushMs?'زمن تثبيت التعرّف: '+d.flushMs+'ms':'',
     d.whisperMs?'زمن base: '+d.whisperMs+'ms':'',
     r?'النتيجة: ✅'+(r.ok||0)+' ❌'+(r.err||0)+(r.miss?' ⬜'+r.miss+' (لم تُسمع)':''):'',
@@ -4273,6 +4351,21 @@ function _gsRun(){
         return;
       }
       _gsDecode(c,function(f32){
+        /* المحرّك الأصلي إن كان جاهزاً — نفس _gsVerdict، فيتحقّق تطابق أحكامه مع WASM */
+        if(typeof WN!=='undefined'&&WN.ready){
+          var natTO=setTimeout(function(){rows.push({label:c.label,expect:c.expect,fail:'مهلة أصلي 60ث',pass:false});runNext();},60000);
+          _wnTranscribe(f32,function(r){
+            clearTimeout(natTO);
+            var v=_gsVerdict(c.ref,r.text||'');
+            rows.push({label:c.label+' ⚡',expect:c.expect,cat:v.cat,okN:v.ok,errN:v.err,missN:v.miss,pass:v.cat===c.expect});
+            runNext();
+          },function(why){
+            clearTimeout(natTO);
+            rows.push({label:c.label,expect:c.expect,fail:'أصلي: '+why,pass:false});
+            runNext();
+          });
+          return;
+        }
         /* ميزانية صارمة: 60ث لكل مقطع ثم فشل صريح — لا تعليق */
         var segTO=setTimeout(function(){rows.push({label:c.label,expect:c.expect,fail:'مهلة 60ث',pass:false});runNext();},60000);
         w.onmessage=function(ev){
@@ -4693,15 +4786,33 @@ function _w2CascWindow(isFinal){
     for(var j=a;j<b&&w<len;j++)win[w++]=chunk[j];
   }
   c.lastEnd=endS;c.seq++;c.pend++;
+  var mySeq=c.seq;
+  if(isFinal)c._finalSeq=mySeq;
+  /* المحرّك الأصلي أولاً (whisper.cpp — أسرع بكثير)؛ فشله → WASM لنفس النافذة */
+  if(WN.ready){
+    var winView=(w===win.length)?win:win.subarray(0,w);
+    _wnTranscribe(winView,function(r){
+      _w2OnWinResult({seq:mySeq,text:r.text,procMs:r.ms,native:true,threads:r.threads});
+    },function(err){
+      /* سقوط لنفس النافذة عبر WASM — لا نافذة تضيع */
+      if(W2.worker&&W2.modelReady){
+        var seg2=new Float32Array(win.subarray(0,w));
+        W2.worker.postMessage({type:'win',seq:mySeq,buffer:seg2.buffer,length:w},[seg2.buffer]);
+      }else{
+        _w2OnWinResult({seq:mySeq,text:'',err:err});
+      }
+    });
+    return;
+  }
   var buf=win.buffer;
-  W2.worker.postMessage({type:'win',seq:c.seq,buffer:buf,length:w},[buf]);
-  if(isFinal)c._finalSeq=c.seq;
+  W2.worker.postMessage({type:'win',seq:mySeq,buffer:buf,length:w},[buf]);
 }
 function _w2OnWinResult(m){
   var c=W2._casc;if(!c)return;
   c.pend=Math.max(0,c.pend-1);
   if(m.tiny)c.usedTiny=true;
-  if(m.procMs){c.winMs.push(m.procMs);_w2Diag('نافذة '+m.seq+': '+m.procMs+'ms'+(m.tiny?' (tiny)':' (base)')+' — '+((m.text||'').split(/\s+/).filter(Boolean).length)+' كلمة');}
+  if(m.native)c.usedNative=true;
+  if(m.procMs){c.winMs.push(m.procMs);_w2Diag('نافذة '+m.seq+': '+m.procMs+'ms '+(m.native?'(أصلي '+(m.threads||'?')+'خ)':(m.tiny?'(tiny)':'(base)'))+' — '+((m.text||'').split(/\s+/).filter(Boolean).length)+' كلمة');}
   if(m.err){_w2Diag('نافذة '+m.seq+' فشلت: '+String(m.err).slice(0,40));}
   var _stx=(m.text||'').trim();
   if(_stx){
