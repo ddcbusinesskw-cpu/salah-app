@@ -982,6 +982,25 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .mem2-rec-chip:active{border-color:rgba(15,118,110,.4);color:var(--teal);}
 .mem2-seg-hdr{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.05em;text-align:center;margin:18px 0 4px;opacity:.85;}
 .mem2-mushaf{direction:rtl;font-family:"Uthmani","Scheherazade New",serif;font-size:22px;line-height:2.9;text-align:justify;padding:16px 14px;background:var(--card);border:1px solid var(--line2);border-radius:18px;margin-bottom:6px;}
+/* ═══ المصحف الحي ═══ */
+.lm-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.lm-sel{flex:1;min-width:130px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;}
+.lm-pnum{width:64px;text-align:center;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 6px;font:inherit;}
+.lm-go{margin:0;padding:9px 16px;}
+.lm-status{text-align:center;color:var(--muted);font-size:12.5px;min-height:18px;margin-bottom:8px;line-height:1.7;}
+.lm-page{direction:rtl;text-align:center;line-height:2.4;font-size:30px;padding:14px 8px;min-height:56vh;color:var(--text);}
+.lm-page .lm-ayah{display:inline;}
+.qw{display:inline-block;transition:color .18s ease,text-shadow .18s ease,opacity .18s;color:var(--text);}
+.qw.active{color:var(--gold);animation:qwglow 1.05s ease-in-out infinite alternate;}
+@keyframes qwglow{from{text-shadow:0 0 5px rgba(234,204,126,.45);}to{text-shadow:0 0 17px rgba(234,204,126,.95),0 0 3px rgba(234,204,126,.7);}}
+.qw.ok{color:var(--green);}
+.qw.err{color:#e8a54b;}
+.qw.miss{color:rgba(255,255,255,.34);}
+[data-theme="light"] .qw.miss{color:rgba(0,0,0,.28);}
+.lm-anum{font-size:.62em;color:var(--gold);opacity:.85;margin:0 3px;font-family:system-ui,sans-serif;vertical-align:middle;}
+.lm-page.lm-hidden .qw:not(.ok):not(.err):not(.active){color:transparent;}
+.lm-bar{position:fixed;left:0;right:0;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px;background:linear-gradient(0deg,var(--bg) 60%,transparent);z-index:60;}
+.lm-build{text-align:center;font-size:10px;color:var(--muted);opacity:.55;font-family:monospace;direction:ltr;margin-top:8px;}
 .mw2{display:inline;padding:0 1px;transition:color .28s;}
 .mw2.hidden{color:transparent;background:rgba(255,255,255,.1);border-radius:3px;}
 .mw2.pending{color:rgba(255,255,255,.09);background:rgba(255,255,255,.04);border-radius:3px;}
@@ -1219,75 +1238,31 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <div class="pad" id="mushafFullBody" style="padding-top:10px"></div>
   </div>
 
+  <!-- ═══ المصحف الحي (تسميع بمعمارية ترتيل) ═══ -->
   <div id="memorize" class="screen">
     <div class="top">
       <button class="back" aria-label="رجوع" onclick="go('home')">→</button>
-      <h2>تسميع الحفظ</h2>
-      <button id="mem2RevealBtn" onclick="mem2ToggleReveal()" style="display:none;background:none;border:1px solid rgba(255,255,255,.18);color:var(--muted);font-size:13px;border-radius:20px;padding:5px 12px;cursor:pointer;font-family:inherit;transition:.2s">👁</button>
+      <h2>المصحف الحي</h2>
+      <button id="lmHideBtn" onclick="lmToggleHide()" style="background:none;border:1px solid rgba(255,255,255,.18);color:var(--muted);font-size:13px;border-radius:20px;padding:5px 12px;cursor:pointer;font-family:inherit">🙈</button>
     </div>
-    <!-- إعداد -->
-    <div class="pad" id="mem2SetupPane" style="padding-bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 90px)">
-      <div class="mem2-setup-card">
-        <div class="mem2-label">السورة</div>
-        <select id="memSurah" class="mem2-surah-sel" onchange="memSurahChange()"></select>
-        <div class="mem2-label">نطاق الآيات</div>
-        <div class="mem2-range-row">
-          <span>من</span>
-          <input id="memFrom" class="mem2-range-in" type="number" min="1" value="1" oninput="_memClampRange()">
-          <span>إلى</span>
-          <input id="memTo" class="mem2-range-in" type="number" min="1" value="7" oninput="_memClampRange()">
-          <span id="memAyahCount" style="color:var(--gold);font-size:12px;margin-inline-start:auto"></span>
-        </div>
-        <div class="mem2-label">طول المقطع</div>
-        <div class="mem2-seg-pills">
-          <button class="mem2-pill on" onclick="mem2SetSeg(1)">آية</button>
-          <button class="mem2-pill" onclick="mem2SetSeg(3)">٣ آيات</button>
-          <button class="mem2-pill" onclick="mem2SetSeg(5)">٥ آيات</button>
-          <button class="mem2-pill" onclick="mem2SetSeg('page')">صفحة</button>
-        </div>
-        <div id="mem2PagePicker" style="display:none;margin-top:8px;text-align:center">
-          <span style="font-size:12px;color:var(--muted)">صفحة </span>
-          <input id="mem2PageNum" type="number" min="1" max="604" value="1" class="mem2-range-in" style="width:60px;text-align:center">
-          <span style="font-size:11px;color:var(--muted)"> / 604</span>
-        </div>
-        <div class="mem2-label" style="margin-top:2px">القارئ</div>
-        <div class="mem2-rec-row" id="mem2RecRow"></div>
+    <div class="pad" style="padding-bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 96px)">
+      <div class="lm-controls">
+        <select id="lmSurah" onchange="lmPickSurah(this.value)" class="lm-sel"></select>
+        <span style="color:var(--muted);font-size:13px">صفحة</span>
+        <input id="lmPageNum" type="number" min="1" max="604" value="1" class="lm-pnum">
+        <button class="btn lm-go" onclick="lmGoPage()">اذهب</button>
       </div>
-      <p class="note">اقرأ كل مقطع دفعةً واحدة — التطبيق يطابق تلاوتك ويظهر الأخطاء بعد الانتهاء. الخطأ الحقيقي هو خطأ الحفظ لا التعرّف.</p>
-      <div id="mem2Build" style="text-align:center;font-size:10px;color:var(--muted);opacity:.6;font-family:monospace;direction:ltr;margin-top:2px"></div>
+      <div id="lmStatus" class="lm-status">اختر سورة أو صفحة ثم اضغط «🎙 استمع» وابدأ التلاوة</div>
+      <div id="lmPage" class="lm-page"></div>
+      <div id="lmResult"></div>
+      <div id="lmBuild" class="lm-build"></div>
     </div>
-    <div class="mem2-setup-bar" id="mem2SetupBar" style="display:none">
-      <button class="btn" onclick="mem2Start()" style="margin:0">▶ ابدأ التسميع</button>
-    </div>
-    <!-- جلسة التسميع -->
-    <div id="mem2SessionPane" style="display:none;padding:10px 16px calc(var(--bnav-h) + 150px + env(safe-area-inset-bottom))">
-      <div id="mem2Mushaf"></div>
-      <div id="mem2Live" class="mem2-live"></div>
-      <div class="mem2-guide">اقرأ بتمهّل وبصوت واضح · ابتعد عن الضوضاء · كرّر الآية إن لم تُلتقط</div>
-    </div>
-    <!-- النتائج -->
-    <div class="pad" id="mem2ResultsPane" style="display:none">
-      <div id="mem2ResultsBody"></div>
-    </div>
-    <!-- شريط التحكّم الثابت -->
-    <div class="mem2-bar" id="mem2Bar" style="display:none">
-      <div class="mem2-prog-track"><div class="mem2-prog-fill" id="mem2ProgFill" style="width:0%"></div></div>
-      <div class="mem2-bar-main">
-        <button class="mem2-nav-btn" id="mem2PrevBtn" onclick="mem2PrevSeg()" title="السابق" disabled>&#8249;</button>
-        <button class="mem2-mic-btn" id="mem2MicBtn" onclick="mem2ToggleRec()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"/></svg>
-          <span id="mem2MicLbl">سمّع</span>
-        </button>
-        <button class="mem2-nav-btn" id="mem2NextBtn" onclick="mem2NextSeg()" title="التالي" disabled>&#8250;</button>
-        <button class="mem2-hear-btn" onclick="mem2HearSeg()" title="اسمع الآيات">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </button>
-      </div>
-      <div class="mem2-bar-foot">
-        <button class="mem2-back-btn" onclick="mem2Back()">← اختر سورة</button>
-        <span class="mem2-seg-lbl" id="mem2SegLbl"><span id="mem2SegPfx">مقطع</span> <span id="mem2SegNm">١/١</span></span>
-        <button class="mem2-rec-chip" id="mem2RecChip" onclick="mem2CycleRec()" title="تغيير القارئ">—</button>
-      </div>
+    <div class="lm-bar" id="lmBar">
+      <button class="mem2-nav-btn" onclick="lmFlipPage(1)" title="الصفحة السابقة">‹</button>
+      <button class="mem2-mic-btn" id="lmMic" onclick="lmToggleRec()">
+        <span id="lmMicLbl">🎙 استمع</span>
+      </button>
+      <button class="mem2-nav-btn" onclick="lmFlipPage(-1)" title="الصفحة التالية">›</button>
     </div>
   </div>
 
@@ -2204,7 +2179,7 @@ function go(id){
        (backend يُعاد تهيئته تلقائياً عبر _tfEnsureBackend عند الحاجة لاحقاً) */
     try{if(window.tf&&tf.engine&&tf.engine().reset)setTimeout(function(){try{if(!ST.active)tf.disposeVariables&&tf.disposeVariables();}catch(e){}},3500);}catch(ex){}
   }
-  if(prev&&prev.id==='memorize'){try{_mem2StopRec();}catch(ex){}W2._cascBuf=null;var _cdBtn=document.getElementById('_cascDiagBtn');if(_cdBtn)_cdBtn.remove();var _mAu=document.getElementById('quranAudio');if(_mAu){_mAu.onended=null;try{_mAu.pause();}catch(ex){}}}
+  if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   /* مكدّس التنقّل لزر الرجوع النظامي: سجّل الشاشة المغادَرة (بلا تكرار
@@ -2404,26 +2379,210 @@ var _liveNsrLastEvT=0,_liveNsrSesN=0,_liveNsrComSes=0,_liveNsrWatch=null;
 /* سجل تشخيصي على الجهاز — يُعرض في «تفاصيل تقنية» بشاشة النتيجة */
 function _w2Diag(m){var d=W2._diag;if(!d)return;d.ev.push(((Date.now()-d.t0)/1000).toFixed(1)+'ث '+m);}
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
-function initMemorize(){
-  var _mb=document.getElementById('mem2Build');if(_mb)_mb.textContent='build '+_buildStamp();
-  /* حمّل base مسبقاً عند فتح الشاشة — جاهز قبل أول «سمّع» */
-  try{if(!W2.worker)_w2Init(lsGet('webgpu_ok')==='false');}catch(e){}
-  /* حمّل tiny مسبقاً (المرحلة السريعة) — إن كان base جاهزاً أصلاً ولم يُحمّل tiny */
-  try{if(W2.worker&&W2.modelReady&&!W2._tinyReady&&!W2._tinyTried){W2._tinyTried=true;W2.worker.postMessage({type:'loadTiny',model:TINY_MODEL});}}catch(e){}
-  /* المحرّك الأصلي (whisper.cpp): تنزيل/تحميل مرة — فشله لا يمسّ شيئاً */
-  try{_wnEnsure();}catch(e){}
-  _loadW2Ref();
-  var sel=document.getElementById('memSurah');
-  if(sel&&!sel.options.length){
-    var meta=(surahMeta)||(QURAN_EMBED&&QURAN_EMBED.meta)||[];
-    if(!meta.length)return;
-    sel.innerHTML=meta.map(function(s){return '<option value="'+s.number+'">'+ar(s.number)+' · '+s.name+'</option>';}).join('');
-    memSurahChange();
+/* ═══════════════════════════════════════════════════════════════════
+   المصحف الحي (LM) — تسميع بمعمارية ترتيل: خط QCF + بثّ أصلي + محاذاة لحظية
+   ═══════════════════════════════════════════════════════════════════ */
+var LM={pages:null,loading:false,page:1,words:[],cursor:0,active:null,rec:false,hidden:false,firstPageOfSurah:{}};
+/* أول صفحة لكل سورة (من pages.json) — لاختيار السورة */
+function _lmSurahFirstPages(){
+  if(LM._sfp)return LM._sfp;
+  var m={};
+  if(LM.pages){for(var p=0;p<LM.pages.length;p++){var ays=LM.pages[p];for(var i=0;i<ays.length;i++){var s=ays[i].s;if(m[s]==null)m[s]=p+1;}}}
+  LM._sfp=m;return m;
+}
+function lmLoadPages(cb){
+  if(LM.pages){cb&&cb();return;}
+  if(LM.loading){LM._cbs=(LM._cbs||[]).concat(cb||[]);return;}
+  LM.loading=true;LM._cbs=[cb];
+  fetch('mushaf/pages.json').then(function(r){return r.json();}).then(function(d){
+    LM.pages=d;LM.loading=false;var c=LM._cbs;LM._cbs=[];c.forEach(function(f){try{f&&f();}catch(e){}});
+  }).catch(function(e){
+    LM.loading=false;
+    var st=document.getElementById('lmStatus');if(st)st.textContent='تعذّر تحميل بيانات المصحف — تأكّد من الاتصال أول مرة';
+  });
+}
+function _lmPad(p){return('000'+p).slice(-3);}
+function lmInjectFont(p){
+  var id='lmf'+p;if(document.getElementById(id))return;
+  var pp=_lmPad(p),st=document.createElement('style');st.id=id;
+  st.textContent="@font-face{font-family:'QCF_P"+pp+"';src:url('mushaf/fonts/QCF_P"+pp+".woff2') format('woff2');font-display:swap;}";
+  document.head.appendChild(st);
+}
+function _lmNorm(w){return typeof _normRec==='function'?_normRec(w):(typeof snorm==='function'?snorm(w):w);}
+function lmRender(){
+  var host=document.getElementById('lmPage');if(!host||!LM.pages)return;
+  var p=LM.page,data=LM.pages[p-1]||[];
+  lmInjectFont(p);var ff="QCF_P"+_lmPad(p);
+  LM.words=[];LM.cursor=0;LM.active=null;
+  var html='',gid=0;
+  data.forEach(function(ay){
+    var arr=(QURAN_EMBED&&QURAN_EMBED.surahs&&QURAN_EMBED.surahs[String(ay.s)])||[];
+    var twords=((arr[ay.a-1]||'').split(/\s+/).filter(Boolean));
+    var glyphs=Array.from(ay.g||'');
+    var G=glyphs.length,W=twords.length,base=gid;
+    html+='<span class="lm-ayah" style="font-family:\''+ff+'\'">';
+    for(var g=0;g<G;g++){html+='<span class="qw" id="lmg'+(base+g)+'">'+glyphs[g]+'</span>';}
+    html+='<span class="lm-anum">'+ar(ay.a)+'</span> ';
+    html+='</span> ';
+    /* نموذج الكلمات للمحاذاة: كل كلمة نصية → أول حرف يمثّلها (تناسبي إن اختلف العدد) */
+    for(var j=0;j<W;j++){
+      var grep=W?Math.min(G-1,Math.floor(j*G/Math.max(W,1))):0;
+      LM.words.push({s:ay.s,a:ay.a,norm:_lmNorm(twords[j]),raw:twords[j],spanId:'lmg'+(base+(grep<0?0:grep))});
+    }
+    gid+=G;
+  });
+  host.innerHTML=html;host.classList.toggle('lm-hidden',LM.hidden);
+  var pn=document.getElementById('lmPageNum');if(pn)pn.value=p;
+  var sel=document.getElementById('lmSurah');if(sel&&data.length)sel.value=data[0].s;
+}
+function _lmSpan(i){var w=LM.words[i];return w?document.getElementById(w.spanId):null;}
+function _lmSetClass(i,cls){var el=_lmSpan(i);if(!el)return;el.classList.remove('active','ok','err','miss');if(cls)el.classList.add(cls);}
+function _lmActivate(i){
+  if(LM.active!=null&&LM.active!==i){var pe=_lmSpan(LM.active);if(pe)pe.classList.remove('active');}
+  var el=_lmSpan(i);if(el){el.classList.add('active');
+    try{el.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}}
+  LM.active=i;
+}
+function _lmWordMatch(a,b){
+  if(!a||!b)return false;if(a===b)return true;
+  if(a.length>=4&&b.length>=4&&Math.abs(a.length-b.length)<=1){
+    return (typeof _memED==='function'?_memED(a.split(''),b.split('')):9)<=1;
   }
-  _mem2UpdateRecUI();
-  // Don't show setup bar while a session is active (user navigated away then back)
-  var midSession=document.getElementById('mem2Bar').style.display==='block';
-  if(!midSession){var sb=document.getElementById('mem2SetupBar');if(sb)sb.style.display='block';}
+  return false;
+}
+/* محاذاة لحظية: نافذة السماع الأخيرة تُطابق كلمات المؤشر وتقدّمه (رتيب) */
+function lmAdvance(heard){
+  var N=LM.words.length;
+  for(var hi=0;hi<heard.length;hi++){
+    var hw=heard[hi];if(hw.length<2)continue;
+    for(var p=LM.cursor;p<Math.min(N,LM.cursor+4);p++){
+      if(_lmWordMatch(hw,LM.words[p].norm)){
+        for(var k=LM.cursor;k<p;k++)_lmSetClass(k,'ok'); /* المتخطّاة تُعرض مؤقتاً صحيحة */
+        _lmSetClass(p,'ok');_lmActivate(p);LM.cursor=p+1;
+        break;
+      }
+    }
+    if(LM.cursor>=N)break;
+  }
+  var st=document.getElementById('lmStatus');
+  if(st&&LM.rec)st.textContent='🎙 يستمع… '+LM.cursor+'/'+N+' كلمة';
+}
+function lmOnPartial(ev){
+  if(!LM.rec)return;
+  var t=(ev&&ev.text||'').trim();
+  if(ev&&ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
+  if(ev&&ev.text!=null)LM._heard=t;
+  if(!t)return;
+  var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
+  lmAdvance(heard);
+}
+function lmToggleRec(){LM.rec?lmStop():lmStart();}
+function lmStart(){
+  var st=document.getElementById('lmStatus');
+  if(!WN.ready){
+    if(st)st.textContent=WN.tried?'المحرّك الأصلي غير مفعّل — راجع «تفاصيل تقنية»':'جارٍ تجهيز المحرّك الأصلي… أعد المحاولة بعد لحظات';
+    try{_wnEnsure();}catch(e){}
+    return;
+  }
+  var P=_wnPlug();if(!P)return;
+  LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._t0=Date.now();
+  /* صفّر التلوين */
+  for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
+  var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='⏹ إيقاف';
+  var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
+  if(st)st.textContent='🎙 يستمع…';
+  try{rakWakeLock(true);}catch(e){}
+  var prompt=LM.words.map(function(w){return w.raw;}).join(' ');
+  try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
+  try{P.addListener('partial',lmOnPartial);}catch(e){}
+  P.startStream({window_sec:2.5,slide_sec:1.0,prompt:prompt}).catch(function(e){
+    LM.rec=false;if(st)st.textContent='تعذّر بدء الالتقاط: '+String(e&&e.message||e).slice(0,40);
+    var l2=document.getElementById('lmMicLbl');if(l2)l2.textContent='🎙 استمع';
+  });
+}
+function lmStop(){
+  if(!LM.rec)return;LM.rec=false;
+  var P=_wnPlug(),st=document.getElementById('lmStatus');
+  var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='🎙 استمع';
+  var mic=document.getElementById('lmMic');if(mic)mic.classList.remove('rec');
+  if(st)st.textContent='⏳ إنهاء…';
+  try{rakWakeLock(false);}catch(e){}
+  var _fin=function(res){
+    try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
+    if(res&&res.pcm){var f=_wnPcmB64ToF32(res.pcm);if(f){W2._lastAudio16k=f;W2._lastAudioRaw={pcm:f,rate:res.sampleRate||16000};}}
+    setTimeout(lmFinish,150);
+  };
+  if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else lmFinish();
+}
+/* الحكم النهائي: ✅ ما تجاوزه المؤشر · ⬜ ما لم يُسمع (لا يُحسب خطأً) */
+function lmFinish(){
+  var N=LM.words.length,ok=0,miss=0;
+  for(var i=0;i<N;i++){
+    if(i<LM.cursor){_lmSetClass(i,'ok');ok++;}
+    else{_lmSetClass(i,'miss');miss++;}
+  }
+  if(LM.active!=null){var ae=_lmSpan(LM.active);if(ae)ae.classList.remove('active');}
+  var pct=N?Math.round(ok/N*100):0;
+  var st=document.getElementById('lmStatus');
+  if(st)st.innerHTML=miss===0?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(miss?' · '+ar(miss)+' لم تُسمع':'');
+  var res=document.getElementById('lmResult');
+  if(res)res.innerHTML=_lmDiagHtml();
+}
+function lmToggleHide(){
+  LM.hidden=!LM.hidden;
+  var host=document.getElementById('lmPage');if(host)host.classList.toggle('lm-hidden',LM.hidden);
+  var b=document.getElementById('lmHideBtn');if(b)b.textContent=LM.hidden?'👁':'🙈';
+}
+function lmPickSurah(s){
+  var m=_lmSurahFirstPages(),p=m[+s]||1;LM.page=p;lmRender();
+}
+function lmGoPage(){
+  var v=parseInt((document.getElementById('lmPageNum')||{}).value,10);
+  if(!(v>=1&&v<=604)){var st=document.getElementById('lmStatus');if(st)st.textContent='رقم صفحة غير صحيح (1–604)';return;}
+  LM.page=v;lmRender();
+}
+function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec)lmStop();LM.page=np;lmRender();}
+/* «تفاصيل تقنية» للمصحف الحي */
+function _lmDiagText(){
+  var target=LM.words.map(function(w){return w.raw;}).join(' ');
+  var L=['تقرير المصحف الحي — صفحة '+LM.page,
+    'المحرّك: '+(WN.ready?'أصلي whisper.cpp ('+WN.threads+' خيوط)':'غير مفعّل'),
+    'مصدر الصوت: AudioRecord أصلي 16kHz (بلا WebView/إعادة تشكيل)',
+    'بصمة البناء: '+_buildStamp(),
+    (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
+    'النص المستهدف: '+target,
+    'whisper سمع (آخر نافذة): '+(LM._heard||'—')];
+  if(typeof _wnDownDiag==='function'){var dd=_wnDownDiag();if(dd)L.push('── تنزيل GGUF ──',dd);}
+  return L.filter(Boolean).join('\n');
+}
+function _lmCopyDiag(){
+  var t=_lmDiagText();
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(function(){toast('نُسخ التقرير التقني ✓','success');})
+      .catch(function(){if(typeof _bmFbCopy==='function')_bmFbCopy(t);});
+  }else if(typeof _bmFbCopy==='function')_bmFbCopy(t);
+}
+function _lmDiagHtml(){
+  var t=_lmDiagText(),esc=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  var hasA=!!(W2._lastAudio16k&&W2._lastAudio16k.length);
+  return '<details class="mem2-diag" dir="rtl" style="margin:10px 6px;color:var(--muted)">'
+    +'<summary style="cursor:pointer;font-size:11px;opacity:.65">تفاصيل تقنية</summary>'
+    +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
+    +'<button onclick="_lmCopyDiag()" style="background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
+    +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
+    +'</details>';
+}
+function initMemorize(){
+  var _mb=document.getElementById('lmBuild');if(_mb)_mb.textContent='build '+_buildStamp();
+  try{_wnEnsure();}catch(e){} /* المحرّك الأصلي: تنزيل/تحميل مرة */
+  lmLoadPages(function(){
+    var sel=document.getElementById('lmSurah');
+    if(sel&&!sel.options.length){
+      var names=[];for(var s=1;s<=114;s++)names.push('<option value="'+s+'">'+ar(s)+' · '+(typeof nameFor==='function'?nameFor(s):('سورة '+s))+'</option>');
+      sel.innerHTML=names.join('');
+    }
+    lmRender();
+  });
 }
 function memSurahChange(){
   var n=+document.getElementById('memSurah').value;
@@ -11873,11 +12032,8 @@ function dismissPWA(){
       /* مشغّل القرآن الظاهر */
       var qp=document.getElementById('qplayer');
       if(qp&&qp.classList.contains('on')&&typeof qpClose==='function'){try{qpClose();}catch(e){}return;}
-      /* جلسة تسميع جارية → ارجع للإعداد بدل مغادرة الشاشة */
-      if(_cid==='memorize'){
-        var _sess=document.getElementById('mem2SessionPane');
-        if(_sess&&_sess.style.display!=='none'&&typeof mem2Back==='function'){try{mem2Back();}catch(e){}return;}
-      }
+      /* المصحف الحي: إن كان الالتقاط جارياً أوقفه بدل مغادرة الشاشة */
+      if(_cid==='memorize'&&typeof LM!=='undefined'&&LM.rec){try{lmStop();}catch(e){}return;}
       /* داخل سورة مفتوحة → ارجع لقائمة السور */
       if(_cid==='quran'){
         var _qbody=document.getElementById('quranBody');
