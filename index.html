@@ -2212,8 +2212,10 @@ function go(id){
   var bt=BNAV_MAP[id];if(bt){var el=document.getElementById(bt);if(el)el.classList.add('on');}
 }
 /* ===== تسميع الحفظ v2 ===== */
-var MEM2={surah:1,from:0,to:6,segLen:1,segs:[],cur:0,rec:null,recActive:false,revealed:false,_tr:'',_partial:'',_retried:false,_lang:''};
-var W2={worker:null,modelReady:false,loading:false,pendingAudio:null,stream:null,recorder:null,recMime:'',chunks:[],analyzing:false,nativeRec:false,_dev:'wasm',_cascBuf:null};
+/* W2: أُبقيت الحقول الحيّة فقط (worker/modelReady/loading/_dev) لحزمة الذهب/الفحص
+   الذاتي؛ الحقول الديناميكية (_diag/_lastAudio16k/_lastAudioRaw/_tinyReady…) تُضاف
+   عند اللزوم. MEM2 وحقول الالتقاط القديمة حُذفت (بقايا النظام المحذوف). */
+var W2={worker:null,modelReady:false,loading:false,_dev:'wasm'};
 /* بصمة البناء: يحقنها prepare-www.sh (git hash + وقت) — «dev» محلياً بلا حقن.
    تظهر في شاشة التسميع وفي «عن التطبيق» ليعرف المستخدم أي نسخة يجرّب. */
 var BUILD_STAMP='__BUILD_STAMP__';
@@ -2228,27 +2230,43 @@ var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر
 /* ═══ المحرّك الأصلي (whisper.cpp عبر WhisperNative) — معمارية ترتيل ═══
    استدلال على المعالج مباشرة: نافذة 10ث ≈ ≤1.5ث على جهاز متوسط.
    أي فشل (plugin/موديل/تنزيل) → مسار WASM كما هو، بسطر تشخيصي. */
-var WN={ready:false,tried:false,loading:false,threads:0,pend:0,fails:0,diag:null};
+var WN={ready:false,tried:false,loading:false,fatal:false,exhausted:false,attempts:0,_lastTry:0,threads:0,pend:0,fails:0,diag:null};
 var WN_GGUF_URL='https://huggingface.co/Oa-4/whisper-tiny-ar-quran-gguf/resolve/main/ggml-tiny-ar-quran-q8_0.bin';
 var WN_GGUF_FILE='ggml-tiny-ar-quran-q8_0.bin';
+var WN_MAX_ATTEMPTS=5,WN_BACKOFF_MS=4000; /* حدّ محاولات التعافي + مهلة بين المحاولات */
 function _wnPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
-function _wnDiag(s){console.log('[wn] '+s);_w2Diag('أصلي: '+s);}
-/* تهيئة مرة واحدة: تحقّق من المكتبة → الملف (تنزيل بتقدّم إن لزم) → تحميل */
-/* سجل تشخيص المحرّك الأصلي — يُعرض في «تفاصيل تقنية» */
-function _wnFail(msg){
+function _wnDiag(s){console.log('[wn] '+s);if(WN.diag)WN.diag.last=s;} /* تسجيل مباشر في WN.diag (لا اعتماد على W2._diag) */
+/* تهيئة مع تعافٍ: تحقّق من المكتبة → الملف (تنزيل إن لزم) → تحميل.
+   فشل قابل للتعافي (شبكة/تنزيل/تحميل) لا يُقفل المحرّك — يُعاد عند فتح التسميع
+   أو ضغط التسجيل، بحدّ محاولات + backoff. فشل قاتل (بيئة/مكتبة) وحده يُقفل. */
+function _wnFail(msg,fatal){
   WN.tried=true;WN.loading=false;WN.ready=false;
-  WN.diag.err=msg;
-  console.warn('[wn] '+msg);
-  _w2Diag('محرّك أصلي: '+msg);
+  if(WN.diag)WN.diag.err=msg;
+  console.warn('[wn] '+(fatal?'[قاتل] ':'[قابل للتعافي] ')+msg);
+  if(fatal){WN.fatal=true;}
+  else{WN.attempts++;if(WN.attempts>=WN_MAX_ATTEMPTS)WN.exhausted=true;if(WN.diag)WN.diag.stage='فشل (محاولة '+WN.attempts+'/'+WN_MAX_ATTEMPTS+')';}
 }
-function _wnEnsure(){
-  if(WN.ready||WN.loading||WN.tried)return;
+/* إعادة محاولة يدوية: تصفّر الاستنفاد والعدّاد وتبدأ فوراً (تتجاوز backoff) */
+function _wnRetry(){
+  if(WN.fatal){try{toast('البيئة لا تدعم المحرّك الأصلي','warning');}catch(e){}return;}
+  WN.exhausted=false;WN.attempts=0;
+  var st=document.getElementById('lmStatus');if(st)st.textContent='⏳ إعادة تحميل المحرّك…';
+  _wnEnsure(true);
+}
+function _wnEnsure(force){
+  if(WN.ready||WN.loading)return;
+  if(WN.fatal)return;               /* بيئة/مكتبة: لا تعافي بلا إعادة بناء/تشغيل */
+  if(force){WN.exhausted=false;WN.attempts=0;}
+  if(WN.exhausted)return;           /* استنفد المحاولات — ينتظر «إعادة المحاولة» اليدوية */
+  var _now=Date.now();
+  if(!force&&WN.tried&&(_now-WN._lastTry)<WN_BACKOFF_MS)return; /* backoff: لا تكرار عنيف */
+  WN._lastTry=_now;
   if(!WN.diag)WN.diag={url:WN_GGUF_URL,httpStatus:'—',headBytes:'—',savedBytes:'—',modelPath:'—',err:'',stage:'بدء'};
   var P=_wnPlug(),FS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
-  if(!_isAndroidNative()||!P||!FS){WN.tried=true;WN.diag.err='بيئة غير أصلية';return;}
-  WN.loading=true;WN.diag.stage='فحص المكتبة';
+  if(!_isAndroidNative()||!P||!FS){_wnFail('بيئة غير أصلية (لا WhisperNative/Filesystem)',true);return;}
+  WN.loading=true;WN.diag.stage=WN.attempts>0?('فحص المكتبة · إعادة محاولة '+(WN.attempts+1)):'فحص المكتبة';
   P.isAvailable().then(function(av){
-    if(!(av&&av.value)){_wnFail('مكتبة whisper_jni غير مبنية في هذا الـAPK');return;}
+    if(!(av&&av.value)){_wnFail('مكتبة whisper_jni غير مبنية في هذا الـAPK',true);return;}
     WN.threads=av.threads||2;
     /* تحميل الملف المحفوظ في الـplugin — لا موديل بديل بصمت أبداً */
     function _load(){
@@ -2264,8 +2282,9 @@ function _wnEnsure(){
         var _mb=document.getElementById('mem2Build');
         if(_mb&&_mb.textContent.indexOf('أصلي')<0)_mb.textContent+=' · محرّك أصلي ✓';
       }).catch(function(e){
-        _wnFail('فشل تحميل الموديل في whisper.cpp ('+String(e&&e.message||e).slice(0,50)+') — قد يكون الملف تالفاً/ليس GGUF');
-        try{toast('تعذّر تشغيل المحرّك الأصلي — التقييم على WASM','warning');}catch(x){}
+        /* الملف المحفوظ قد يكون تالفاً — احذفه ليعيد التنزيل في المحاولة القادمة */
+        try{FS.deleteFile({path:WN_GGUF_FILE,directory:'DATA'}).catch(function(){});}catch(x){}
+        _wnFail('فشل تحميل الموديل في whisper.cpp ('+String(e&&e.message||e).slice(0,50)+') — قد يكون الملف تالفاً/ليس GGUF',false);
       });
     }
     /* الملف محفوظ مسبقاً وحجمه معقول (>10MB)؟ حمّله. وإلا نزّله بتشخيص HTTP كامل. */
@@ -2274,7 +2293,7 @@ function _wnEnsure(){
       if(st&&st.size>0){WN.diag.savedBytes=st.size;} /* موجود لكن صغير = تنزيل فاسد سابق */
       return Promise.reject('need-download');
     }).catch(function(){_wnDownload(P,FS,_load);});
-  }).catch(function(e){_wnFail('isAvailable فشل: '+String(e&&e.message||e).slice(0,40));});
+  }).catch(function(e){_wnFail('isAvailable فشل: '+String(e&&e.message||e).slice(0,40),false);});
 }
 /* تنزيل شفّاف: fetch يكشف رمز HTTP والحجم الفعلي — 403=خاص/صلاحية،
    404=اسم/مسار خاطئ، 200+~43MB=صحيح. لا حفظ لمحتوى خطأ ولا موديل بديل. */
@@ -2377,8 +2396,6 @@ var _liveNsrPlug=null,_liveNsrActive=false,_liveNsrCollecting=false,_liveNsrMute
 /* إشارات إعادة التشغيل الثلاثية (كما في تتبّع الصلاة): حدث listeningState +
    حلّ وعد start() + رقيب صمت — الاعتماد على الحدث وحده أثبت فشله ميدانياً */
 var _liveNsrLastEvT=0,_liveNsrSesN=0,_liveNsrComSes=0,_liveNsrWatch=null;
-/* سجل تشخيصي على الجهاز — يُعرض في «تفاصيل تقنية» بشاشة النتيجة */
-function _w2Diag(m){var d=W2._diag;if(!d)return;d.ev.push(((Date.now()-d.t0)/1000).toFixed(1)+'ث '+m);}
 var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 /* ═══════════════════════════════════════════════════════════════════
    المصحف الحي (LM) — تسميع بمعمارية ترتيل: خط QCF + بثّ أصلي + محاذاة لحظية
@@ -2497,9 +2514,9 @@ function lmStart(){
   if(!WN.ready){
     var d=WN.diag||{};
     var sz=(typeof d.savedBytes==='number'&&d.savedBytes>0)?' · '+(typeof _svFmt==='function'?_svFmt(d.savedBytes):d.savedBytes+'B'):'';
-    if(WN.tried&&d.err){if(st)st.textContent='المحرّك متعذّر: '+String(d.err).slice(0,70);}
-    else{if(st)st.textContent='⏳ يُحمّل المحرّك الأصلي… '+(d.stage||'تجهيز')+sz;}
-    try{_wnEnsure();}catch(e){}
+    if(WN.fatal){if(st)st.textContent='المحرّك غير متاح: '+String(d.err||'بيئة غير مدعومة').slice(0,70);}
+    else if(WN.exhausted){if(st)st.textContent='تعذّر تحميل المحرّك: '+String(d.err||'فشل متكرر').slice(0,60)+' — اضغط «إعادة المحاولة» في تفاصيل تقنية';}
+    else{if(st)st.textContent='⏳ يُحمّل المحرّك الأصلي… '+(d.stage||'تجهيز')+sz+(WN.attempts>0?' (إعادة محاولة)':'');try{_wnEnsure();}catch(e){}}
     return;
   }
   var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
@@ -2678,6 +2695,7 @@ function _lmDiagHtml(){
     +'<summary style="cursor:pointer;font-size:11px;opacity:.65">تفاصيل تقنية</summary>'
     +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
+    +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
     +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
     +'<button onclick="_lmTogglePrompt()" style="margin-inline-start:6px;background:rgba(234,204,126,.12);color:var(--gold);border:1px solid rgba(234,204,126,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">'+(LM._noPrompt?'إعادة prompt':'اختبار بلا prompt')+'</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
@@ -3220,7 +3238,6 @@ function _srHealthProbe(){_srProbe();}
    كل نتيجة تعرّف (جزئية/نهائية، ويب/native) تُحاذى من المؤشر بنافذة
    تسامح صغيرة، والكلمات تتلوّن لحظياً. عند الإنهاء: أحكام ثلاثية لكل
    كلمة: ✅ صحيحة / ❌ مخالفة (مع المسموع) / ⬜ لم تُسمع (لا تُحسب خطأً). */
-var LT=null;
 function _ltWordMatch(a,b){
   if(a===b)return true;
   var la=a.length,lb=b.length;
@@ -3283,7 +3300,6 @@ function _mem2PlayPcm(f,rate,label){
   }catch(e){toast('تعذّر التشغيل: '+(e&&e.message||e),'error');}
 }
 function _mem2PlayLast(){_mem2PlayPcm(W2._lastAudio16k,16000,'المعالَج 16k');}
-function _mem2PlayRaw(){var r=W2._lastAudioRaw;if(!r){toast('لا يوجد صوت خام بعد','warning');return;}_mem2PlayPcm(r.pcm,r.rate,'الخام '+r.rate);}
 function _isNative(){
   return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 }
@@ -4180,7 +4196,7 @@ function _w2Msg(m){
       var _ld=0,_tt=0;
       try{Object.keys(_svFiles).forEach(function(f){_ld+=_svFiles[f].l||0;_tt+=_svFiles[f].t||0;});}catch(e){}
       var _mb=_tt>0?' · '+_svFmt(_ld)+'/'+_svFmt(_tt):'';
-      if(live&&(W2.loading||MEM2.recActive||W2.analyzing))live.textContent='تحميل المحرّك '+pct+'%'+_mb;
+      if(live&&W2.loading)live.textContent='تحميل المحرّك '+pct+'%'+_mb;
     }
   }else if(m.type==='ready'){
     clearTimeout(_w2LoadTO);_w2LoadTO=null;
@@ -4188,7 +4204,6 @@ function _w2Msg(m){
     _w2PurgeFp32(); /* q8 حُمّل وتحقق — حرّر ملفات fp32 القديمة (مرة واحدة) */
     /* ثبّت التخزين كي لا يُخلي النظام كاش النموذج (145MB) تحت الضغط */
     try{if(navigator.storage&&navigator.storage.persist&&!lsGet('w2_persisted')){navigator.storage.persist().then(function(ok){if(ok)lsSet('w2_persisted','1');}).catch(function(){});}}catch(e){}
-    if(live&&MEM2.recActive)live.textContent='اقرأ المقطع بصوت واضح…';
     _svOnModelReady();
     /* بعد جاهزية base: حمّل الموديل الصغير للمرحلة السريعة (بلا كسر إن غاب) */
     if(!W2._tinyReady&&!W2._tinyTried){
@@ -4202,7 +4217,7 @@ function _w2Msg(m){
     W2._tinyReady=false;
     console.log('[w2] الموديل الصغير غير متاح ('+(m.text||'')+') — الشلال يعمل بـbase وحده');
   }else if(m.type==='error'){
-    _w2ClearXTO();W2.analyzing=false;W2.loading=false;
+    _w2ClearXTO();W2.loading=false;
     W2._recheck=null;
     if(W2._diag)W2._diag.fail=W2._diag.fail||('خطأ محرّك: '+(m.text||''));
     var _errTxt=m.text||'';
@@ -4218,7 +4233,6 @@ function _w2Msg(m){
       _errTxt='مساحة التخزين ممتلئة — فرّغ مساحة وأعِد المحاولة';
     if(_svActive){_svShowErr(_errTxt||'فشل تحميل النموذج');}
     else{toast((_errTxt||'تعذّر التعرّف على الصوت'),'error');}
-    MEM2.recActive=false;
     if(lbl)lbl.textContent='سمّع';if(mic)mic.disabled=false;
     if(live)live.textContent='خطأ: '+(m.text||'غير معروف');
   }else if(m.type==='selftest_result'){
@@ -4265,9 +4279,8 @@ function _w2Kill(){
   _w2ClearXTO();
   clearTimeout(_w2LoadTO);_w2LoadTO=null;
   if(W2.worker){try{W2.worker.terminate();}catch(e){}W2.worker=null;}
-  W2.modelReady=false;W2.loading=false;W2.analyzing=false;W2._dev='wasm';
+  W2.modelReady=false;W2.loading=false;W2._dev='wasm';
 }
-/* Lead-in countdown so mic+encoder warm up before user speaks */
 /* ═══ الشلال ثنائي الموديل: التقاط PCM خام بنوافذ → tiny أثناء التلاوة ═══
    PCM خام (لا webm) فالنوافذ مستقلة الفكّ بلا مشكلة O(n²). النص المتراكم
    يغذّي مؤشر المتابعة الحية. عند الإيقاف: النافذة الأخيرة ثم حكم سريع. */
@@ -4275,10 +4288,7 @@ function _w2Kill(){
    AudioRecord 16kHz mono داخل الـplugin → نوافذ تُفرَّغ أصلياً → أحداث نص فقط
    تعبر للـJS (الصوت لا يغادر الطبقة الأصلية). صفر WebView/AAC/إعادة تشكيل JS. */
 /* الحكم النهائي بعد الالتقاط الأصلي — سريع → أحسنت / شك → base WASM للتشخيص */
-/* Recognition loop — shared by full start and fast retry.
-   [أ-١] delay 200ms after a session with speech, 1200ms after silence.
-   [أ-٢] saves MEM2._lang so retry can skip permission/language. */
-/* Levenshtein distance */
+/* Levenshtein distance — تستعمله _lmWordMatch (المحاذاة الحيّة) و_ltWordMatch (حزمة الذهب) */
 function _memED(a,b){if(a===b)return 0;if(!a.length)return b.length;if(!b.length)return a.length;var p=[],r=[];for(var j=0;j<=b.length;j++)p[j]=j;for(var i=1;i<=a.length;i++){r=[i];for(var j=1;j<=b.length;j++)r[j]=a[i-1]===b[j-1]?p[j-1]:1+Math.min(p[j-1],p[j],r[j-1]);p=r.slice();}return p[b.length];}
 function _memFuz(rec,tgt){
   if(rec===tgt)return true;
@@ -6460,9 +6470,8 @@ function _setupRunNative(){
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='تحميل المحرّك الأصلي (~43MB)…';
   /* مرجع العفاسي لحزمة الذهب — في الخلفية بلا إعاقة */
   W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];try{_loadW2Ref(function(){});}catch(e){}
-  /* ابدأ من جديد ثم حمّل GGUF */
-  WN.tried=false;WN.ready=false;WN.loading=false;
-  try{_wnEnsure();}catch(e){}
+  /* ابدأ من جديد ثم حمّل GGUF (force: تجاوز backoff وصفّر الاستنفاد) */
+  try{_wnEnsure(true);}catch(e){}
   var t0=Date.now();
   if(_svNativeIv)clearInterval(_svNativeIv);
   _svNativeIv=setInterval(function(){
