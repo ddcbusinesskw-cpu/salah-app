@@ -2252,60 +2252,83 @@ var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر
 /* ═══ المحرّك الأصلي (whisper.cpp عبر WhisperNative) — معمارية ترتيل ═══
    استدلال على المعالج مباشرة: نافذة 10ث ≈ ≤1.5ث على جهاز متوسط.
    أي فشل (plugin/موديل/تنزيل) → مسار WASM كما هو، بسطر تشخيصي. */
-var WN={ready:false,tried:false,loading:false,threads:0,pend:0,fails:0};
+var WN={ready:false,tried:false,loading:false,threads:0,pend:0,fails:0,diag:null};
 var WN_GGUF_URL='https://huggingface.co/Oa-4/whisper-tiny-ar-quran-gguf/resolve/main/ggml-tiny-ar-quran-q8_0.bin';
 var WN_GGUF_FILE='ggml-tiny-ar-quran-q8_0.bin';
 function _wnPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
 function _wnDiag(s){console.log('[wn] '+s);_w2Diag('أصلي: '+s);}
 /* تهيئة مرة واحدة: تحقّق من المكتبة → الملف (تنزيل بتقدّم إن لزم) → تحميل */
+/* سجل تشخيص المحرّك الأصلي — يُعرض في «تفاصيل تقنية» */
+function _wnFail(msg){
+  WN.tried=true;WN.loading=false;WN.ready=false;
+  WN.diag.err=msg;
+  console.warn('[wn] '+msg);
+  _w2Diag('محرّك أصلي: '+msg);
+}
 function _wnEnsure(){
   if(WN.ready||WN.loading||WN.tried)return;
+  if(!WN.diag)WN.diag={url:WN_GGUF_URL,httpStatus:'—',headBytes:'—',savedBytes:'—',modelPath:'—',err:'',stage:'بدء'};
   var P=_wnPlug(),FS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
-  if(!_isAndroidNative()||!P||!FS){WN.tried=true;return;}
-  WN.loading=true;
+  if(!_isAndroidNative()||!P||!FS){WN.tried=true;WN.diag.err='بيئة غير أصلية';return;}
+  WN.loading=true;WN.diag.stage='فحص المكتبة';
   P.isAvailable().then(function(av){
-    if(!(av&&av.value)){WN.tried=true;WN.loading=false;_wnDiag('مكتبة whisper_jni غير متاحة على هذا الجهاز — WASM');return;}
+    if(!(av&&av.value)){_wnFail('مكتبة whisper_jni غير مبنية في هذا الـAPK');return;}
     WN.threads=av.threads||2;
+    /* تحميل الملف المحفوظ في الـplugin — لا موديل بديل بصمت أبداً */
     function _load(){
+      WN.diag.stage='تحميل الموديل في المحرّك';
       FS.getUri({path:WN_GGUF_FILE,directory:'DATA'}).then(function(u){
+        WN.diag.modelPath=u.uri;
         return P.loadModel({path:u.uri});
       }).then(function(r){
-        WN.ready=true;WN.loading=false;WN.threads=(r&&r.threads)||WN.threads;
-        console.log('[wn] المحرّك الأصلي جاهز — '+WN.threads+' خيوط');
+        WN.ready=true;WN.loading=false;WN.threads=(r&&r.threads)||WN.threads;WN.diag.stage='جاهز';
+        console.log('[wn] المحرّك الأصلي جاهز — '+WN.threads+' خيوط · '+WN.diag.modelPath);
         var _mb=document.getElementById('mem2Build');
         if(_mb&&_mb.textContent.indexOf('أصلي')<0)_mb.textContent+=' · محرّك أصلي ✓';
       }).catch(function(e){
-        WN.tried=true;WN.loading=false;
-        _wnDiag('فشل تحميل الموديل ('+String(e&&e.message||e).slice(0,50)+') — WASM');
+        _wnFail('فشل تحميل الموديل في whisper.cpp ('+String(e&&e.message||e).slice(0,50)+') — قد يكون الملف تالفاً/ليس GGUF');
+        try{toast('تعذّر تشغيل المحرّك الأصلي — التقييم على WASM','warning');}catch(x){}
       });
     }
+    /* الملف محفوظ مسبقاً وحجمه معقول (>10MB)؟ حمّله. وإلا نزّله بتشخيص HTTP كامل. */
     FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(st){
-      if(st&&st.size>1000000){_load();return;}
-      return Promise.reject();
-    }).catch(function(){
-      /* تنزيل مرة واحدة — بتقدّم ومهلة (نفس فلسفة نظام التنزيل الحالي) */
-      var _mb=document.getElementById('mem2Build');
-      var prog=null;
-      try{prog=FS.addListener('progress',function(p){
-        if(_mb&&p&&p.contentLength>0)_mb.textContent='build '+_buildStamp()+' · تنزيل المحرّك الأصلي '+Math.round(p.bytes*100/p.contentLength)+'%';
-      });}catch(e){}
-      var dlTO=setTimeout(function(){WN.tried=true;WN.loading=false;_wnDiag('مهلة تنزيل الموديل (120ث) — WASM');},120000);
-      FS.downloadFile({url:WN_GGUF_URL,path:WN_GGUF_FILE,directory:'DATA',progress:true})
-        .then(function(){
-          clearTimeout(dlTO);
-          try{if(prog&&prog.then)prog.then(function(h){h.remove();});}catch(e){}
-          if(_mb)_mb.textContent='build '+_buildStamp();
-          if(!WN.tried)_load();
-        })
-        .catch(function(e){
-          clearTimeout(dlTO);
-          try{if(prog&&prog.then)prog.then(function(h){h.remove();});}catch(e2){}
-          WN.tried=true;WN.loading=false;
-          if(_mb)_mb.textContent='build '+_buildStamp();
-          _wnDiag('فشل تنزيل الموديل ('+String(e&&e.message||e).slice(0,40)+') — WASM');
-        });
-    });
-  }).catch(function(){WN.tried=true;WN.loading=false;});
+      if(st&&st.size>10000000){WN.diag.savedBytes=st.size;WN.diag.stage='ملف محفوظ';_load();return;}
+      if(st&&st.size>0){WN.diag.savedBytes=st.size;} /* موجود لكن صغير = تنزيل فاسد سابق */
+      return Promise.reject('need-download');
+    }).catch(function(){_wnDownload(P,FS,_load);});
+  }).catch(function(e){_wnFail('isAvailable فشل: '+String(e&&e.message||e).slice(0,40));});
+}
+/* تنزيل شفّاف: fetch يكشف رمز HTTP والحجم الفعلي — 403=خاص/صلاحية،
+   404=اسم/مسار خاطئ، 200+~43MB=صحيح. لا حفظ لمحتوى خطأ ولا موديل بديل. */
+function _wnDownload(P,FS,_load){
+  WN.diag.stage='تنزيل GGUF';
+  var _mb=document.getElementById('mem2Build');
+  var to=setTimeout(function(){_wnFail('مهلة التنزيل (180ث)');},180000);
+  fetch(WN_GGUF_URL).then(function(res){
+    WN.diag.httpStatus=res.status;
+    var cl=res.headers.get('content-length')||res.headers.get('x-linked-size');
+    WN.diag.headBytes=cl?parseInt(cl,10):'غير معلن';
+    if(!res.ok){clearTimeout(to);_wnFail('HTTP '+res.status+(res.status===403?' (المستودع خاص — اجعله عاماً أو أضف صلاحية)':res.status===404?' (اسم/مسار الملف خطأ)':''));return null;}
+    return res.arrayBuffer();
+  }).then(function(ab){
+    if(!ab){return;}
+    clearTimeout(to);
+    var bytes=ab.byteLength;WN.diag.savedBytes=bytes;
+    /* أقل من 10MB = ليس موديلاً (غالباً صفحة خطأ) — لا تحفظه ولا تحمّله */
+    if(bytes<10000000){_wnFail('الحجم المُنزَّل '+bytes+' بايت — ليس موديل GGUF (متوقّع ~43MB). تحقّق من الرفع.');return;}
+    /* ArrayBuffer → base64 → Filesystem.writeFile */
+    var u8=new Uint8Array(ab),bin='',CH=32768;
+    for(var o=0;o<u8.length;o+=CH)bin+=String.fromCharCode.apply(null,u8.subarray(o,Math.min(o+CH,u8.length)));
+    var b64=btoa(bin);
+    WN.diag.stage='حفظ الملف';
+    FS.writeFile({path:WN_GGUF_FILE,directory:'DATA',data:b64,recursive:true}).then(function(){
+      if(_mb)_mb.textContent='build '+_buildStamp();
+      _load();
+    }).catch(function(e){_wnFail('فشل حفظ الملف: '+String(e&&e.message||e).slice(0,40));});
+  }).catch(function(e){
+    clearTimeout(to);
+    _wnFail('فشل الطلب: '+String(e&&e.message||e).slice(0,50)+' (شبكة/CORS)');
+  });
 }
 /* تفريغ نافذة PCM عبر المحرّك الأصلي: Float32 → Int16 LE → base64 */
 function _wnTranscribe(f32,cb,fail){
@@ -3519,6 +3542,19 @@ function _mem2AddDiagBtn(){
     var foot=bar.querySelector('.mem2-bar-foot');if(foot)foot.appendChild(btn);
   },400);
 }
+/* سطر تشخيص تنزيل GGUF: الرابط + رمز HTTP + الحجم + مسار الملف + سبب الفشل */
+function _wnDownDiag(){
+  var g=WN.diag;if(!g)return _isAndroidNative()?'تنزيل GGUF: لم يُبدأ بعد':'';
+  function _fmtB(b){return (typeof b==='number')?(b>=1048576?(b/1048576).toFixed(1)+'MB':b+'B'):b;}
+  var lines=[
+    'رابط GGUF: '+g.url,
+    'رمز HTTP: '+g.httpStatus+' · حجم الترويسة: '+_fmtB(g.headBytes),
+    'المحفوظ: '+_fmtB(g.savedBytes)+' · المرحلة: '+g.stage,
+    'مسار الموديل المحمَّل: '+g.modelPath
+  ];
+  if(g.err)lines.push('⚠ سبب فشل الأصلي: '+g.err);
+  return lines.join('\n');
+}
 /* ── «تفاصيل تقنية» — تقرير المحاولة الأخيرة: المسار، الأزمنة، سبب الفشل ── */
 function _mem2DiagText(){
   var d=W2._diag;if(!d)return'';
@@ -3530,10 +3566,16 @@ function _mem2DiagText(){
     'المسار المتّخذ: '+(d.path||'—'),
     'نص التعرّف المجمّع: '+(d.words||0)+' كلمة · دورات: '+(d.cycles||0)+(d.watchdog?' · إنعاش رقيب: '+d.watchdog:''),
     d.gate?'حكم سريع: '+d.gate:'',
-    'محرّك النوافذ: '+(WN.ready?'أصلي whisper.cpp ('+WN.threads+' خيوط)':(W2._tinyReady?'WASM tiny':'WASM base')),
+    '── المحرّك الأصلي (whisper.cpp) ──',
+    'محرّك النوافذ الفعلي: '+(d.engine||(WN.ready?'أصلي whisper.cpp ('+WN.threads+' خيوط)':(W2._tinyReady?'WASM tiny':'WASM base'))),
+    'حالة المحرّك الأصلي: '+(WN.ready?'جاهز ('+WN.threads+' خيوط) ✓':(WN.tried?'غير مفعّل — WASM':'قيد التهيئة')),
+    _wnDownDiag(),
     (d.winMs&&d.winMs.length)?'أزمنة النوافذ: '+d.winMs.join('ms · ')+'ms':'',
     d.flushMs?'زمن تثبيت التعرّف: '+d.flushMs+'ms':'',
     d.whisperMs?'زمن base: '+d.whisperMs+'ms':'',
+    '── النص (مفتاح التشخيص) ──',
+    d.target?'النص المستهدف: '+d.target:'',
+    d.heard!=null?'whisper سمع: '+(d.heard||'(فارغ)'):'',
     r?'النتيجة: ✅'+(r.ok||0)+' ❌'+(r.err||0)+(r.miss?' ⬜'+r.miss+' (لم تُسمع)':''):'',
     d.fp32?'⚠ fp32 fallback: '+d.fp32.trim()+' (ملف أوزان بلا q8 — حجم كبير)':'',
     d.fail?'سبب الفشل: '+d.fail:''];
@@ -4548,7 +4590,12 @@ function _w2Msg(m){
     if(m.procMs!=null){toast((W2._dev==='webgpu'?'WebGPU':'WASM')+': '+m.procMs+'ms');console.log('[w2] transcribe dev='+W2._dev+' procMs='+m.procMs+(m.iL?' inputSmp='+m.iL+' trimSmp='+m.tL:''));}
     MEM2._tr=(m.text||'').trim();MEM2._partial='';
     var _wc=(MEM2._tr.trim().split(/\s+/).filter(Boolean).length);
-    if(W2._diag){W2._diag.whisperMs=m.procMs||0;if(!W2._diag.path)W2._diag.path='Whisper ('+(W2._dev==='webgpu'?'WebGPU':'WASM')+')';}
+    if(W2._diag){
+      W2._diag.whisperMs=m.procMs||0;if(!W2._diag.path)W2._diag.path='Whisper ('+(W2._dev==='webgpu'?'WebGPU':'WASM')+')';
+      W2._diag.heard=MEM2._tr;W2._diag.engine='WASM base (دقيق)';
+      var _sgB=MEM2.segs&&MEM2.segs[MEM2.cur];
+      if(_sgB){var _twB=[];_sgB.ayahs.forEach(function(a){a.words.forEach(function(w){_twB.push(w.w);});});W2._diag.target=_twB.join(' ');}
+    }
     _w2Diag('Whisper اكتمل '+(m.procMs||0)+'ms — '+_wc+' كلمة');
     /* فحص موضعي: يُدمج الحكم في النتيجة القائمة بدل تقييم كامل جديد */
     if(W2._recheck){var _rtx=MEM2._tr;MEM2._tr='';_ltMergeRecheck(_rtx);return;}
@@ -4836,7 +4883,12 @@ function _w2CascJudge(){
   var mic=document.getElementById('mem2MicBtn');if(mic)mic.disabled=false;
   var seg=MEM2.segs[MEM2.cur];
   var lt=(_liveText||'').trim();
-  if(W2._diag){W2._diag.words=lt?lt.split(/\s+/).filter(Boolean).length:0;W2._diag.winMs=c.winMs.slice();}
+  if(W2._diag){
+    W2._diag.words=lt?lt.split(/\s+/).filter(Boolean).length:0;W2._diag.winMs=c.winMs.slice();
+    W2._diag.engine=c.usedNative?'أصلي whisper.cpp':(c.usedTiny?'WASM tiny':'WASM base');
+    W2._diag.heard=lt; /* النص الخام كما نطقه المحرّك — مفتاح التشخيص */
+    if(seg){var _tw=[];seg.ayahs.forEach(function(a){a.words.forEach(function(w){_tw.push(w.w);});});W2._diag.target=_tw.join(' ');}
+  }
   /* المرحلة السريعة: هل تطابق نظيف عالٍ؟ (نفس عتبة _tryCascade الواعية بالطول) */
   var fastPass=false;
   if(!_m2PageMode&&seg&&lt){
