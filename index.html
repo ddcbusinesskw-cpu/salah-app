@@ -2415,6 +2415,16 @@ function _vkEnsure(cb){
     VK.loading=false;VK.dl.err='voskAvailable: '+String(e&&e.message||e).slice(0,50);if(cb)cb(false);
   });
 }
+/* المرحلة ٢: Vosk يقود التوهّج اللحظي — يحاذي جزئيّته المتنامية مع كلمات الصفحة
+   (نفس lmAdvance الرتيب: snorm + تسامح تحرير). whisper يؤكّد لاحقاً (المرحلة ٣). */
+function _vkAlign(text,isFinal){
+  if(!LM.rec||!text)return;
+  var heard=text.split(/\s+/).filter(Boolean).map(_lmNorm);
+  var before=LM.cursor;
+  lmAdvance(heard);
+  LM._vkHeard=text;
+  if(LM.cursor!==before)LM._vkAdvMs=Date.now();
+}
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
@@ -2555,8 +2565,9 @@ function lmOnPartial(ev){
   }
   if(!t)return;
   var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
-  /* النص خام متنامٍ (نافذة العبارة الكاملة) — المحاذاة رتيبة تتقدّم بالكلمات الجديدة */
-  lmAdvance(heard);
+  /* whisper: يقود التوهّج فقط حين Vosk غير جاهز (تراجع). حين Vosk يقود، whisper
+     للتأكيد لا للقيادة (المرحلة ٣) — تفادي تصادم مؤشرين. */
+  if(!(VK.ready&&VK.listening))lmAdvance(heard);
 }
 function lmToggleRec(){LM.rec?lmStop():lmStart();}
 function lmStart(){
@@ -2577,10 +2588,14 @@ function lmStart(){
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
     var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='⏹ إيقاف';
     var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
-    if(st)st.textContent='🎙 يستمع…';
+    if(st)st.textContent=VK.ready?'🎙 يستمع (فوري)…':'🎙 يستمع…';
     try{rakWakeLock(true);}catch(e){}
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     try{P.addListener('partial',lmOnPartial);}catch(e){}
+    /* الطبقة الفورية Vosk: مفعّلة إن جاهزة، وإلا تُنزَّل في الخلفية (whisper يقود حتى تجهز) */
+    VK.listening=true;
+    if(!VK.ready&&!VK.tried){try{_vkEnsure(function(ok){var s2=document.getElementById('lmStatus');if(ok&&s2&&LM.rec)s2.textContent='🎙 يستمع (فوري)…';});}catch(e){}}
+    else if(VK.ready){_vkWire(P);}
     /* نافذة نامية (عبارة كاملة) + تعرّف حرّ (بلا prompt): whisper يرى عبارة كاملة كما في 🧪 */
     P.startStream({slide_sec:1.5,max_sec:18,prompt:''}).catch(function(e){
       LM.rec=false;
@@ -2605,7 +2620,8 @@ function lmStart(){
   }else{_begin();}
 }
 function lmStop(){
-  if(!LM.rec)return;LM.rec=false;
+  if(!LM.rec)return;LM.rec=false;VK.listening=false;
+  try{var _vp=_vkPlug();if(_vp&&_vp.voskReset)_vp.voskReset();}catch(e){}
   var P=_wnPlug(),st=document.getElementById('lmStatus');
   var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='🎙 استمع';
   var mic=document.getElementById('lmMic');if(mic)mic.classList.remove('rec');
