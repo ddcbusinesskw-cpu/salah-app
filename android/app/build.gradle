@@ -3,6 +3,14 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.ddcbusiness.noor"
     compileSdk rootProject.ext.compileSdkVersion
+    // محرّك Whisper الأصلي (whisper.cpp) عبر CMake/NDK — إصدار مثبَّت
+    ndkVersion "26.1.10909125"
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
     defaultConfig {
         applicationId "com.ddcbusiness.noor"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -12,6 +20,14 @@ android {
         def _bn = System.getenv("PROJECT_BUILD_NUMBER") ?: System.getenv("BUILD_NUMBER")
         versionCode _bn ? _bn.toInteger() : 1
         versionName "1.0." + (_bn ?: "0")
+        // ABIs المدعومة للمكتبة الأصلية — أجهزة بلا هذه الـABIs تسقط تلقائياً لـWASM
+        ndk { abiFilters "arm64-v8a", "armeabi-v7a" }
+        externalNativeBuild {
+            cmake {
+                // NEON على v7a؛ بلا -march=native (بناء متقاطع)
+                arguments "-DANDROID_ARM_NEON=ON", "-DGGML_NATIVE=OFF"
+            }
+        }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

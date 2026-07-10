@@ -37,11 +37,11 @@ workflows:
           cat android/capacitor.settings.gradle
           echo "=== capacitor.build.gradle ==="
           cat android/app/capacitor.build.gradle
-      - name: Install Android SDK 35
+      - name: Install Android SDK 35 + NDK/CMake (whisper.cpp)
         script: |
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
       - name: Build release AAB
         script: |
           cd android

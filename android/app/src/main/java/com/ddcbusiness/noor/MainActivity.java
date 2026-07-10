@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AudioRecorderPlugin.class);
         registerPlugin(SilentSpeechPlugin.class);
         registerPlugin(KeepAwakePlugin.class);
+        registerPlugin(WhisperNativePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
