@@ -15,11 +15,25 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+import org.json.JSONObject;
+import org.vosk.Model;
+import org.vosk.Recognizer;
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /** محرّك Whisper أصلي (whisper.cpp) — استدلال والتقاط صوت على المعالج مباشرة (معمارية ترتيل).
  *  الالتقاط عبر Android AudioRecord: PCM 16kHz mono 16-bit من المايك — بلا ضغط ولا فك
@@ -65,6 +79,15 @@ public class WhisperNativePlugin extends Plugin {
     /* عتبة السكوت: ذروة كتلة < ~0.012 مطبَّع = صمت. 0.6ث سكوت بعد كلام → ارتساء جديد. */
     private static final int SILENCE_PEAK = 380;
     private static final int SILENCE_RESET = (int)(SR * 0.6);
+
+    // ── Vosk: تعرّف ستريمنغ لحظي (طبقة فورية تقود التوهّج) ──
+    private Model voskModel = null;
+    private Recognizer voskRec = null;
+    private volatile boolean voskReady = false;
+    private volatile boolean voskLoading = false;
+    private String voskModelPath = "";
+    private final Object voskLock = new Object();   // يحمي إنشاء/إغلاق/تغذية Recognizer
+    private String lastVoskPartial = "";            // لا تُرسل نفس الجزئية مرّتين
 
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
@@ -209,6 +232,26 @@ public class WhisperNativePlugin extends Plugin {
                 if (nr > 0) {
                     short[] chunk = new short[nr];
                     System.arraycopy(block, 0, chunk, 0, nr);
+                    // غذِّ Vosk لحظياً (طبقة فورية) — يبثّ الكلمات فور نطقها بلا انتظار نافذة whisper
+                    if (voskReady) {
+                        synchronized (voskLock) {
+                            if (voskRec != null) {
+                                try {
+                                    boolean vend = voskRec.acceptWaveForm(block, nr);
+                                    String vjs = vend ? voskRec.getResult() : voskRec.getPartialResult();
+                                    String vtxt = "";
+                                    try { vtxt = new JSONObject(vjs).optString(vend ? "text" : "partial", ""); } catch (Throwable ig) {}
+                                    if (vend || !vtxt.equals(lastVoskPartial)) {
+                                        lastVoskPartial = vend ? "" : vtxt;
+                                        JSObject vev = new JSObject();
+                                        vev.put("text", vtxt);
+                                        vev.put("final", vend);
+                                        notifyListeners("vosk_partial", vev);
+                                    }
+                                } catch (Throwable ig) {}
+                            }
+                        }
+                    }
                     // VAD بسيط: ذروة الكتلة → كشف السكوت لإعادة الارتساء عند الوقفات
                     int bpk = 0;
                     for (int i = 0; i < nr; i++) { int a = Math.abs(block[i]); if (a > bpk) bpk = a; }
@@ -342,6 +385,128 @@ public class WhisperNativePlugin extends Plugin {
         call.resolve();
     }
 
+    // ── Vosk: التوفّر/التنزيل/التحميل/إعادة الضبط ──
+
+    @PluginMethod
+    public void voskAvailable(PluginCall call) {
+        JSObject r = new JSObject();
+        boolean lib;
+        try { Class.forName("org.vosk.Model"); lib = true; } catch (Throwable t) { lib = false; }
+        r.put("lib", lib);
+        r.put("ready", voskReady);
+        r.put("loading", voskLoading);
+        r.put("path", voskModelPath);
+        call.resolve(r);
+    }
+
+    /** تنزيل zip موديل Vosk (بثّ إلى ملف — بلا تحميل 318MB في الذاكرة) ثم فكّه. */
+    @PluginMethod
+    public void voskDownload(PluginCall call) {
+        final String url = call.getString("url");
+        final String name = call.getString("name", "vosk-model");
+        if (url == null || url.isEmpty()) { call.reject("no-url"); return; }
+        exec.execute(() -> {
+            try {
+                File base = new File(getContext().getFilesDir(), "vosk");
+                if (!base.exists()) base.mkdirs();
+                File modelDir = new File(base, name);
+                if (modelDir.exists() && new File(modelDir, "conf").exists()) {
+                    JSObject r0 = new JSObject(); r0.put("path", modelDir.getAbsolutePath()); r0.put("cached", true);
+                    call.resolve(r0); return;
+                }
+                File zip = new File(base, name + ".zip");
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(30000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
+                int status = c.getResponseCode();
+                if (status < 200 || status >= 300) { call.reject("vosk-http-" + status); return; }
+                long total = c.getContentLengthLong();
+                byte[] b = new byte[131072]; long done = 0, lastEmit = 0; int rd;
+                try (InputStream in = new BufferedInputStream(c.getInputStream());
+                     OutputStream out = new FileOutputStream(zip)) {
+                    while ((rd = in.read(b)) > 0) {
+                        out.write(b, 0, rd); done += rd;
+                        if (done - lastEmit > 3_000_000) {
+                            lastEmit = done;
+                            JSObject ev = new JSObject();
+                            ev.put("phase", "download"); ev.put("done", done); ev.put("total", total);
+                            notifyListeners("vosk_progress", ev);
+                        }
+                    }
+                }
+                JSObject uz = new JSObject(); uz.put("phase", "unzip"); notifyListeners("vosk_progress", uz);
+                unzip(zip, base);
+                zip.delete();
+                if (!modelDir.exists() || !new File(modelDir, "conf").exists()) {
+                    call.reject("vosk-unzip-bad: مجلد الموديل غير مكتمل"); return;
+                }
+                JSObject r = new JSObject(); r.put("path", modelDir.getAbsolutePath());
+                call.resolve(r);
+            } catch (Throwable t) {
+                call.reject("vosk-download-error: " + t.getMessage());
+            }
+        });
+    }
+
+    /** تحميل الموديل في Recognizer (مرّة) — يبقى محمّلاً عبر الجلسات. */
+    @PluginMethod
+    public void voskLoad(PluginCall call) {
+        final String path = call.getString("path");
+        if (path == null || path.isEmpty()) { call.reject("no-path"); return; }
+        if (voskLoading) { call.reject("busy"); return; }
+        voskLoading = true;
+        exec.execute(() -> {
+            try {
+                synchronized (voskLock) {
+                    if (voskRec != null) { voskRec.close(); voskRec = null; }
+                    if (voskModel != null) { voskModel.close(); voskModel = null; }
+                    voskModel = new Model(path);
+                    voskRec = new Recognizer(voskModel, (float) SR);
+                    voskRec.setWords(true);
+                }
+                voskModelPath = path; voskReady = true; voskLoading = false;
+                JSObject r = new JSObject(); r.put("ok", true);
+                call.resolve(r);
+            } catch (Throwable t) {
+                voskReady = false; voskLoading = false;
+                call.reject("vosk-load-error: " + t.getMessage());
+            }
+        });
+    }
+
+    /** إعادة ضبط مُعرّف Vosk (عند حدود الآية — عبارة جديدة). */
+    @PluginMethod
+    public void voskReset(PluginCall call) {
+        synchronized (voskLock) { if (voskRec != null) { try { voskRec.reset(); } catch (Throwable ignored) {} } }
+        lastVoskPartial = "";
+        call.resolve();
+    }
+
+    /** فكّ zip بثّاً إلى مجلد (بحماية zip-slip). */
+    private void unzip(File zip, File destDir) throws Exception {
+        String root = destDir.getCanonicalPath() + File.separator;
+        byte[] buf = new byte[131072];
+        long files = 0;
+        try (ZipInputStream zis = new ZipInputStream(new BufferedInputStream(new FileInputStream(zip)))) {
+            ZipEntry e;
+            while ((e = zis.getNextEntry()) != null) {
+                File f = new File(destDir, e.getName());
+                if (!f.getCanonicalPath().startsWith(root)) { zis.closeEntry(); continue; }
+                if (e.isDirectory()) { f.mkdirs(); }
+                else {
+                    File p = f.getParentFile(); if (p != null) p.mkdirs();
+                    try (OutputStream os = new FileOutputStream(f)) {
+                        int r; while ((r = zis.read(buf)) > 0) os.write(buf, 0, r);
+                    }
+                    if ((++files % 25) == 0) {
+                        JSObject ev = new JSObject(); ev.put("phase", "unzip"); ev.put("files", files);
+                        notifyListeners("vosk_progress", ev);
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
+    }
+
     /** نسخ العيّنات [from,to) من قائمة الشرائح إلى short[] واحد. */
     private short[] slice(int from, int to) {
         synchronized (buf) {
@@ -365,11 +530,20 @@ public class WhisperNativePlugin extends Plugin {
         recorder = null; readThread = null;
     }
 
+    private void closeVosk() {
+        synchronized (voskLock) {
+            voskReady = false;
+            if (voskRec != null) { try { voskRec.close(); } catch (Throwable ignored) {} voskRec = null; }
+            if (voskModel != null) { try { voskModel.close(); } catch (Throwable ignored) {} voskModel = null; }
+        }
+    }
+
     @PluginMethod
     public void unload(PluginCall call) {
         listening = false;
         exec.execute(() -> {
             releaseRecorder();
+            closeVosk();
             if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
             call.resolve();
         });
@@ -381,6 +555,7 @@ public class WhisperNativePlugin extends Plugin {
         listening = false;
         try { if (readThread != null) readThread.join(500); } catch (InterruptedException ignored) {}
         releaseRecorder();
+        closeVosk();
         if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
         super.handleOnDestroy();
     }

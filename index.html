@@ -2355,6 +2355,66 @@ function _wnPcmB64ToF32(b64){
     return f;
   }catch(e){return null;}
 }
+
+/* ══ Vosk: طبقة التعرّف الفورية (ستريمنغ) — تقود التوهّج اللحظي ══
+   الموديل ~318MB يُنزَّل مباشرة من alphacephei مرّة، يُفكّ ويُحمّل أصلياً.
+   الأحداث: vosk_progress (تنزيل/فكّ) · vosk_partial (كلمات لحظية). */
+var VK={ready:false,loading:false,tried:false,fatal:false,listening:false,
+        dl:{phase:'',done:0,total:0,files:0,err:''},lastPartial:'',_wired:false};
+var VK_MODEL_URL='https://alphacephei.com/vosk/models/vosk-model-ar-mgb2-0.4.zip';
+var VK_MODEL_NAME='vosk-model-ar-mgb2-0.4';
+function _vkPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
+function _vkWire(P){
+  if(VK._wired)return;VK._wired=true;
+  try{P.addListener('vosk_progress',_vkOnProgress);}catch(e){}
+  try{P.addListener('vosk_partial',_vkOnPartial);}catch(e){}
+}
+function _vkOnProgress(ev){
+  if(!ev)return;
+  VK.dl.phase=ev.phase||VK.dl.phase;
+  if(ev.done!=null)VK.dl.done=ev.done;if(ev.total!=null)VK.dl.total=ev.total;
+  if(ev.files!=null)VK.dl.files=ev.files;
+  var st=document.getElementById('lmStatus');
+  if(st&&VK.loading){
+    if(ev.phase==='download'&&ev.total>0)st.textContent='⏳ تنزيل محرّك الستريمنغ '+Math.round(ev.done/ev.total*100)+'٪';
+    else if(ev.phase==='unzip')st.textContent='⏳ فكّ محرّك الستريمنغ… ('+(ev.files||0)+' ملف)';
+  }
+}
+/* المرحلة ١: تخزين الجزئية فقط (المحاذاة في المرحلة ٢) */
+function _vkOnPartial(ev){
+  if(!ev)return;
+  VK.lastPartial=(ev.text||'').trim();
+  if(typeof _vkAlign==='function')_vkAlign(VK.lastPartial,!!ev.final); /* المرحلة ٢ */
+}
+/* تهيئة Vosk: تحقّق التوفّر → تنزيل الموديل → تحميله. مرّة واحدة. */
+function _vkEnsure(cb){
+  var P=_vkPlug();
+  if(!P||!_isAndroidNative()){VK.tried=true;VK.fatal=true;VK.dl.err='بيئة غير أصلية';if(cb)cb(false);return;}
+  if(VK.ready){if(cb)cb(true);return;}
+  if(VK.loading){if(cb)cb(false);return;}
+  _vkWire(P);
+  VK.loading=true;VK.tried=true;VK.dl.err='';
+  P.voskAvailable().then(function(a){
+    if(!(a&&a.lib)){VK.loading=false;VK.fatal=true;VK.dl.err='مكتبة Vosk غير مبنية في الـAPK';if(cb)cb(false);return;}
+    if(a.ready){VK.ready=true;VK.loading=false;if(cb)cb(true);return;}
+    VK.dl.phase='download';
+    P.voskDownload({url:VK_MODEL_URL,name:VK_MODEL_NAME}).then(function(d){
+      VK.dl.phase='load';
+      var st=document.getElementById('lmStatus');if(st&&VK.loading)st.textContent='⏳ تحميل محرّك الستريمنغ…';
+      return P.voskLoad({path:d&&d.path});
+    }).then(function(){
+      VK.ready=true;VK.loading=false;VK.dl.phase='جاهز';
+      console.log('[vk] Vosk جاهز — الطبقة الفورية مفعّلة');
+      if(cb)cb(true);
+    }).catch(function(e){
+      VK.loading=false;VK.dl.err=String(e&&e.message||e).slice(0,80);
+      console.warn('[vk] فشل: '+VK.dl.err);
+      if(cb)cb(false);
+    });
+  }).catch(function(e){
+    VK.loading=false;VK.dl.err='voskAvailable: '+String(e&&e.message||e).slice(0,50);if(cb)cb(false);
+  });
+}
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
 /* ── IndexedDB cache: ref JSON + self-test audio ───────────────────── */
