@@ -43,9 +43,9 @@ public class WhisperNativePlugin extends Plugin {
     private final ArrayList<short[]> buf = new ArrayList<>(); // شرائح PCM بالترتيب
     private int total = 0;          // إجمالي العيّنات الملتقَطة
     private int emittedUpTo = 0;    // آخر عيّنة أُرسلت نافذتها
-    private int winSamples = SR * 2;      // طول النافذة (افتراضي 2ث)
-    private int overlapSamples = SR / 2;  // تداخل (افتراضي 0.5ث)
-    private volatile String prompt = "";  // النص المتوقّع حول المؤشر (توجيه)
+    private int winSamples = (int)(SR * 2.5);   // طول النافذة المنزلقة (~2.5ث)
+    private int slideSamples = SR;              // مقدار الانزلاق (~1ث) — كل 1ث نافذة جديدة
+    private volatile String prompt = "";        // النص المتوقّع حول المؤشر (توجيه)
     private int seq = 0;
 
     private static native long nativeInit(String path);
@@ -120,16 +120,20 @@ public class WhisperNativePlugin extends Plugin {
 
     // ── الالتقاط الحي: AudioRecord → نوافذ → whisper.cpp → أحداث للـJS ──
 
+    /* أسماء المرحلة ١: startStream/stopStream (مرادفة لـstart/stopListening) */
+    @PluginMethod public void startStream(PluginCall call) { startListening(call); }
+    @PluginMethod public void stopStream(PluginCall call) { stopListening(call); }
+
     @PluginMethod
     public void startListening(PluginCall call) {
         if (!libOk) { call.reject("lib-missing"); return; }
         if (ctx == 0) { call.reject("not-loaded"); return; }
         if (listening) { call.resolve(); return; }
 
-        double winSec = call.getDouble("window_sec", 2.0);
-        double ovSec  = call.getDouble("overlap_sec", 0.5);
-        winSamples = Math.max(SR, (int) (winSec * SR));
-        overlapSamples = Math.max(0, (int) (ovSec * SR));
+        double winSec  = call.getDouble("window_sec", 2.5);
+        double slideSec = call.getDouble("slide_sec", 1.0);
+        winSamples   = Math.max(SR, (int) (winSec * SR));
+        slideSamples = Math.max(SR / 2, (int) (slideSec * SR));
         prompt = call.getString("prompt", "");
 
         int minBuf = AudioRecord.getMinBufferSize(SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
@@ -163,9 +167,9 @@ public class WhisperNativePlugin extends Plugin {
                     System.arraycopy(block, 0, chunk, 0, nr);
                     int nowTotal;
                     synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
-                    // نافذة جديدة كل winSamples من الصوت الجديد
-                    if (nowTotal - emittedUpTo >= winSamples) {
-                        final int from = Math.max(0, emittedUpTo - overlapSamples);
+                    // نافذة منزلقة: كل slideSamples من الصوت الجديد، بطول winSamples
+                    if (nowTotal - emittedUpTo >= slideSamples) {
+                        final int from = Math.max(0, nowTotal - winSamples);
                         final int to = nowTotal;
                         emittedUpTo = nowTotal;
                         dispatchWindow(from, to, ++seq, false);
@@ -199,7 +203,7 @@ public class WhisperNativePlugin extends Plugin {
         try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
 
         final int from, to, mySeq;
-        synchronized (buf) { from = Math.max(0, emittedUpTo - overlapSamples); to = total; mySeq = ++seq; }
+        synchronized (buf) { from = Math.max(0, total - winSamples); to = total; mySeq = ++seq; }
         // النافذة الأخيرة ثم النتيجة النهائية + PCM الكامل (لـ«استمع للمسجَّل»)
         exec.execute(() -> {
             try {
