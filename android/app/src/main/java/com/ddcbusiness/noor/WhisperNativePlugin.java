@@ -1,15 +1,19 @@
 package com.ddcbusiness.noor;
 
+import android.Manifest;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Base64;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -21,7 +25,12 @@ import java.util.concurrent.Executors;
  *  الالتقاط عبر Android AudioRecord: PCM 16kHz mono 16-bit من المايك — بلا ضغط ولا فك
  *  ولا WebView ولا إعادة تشكيل JS. الصوت لا يغادر الطبقة الأصلية حتى يصير نصاً.
  *  فشل تحميل المكتبة/الموديل لا يكسر التطبيق — الجانب الجافاسكربتي يسقط لـWASM. */
-@CapacitorPlugin(name = "WhisperNative")
+@CapacitorPlugin(
+    name = "WhisperNative",
+    permissions = {
+        @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone")
+    }
+)
 public class WhisperNativePlugin extends Plugin {
 
     private static final int SR = 16000;
@@ -124,11 +133,27 @@ public class WhisperNativePlugin extends Plugin {
     @PluginMethod public void startStream(PluginCall call) { startListening(call); }
     @PluginMethod public void stopStream(PluginCall call) { stopListening(call); }
 
+    /* رد نداء الإذن: يُعاد استدعاء البدء بعد قرار المستخدم */
+    @PermissionCallback
+    private void micPermCallback(PluginCall call) {
+        if (getPermissionState("microphone") == PermissionState.GRANTED) {
+            startListening(call);
+        } else {
+            call.reject("mic-permission-denied: إذن المايكروفون مرفوض — فعّله من إعدادات التطبيق");
+        }
+    }
+
     @PluginMethod
     public void startListening(PluginCall call) {
         if (!libOk) { call.reject("lib-missing"); return; }
-        if (ctx == 0) { call.reject("not-loaded"); return; }
+        if (ctx == 0) { call.reject("not-loaded: الموديل لم يُحمّل بعد"); return; }
         if (listening) { call.resolve(); return; }
+
+        /* إذن RECORD_AUDIO وقت التشغيل قبل فتح AudioRecord — بلا إذن يفشل الالتقاط بصمت */
+        if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            requestPermissionForAlias("microphone", call, "micPermCallback");
+            return;
+        }
 
         double winSec  = call.getDouble("window_sec", 2.5);
         double slideSec = call.getDouble("slide_sec", 1.0);
@@ -145,9 +170,13 @@ public class WhisperNativePlugin extends Plugin {
                     SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recBuf * 2);
             if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
                 recorder.release(); recorder = null;
-                call.reject("audiorecord-init-failed");
+                call.reject("audiorecord-init-failed: تعذّر فتح المايك (قد يكون مستخدَماً من تطبيق آخر أو الإذن مرفوض)");
                 return;
             }
+        } catch (SecurityException se) {
+            recorder = null;
+            call.reject("audiorecord-permission: إذن المايكروفون غير ممنوح (" + se.getMessage() + ")");
+            return;
         } catch (Throwable t) {
             recorder = null;
             call.reject("audiorecord-error: " + t.getMessage());

@@ -2078,9 +2078,9 @@ button,a{-webkit-tap-highlight-color:transparent;}
   <!-- مرحلة الدعوة -->
   <div id="sv_invite">
     <p class="sv-title">تهيئة أولى</p>
-    <p class="sv-desc">سيتم تحميل الملفات الأساسية مرة واحدة وتخزينها على جهازك (~145 MB):</p>
+    <p class="sv-desc">سيتم تحميل محرّك التعرّف على صوت القرآن مرة واحدة وتخزينه على جهازك:</p>
     <ul class="sv-list">
-      <li>نموذج التعرّف على صوت القرآن<span class="sv-size">~145 MB</span></li>
+      <li>محرّك whisper الأصلي (GGUF)<span class="sv-size">~43 MB</span></li>
       <li>مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span></li>
     </ul>
     <button onclick="_setupRun()" class="btn" style="width:100%">تحميل وبدء</button>
@@ -2478,26 +2478,48 @@ function lmOnPartial(ev){
 function lmToggleRec(){LM.rec?lmStop():lmStart();}
 function lmStart(){
   var st=document.getElementById('lmStatus');
+  /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
   if(!WN.ready){
-    if(st)st.textContent=WN.tried?'المحرّك الأصلي غير مفعّل — راجع «تفاصيل تقنية»':'جارٍ تجهيز المحرّك الأصلي… أعد المحاولة بعد لحظات';
+    var d=WN.diag||{};
+    var sz=(typeof d.savedBytes==='number'&&d.savedBytes>0)?' · '+(typeof _svFmt==='function'?_svFmt(d.savedBytes):d.savedBytes+'B'):'';
+    if(WN.tried&&d.err){if(st)st.textContent='المحرّك متعذّر: '+String(d.err).slice(0,70);}
+    else{if(st)st.textContent='⏳ يُحمّل المحرّك الأصلي… '+(d.stage||'تجهيز')+sz;}
     try{_wnEnsure();}catch(e){}
     return;
   }
-  var P=_wnPlug();if(!P)return;
-  LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._t0=Date.now();
-  /* صفّر التلوين */
-  for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
-  var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='⏹ إيقاف';
-  var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
-  if(st)st.textContent='🎙 يستمع…';
-  try{rakWakeLock(true);}catch(e){}
+  var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
+  LM._captureErr='';
   var prompt=LM.words.map(function(w){return w.raw;}).join(' ');
-  try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
-  try{P.addListener('partial',lmOnPartial);}catch(e){}
-  P.startStream({window_sec:2.5,slide_sec:1.0,prompt:prompt}).catch(function(e){
-    LM.rec=false;if(st)st.textContent='تعذّر بدء الالتقاط: '+String(e&&e.message||e).slice(0,40);
-    var l2=document.getElementById('lmMicLbl');if(l2)l2.textContent='🎙 استمع';
-  });
+  var _begin=function(){
+    LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._t0=Date.now();
+    for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
+    var lbl=document.getElementById('lmMicLbl');if(lbl)lbl.textContent='⏹ إيقاف';
+    var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
+    if(st)st.textContent='🎙 يستمع…';
+    try{rakWakeLock(true);}catch(e){}
+    try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
+    try{P.addListener('partial',lmOnPartial);}catch(e){}
+    P.startStream({window_sec:2.5,slide_sec:1.0,prompt:prompt}).catch(function(e){
+      LM.rec=false;
+      var msg=String(e&&e.message||e);LM._captureErr=msg;
+      var perm=/permission|إذن|مرفوض/i.test(msg);
+      if(st)st.textContent=perm?'الرجاء السماح باستخدام المايكروفون ثم أعد المحاولة':('تعذّر بدء الالتقاط: '+msg.slice(0,70));
+      var l2=document.getElementById('lmMicLbl');if(l2)l2.textContent='🎙 استمع';
+      var mc=document.getElementById('lmMic');if(mc)mc.classList.remove('rec');
+      try{rakWakeLock(false);}catch(x){}
+    });
+  };
+  /* اطلب إذن المايك runtime قبل AudioRecord (المكوّن الأصلي يطلبه أيضاً كخطّ دفاع ثانٍ) */
+  if(P.checkPermissions){
+    P.checkPermissions().then(function(p){
+      if(p&&p.microphone==='granted'){_begin();return;}
+      if(st)st.textContent='طلب إذن المايكروفون…';
+      P.requestPermissions().then(function(r){
+        if(r&&r.microphone==='granted')_begin();
+        else{LM._captureErr='إذن المايكروفون مرفوض';if(st)st.textContent='إذن المايكروفون مرفوض — فعّله من إعدادات التطبيق';}
+      }).catch(function(){_begin();});
+    }).catch(function(){_begin();});
+  }else{_begin();}
 }
 function lmStop(){
   if(!LM.rec)return;LM.rec=false;
@@ -2550,7 +2572,8 @@ function _lmDiagText(){
     'بصمة البناء: '+_buildStamp(),
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
-    'whisper سمع (آخر نافذة): '+(LM._heard||'—')];
+    'whisper سمع (آخر نافذة): '+(LM._heard||'—'),
+    LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
   if(typeof _wnDownDiag==='function'){var dd=_wnDownDiag();if(dd)L.push('── تنزيل GGUF ──',dd);}
   return L.filter(Boolean).join('\n');
 }
@@ -6326,23 +6349,56 @@ function _setupRun(){
   document.getElementById('sv_err').style.display='none';
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='جارٍ الاتصال…';
   _svRedraw();
-  /* 1 — Whisper model (via existing worker init) */
+  /* المحرّك أصلي (whisper.cpp): على أندرويد نزّل GGUF (~43MB) عبر WhisperNative —
+     لا يُشغَّل تنزيل WASM (_w2Init) في مسار المستخدم إطلاقاً؛ WASM كسول لحزمة الذهب فقط */
+  if(_isAndroidNative()){_setupRunNative();return;}
+  /* الويب (غير أصلي): لا محرّك أصلي — WASM للتوافق فقط */
   try{localStorage.removeItem('webgpu_ok');}catch(e){}
   var _fwasm=lsGet('webgpu_ok')==='false';
   if(W2.modelReady){_svModelDone=true;}
   else{
-    /* قتل أي worker قديم بقي من محاولة سابقة قبل البدء من جديد */
     if(!W2.modelReady&&(W2.worker||W2.loading)){_w2Kill();}
     _w2Init(_fwasm);
   }
-  /* 2 — Alafasy reference JSON */
   W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];
   _loadW2Ref(function(){
     _svRefDone=true;_svRedraw();_svMaybeSelfTest();_svCheckDone();
   });
-  /* If model was already cached (ready before we started) */
   if(_svModelDone){_svMaybeSelfTest();_svCheckDone();}
 }
+/* تهيئة أولى أصلية: تنزيل/تحميل GGUF عبر WhisperNative + مرجع العفاسي — لا WASM */
+function _setupRunNative(){
+  var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='تحميل المحرّك الأصلي (~43MB)…';
+  /* مرجع العفاسي لحزمة الذهب — في الخلفية بلا إعاقة */
+  W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];try{_loadW2Ref(function(){});}catch(e){}
+  /* ابدأ من جديد ثم حمّل GGUF */
+  WN.tried=false;WN.ready=false;WN.loading=false;
+  try{_wnEnsure();}catch(e){}
+  var t0=Date.now();
+  if(_svNativeIv)clearInterval(_svNativeIv);
+  _svNativeIv=setInterval(function(){
+    var d=WN.diag||{};
+    var l=document.getElementById('sv_lbl');
+    var sz=(typeof d.savedBytes==='number'&&d.savedBytes>0)?' · '+_svFmt(d.savedBytes):'';
+    if(l)l.textContent=(d.stage||'تجهيز')+sz;
+    if(WN.ready){
+      clearInterval(_svNativeIv);_svNativeIv=null;
+      _svModelDone=_svRefDone=_svTestDone=true;
+      _svDiagText='المحرّك: أصلي whisper.cpp · '+WN.threads+' خيوط · GGUF '+(_svFmt(d.savedBytes||0));
+      var prog=document.getElementById('sv_progress');if(prog)prog.style.display='none';
+      var done=document.getElementById('sv_done');if(done)done.style.display='';
+      var _dt=document.getElementById('sv_done_title');if(_dt)_dt.textContent='المحرّك الأصلي جاهز ✓';
+      var _dd=document.getElementById('sv_diag');if(_dd)_dd.textContent=_svDiagText;
+    }else if(WN.tried&&!WN.ready){
+      clearInterval(_svNativeIv);_svNativeIv=null;
+      _svShowErr((d.err||'تعذّر تحميل المحرّك الأصلي')+' — يمكنك المتابعة وسيُعاد التحميل عند فتح التسميع');
+    }else if(Date.now()-t0>200000){
+      clearInterval(_svNativeIv);_svNativeIv=null;
+      _svShowErr('طالت مدة التحميل — تابع وسيُعاد عند فتح التسميع');
+    }
+  },500);
+}
+var _svNativeIv=null;
 /* ===== تسلسل البداية: سبلاش → شروط → بريميوم → دخول → التطبيق ===== */
 var PREMIUM_ENABLED=false; /* اضبطه true لإعادة تفعيل شاشة الاشتراك */
 var TRIAL_DAYS=12,splashDone=false;
