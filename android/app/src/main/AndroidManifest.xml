@@ -40,8 +40,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Camera: rakaat counter brightness detection + salah tracking -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Microphone: tasmee (memorization test) speech recognition -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
