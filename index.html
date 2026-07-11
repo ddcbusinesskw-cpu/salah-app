@@ -832,6 +832,8 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .svt-status{text-align:center;font-size:13px;color:var(--muted);margin:10px 0;}
 .svt-metrics{font-size:11px;line-height:1.7;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;direction:rtl;word-break:break-word;}
 .svt-note{font-size:11px;color:var(--muted);line-height:1.9;margin:12px 2px;}
+.en-progwrap{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:12px auto;max-width:480px;}
+.en-progfill{height:100%;width:0;background:var(--green);border-radius:4px;transition:width .2s;}
 .st-pose-ara{font-size:26px;font-weight:800;color:var(--muted);transition:color .3s;}
 .st-pose-ring.qiyam .st-pose-ara{color:var(--green);}
 .st-pose-ring.ruku .st-pose-ara{color:#d4b84a;}
@@ -1803,6 +1805,31 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <div id="svtStatus" class="svt-status">⏳ تجهيز…</div>
     <div id="svtMetrics" class="svt-metrics"></div>
     <p class="svt-note">قف داخل الإطار كاملاً وجرّب وضعيات الصلاة (قيام/ركوع/سجود/جلوس). راقب <b>ميل الجذع 3D</b> — يجب أن يتغيّر بوضوح بين الركوع والسجود ويثبت مع زاوية الكاميرا. المعالجة كلها على الجهاز، لا يُحفَظ ولا يُرفَع أي فريم.</p>
+    <button onclick="go('svenroll')" style="width:100%;margin-top:14px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:10px;padding:11px;font:inherit;font-size:14px;font-weight:600;cursor:pointer">🧍 بدء الاسكان الشخصي (المرحلة ١)</button>
+  </div>
+</div>
+
+<!-- ============ جلسة الاسكان الشخصية (المرحلة ١) ============ -->
+<div id="svenroll" class="screen">
+  <div class="top">
+    <button class="back" aria-label="رجوع" onclick="go('svtest')">→</button>
+    <h2>الاسكان الشخصي</h2>
+    <span></span>
+  </div>
+  <div class="pad">
+    <div id="enStage" class="svt-stage">
+      <video id="enVideo" class="svt-video" playsinline muted autoplay></video>
+      <canvas id="enCanvas" class="svt-canvas"></canvas>
+    </div>
+    <div class="en-progwrap"><div id="enProgFill" class="en-progfill"></div></div>
+    <div id="enMsg" class="svt-status">⏳ تجهيز…</div>
+    <p class="svt-note">جلسة تعريف مرّة واحدة (~دقيقتان): يطلب منك بالترتيب أن تقف/تركع/تسجد/تجلس، ويسجّل بصمتك الجسدية الشخصية لتصير الدقّة قاطعة. اضبط الجوّال حتى يظهر جسمك <b>كاملاً في كل وضعية</b> (الإطار أخضر = جاهز). كل المعالجة على الجهاز، لا حفظ ولا رفع لأي فريم.</p>
+    <div id="enDone" style="display:none;text-align:center;padding:10px">
+      <div style="font-size:40px">✅</div>
+      <p style="font-size:16px;font-weight:700;color:var(--green);margin:6px 0 12px">اكتمل الاسكان الشخصي</p>
+      <div id="enSummary" style="font-size:12px;color:var(--muted);line-height:2;text-align:right;direction:rtl;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px"></div>
+      <button onclick="svEnrollRestart()" style="background:var(--card);color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:10px 20px;font:inherit;font-size:13px;cursor:pointer">↻ إعادة الاسكان</button>
+    </div>
   </div>
 </div>
 
@@ -1999,6 +2026,7 @@ function go(id){
   }
   if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
   if(prev&&prev.id==='svtest'){try{_svtStop();}catch(ex){}}
+  if(prev&&prev.id==='svenroll'){try{_enStop();}catch(ex){}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   /* مكدّس التنقّل لزر الرجوع النظامي: سجّل الشاشة المغادَرة (بلا تكرار
@@ -2022,7 +2050,7 @@ function go(id){
   }else{
     window.scrollTo(0,0);
   }
-  if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times'){try{renderTimesScreen();}catch(_e){console.error('[go:times] renderTimesScreen:',_e&&_e.message||String(_e));}}if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='svtest')initSvtest();if(id==='about'){var _ab=document.getElementById('aboutBuild');if(_ab)_ab.textContent='build: '+_buildStamp();}if(id==='home'){renderVotd();renderDailyCards();}
+  if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times'){try{renderTimesScreen();}catch(_e){console.error('[go:times] renderTimesScreen:',_e&&_e.message||String(_e));}}if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='svtest')initSvtest();if(id==='svenroll')initSvenroll();if(id==='about'){var _ab=document.getElementById('aboutBuild');if(_ab)_ab.textContent='build: '+_buildStamp();}if(id==='home'){renderVotd();renderDailyCards();}
   if(id==='quran'){var _qd=todayKey(),_qk='quran_opens_'+_qd;if(!lsGet(_qk)){lsSet(_qk,'1');var _qn=+(lsGet('quran_opens')||0)+1;lsSet('quran_opens',String(_qn));if(_qn>=10)checkBadge('quran_10');}}
   if(id==='adiya'){var _ad=todayKey(),_ak='adiya_opens_'+_ad;if(!lsGet(_ak)){lsSet(_ak,'1');var _an=+(lsGet('adiya_opens')||0)+1;lsSet('adiya_opens',String(_an));if(_an>=20)checkBadge('adiya_20');}}
   if(id==='account'){setTimeout(function(){_renderThemeBtn();_updateSubCard();},60);}
@@ -2466,6 +2494,158 @@ function _svtMetricsHtml(data){
     L.push('<b style="color:#3fae8e">ميل الجذع 3D (عالمي):</b> '+(lean3d!=null?lean3d+'°':'—')+' · <b style="color:#3fae8e">الورك 3D:</b> '+(wHip!=null?wHip+'°':'—')+' · <b style="color:#3fae8e">الركبة 3D:</b> '+(wKnee!=null?wKnee+'°':'—')+' <span style="opacity:.6">(هذه ثابتة مع زاوية الكاميرا — أساس تمييز الركوع/السجود)</span>');
   }
   return L.map(function(x){return '<div style="margin:3px 0">'+x+'</div>';}).join('');
+}
+
+/* ══════════ المرحلة ١: جلسة الاسكان — بناء البصمة الجسدية الشخصية (3D) ══════════
+   فحص تأطير أولاً (المبدأ ٣) ثم التقاط ~5ث مستقرّة لكل وضعية، واستخراج بصمة
+   من زوايا/نسب world 3D (المبدأ ٢). لا التقاط إلا بثقة كافية والجسم كامل الكادر. */
+var EN={active:false,stream:null,video:null,cvs:null,ctx:null,af:null,_lastTs:0,
+  step:'init',order:['qiyam','ruku','sujud','jalsa'],idx:0,capT0:0,capBuf:[],sig:{},
+  framingGoodMs:0,_lastFrameT:0};
+var EN_LABEL={qiyam:'قِف كوقوف الصلاة',ruku:'اركع',sujud:'اسجد',jalsa:'اجلس كجلسة التشهّد'};
+var EN_ICON={qiyam:'🧍',ruku:'🙇',sujud:'🤲',jalsa:'🧎'};
+var EN_CAP_MS=5000, EN_MIN_SAMPLES=15, EN_KEY='sv_signature_v1';
+var EN_KEYPTS=['nose','Lsh','Rsh','Lhip','Rhip','Lknee','Rknee','Lankle','Rankle'];
+
+/* بصمة إطار واحد من world 3D: زوايا + ارتفاع/إزاحة الرأس + نسب الجسم (هوية) */
+function _enFeatures(W){
+  if(!W)return null;
+  var shM=_svMid(W.Lsh,W.Rsh),hipM=_svMid(W.Lhip,W.Rhip),kneeM=_svMid(W.Lknee,W.Rknee),ankM=_svMid(W.Lankle,W.Rankle);
+  if(!shM||!hipM||!kneeM)return null;
+  function dist(a,b){if(!a||!b)return 0;var dx=a.x-b.x,dy=a.y-b.y,dz=(a.z||0)-(b.z||0);return Math.sqrt(dx*dx+dy*dy+dz*dz);}
+  var torso=dist(shM,hipM);if(torso<1e-3)return null;
+  var f={
+    torsoLean:_svTorsoLean(shM,hipM),         /* عن الجاذبية: 0 منتصب … 90 أفقي */
+    hipAngle:_svAng(shM,hipM,kneeM),
+    kneeAngle:_svAng(hipM,kneeM,ankM),
+    noseY:W.nose?(hipM.y-W.nose.y)/torso:null, /* ارتفاع الرأس نسبةً للورك (÷الجذع) */
+    noseZ:W.nose?(W.nose.z-hipM.z)/torso:null, /* إزاحة الرأس أماماً (يفصل الركوع/السجود) */
+    thighRatio:dist(hipM,kneeM)/torso,
+    shinRatio:ankM?dist(kneeM,ankM)/torso:null
+  };
+  return f;
+}
+/* هل الجسم كامل داخل الكادر بثقة كافية؟ (فحص التأطير + كشف القصّ) */
+function _enFraming(P){
+  if(!P)return {ok:false,why:'لا هيكل — قف داخل الإطار'};
+  var low=[],edge=[];
+  for(var i=0;i<EN_KEYPTS.length;i++){var k=EN_KEYPTS[i],p=P[k];
+    if(!p||p.v<0.5)low.push(k);
+    else if(p.x<0.04||p.x>0.96||p.y<0.04||p.y>0.96)edge.push(k);}
+  if(low.length)return {ok:false,why:'نقاط غير واضحة ('+low.length+') — أضئ المكان أو ابتعد'};
+  if(edge.length)return {ok:false,why:'الجسم يُقصّ عند الحافة — اضبط زاوية/مكان الجوّال'};
+  return {ok:true,why:'الجسم كامل ✓'};
+}
+function initSvenroll(){
+  EN.active=true;EN.step='framing';EN.idx=0;EN.sig={};EN.capBuf=[];EN.framingGoodMs=0;
+  EN.video=document.getElementById('enVideo');EN.cvs=document.getElementById('enCanvas');
+  EN.ctx=EN.cvs?EN.cvs.getContext('2d'):null;
+  _enSetMsg('⏳ تجهيز المحرّك…');
+  _svEnsure(function(ok){
+    if(!EN.active)return;
+    if(!ok){_enSetMsg('✗ تعذّر تحميل محرّك الرؤية: '+SV.err);return;}
+    _enStartCam();
+  });
+}
+function _enStartCam(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
+  .then(function(stream){
+    if(!EN.active){stream.getTracks().forEach(function(t){t.stop();});return;}
+    EN.stream=stream;if(EN.video){EN.video.srcObject=stream;var pr=EN.video.play();if(pr&&pr.catch)pr.catch(function(){});}
+    _enLoop();
+  }).catch(function(e){_enSetMsg('تعذّر فتح الكاميرا: '+String(e&&e.name||e));});
+}
+function _enStop(){
+  EN.active=false;
+  if(EN.af){cancelAnimationFrame(EN.af);EN.af=null;}
+  if(EN.stream){EN.stream.getTracks().forEach(function(t){t.stop();});EN.stream=null;}
+  if(EN.video)EN.video.srcObject=null;
+}
+function _enLoop(){
+  if(!EN.active)return;
+  EN.af=requestAnimationFrame(_enLoop);
+  var v=EN.video;if(!v||v.readyState<2||!v.videoWidth||!SV.ready)return;
+  var now=performance.now();
+  if(now-EN._lastFrameT<100)return;EN._lastFrameT=now; /* ~10 FPS */
+  if(EN.cvs&&EN.cvs.width!==v.videoWidth){EN.cvs.width=v.videoWidth;EN.cvs.height=v.videoHeight;}
+  var ts=now<=EN._lastTs?EN._lastTs+1:now;EN._lastTs=ts;
+  var res=_svDetect(v,ts);var data=(res&&res.landmarks&&res.landmarks[0])?_svtFromPipe(res):null;
+  _svtRenderTo(EN.ctx,EN.cvs,data,EN.step==='framing'?_enFraming(data&&data.pts).ok:true);
+  if(EN.step==='framing'){
+    var fr=_enFraming(data&&data.pts);
+    if(fr.ok){EN.framingGoodMs+=100;
+      _enSetMsg('✅ '+fr.why+' — ابدأ الاسكان ('+Math.min(100,Math.round(EN.framingGoodMs/1500*100))+'٪)');
+      if(EN.framingGoodMs>=1500){EN.step='ready';_enBeginPosture();}
+    }else{EN.framingGoodMs=0;_enSetMsg('🔴 '+fr.why);}
+  }else if(EN.step==='capturing'){
+    if(data&&data.world){var fr2=_enFraming(data.pts);
+      if(fr2.ok){var f=_enFeatures(data.world);if(f)EN.capBuf.push(f);}}
+    var el=now-EN.capT0,pct=Math.min(100,Math.round(el/EN_CAP_MS*100));
+    var post=EN.order[EN.idx];
+    _enSetMsg(EN_ICON[post]+' '+EN_LABEL[post]+' — ثبّت الوضعية ('+pct+'٪ · '+EN.capBuf.length+' عيّنة)');
+    _enProgress(pct);
+    if(el>=EN_CAP_MS){_enFinishPosture();}
+  }
+}
+function _enBeginPosture(){
+  EN.step='capturing';EN.capBuf=[];EN.capT0=performance.now();
+  var post=EN.order[EN.idx];
+  _enSetMsg(EN_ICON[post]+' '+EN_LABEL[post]);
+  try{buzz(40);}catch(e){}
+}
+function _enFinishPosture(){
+  var post=EN.order[EN.idx];
+  if(EN.capBuf.length<EN_MIN_SAMPLES){
+    _enSetMsg('⚠ عيّنات قليلة ('+EN.capBuf.length+') — أعد وضعية «'+EN_LABEL[post]+'»');
+    EN.step='framing';EN.framingGoodMs=0;return;
+  }
+  EN.sig[post]=_enStats(EN.capBuf);
+  try{buzz([30,20,30]);}catch(e){}
+  EN.idx++;
+  if(EN.idx>=EN.order.length){_enSaveAndDone();}
+  else{EN.step='framing';EN.framingGoodMs=0;}
+}
+/* متوسط + انحراف معياري لكل ميزة */
+function _enStats(buf){
+  var keys=['torsoLean','hipAngle','kneeAngle','noseY','noseZ','thighRatio','shinRatio'],out={};
+  keys.forEach(function(k){
+    var vals=buf.map(function(f){return f[k];}).filter(function(x){return x!=null&&!isNaN(x);});
+    if(!vals.length){out[k]=null;return;}
+    var m=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    var v=vals.reduce(function(a,b){return a+(b-m)*(b-m);},0)/vals.length;
+    out[k]={m:Math.round(m*1000)/1000,s:Math.round(Math.sqrt(v)*1000)/1000,n:vals.length};
+  });
+  return out;
+}
+function _enSaveAndDone(){
+  EN.step='done';
+  var payload={v:1,t:Date.now(),postures:EN.sig};
+  try{lsSet(EN_KEY,JSON.stringify(payload));}catch(e){}
+  _enStop();
+  var host=document.getElementById('enStage');if(host)host.style.display='none';
+  var done=document.getElementById('enDone');if(done)done.style.display='';
+  var sum=document.getElementById('enSummary');
+  if(sum)sum.innerHTML=EN.order.map(function(p){var s=EN.sig[p];var tl=s&&s.torsoLean?s.torsoLean.m+'°':'—';
+    return '<div>'+EN_ICON[p]+' <b>'+_enName(p)+'</b>: ميل الجذع '+tl+' · عيّنات '+(s&&s.torsoLean?s.torsoLean.n:0)+'</div>';}).join('');
+  try{toast('اكتمل الاسكان الشخصي ✓','success');}catch(e){}
+}
+function _enName(p){return {qiyam:'قيام',ruku:'ركوع',sujud:'سجود',jalsa:'جلسة'}[p]||p;}
+function _enSetMsg(m){var el=document.getElementById('enMsg');if(el)el.textContent=m;}
+function _enProgress(pct){var b=document.getElementById('enProgFill');if(b)b.style.width=pct+'%';}
+function svEnrollRestart(){var d=document.getElementById('enDone');if(d)d.style.display='none';var s=document.getElementById('enStage');if(s)s.style.display='';initSvenroll();}
+/* هل توجد بصمة محفوظة؟ */
+function svHasSignature(){try{var s=lsGet(EN_KEY);return !!(s&&JSON.parse(s).postures);}catch(e){return false;}}
+
+/* رسم هيكل على canvas معطى (يشارك منطق svtest) — إطار أخضر/أحمر للتأطير */
+function _svtRenderTo(ctx,cvs,data,frameOk){
+  if(!ctx||!cvs)return;var cw=cvs.width,ch=cvs.height;ctx.clearRect(0,0,cw,ch);
+  ctx.strokeStyle=frameOk?'rgba(63,174,142,.85)':'rgba(224,96,96,.7)';ctx.lineWidth=Math.max(4,cw/90);
+  ctx.strokeRect(ctx.lineWidth,ctx.lineWidth,cw-2*ctx.lineWidth,ch-2*ctx.lineWidth);
+  if(data&&data.pts){var P=data.pts;
+    ctx.strokeStyle='rgba(63,174,142,.9)';ctx.lineWidth=Math.max(2,cw/220);
+    SVT_CONN.forEach(function(c){var a=P[c[0]],b=P[c[1]];if(a&&b&&a.v>0.3&&b.v>0.3){ctx.beginPath();ctx.moveTo(a.x*cw,a.y*ch);ctx.lineTo(b.x*cw,b.y*ch);ctx.stroke();}});
+    for(var k in P){var p=P[k];if(p.v>0.3){ctx.beginPath();ctx.arc(p.x*cw,p.y*ch,Math.max(3,cw/120),0,6.283);ctx.fillStyle=p.v>0.6?'#eacc7e':'rgba(234,204,126,.5)';ctx.fill();}}
+  }
 }
 var _w2LoadTO=null;
 var W2_REF=null,W2_REF_LOADING=false,W2_REF_CBS=[];
