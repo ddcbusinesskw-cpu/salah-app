@@ -5,6 +5,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.PowerManager;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -17,6 +18,10 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
     private SensorManager sensorManager;
     private Sensor proximitySensor;
     private boolean running = false;
+    /* wake lock جزئي: يُبقي المعالج (وبالتالي بثّ الحساس) حيّاً أثناء جلسة
+       متابع الصلاة حتى لو انطفأت الشاشة. بمهلة قصوى 3 ساعات كصمّام أمان. */
+    private PowerManager.WakeLock wakeLock;
+    private static final long WAKELOCK_TIMEOUT_MS = 3L * 60 * 60 * 1000;
 
     @Override
     public void load() {
@@ -40,6 +45,7 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
         if (!running) {
             sensorManager.registerListener(this, proximitySensor, SensorManager.SENSOR_DELAY_GAME);
             running = true;
+            acquireWakeLock();
         }
         call.resolve();
     }
@@ -50,7 +56,25 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
             sensorManager.unregisterListener(this);
             running = false;
         }
+        releaseWakeLock();
         call.resolve();
+    }
+
+    private void acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "noor:salahProx");
+                wakeLock.setReferenceCounted(false);
+            }
+            if (!wakeLock.isHeld()) wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
+        } catch (Exception ignored) {}
+    }
+
+    private void releaseWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        } catch (Exception ignored) {}
     }
 
     /* ── إلغاء تسجيل المستمع إن دُمّر النشاط أثناء التشغيل (يمنع التسريب) ── */
@@ -60,6 +84,7 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
             try { sensorManager.unregisterListener(this); } catch (Exception ignored) {}
             running = false;
         }
+        releaseWakeLock();
         super.handleOnDestroy();
     }
 
