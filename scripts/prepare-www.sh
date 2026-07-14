@@ -28,9 +28,8 @@ echo "→ Copying firebase/ SDK to www/"
 rm -rf "$ROOT/www/firebase"
 cp -r "$ROOT/firebase" "$ROOT/www/firebase"
 
-echo "→ Copying models/ to www/"
+# models/ حُذف مع ميزات التتبّع (ef69e70) — ننظّف فقط أي نسخة قديمة في www/
 rm -rf "$ROOT/www/models"
-cp -r "$ROOT/models" "$ROOT/www/models"
 
 echo "→ Copying mushaf/ (QCF fonts + layout) to www/"
 rm -rf "$ROOT/www/mushaf"
