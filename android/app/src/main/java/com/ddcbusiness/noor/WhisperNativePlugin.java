@@ -76,6 +76,9 @@ public class WhisperNativePlugin extends Plugin {
     private volatile boolean busy = false;       // المحرّك يفرّغ الآن؟ (أسقِط النوافذ المتراكمة)
     private volatile String prompt = "";        // (تعرّف حرّ: يبقى فارغاً في البثّ الحي)
     private int seq = 0;
+    /* بثّ شرائح PCM الخام للـJS (المحرّك الهجين) — نفس مصدر المايك الواحد،
+       اختياري بخيار emit_pcm في startStream. شريحة ≈128ms ≈ 5.5KB base64. */
+    private volatile boolean emitPcm = false;
     /* عتبة السكوت (RMS ~0.008 مطبَّع). 0.45ث سكوت بعد كلام → ارتساء جديد (وقفة آية). */
     private static final double SILENCE_RMS = 260.0;
     private static final int SILENCE_RESET = (int)(SR * 0.45);
@@ -199,6 +202,7 @@ public class WhisperNativePlugin extends Plugin {
         slideSamples  = Math.max(SR / 2, (int) (slideSec * SR));
         maxWinSamples = Math.max(4 * SR, (int) (maxSec * SR));
         prompt = call.getString("prompt", ""); // تعرّف حرّ: فارغ عادةً
+        emitPcm = Boolean.TRUE.equals(call.getBoolean("emit_pcm", false));
 
         int minBuf = AudioRecord.getMinBufferSize(SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         if (minBuf <= 0) minBuf = SR; // احتياط
@@ -238,6 +242,17 @@ public class WhisperNativePlugin extends Plugin {
                 if (nr > 0) {
                     short[] chunk = new short[nr];
                     System.arraycopy(block, 0, chunk, 0, nr);
+                    // بثّ الشريحة الخام للمحرّك الهجين في JS (نفس المايك الواحد — لا تدفق ثانٍ)
+                    if (emitPcm) {
+                        try {
+                            ByteBuffer bb = ByteBuffer.allocate(nr * 2).order(ByteOrder.LITTLE_ENDIAN);
+                            bb.asShortBuffer().put(chunk);
+                            JSObject pev = new JSObject();
+                            pev.put("pcm", Base64.encodeToString(bb.array(), Base64.NO_WRAP));
+                            pev.put("n", nr);
+                            notifyListeners("pcm_chunk", pev);
+                        } catch (Throwable ig) {}
+                    }
                     // غذِّ Vosk لحظياً (طبقة فورية) — يبثّ الكلمات فور نطقها بلا انتظار نافذة whisper
                     if (voskReady) {
                         synchronized (voskLock) {
@@ -326,6 +341,7 @@ public class WhisperNativePlugin extends Plugin {
     public void stopListening(PluginCall call) {
         if (!listening) { call.resolve(); return; }
         listening = false;
+        emitPcm = false;
         try { if (readThread != null) readThread.join(1500); } catch (InterruptedException ignored) {}
         try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
 

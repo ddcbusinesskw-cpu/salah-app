@@ -77,7 +77,11 @@ Java_com_ddcbusiness_noor_WhisperNativePlugin_nativeTranscribe(JNIEnv *env, jcla
     wp.print_timestamps= false;
     wp.no_timestamps   = true;
     wp.suppress_blank  = true;
-    /* توجيه النص المتوقّع (النص حول المؤشر) — يرفع دقة تعرّف القرآن */
+    /* إعدادات إلزامية للمحرّك الهجين: حتمية كاملة وبلا سياق سابق */
+    wp.temperature     = 0.0f;
+    wp.temperature_inc = 0.0f;   /* لا تصعيد حرارة عند الفشل — حتمي دائماً */
+    wp.no_context      = true;   /* لا condition_on_previous_text */
+    /* prompt يصل فارغاً دائماً من مسار الهجين — يُمنع تمرير النص المتوقع */
     if (pr && pr[0]) wp.initial_prompt = pr;
 
     int rc = whisper_full(ctx, wp, f, (int) n);

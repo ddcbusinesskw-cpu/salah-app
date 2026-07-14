@@ -882,11 +882,13 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .qw.active{color:var(--gold);animation:qwglow 1.05s ease-in-out infinite alternate;}
 @keyframes qwglow{from{text-shadow:0 0 5px rgba(234,204,126,.45);}to{text-shadow:0 0 17px rgba(234,204,126,.95),0 0 3px rgba(234,204,126,.7);}}
 .qw.ok{color:var(--green);}
-.qw.err{color:#e8a54b;}
+.qw.tent{color:rgba(78,202,168,.5);}
+[data-theme="light"] .qw.tent{color:rgba(46,122,98,.55);}
+.qw.err{color:var(--red);cursor:pointer;}
 .qw.miss{color:rgba(255,255,255,.34);}
 [data-theme="light"] .qw.miss{color:rgba(0,0,0,.28);}
 .lm-anum{font-size:.62em;color:var(--gold);opacity:.85;margin:0 3px;font-family:system-ui,sans-serif;vertical-align:middle;}
-.lm-page.lm-hidden .qw:not(.ok):not(.err):not(.active){color:transparent;}
+.lm-page.lm-hidden .qw:not(.ok):not(.tent):not(.err):not(.active){color:transparent;}
 .lm-bar{position:fixed;left:0;right:0;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px;background:linear-gradient(0deg,var(--bg) 60%,transparent);z-index:60;}
 .lm-build{text-align:center;font-size:10px;color:var(--muted);opacity:.55;font-family:monospace;direction:ltr;margin-top:8px;}
 .mw2{display:inline;padding:0 1px;transition:color .28s;}
@@ -1841,12 +1843,298 @@ var TINY_MODEL='Oa-4/whisper-tiny-ar-quran-ONNX-tjs';
 var WIN_SEC=8;      /* طول نافذة المرحلة السريعة (ث) */
 var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر الكلمات على الحدود */
 
+/* ============================================================
+   hybrid-tasmee.js — محرك التسميع الهجين (Vosk لحظي + Whisper مدقق)
+   المعمارية: مايك واحد → توزيع للمحركين → قاضٍ حتمي → UI
+   ============================================================ */
+
+/* موديل Whisper الحالي (مؤقت — سيُبدَّل لاحقاً بنسخة قرآنية مخصصة).
+   الرابط والاسم ثابتان هنا حصراً؛ WN_GGUF_* أدناه مجرد مرجعين لهما. */
+var HYBRID_WHISPER_MODEL_URL='https://huggingface.co/Oa-4/whisper-tiny-ar-quran-gguf/resolve/main/ggml-tiny-ar-quran-q8_0.bin';
+var HYBRID_WHISPER_MODEL_NAME='ggml-tiny-ar-quran-q8_0.bin';
+
+/* ---------- 1) التطبيع: توحيد النص قبل أي مقارنة ---------- */
+const AR_DIAC = /[ـً-ْٓ-ٰٟۖ-ۭؐ-ؚ]/g;
+function normWord(w) {
+  return (w || '').replace(AR_DIAC, '').trim();
+}
+function normText(t) {
+  return (t || '').split(/\s+/).map(normWord).filter(Boolean);
+}
+
+/* ---------- 2) مخزن الصوت الدائري لنافذة Whisper ---------- */
+class PcmRing {
+  constructor(seconds = 8, rate = 16000) {
+    this.rate = rate;
+    this.buf = new Float32Array(seconds * rate);
+    this.len = 0;                      // عدد العينات الصالحة
+    this.totalSamples = 0;             // عداد مطلق (للطوابع الزمنية)
+  }
+  push(f32) {
+    const n = f32.length;
+    if (n >= this.buf.length) { this.buf.set(f32.subarray(n - this.buf.length)); this.len = this.buf.length; }
+    else {
+      const keep = Math.min(this.len, this.buf.length - n);
+      this.buf.copyWithin(0, this.len - keep, this.len);
+      this.buf.set(f32, keep);
+      this.len = keep + n;
+    }
+    this.totalSamples += n;
+  }
+  /* آخر ms مللي ثانية من الصوت */
+  tail(ms) {
+    const n = Math.min(this.len, Math.floor(this.rate * ms / 1000));
+    return this.buf.slice(this.len - n, this.len);
+  }
+  /* هل فيه صوت فعلي؟ (بوابة ضد هلوسة Whisper بالسكوت) */
+  hasVoice(ms = 1200, thresh = 0.008) {
+    const seg = this.tail(ms);
+    let e = 0;
+    for (let i = 0; i < seg.length; i++) e += seg[i] * seg[i];
+    return Math.sqrt(e / Math.max(1, seg.length)) > thresh;
+  }
+}
+
+/* ---------- 3) القاضي الحتمي: حالة كل كلمة بالآية ---------- */
+/* الحالات: pending → tentative (فوسك) → confirmed (ويسبر) | wrong */
+const MUQATTAAT = new Set(['الم','المص','الر','المر','كهيعص','طه','طسم','طس','يس','ص','حم','عسق','ق','ن']);
+
+class HybridJudge {
+  constructor(expectedText, callbacks) {
+    this.expected = normText(expectedText);          // كلمات الآية المتوقعة
+    this.state = this.expected.map(() => 'pending'); // حالة كل كلمة
+    this.heard = this.expected.map(() => '');        // شو انسمع مكانها (للأخطاء)
+    this.cursor = 0;          // أول كلمة غير مؤكدة
+    this.tentative = 0;       // مؤشر فوسك السريع (>= cursor)
+    this.cb = callbacks;      // { onWord(i,state,heard), onAyahDone() }
+    // فواتح السور: تقدّم تلقائي عند صوت مستمر (لا تُحاسَب أبداً)
+    if (this.expected.length && MUQATTAAT.has(this.expected[0])) this._muq = true;
+  }
+
+  _set(i, st, heard = '') {
+    if (this.state[i] === 'confirmed' && st !== 'confirmed') return; // المثبت لا يُنقض
+    this.state[i] = st; if (heard) this.heard[i] = heard;
+    this.cb.onWord(i, st, heard);
+    if (this.state.every(s => s === 'confirmed' || s === 'wrong')) this.cb.onAyahDone();
+  }
+
+  /* —— قناة Vosk: نتائج جزئية لحظية → تقدّم مبدئي —— */
+  onVoskWords(words) {
+    const got = words.map(normWord).filter(Boolean);
+    let g = 0;
+    let t = this.tentative;
+    while (g < got.length && t < this.expected.length) {
+      // سماحية قفزة كلمة واحدة (فوسك بيطرش عن المدود)
+      if (got[g] === this.expected[t]) { this._set(t, this.state[t]==='confirmed'?'confirmed':'tentative'); t++; g++; }
+      else if (t + 1 < this.expected.length && got[g] === this.expected[t + 1]) { t++; }
+      else g++;
+    }
+    this.tentative = Math.max(this.tentative, t);
+  }
+
+  /* —— قناة Whisper: نص النافذة المدقق → تثبيت/تصحيح —— */
+  onWhisperText(text) {
+    const got = normText(text);
+    if (!got.length) return;
+    let g = 0;
+    // نبلش من أول كلمة غير مثبتة، بسماحية بحث بسيطة
+    for (let i = this.cursor; i < this.expected.length && g < got.length; ) {
+      if (got[g] === this.expected[i]) {                 // ✅ الحكم أكّد
+        this._set(i, 'confirmed'); i++; g++;
+        this.cursor = i; this.tentative = Math.max(this.tentative, i);
+      } else if (g + 1 < got.length && got[g + 1] === this.expected[i]) {
+        g++;                                             // كلمة دخيلة بالنافذة — تجاوز
+      } else if (got[g] && this.expected[i] && this._closeEnough(got[g], this.expected[i])) {
+        this._set(i, 'confirmed'); i++; g++; this.cursor = i;  // فرق إملائي طفيف (همزات/رسم)
+        this.tentative = Math.max(this.tentative, i);
+      } else {
+        // تعارض حقيقي: الحكم سمع كلمة مختلفة بموضع الكلمة المنتظرة
+        this._set(i, 'wrong', got[g]); i++; g++;
+        this.cursor = i; this.tentative = Math.max(this.tentative, i);
+      }
+    }
+  }
+
+  _closeEnough(a, b) {   // تسامح رسم: أ/إ/آ/ا ، ى/ي ، ة/ه
+    const f = s => s.replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه');
+    return f(a) === f(b);
+  }
+
+  /* —— فواتح السور: نداء من كاشف الصوت (مدة صوت متصل) —— */
+  onSustainedVoice(ms) {
+    if (this._muq && this.state[0] === 'pending' && ms > 1500) {
+      this._set(0, 'confirmed'); this.cursor = Math.max(this.cursor, 1);
+    }
+  }
+}
+
+/* ---------- 4) حلقة Whisper المنزلقة (اللحظية) ---------- */
+class WhisperLoop {
+  constructor(ring, judge, whisperAdapter, { stepMs = 1000, lengthMs = 4000 } = {}) {
+    this.ring = ring; this.judge = judge; this.wa = whisperAdapter;
+    this.stepMs = stepMs; this.lengthMs = lengthMs;
+    this._busy = false; this._timer = null;
+  }
+  start() { this._timer = setInterval(() => this._tick(), this.stepMs); }
+  stop()  { clearInterval(this._timer); }
+  async _tick() {
+    if (this._busy) return;                       // ما نكدّس طلبات (جهاز بطيء = يقفز خطوة)
+    if (!this.ring.hasVoice()) return;            // بوابة VAD — قتل الهلوسة بالسكوت
+    this._busy = true;
+    try {
+      const pcm = this.ring.tail(this.lengthMs);
+      // ⚠️ إعدادات إلزامية بالمحوّل: temperature=0, no_context=true,
+      //    language='ar', وممنوع initial_prompt بالنص المتوقع
+      const text = await this.wa.transcribe(pcm);
+      if (text) this.judge.onWhisperText(text);
+    } catch (e) { console.warn('whisper tick:', e); }
+    this._busy = false;
+  }
+}
+
+/* ---------- 5) نقطة التجميع: مايك واحد للمحركين ---------- */
+/* التوصيل (تم — انظر طبقة اللصق _hb* أدناه):
+   1) مصدر الصوت: نفس AudioRecord الأصلي الواحد (WhisperNativePlugin) يبثّ
+      أحداث pcm_chunk (اختيارية بـemit_pcm) → _hbOnPcm → onPcmChunk(f32).
+      لا يُفتح أي تدفق مايك ثانٍ.
+   2) voskAdapter: أحداث vosk_partial الحالية → _vkOnPartial → onVoskPartial.
+   3) whisperAdapter.transcribe: غلاف حول P.transcribe الأصلية (language=ar،
+      prompt='' دائماً — لا initial_prompt؛ temperature=0/no_context في JNI).
+      النداء يعمل في خيط خلفي أصلي (ExecutorService) لا في الخيط الرئيسي. */
+function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
+  const ring  = new PcmRing(8, 16000);
+  const judge = new HybridJudge(expectedAyahText, ui);
+  const loop  = new WhisperLoop(ring, judge, whisperAdapter);
+  let voiceMs = 0, lastChunkT = 0;
+  return {
+    onPcmChunk(f32) {                       // ← يُستدعى من مصدر الصوت الواحد
+      ring.push(f32);
+      const now = performance.now();
+      let e = 0; for (let i=0;i<f32.length;i++) e += f32[i]*f32[i];
+      const voiced = Math.sqrt(e/f32.length) > 0.008;
+      voiceMs = voiced ? voiceMs + (now-(lastChunkT||now)) : 0;
+      lastChunkT = now;
+      if (voiced) judge.onSustainedVoice(voiceMs);
+    },
+    onVoskPartial(words) { judge.onVoskWords(words); },  // ← من فوسك مباشرة
+    start() { loop.start(); },
+    stop()  { loop.stop(); },
+    judge,
+  };
+}
+
+/* ═══ طبقة اللصق: توصيل الوحدة الهجينة بجلسة المصحف الحي ═══
+   جلسة الصفحة تُقسَّم آيات؛ HybridJudge جديد لكل آية (onAyahDone → التالية).
+   الحلقة لا تعمل إلا أثناء جلسة نشطة (تُدار من lmStart/lmStop حصراً). */
+var HB={on:false,cur:null,ayahs:[],idx:0,heardMap:{}};
+
+/* غلاف whisper الأصلي: Float32 → PCM16 b64 → P.transcribe (خيط خلفي أصلي) */
+var _hbAdapter={
+  transcribe:function(f32){
+    return new Promise(function(res,rej){
+      var P=_wnPlug();
+      if(!P||!WN.ready){rej(new Error('whisper غير جاهز'));return;}
+      var i16=new Int16Array(f32.length);
+      for(var i=0;i<f32.length;i++){var s=Math.max(-1,Math.min(1,f32[i]));i16[i]=s<0?s*0x8000:s*0x7FFF;}
+      var u8=new Uint8Array(i16.buffer),bin='',CH=32768;
+      for(var o=0;o<u8.length;o+=CH)bin+=String.fromCharCode.apply(null,u8.subarray(o,Math.min(o+CH,u8.length)));
+      /* إلزامي: language=ar، prompt فارغ دائماً — يُمنع تمرير النص المتوقع */
+      P.transcribe({pcm:btoa(bin),language:'ar',prompt:''})
+        .then(function(r){res((r&&r.text)||'');}).catch(rej);
+    });
+  }
+};
+
+/* تقسيم كلمات الصفحة الحالية (LM.words) إلى آيات متتالية */
+function _hbBuildAyahs(){
+  HB.ayahs=[];
+  var cur=null;
+  for(var i=0;i<LM.words.length;i++){
+    var w=LM.words[i];
+    if(!cur||cur.s!==w.s||cur.a!==w.a){
+      cur={s:w.s,a:w.a,start:i,len:0,raws:[]};
+      HB.ayahs.push(cur);
+    }
+    cur.len++;cur.raws.push(w.raw);
+  }
+  HB.ayahs.forEach(function(ay){ay.text=ay.raws.join(' ');});
+}
+/* مخرجات القاضي → واجهة المصحف الحي (tentative/confirmed/wrong) */
+function _hbUiFor(ayIdx){
+  return {
+    onWord:function(i,st,heard){
+      var ay=HB.ayahs[ayIdx];if(!ay)return;
+      var g=ay.start+i;
+      if(st==='tentative'){_lmSetClass(g,'tent');_lmActivate(g);}
+      else if(st==='confirmed'){
+        _lmSetClass(g,'ok');_lmActivate(g);
+        if(g>=LM.cursor)LM.cursor=g+1;
+        LM._nW=(LM._nW||0)+1;
+      }else if(st==='wrong'){
+        _lmSetClass(g,'err');
+        HB.heardMap[g]=heard||'';
+        if(g>=LM.cursor)LM.cursor=g+1;
+      }
+      var stEl=document.getElementById('lmStatus');
+      if(stEl&&LM.rec)stEl.textContent=(VK.ready?'🎙 يستمع (فوري)… ':'🎙 يستمع… ')+LM.cursor+'/'+LM.words.length+' كلمة';
+    },
+    onAyahDone:function(){
+      if(!HB.on||ayIdx!==HB.idx)return;
+      var ay=HB.ayahs[ayIdx];
+      if(ay)LM.cursor=Math.max(LM.cursor,ay.start+ay.len);
+      if(HB.cur){try{HB.cur.stop();}catch(e){}HB.cur=null;}
+      HB.idx++;
+      if(HB.idx<HB.ayahs.length)_hbStartAyah(HB.idx);
+      else{
+        var stEl=document.getElementById('lmStatus');
+        if(stEl)stEl.textContent='✓ اكتملت آيات الصفحة — اضغط إيقاف للحكم النهائي';
+      }
+    }
+  };
+}
+function _hbStartAyah(i){
+  var ay=HB.ayahs[i];if(!ay)return;
+  HB.cur=createHybridTasmee(ay.text,_hbUiFor(i),_hbAdapter);
+  HB.cur.start();
+}
+function _hbStart(){
+  _hbBuildAyahs();
+  HB.on=true;HB.idx=0;HB.heardMap={};
+  _hbWireHeardClicks();
+  if(HB.ayahs.length)_hbStartAyah(0);
+}
+function _hbStop(){
+  HB.on=false;
+  if(HB.cur){try{HB.cur.stop();}catch(e){}HB.cur=null;}
+}
+/* بثّ الـPCM من الالتقاط الأصلي الواحد (حدث pcm_chunk) → الوحدة الهجينة */
+function _hbOnPcm(ev){
+  if(!HB.on||!HB.cur||!ev||!ev.pcm)return;
+  var f=_wnPcmB64ToF32(ev.pcm);
+  if(f&&f.length)HB.cur.onPcmChunk(f);
+}
+/* wrong: عرض الكلمة المسموعة عند الضغط على الكلمة الحمراء */
+function _hbWireHeardClicks(){
+  var host=document.getElementById('lmPage');
+  if(!host||host._hbClick)return;host._hbClick=true;
+  host.addEventListener('click',function(e){
+    var t=e.target;if(!t||!t.id||t.id.indexOf('lmg')!==0)return;
+    for(var g=0;g<LM.words.length;g++){
+      if(LM.words[g].spanId===t.id&&HB.heardMap[g]!=null){
+        toast('سُمِعت: «'+(HB.heardMap[g]||'—')+'» — المكتوب: «'+LM.words[g].raw+'»');
+        return;
+      }
+    }
+  });
+}
+
 /* ═══ المحرّك الأصلي (whisper.cpp عبر WhisperNative) — معمارية ترتيل ═══
    استدلال على المعالج مباشرة: نافذة 10ث ≈ ≤1.5ث على جهاز متوسط.
    أي فشل (plugin/موديل/تنزيل) → مسار WASM كما هو، بسطر تشخيصي. */
 var WN={ready:false,tried:false,loading:false,fatal:false,exhausted:false,attempts:0,_lastTry:0,threads:0,pend:0,fails:0,diag:null};
-var WN_GGUF_URL='https://huggingface.co/Oa-4/whisper-tiny-ar-quran-gguf/resolve/main/ggml-tiny-ar-quran-q8_0.bin';
-var WN_GGUF_FILE='ggml-tiny-ar-quran-q8_0.bin';
+/* مصدر الموديل الوحيد: HYBRID_WHISPER_MODEL_* أعلى وحدة الهجين */
+var WN_GGUF_URL=HYBRID_WHISPER_MODEL_URL;
+var WN_GGUF_FILE=HYBRID_WHISPER_MODEL_NAME;
 var WN_MAX_ATTEMPTS=5,WN_BACKOFF_MS=4000; /* حدّ محاولات التعافي + مهلة بين المحاولات */
 function _wnPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
 function _wnDiag(s){console.log('[wn] '+s);if(WN.diag)WN.diag.last=s;} /* تسجيل مباشر في WN.diag (لا اعتماد على W2._diag) */
@@ -1998,6 +2286,14 @@ function _vkOnPartial(ev){
   if(!ev)return;
   VK.lastPartial=(ev.text||'').trim();
   if(ev.raw!=null)VK.lastRaw=ev.raw;
+  /* المحرّك الهجين: جزئيات Vosk → قاضي الآية (tentative) */
+  if(HB.on&&HB.cur&&VK.lastPartial){
+    LM._vkHeard=VK.lastPartial;
+    var _b4=LM.cursor;
+    HB.cur.onVoskPartial(VK.lastPartial.split(/\s+/).filter(Boolean));
+    if(LM.cursor!==_b4){LM._nV=(LM._nV||0)+(LM.cursor-_b4);LM._vkAdvMs=Date.now();LM._vkFirstMs=LM._vkFirstMs||(Date.now()-(LM._t0||Date.now()));}
+    return;
+  }
   if(typeof _vkAlign==='function')_vkAlign(VK.lastPartial,!!ev.final);
 }
 /* تشخيص: اسحب إحصاء Vosk (عيّنات مُغذّاة/استدعاءات/آخر نتيجة خام/ملفات الموديل) */
@@ -2171,7 +2467,7 @@ function lmRender(){
   var sel=document.getElementById('lmSurah');if(sel&&data.length)sel.value=data[0].s;
 }
 function _lmSpan(i){var w=LM.words[i];return w?document.getElementById(w.spanId):null;}
-function _lmSetClass(i,cls){var el=_lmSpan(i);if(!el)return;el.classList.remove('active','ok','err','miss');if(cls)el.classList.add(cls);}
+function _lmSetClass(i,cls){var el=_lmSpan(i);if(!el)return;el.classList.remove('active','ok','tent','err','miss');if(cls)el.classList.add(cls);}
 function _lmActivate(i){
   if(LM.active!=null&&LM.active!==i){var pe=_lmSpan(LM.active);if(pe)pe.classList.remove('active');}
   var el=_lmSpan(i);if(el){el.classList.add('active');
@@ -2213,6 +2509,8 @@ function lmOnPartial(ev){
     if(ev.text!=null)LM._heard=t;
   }
   if(!t)return;
+  /* المحرّك الهجين نشط: نص whisper (النافذة الأخيرة عند الإيقاف) → القاضي */
+  if(HB.on&&HB.cur){try{HB.cur.judge.onWhisperText(t);}catch(e){}return;}
   var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
   /* المرحلة ٣ — التأكيد الدقيق: whisper القرآني يغذّي نفس المؤشر الرتيب.
      يلحق الكلمات التي فات Vosk تمييزها (تجويد/التباس MGB2) → دقّة نهائية.
@@ -2243,15 +2541,20 @@ function lmStart(){
     try{rakWakeLock(true);}catch(e){}
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     try{P.addListener('partial',lmOnPartial);}catch(e){}
+    /* المحرّك الهجين: شرائح PCM من المايك الأصلي الواحد → PcmRing */
+    try{P.addListener('pcm_chunk',_hbOnPcm);}catch(e){}
     /* إصلاح: removeAllListeners أعلاه يزيل مستمعات Vosk — أعد ربطها دائماً
        (وإلا لا تصل أحداث vosk_partial بعد أول جلسة → Vosk صامت في JS). */
     VK._wired=false;_vkWire(P);
     VK.listening=true;
     try{if(VK._statIv)clearInterval(VK._statIv);VK._statIv=setInterval(_vkPollStats,1000);}catch(e){}
     if(!VK.ready&&!VK.tried){try{_vkEnsure(function(ok){var s2=document.getElementById('lmStatus');if(ok&&s2&&LM.rec)s2.textContent='🎙 يستمع (فوري)…';});}catch(e){}}
-    /* نافذة قصيرة (سقف ~7ث) + تعرّف حرّ: تمريرات ~1-2ث لا 3-4ث */
-    P.startStream({slide_sec:1.2,max_sec:7,prompt:''}).catch(function(e){
+    /* الهجين يتولّى نوافذ whisper من JS (WhisperLoop) — عطّل النوافذ الأصلية
+       بمزلاق ضخم كي لا يعمل المحرّك مرّتين؛ Vosk وpcm_chunk يستمران كالمعتاد */
+    _hbStart();
+    P.startStream({slide_sec:99999,max_sec:8,prompt:'',emit_pcm:true}).catch(function(e){
       LM.rec=false;
+      _hbStop();
       var msg=String(e&&e.message||e);LM._captureErr=msg;
       var perm=/permission|إذن|مرفوض/i.test(msg);
       if(st)st.textContent=perm?'الرجاء السماح باستخدام المايكروفون ثم أعد المحاولة':('تعذّر بدء الالتقاط: '+msg.slice(0,70));
@@ -2274,6 +2577,7 @@ function lmStart(){
 }
 function lmStop(){
   if(!LM.rec)return;LM.rec=false;VK.listening=false;
+  _hbStop(); /* أوقف حلقة whisper الهجينة فوراً — لا تعمل خارج الجلسة */
   try{if(VK._statIv){clearInterval(VK._statIv);VK._statIv=null;}}catch(e){}
   try{_vkPollStats();}catch(e){}
   try{var _vp=_vkPlug();if(_vp&&_vp.voskReset)_vp.voskReset();}catch(e){}
@@ -3483,43 +3787,6 @@ function _memFuz(rec,tgt){
 }
 /* Needleman–Wunsch global alignment */
 /* Strict word-level alignment — exact after normalisation, alef/madd tolerant */
-/* جدول الحروف المقطّعة: يُوسّع ما ينطقه القارئ (كاف-ها-يا-عين-صاد) إلى الرمز المكتوب (كهيعص) لمطابقة صحيحة */
-var _MUQEXP={
-  'الم':['الف','لام','ميم'],
-  'الر':['الف','لام','را'],
-  'المر':['الف','لام','ميم','را'],
-  'المص':['الف','لام','ميم','صاد'],
-  'كهيعص':['كاف','ها','يا','عين','صاد'],
-  'طه':['طا','ها'],
-  'يس':['يا','سين'],
-  'ص':['صاد'],
-  'حم':['حا','ميم'],
-  'عسق':['عين','سين','قاف'],
-  'ق':['قاف'],
-  'ن':['نون'],
-  'طس':['طا','سين'],
-  'طسم':['طا','سين','ميم'],
-  'حمعسق':['حا','ميم','عين','سين','قاف']
-};
-/* يُعيد تجميع كلمات الحروف المقطّعة المنفردة إلى رمزها المدمج (كهيعص) قبل المقارنة */
-function _collapseMuq(arr){
-  var out=[],i=0;
-  var keys=Object.keys(_MUQEXP).sort(function(a,b){return _MUQEXP[b].length-_MUQEXP[a].length;});
-  while(i<arr.length){
-    var matched=false;
-    for(var ki=0;ki<keys.length;ki++){
-      var k=keys[ki],exp=_MUQEXP[k];
-      if(i+exp.length>arr.length)continue;
-      var ok2=true;
-      for(var ei=0;ei<exp.length;ei++){
-        if(arr[i+ei]!==exp[ei]&&_memED(arr[i+ei],exp[ei])>1){ok2=false;break;}
-      }
-      if(ok2){out.push(k);i+=exp.length;matched=true;break;}
-    }
-    if(!matched){out.push(arr[i]);i++;}
-  }
-  return out;
-}
 /* Build normalised reference word list for a segment from W2_REF JSON.
    Falls back to written Quran text per ayah when key is missing. */
 var fullBuilt=false,mushafObs=null;
