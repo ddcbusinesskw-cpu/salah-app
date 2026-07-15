@@ -96,6 +96,16 @@ public class WhisperNativePlugin extends Plugin {
     private volatile int voskCalls = 0;
     private volatile String lastVoskRaw = "";
     private volatile int vadResets = 0;             // كم مرّة أعاد VAD الارتساء
+    /* ── تتبّع مقياس العينات عبر السلسلة (تشخيص مسار الصوت) ──
+       (أ) خام AudioRecord PCM16 · (ب) المسلَّم فعلياً لـVosk (int16).
+       (ج) دفعات Float32 تُقاس في JS عند إضافتها لحلقة whisper. */
+    private volatile int rawMin = 0, rawMax = 0, rawPeakSes = 0;
+    private volatile double rawRmsLast = 0;
+    private volatile int voskMin = 0, voskMax = 0, voskPeakSes = 0;
+    private volatile double voskRmsLast = 0;
+    /* لقطة قرار النافذة النامية كل ثانية: voiced/rms/طول النافذة/الارتساءات/السقف */
+    private final java.util.ArrayDeque<String> winDiag = new java.util.ArrayDeque<>();
+    private int lastSnapAt = 0;
 
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
@@ -232,6 +242,10 @@ public class WhisperNativePlugin extends Plugin {
         }
         busy = false;
         voskSamplesFed = 0; voskCalls = 0; lastVoskRaw = ""; lastVoskPartial = ""; vadResets = 0;
+        rawMin = 0; rawMax = 0; rawPeakSes = 0; rawRmsLast = 0;
+        voskMin = 0; voskMax = 0; voskPeakSes = 0; voskRmsLast = 0;
+        lastSnapAt = 0;
+        synchronized (winDiag) { winDiag.clear(); }
         listening = true;
         recorder.startRecording();
 
@@ -242,6 +256,17 @@ public class WhisperNativePlugin extends Plugin {
                 if (nr > 0) {
                     short[] chunk = new short[nr];
                     System.arraycopy(block, 0, chunk, 0, nr);
+                    // (أ) مقياس الخام: min/max/RMS بمرور واحد — يُعاد استخدامه لـVAD أدناه
+                    int mn = 32767, mx = -32768; long bsq = 0;
+                    for (int i = 0; i < nr; i++) {
+                        int v = block[i];
+                        if (v < mn) mn = v; if (v > mx) mx = v;
+                        bsq += (long) v * v;
+                    }
+                    double brms = nr > 0 ? Math.sqrt((double) bsq / nr) : 0;
+                    int apk = Math.max(Math.abs(mn), Math.abs(mx));
+                    rawMin = mn; rawMax = mx; rawRmsLast = brms;
+                    if (apk > rawPeakSes) rawPeakSes = apk;
                     // بثّ الشريحة الخام للمحرّك الهجين في JS (نفس المايك الواحد — لا تدفق ثانٍ)
                     if (emitPcm) {
                         try {
@@ -260,6 +285,9 @@ public class WhisperNativePlugin extends Plugin {
                                 try {
                                     boolean vend = voskRec.acceptWaveForm(block, nr);
                                     voskCalls++; voskSamplesFed += nr;
+                                    // (ب) مقياس المسلَّم فعلياً لـVosk (نفس الدفعة الخام int16)
+                                    voskMin = mn; voskMax = mx; voskRmsLast = brms;
+                                    if (apk > voskPeakSes) voskPeakSes = apk;
                                     String vjs = vend ? voskRec.getResult() : voskRec.getPartialResult();
                                     lastVoskRaw = vjs;   // تشخيص: النتيجة الخام كما يعيدها Vosk (ولو فارغة)
                                     String vtxt = "";
@@ -277,9 +305,7 @@ public class WhisperNativePlugin extends Plugin {
                         }
                     }
                     // VAD بـRMS (أمتن من الذروة ضدّ ضجيج عابر) → إعادة الارتساء عند وقفات الآيات
-                    long bsq = 0;
-                    for (int i = 0; i < nr; i++) { bsq += (long) block[i] * block[i]; }
-                    double brms = nr > 0 ? Math.sqrt((double) bsq / nr) : 0;
+                    // (brms محسوب أعلاه بمرور واحد مع min/max — مقياس int16، العتبة 260 ≈ 0.0079 float)
                     boolean silent = brms < SILENCE_RMS;
                     int nowTotal;
                     synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
@@ -291,7 +317,21 @@ public class WhisperNativePlugin extends Plugin {
                         silenceRun = 0; hadSpeech = true;
                     }
                     // سقف صلب: لا تدع النافذة النامية تتجاوز maxWinSamples
-                    if (nowTotal - anchorSample > maxWinSamples) anchorSample = nowTotal - maxWinSamples;
+                    boolean capped = nowTotal - anchorSample > maxWinSamples;
+                    if (capped) anchorSample = nowTotal - maxWinSamples;
+                    // لقطة قرار النافذة كل ثانية (تشخيص: voiced/rms/طول النافذة/ارتساءات/سقف)
+                    if (nowTotal - lastSnapAt >= SR) {
+                        lastSnapAt = nowTotal;
+                        int winLen = nowTotal - anchorSample;
+                        String snap = "t=" + (nowTotal / SR) + "s v=" + (silent ? 0 : 1)
+                                + " rms16=" + Math.round(brms)
+                                + " win=" + (Math.round(winLen * 10.0 / (double) SR) / 10.0) + "s"
+                                + " resets=" + vadResets + (capped ? " cap=1" : "");
+                        synchronized (winDiag) {
+                            winDiag.addLast(snap);
+                            if (winDiag.size() > 30) winDiag.removeFirst();
+                        }
+                    }
                     // نافذة نامية [anchorSample, now): أعد النسخ كل slideSamples، وأسقِط إن كان المحرّك مشغولاً
                     if (!busy && nowTotal - emittedUpTo >= slideSamples) {
                         emittedUpTo = nowTotal;
@@ -520,6 +560,16 @@ public class WhisperNativePlugin extends Plugin {
         r.put("lastRaw", lastVoskRaw);
         r.put("vadResets", vadResets);
         r.put("modelPath", voskModelPath);
+        r.put("listening", listening);
+        r.put("emitPcm", emitPcm);
+        /* تتبّع المقياس: (أ) خام AudioRecord و(ب) المسلَّم لـVosk — كلاهما int16 */
+        r.put("rawMin", rawMin); r.put("rawMax", rawMax);
+        r.put("rawRms", Math.round(rawRmsLast)); r.put("rawPeak", rawPeakSes);
+        r.put("voskMin", voskMin); r.put("voskMax", voskMax);
+        r.put("voskRms", Math.round(voskRmsLast)); r.put("voskPeak", voskPeakSes);
+        String wd;
+        synchronized (winDiag) { wd = String.join(" | ", winDiag); }
+        r.put("winDiag", wd);
         JSObject files = new JSObject();
         if (voskModelPath != null && !voskModelPath.isEmpty()) {
             String[] keys = {"conf/model.conf", "conf/mfcc.conf", "am/final.mdl",

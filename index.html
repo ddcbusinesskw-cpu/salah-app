@@ -1855,8 +1855,15 @@ var HYBRID_WHISPER_MODEL_NAME='ggml-tiny-ar-quran-q8_0.bin';
 
 /* ---------- 1) التطبيع: توحيد النص قبل أي مقارنة ---------- */
 const AR_DIAC = /[ـً-ْٓ-ٰٟۖ-ۭؐ-ؚ]/g;
+/* رسم عثماني → إملائي قبل إزالة الضبط (سدّ ثغرة التطبيع):
+   \u0671 ٱ (همزة وصل)→ا · \u06E5 ۥ (واو صغيرة)→و · \u06E6 ۦ (ياء صغيرة)→ي.
+   يجب أن يسبق AR_DIAC لأن مداه (06D6-06ED) كان يحذف ۥ/ۦ بدل تحويلهما. */
 function normWord(w) {
-  return (w || '').replace(AR_DIAC, '').trim();
+  return (w || '')
+    .replace(/\u0671/g, '\u0627')
+    .replace(/\u06E5/g, '\u0648')
+    .replace(/\u06E6/g, '\u064A')
+    .replace(AR_DIAC, '').trim();
 }
 function normText(t) {
   return (t || '').split(/\s+/).map(normWord).filter(Boolean);
@@ -2026,7 +2033,8 @@ function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
 /* ═══ طبقة اللصق: توصيل الوحدة الهجينة بجلسة المصحف الحي ═══
    جلسة الصفحة تُقسَّم آيات؛ HybridJudge جديد لكل آية (onAyahDone → التالية).
    الحلقة لا تعمل إلا أثناء جلسة نشطة (تُدار من lmStart/lmStop حصراً). */
-var HB={on:false,cur:null,ayahs:[],idx:0,heardMap:{}};
+var HB={on:false,cur:null,ayahs:[],idx:0,heardMap:{},
+        diag:{chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0}};
 
 /* غلاف whisper الأصلي: Float32 → PCM16 b64 → P.transcribe (خيط خلفي أصلي) */
 var _hbAdapter={
@@ -2100,6 +2108,8 @@ function _hbStartAyah(i){
 function _hbStart(){
   _hbBuildAyahs();
   HB.on=true;HB.idx=0;HB.heardMap={};
+  HB.diag={chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0};
+  HB._tailLen=0;
   _hbWireHeardClicks();
   if(HB.ayahs.length)_hbStartAyah(0);
 }
@@ -2107,11 +2117,57 @@ function _hbStop(){
   HB.on=false;
   if(HB.cur){try{HB.cur.stop();}catch(e){}HB.cur=null;}
 }
-/* بثّ الـPCM من الالتقاط الأصلي الواحد (حدث pcm_chunk) → الوحدة الهجينة */
+/* بثّ الـPCM من الالتقاط الأصلي الواحد (حدث pcm_chunk) → الوحدة الهجينة.
+   نقطة (ج) من تتبّع المقياس: الدفعات Float32 (÷32768 مرة واحدة في
+   _wnPcmB64ToF32 حصراً) بمدى ±1 — متسقة مع عتبة الوحدة 0.008. */
 function _hbOnPcm(ev){
-  if(!HB.on||!HB.cur||!ev||!ev.pcm)return;
+  if(!ev||!ev.pcm)return;
   var f=_wnPcmB64ToF32(ev.pcm);
-  if(f&&f.length)HB.cur.onPcmChunk(f);
+  if(!f||!f.length)return;
+  var mn=1,mx=-1,sq=0;
+  for(var i=0;i<f.length;i++){var v=f[i];if(v<mn)mn=v;if(v>mx)mx=v;sq+=v*v;}
+  var d=HB.diag;
+  d.chunks++;d.samples+=f.length;
+  d.min=mn;d.max=mx;d.rms=Math.sqrt(sq/f.length);
+  var ap=Math.max(-mn,mx);if(ap>d.peak)d.peak=ap;
+  d.lastAt=Date.now();
+  _hbTailPush(f); /* نسخة آخر ٥ث للزر اليدوي (تشخيص فقط) */
+  if(!HB.on||!HB.cur)return;
+  HB.cur.onPcmChunk(f);
+}
+/* مخزن آخر ٥ ثوانٍ (منفصل عن ring الوحدة المغلق) — للإرسال اليدوي المعزول */
+var _HB_TAIL_N=5*16000;
+function _hbTailPush(f){
+  var t=HB._tail||(HB._tail=new Float32Array(_HB_TAIL_N));
+  var n=f.length;
+  if(n>=_HB_TAIL_N){t.set(f.subarray(n-_HB_TAIL_N));HB._tailLen=_HB_TAIL_N;return;}
+  var keep=Math.min(HB._tailLen||0,_HB_TAIL_N-n);
+  t.copyWithin(0,(HB._tailLen||0)-keep,HB._tailLen||0);
+  t.set(f,keep);
+  HB._tailLen=keep+n;
+}
+/* زر العزل: «أرسل آخر ٥ ثوانٍ لwhisper الآن» — يتجاوز بوابة VAD والحلقة */
+function _hbForceWhisper(){
+  var st=document.getElementById('lmStatus'),res=document.getElementById('lmResult');
+  var _refresh=function(){if(res)res.innerHTML=_lmDiagHtml();};
+  var len=HB._tailLen||0;
+  if(!len){if(st)st.textContent='🔬 لا صوت مخزّناً بعد — ابدأ التسميع وتكلّم أولاً';return;}
+  var seg=HB._tail.slice(0,len);
+  var pk=0,sq=0;for(var i=0;i<seg.length;i++){var a=seg[i]<0?-seg[i]:seg[i];if(a>pk)pk=a;sq+=seg[i]*seg[i];}
+  LM._force={sec:Math.round(len/16000*10)/10,peak:Math.round(pk*1000)/1000,
+             rms:Math.round(Math.sqrt(sq/len)*1000)/1000,text:'…',ms:0,err:''};
+  if(st)st.textContent='🔬 إرسال آخر '+LM._force.sec+'ث إلى whisper…';
+  var t0=Date.now();
+  _hbAdapter.transcribe(seg).then(function(t){
+    LM._force.text=(t||'').trim()||'(فارغ)';LM._force.ms=Date.now()-t0;
+    if(st)st.textContent='🔬 whisper سمع: '+LM._force.text;
+    if(HB.on&&HB.cur&&t){try{HB.cur.judge.onWhisperText(t);}catch(e){}}
+    _refresh();
+  }).catch(function(e){
+    LM._force.err=String(e&&e.message||e).slice(0,80);LM._force.ms=Date.now()-t0;
+    if(st)st.textContent='🔬 فشل: '+LM._force.err;
+    _refresh();
+  });
 }
 /* wrong: عرض الكلمة المسموعة عند الضغط على الكلمة الحمراء */
 function _hbWireHeardClicks(){
@@ -2644,6 +2700,28 @@ function _lmDiagText(){
     'whisper سمع (النافذة النامية): '+(LM._heard||'—'),
     'الطريقة: نافذة نامية (عبارة كاملة) · تعرّف حرّ بلا prompt · ارتساء عند صمت VAD/سقف 18ث',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
+  /* ٠ — تتبّع مقياس العينات عبر السلسلة كاملة (٣ نقاط) + اتساق العتبات */
+  (function(){
+    var _vs=VK.stats||{},hd=HB.diag||{};
+    var _r3=function(x){return Math.round((x||0)*1000)/1000;};
+    var _v=function(x){return x!=null?x:'—';};
+    L.push('── تتبّع مقياس العينات (٣ نقاط) ──',
+      '(أ) خام AudioRecord (int16): min='+_v(_vs.rawMin)+' max='+_v(_vs.rawMax)+' rms='+_v(_vs.rawRms)+' · ذروة الجلسة='+_v(_vs.rawPeak),
+      '(ب) المسلَّم لـVosk acceptWaveForm (int16): min='+_v(_vs.voskMin)+' max='+_v(_vs.voskMax)+' rms='+_v(_vs.voskRms)+' · ذروة عينات Vosk الفعلية='+_v(_vs.voskPeak),
+      '(ج) حلقة whisper (Float32 ±1): min='+_r3(hd.min)+' max='+_r3(hd.max)+' rms='+_r3(hd.rms)+' · ذروة='+_r3(hd.peak)+' · '+(hd.chunks||0)+' شريحة/'+(hd.samples||0)+' عيّنة'+(hd.lastAt?' · آخر وصول قبل '+Math.round((Date.now()-hd.lastAt)/1000)+'ث':' · ⚠ لم تصل أي شريحة pcm_chunk'),
+      'التحويل: PCM16→Float32 قسمة ÷32768 مرة واحدة فقط (_wnPcmB64ToF32 حصراً — لا قسمة ثانية بالمسار)',
+      'اتساق عتبات VAD: الأصلي rms16=260 (int16) ≈ '+(Math.round(260/32768*10000)/10000)+' float ≡ عتبة الوحدة 0.008 ✓ (المقياسان متسقان)',
+      'التوزيع (fan-out): قارئ AudioRecord واحد فقط في التطبيق كله → ينسخ لثلاث وجهات: مخزن التشغيل + Vosk + pcm_chunk (لا قارئ ثانٍ)',
+      'بثّ pcm_chunk: '+(_vs.emitPcm===true?'مفعّل ✓':(_vs.emitPcm===false?'⚠ غير مفعّل':'—'))+' · حالة الالتقاط الأصلي: '+(_vs.listening===true?'يعمل':(_vs.listening===false?'متوقف':'—')));
+    L.push('── قرارات النافذة النامية (لقطة كل ثانية: v=صوت win=طول resets=ارتساءات cap=سقف) ──',
+      _vs.winDiag||'— (لا لقطات بعد — تظهر أثناء الالتقاط)');
+    if(LM._force){
+      var fo=LM._force;
+      L.push('── 🔬 إرسال يدوي معزول (آخر ٥ث → whisper مباشرة، بتجاوز VAD والحلقة) ──',
+        'المقطع: '+fo.sec+'ث · ذروة='+fo.peak+' · rms='+fo.rms,
+        'الناتج: '+(fo.err?('⚠ '+fo.err):('«'+fo.text+'»'))+' ('+(fo.ms||0)+'ms)');
+    }
+  })();
   /* ١ — اختبار المحرّك على صوت معروف (يحسم: الموديل أم الالتقاط) */
   if(LM._engTest){
     var e=LM._engTest;
@@ -2720,6 +2798,7 @@ function _lmDiagHtml(){
   return '<details class="mem2-diag" dir="rtl" style="margin:10px 6px;color:var(--muted)">'
     +'<summary style="cursor:pointer;font-size:11px;opacity:.65">تفاصيل تقنية</summary>'
     +'<pre style="white-space:pre-wrap;font-size:10px;line-height:1.8;direction:rtl;text-align:right;margin:6px 0;opacity:.85;word-break:break-word">'+esc+'</pre>'
+    +'<button onclick="_hbForceWhisper()" style="background:rgba(234,204,126,.14);color:var(--gold);border:1px solid rgba(234,204,126,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🔬 أرسل آخر ٥ ثوانٍ لwhisper الآن</button>'
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
     +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,174,142,.15);color:var(--green);border:1px solid rgba(63,174,142,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
     +((!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
