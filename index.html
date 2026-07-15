@@ -1960,31 +1960,42 @@ class HybridJudge {
     this.tentative = Math.max(this.tentative, t);
   }
 
-  /* —— قناة Whisper: نص النافذة المدقق → تثبيت/تصحيح —— */
+  /* —— قناة Whisper: قاعدة الساندويتش — الهلوسة لا تحكم ——
+     محاذاة ثنائية بنافذة بحث ±3؛ يلزم رسوّان (زوجا تطابق) على الأقل وإلا
+     تُهمل النافذة كاملة. الحكم wrong/skipped فقط بين رسوّين متجاورين. */
   onWhisperText(text) {
     const got = normText(text);
     if (!got.length) return;
-    let g = 0;
-    // نبلش من أول كلمة غير مثبتة، بسماحية بحث بسيطة
-    for (let i = this.cursor; i < this.expected.length && g < got.length; ) {
-      if (got[g] === this.expected[i]) {                 // ✅ الحكم أكّد
-        this._set(i, 'confirmed'); i++; g++;
-        this.cursor = i; this.tentative = Math.max(this.tentative, i);
-      } else if (g + 1 < got.length && got[g + 1] === this.expected[i]) {
-        g++;                                             // كلمة دخيلة بالنافذة — تجاوز
-      } else if (got[g] && this.expected[i] && this._closeEnough(got[g], this.expected[i])) {
-        this._set(i, 'confirmed'); i++; g++; this.cursor = i;  // فرق إملائي طفيف (همزات/رسم)
-        this.tentative = Math.max(this.tentative, i);
-      } else {
-        // تعارض حقيقي: الحكم سمع كلمة مختلفة بموضع الكلمة المنتظرة
-        this._set(i, 'wrong', got[g]); i++; g++;
-        this.cursor = i; this.tentative = Math.max(this.tentative, i);
+    const N = this.expected.length;
+    const start = Math.max(0, this.cursor - 6);
+    const pairs = [];
+    let i = start, g = 0;
+    while (i < N && g < got.length) {
+      if (this._eq(got[g], this.expected[i])) { pairs.push([i, g]); i++; g++; }
+      else {
+        let adv = false;
+        for (let k = 1; k <= 3 && !adv; k++) {
+          if (g + k < got.length && this._eq(got[g + k], this.expected[i])) { g += k; adv = true; }
+          else if (i + k < N && this._eq(got[g], this.expected[i + k])) { i += k; adv = true; }
+        }
+        if (!adv) { i++; g++; }
       }
     }
+    if (pairs.length < 2) return; // لا رسوّ كافٍ = نافذة مهملة (هلوسة) — لا أحكام إطلاقاً
+    for (const [ei] of pairs) this._set(ei, 'confirmed');
+    for (let p = 0; p + 1 < pairs.length; p++) {
+      const [e0, g0] = pairs[p], [e1, g1] = pairs[p + 1];
+      if (e1 - e0 === 2 && g1 - g0 === 2) this._set(e0 + 1, 'wrong', got[g0 + 1]);
+      else if (e1 - e0 === 2 && g1 - g0 === 1) this._set(e0 + 1, 'skipped');
+    }
+    let c = this.cursor;
+    while (c < N && ['confirmed','wrong','skipped'].includes(this.state[c])) c++;
+    this.cursor = c; this.tentative = Math.max(this.tentative, c);
   }
 
-  _closeEnough(a, b) {   // تسامح رسم: أ/إ/آ/ا ، ى/ي ، ة/ه
-    const f = s => s.replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه');
+  _eq(a, b) { // تسامح رسم: أ/إ/آ/ٱ→ا · ى→ي · ة/ت الختامية→ه («بالآخرت»=«بالآخرة» وصلاً)
+    if (a === b) return true;
+    const f = s => s.replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/[ةت]$/,'ه');
     return f(a) === f(b);
   }
 
@@ -2218,6 +2229,7 @@ function _hbSendWin(reason,keepOverlap){
   HB.sent=(HB.sent||0)+1;
   _hbAdapter.transcribe(seg).then(function(t){
     entry.text=(typeof normText==='function'?normText(t).join(' '):(t||''))||'(فارغ)';
+    LM._heard=entry.text; /* حقل «whisper سمع»: آخر نص راجع بعد التطبيع */
     if(HB.on&&HB.cur&&t){try{HB.cur.judge.onWhisperText(t);}catch(e){}}
   }).catch(function(e){
     entry.text='⚠ '+String(e&&e.message||e).slice(0,60);
@@ -2795,7 +2807,7 @@ function _lmDiagText(){
     'بصمة البناء: '+_buildStamp(),
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
-    'whisper سمع (النافذة النامية): '+(LM._heard||'—'),
+    'whisper سمع (آخر نافذة راجعة، بعد التطبيع): '+(LM._heard||'—'),
     'الطريقة: نافذة نامية JS — إرسال عند الارتساء (صمت 0.45ث بعد صوت ≥1ث) أو السقف 10ث (بتداخل 0.5ث) · مخزن دائري 12ث · تعرّف حرّ بلا prompt',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
   /* ٠ — تتبّع مقياس العينات عبر السلسلة كاملة (٣ نقاط) + اتساق العتبات */
@@ -2854,7 +2866,9 @@ function _lmDiagText(){
   if(W2._lastAudio16k&&W2._lastAudio16k.length){
     var pf=W2._lastAudio16k,ppk=0;for(var _i=0;_i<pf.length;_i++){var _a=pf[_i]<0?-pf[_i]:pf[_i];if(_a>ppk)ppk=_a;}
     ppk=Math.round(ppk*1000)/1000;
-    var lw=LM._wins&&LM._wins.length?LM._wins[LM._wins.length-1]:null;
+    /* آخر نافذة مُرسلة فعلياً: من سجل إرسالات الهجين (لا نوافذ أصلية بعده) */
+    var _sl=(typeof HB!=='undefined'&&HB.sendLog&&HB.sendLog.length)?HB.sendLog[HB.sendLog.length-1]:null;
+    var lw=_sl?{pk:_sl.peak}:((LM._wins&&LM._wins.length)?LM._wins[LM._wins.length-1]:null);
     var verdict=lw?((lw.pk<0.02&&ppk>0.05)?'⚠ الصوت لا يصل النافذة (انفصال buffer الالتقاط)':(ppk<0.02?'⚠ حتى صوت التشغيل صامت (الالتقاط لا يلتقط)':'✅ النافذة تحمل نفس مستوى صوت التشغيل')):'—';
     L.push('── مقارنة الوصول (النافذة ↔ التشغيل) ──',
       'ذروة buffer التشغيل («استمع للمسجَّل»): '+ppk+' ('+pf.length+' عيّنة)',
