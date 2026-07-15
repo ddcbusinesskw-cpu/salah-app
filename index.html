@@ -1922,19 +1922,40 @@ class HybridJudge {
     if (this.state[i] === 'confirmed' && st !== 'confirmed') return; // المثبت لا يُنقض
     this.state[i] = st; if (heard) this.heard[i] = heard;
     this.cb.onWord(i, st, heard);
-    if (this.state.every(s => s === 'confirmed' || s === 'wrong')) this.cb.onAyahDone();
+    // skipped (متخطّاة بارتساء أمامي) حالة نهائية: لا تُحاسَب ولا تمنع إتمام الآية
+    if (this.state.every(s => s === 'confirmed' || s === 'wrong' || s === 'skipped')) this.cb.onAyahDone();
   }
 
-  /* —— قناة Vosk: نتائج جزئية لحظية → تقدّم مبدئي —— */
+  /* —— قناة Vosk: نتائج جزئية لحظية → تقدّم مبدئي ——
+     بحث ارتساء أمامي: تطابق كلمتين متتاليتين ضمن الكلمات الثماني التالية
+     يقفز إليه ويعلّم ما قبله skipped (رمادي — لا يُحاسَب خطأً). يحل بدء
+     المستخدم من «الحمد لله» بينما النص يبدأ بالبسملة. القفزة بكلمة
+     واحدة تبقى مقبولة لتطابق كلمة واحدة مجاورة. */
   onVoskWords(words) {
     const got = words.map(normWord).filter(Boolean);
     let g = 0;
     let t = this.tentative;
     while (g < got.length && t < this.expected.length) {
-      // سماحية قفزة كلمة واحدة (فوسك بيطرش عن المدود)
-      if (got[g] === this.expected[t]) { this._set(t, this.state[t]==='confirmed'?'confirmed':'tentative'); t++; g++; }
-      else if (t + 1 < this.expected.length && got[g] === this.expected[t + 1]) { t++; }
-      else g++;
+      if (got[g] === this.expected[t]) { this._set(t, this.state[t]==='confirmed'?'confirmed':'tentative'); t++; g++; continue; }
+      // قفزة كلمة واحدة (فوسك بيطرش عن المدود)
+      if (t + 1 < this.expected.length && got[g] === this.expected[t + 1]) { t++; continue; }
+      // ارتساء أمامي: أول تطابق لكلمتين متتاليتين من المسموع ضمن 8 كلمات قادمة
+      let jumped = false;
+      if (g + 1 < got.length) {
+        const LOOK = 8;
+        const kEnd = Math.min(this.expected.length - 1, t + LOOK);
+        for (let k = t; k < kEnd; k++) {
+          if (got[g] === this.expected[k] && got[g + 1] === this.expected[k + 1]) {
+            for (let s = t; s < k; s++) { if (this.state[s] === 'pending') this._set(s, 'skipped'); }
+            // المتخطّى لا يُعاد الحكم عليه: المؤشر يتجاوزه كي لا يعلّمه whisper خطأً
+            this.cursor = Math.max(this.cursor, k);
+            t = k;
+            jumped = true;
+            break;
+          }
+        }
+      }
+      if (!jumped) g++;
     }
     this.tentative = Math.max(this.tentative, t);
   }
@@ -2009,7 +2030,8 @@ class WhisperLoop {
       prompt='' دائماً — لا initial_prompt؛ temperature=0/no_context في JNI).
       النداء يعمل في خيط خلفي أصلي (ExecutorService) لا في الخيط الرئيسي. */
 function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
-  const ring  = new PcmRing(8, 16000);
+  /* المخزن الدائري 12ث — متسق مع سقف الإرسال 10ث (لا يشبع قبل السقف) */
+  const ring  = new PcmRing(12, 16000);
   const judge = new HybridJudge(expectedAyahText, ui);
   const loop  = new WhisperLoop(ring, judge, whisperAdapter);
   let voiceMs = 0, lastChunkT = 0;
@@ -2073,16 +2095,22 @@ function _hbUiFor(ayIdx){
     onWord:function(i,st,heard){
       var ay=HB.ayahs[ayIdx];if(!ay)return;
       var g=ay.start+i;
+      HB.wordState[g]=st; /* سجل الحالة العالمي — مصدر الحكم النهائي والعدّادات */
       if(st==='tentative'){_lmSetClass(g,'tent');_lmActivate(g);}
       else if(st==='confirmed'){
         _lmSetClass(g,'ok');_lmActivate(g);
         if(g>=LM.cursor)LM.cursor=g+1;
-        LM._nW=(LM._nW||0)+1;
       }else if(st==='wrong'){
         _lmSetClass(g,'err');
         HB.heardMap[g]=heard||'';
         if(g>=LM.cursor)LM.cursor=g+1;
+      }else if(st==='skipped'){
+        /* متخطّاة بارتساء أمامي: رمادية — لم تُسمع، لا تُحاسَب خطأً */
+        _lmSetClass(g,'miss');
       }
+      /* صدق التقرير: «whisper=N كلمة» يُشتق حصراً من حالات confirmed */
+      var nw=0;for(var k in HB.wordState)if(HB.wordState[k]==='confirmed')nw++;
+      LM._nW=nw;
       var stEl=document.getElementById('lmStatus');
       if(stEl&&LM.rec)stEl.textContent=(VK.ready?'🎙 يستمع (فوري)… ':'🎙 يستمع… ')+LM.cursor+'/'+LM.words.length+' كلمة';
     },
@@ -2103,17 +2131,23 @@ function _hbUiFor(ayIdx){
 function _hbStartAyah(i){
   var ay=HB.ayahs[i];if(!ay)return;
   HB.cur=createHybridTasmee(ay.text,_hbUiFor(i),_hbAdapter);
-  HB.cur.start();
+  /* لا نشغّل حلقة الوحدة الدورية: مسار الإرسال هو النافذة النامية
+     (ارتساء/سقف) في _hbWinPush — كانت الحلقة الدورية خلف بوابة صوت
+     لا تقدح فترسل صفر نوافذ رغم الارتساءات (العطل المُشخَّص). */
 }
 function _hbStart(){
   _hbBuildAyahs();
-  HB.on=true;HB.idx=0;HB.heardMap={};
+  HB.on=true;HB.idx=0;HB.heardMap={};HB.wordState={};
   HB.diag={chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0};
+  HB.sendLog=[];HB.sent=0;
   HB._tailLen=0;
+  _hbWinReset();
   _hbWireHeardClicks();
   if(HB.ayahs.length)_hbStartAyah(0);
 }
 function _hbStop(){
+  /* تدفيق أخير: نافذة فيها صوت كافٍ لا تُهدر عند الإنهاء — تُرسل وتُسجَّل */
+  if(HB.win&&HB.win.voiceSamp>=HB_MIN_VOICE){try{_hbSendWin('إنهاء');}catch(e){}}
   HB.on=false;
   if(HB.cur){try{HB.cur.stop();}catch(e){}HB.cur=null;}
 }
@@ -2133,7 +2167,61 @@ function _hbOnPcm(ev){
   d.lastAt=Date.now();
   _hbTailPush(f); /* نسخة آخر ٥ث للزر اليدوي (تشخيص فقط) */
   if(!HB.on||!HB.cur)return;
-  HB.cur.onPcmChunk(f);
+  HB.cur.onPcmChunk(f); /* ring الوحدة (فواتح onSustainedVoice) */
+  _hbWinPush(f,d.rms>0.008); /* مسار الإرسال: النافذة النامية ارتساء/سقف */
+}
+
+/* ═══ مسار الإرسال إلى whisper: نافذة نامية بارتساء VAD وسقف صلب ═══
+   القاعدة: يُمنع تصفير أي نافذة تحتوي صوتاً (≥1ث) دون إرسالها.
+   - ارتساء: انتقال صوت→صمت (صمت متصل ≥0.45ث بعد صوت ≥1ث) → أرسل ثم صفّر.
+   - سقف: بلوغ 10ث → أرسل فوراً واحتفظ بآخر 0.5ث تداخلاً لبداية التالية.
+   المخزن 12ث (أكبر من السقف — لا يشبع قبله). كل إرسال يُسجَّل في سجل تراكمي. */
+var HB_WIN_BUF=12*16000,HB_WIN_CAP=10*16000,HB_OVERLAP=8000/*0.5ث*/,
+    HB_MIN_VOICE=16000/*1ث*/,HB_SIL_RESET=7200/*0.45ث*/;
+function _hbWinReset(){HB.win={buf:new Float32Array(HB_WIN_BUF),len:0,voiceSamp:0,silRun:0};}
+function _hbWinPush(f,voiced){
+  var w=HB.win;if(!w)return;
+  var n=f.length;
+  if(w.len+n>HB_WIN_BUF){ /* حافة قصوى (إرسالات معلّقة): أرسل قبل أن نفيض */
+    _hbSendWin('مخزن ممتلئ');
+    w=HB.win;
+  }
+  var room=Math.min(n,HB_WIN_BUF-w.len);
+  w.buf.set(room===n?f:f.subarray(0,room),w.len);
+  w.len+=room;
+  if(voiced){w.voiceSamp+=n;w.silRun=0;}
+  else{w.silRun+=n;}
+  /* ارتساء: صمت متصل بعد صوت كافٍ → إرسال أولاً ثم تصفير */
+  if(w.silRun>=HB_SIL_RESET&&w.voiceSamp>=HB_MIN_VOICE){_hbSendWin('ارتساء');return;}
+  /* نافذة صامتة بالكامل طالت: صفّرها بلا إرسال (لا صوت يُهدر) */
+  if(w.voiceSamp===0&&w.len>=HB_SIL_RESET*4){w.len=0;w.silRun=0;return;}
+  /* سقف صلب: أرسل فوراً واحتفظ بتداخل 0.5ث */
+  if(w.len>=HB_WIN_CAP)_hbSendWin('سقف',true);
+}
+function _hbSendWin(reason,keepOverlap){
+  var w=HB.win;if(!w||!w.len)return;
+  var seg=w.buf.slice(0,w.len);
+  var dur=Math.round(w.len/16000*10)/10;
+  /* تصفير بعد أخذ النسخة — الإرسال نفسه غير متزامن (المنفّذ الأصلي يسلسله) */
+  if(keepOverlap&&w.len>HB_OVERLAP){
+    w.buf.copyWithin(0,w.len-HB_OVERLAP,w.len);
+    w.len=HB_OVERLAP;
+    w.voiceSamp=Math.min(w.voiceSamp,HB_OVERLAP);
+  }else{
+    w.len=0;w.voiceSamp=0;
+  }
+  w.silRun=0;
+  var pk=0;for(var i=0;i<seg.length;i++){var a=seg[i]<0?-seg[i]:seg[i];if(a>pk)pk=a;}
+  var entry={t:Math.round((Date.now()-(LM._t0||Date.now()))/1000),dur:dur,
+             peak:Math.round(pk*1000)/1000,reason:reason,text:'…'};
+  HB.sendLog.push(entry);if(HB.sendLog.length>25)HB.sendLog.shift();
+  HB.sent=(HB.sent||0)+1;
+  _hbAdapter.transcribe(seg).then(function(t){
+    entry.text=(typeof normText==='function'?normText(t).join(' '):(t||''))||'(فارغ)';
+    if(HB.on&&HB.cur&&t){try{HB.cur.judge.onWhisperText(t);}catch(e){}}
+  }).catch(function(e){
+    entry.text='⚠ '+String(e&&e.message||e).slice(0,60);
+  });
 }
 /* مخزن آخر ٥ ثوانٍ (منفصل عن ring الوحدة المغلق) — للإرسال اليدوي المعزول */
 var _HB_TAIL_N=5*16000;
@@ -2608,7 +2696,7 @@ function lmStart(){
     /* الهجين يتولّى نوافذ whisper من JS (WhisperLoop) — عطّل النوافذ الأصلية
        بمزلاق ضخم كي لا يعمل المحرّك مرّتين؛ Vosk وpcm_chunk يستمران كالمعتاد */
     _hbStart();
-    P.startStream({slide_sec:99999,max_sec:8,prompt:'',emit_pcm:true}).catch(function(e){
+    P.startStream({slide_sec:99999,max_sec:10,prompt:'',emit_pcm:true}).catch(function(e){
       LM.rec=false;
       _hbStop();
       var msg=String(e&&e.message||e);LM._captureErr=msg;
@@ -2649,10 +2737,20 @@ function lmStop(){
   };
   if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else lmFinish();
 }
-/* الحكم النهائي: ✅ ما تجاوزه المؤشر · ⬜ ما لم يُسمع (لا يُحسب خطأً) */
+/* الحكم النهائي: ✅ مثبت · ❌ خطأ مسموع · ⬜ ما لم يُسمع/متخطّى (لا يُحسب خطأً)
+   مع الهجين: الحالات من سجل القاضي حصراً (لا يُلوَّن متخطّى صحيحاً) */
 function lmFinish(){
   var N=LM.words.length,ok=0,miss=0;
+  var hbActive=typeof HB!=='undefined'&&HB.wordState&&Object.keys(HB.wordState).length>0;
   for(var i=0;i<N;i++){
+    if(hbActive){
+      var ws=HB.wordState[i];
+      if(ws==='confirmed'){_lmSetClass(i,'ok');ok++;}
+      else if(ws==='wrong'){_lmSetClass(i,'err');}
+      else if(ws==='tentative'){_lmSetClass(i,'tent');ok++;} /* سمعه Vosk ولم يلحقه whisper قبل الإيقاف */
+      else{_lmSetClass(i,'miss');miss++;}
+      continue;
+    }
     if(i<LM.cursor){_lmSetClass(i,'ok');ok++;}
     else{_lmSetClass(i,'miss');miss++;}
   }
@@ -2698,7 +2796,7 @@ function _lmDiagText(){
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
     'whisper سمع (النافذة النامية): '+(LM._heard||'—'),
-    'الطريقة: نافذة نامية (عبارة كاملة) · تعرّف حرّ بلا prompt · ارتساء عند صمت VAD/سقف 18ث',
+    'الطريقة: نافذة نامية JS — إرسال عند الارتساء (صمت 0.45ث بعد صوت ≥1ث) أو السقف 10ث (بتداخل 0.5ث) · مخزن دائري 12ث · تعرّف حرّ بلا prompt',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
   /* ٠ — تتبّع مقياس العينات عبر السلسلة كاملة (٣ نقاط) + اتساق العتبات */
   (function(){
@@ -2708,13 +2806,28 @@ function _lmDiagText(){
     L.push('── تتبّع مقياس العينات (٣ نقاط) ──',
       '(أ) خام AudioRecord (int16): min='+_v(_vs.rawMin)+' max='+_v(_vs.rawMax)+' rms='+_v(_vs.rawRms)+' · ذروة الجلسة='+_v(_vs.rawPeak),
       '(ب) المسلَّم لـVosk acceptWaveForm (int16): min='+_v(_vs.voskMin)+' max='+_v(_vs.voskMax)+' rms='+_v(_vs.voskRms)+' · ذروة عينات Vosk الفعلية='+_v(_vs.voskPeak),
-      '(ج) حلقة whisper (Float32 ±1): min='+_r3(hd.min)+' max='+_r3(hd.max)+' rms='+_r3(hd.rms)+' · ذروة='+_r3(hd.peak)+' · '+(hd.chunks||0)+' شريحة/'+(hd.samples||0)+' عيّنة'+(hd.lastAt?' · آخر وصول قبل '+Math.round((Date.now()-hd.lastAt)/1000)+'ث':' · ⚠ لم تصل أي شريحة pcm_chunk'),
+      '(ج) حلقة whisper (Float32 ±1): min='+_r3(hd.min)+' max='+_r3(hd.max)+' rms='+_r3(hd.rms)+' · ذروة='+_r3(hd.peak)+' · '+(hd.chunks||0)+' شريحة = '+(Math.round((hd.samples||0)/1600)/10)+'ث'+(function(){
+        if(!hd.lastAt)return ' · ⚠ لم تصل أي شريحة pcm_chunk';
+        var ms=Date.now()-hd.lastAt; /* فرق بالمللي ثانية — يُعرض بوحدة صريحة */
+        var ago=ms<1000?(ms+'ms'):(ms<60000?((Math.round(ms/100)/10)+'ث'):(Math.round(ms/60000)+'د'));
+        var stale=(LM.rec&&ms>3000)?' ⚠ البثّ متوقف رغم جلسة نشطة!':'';
+        return ' · آخر وصول قبل '+ago+(LM.rec?'':' (الجلسة منتهية — العدّاد يواصل)')+stale;
+      })(),
       'التحويل: PCM16→Float32 قسمة ÷32768 مرة واحدة فقط (_wnPcmB64ToF32 حصراً — لا قسمة ثانية بالمسار)',
       'اتساق عتبات VAD: الأصلي rms16=260 (int16) ≈ '+(Math.round(260/32768*10000)/10000)+' float ≡ عتبة الوحدة 0.008 ✓ (المقياسان متسقان)',
       'التوزيع (fan-out): قارئ AudioRecord واحد فقط في التطبيق كله → ينسخ لثلاث وجهات: مخزن التشغيل + Vosk + pcm_chunk (لا قارئ ثانٍ)',
       'بثّ pcm_chunk: '+(_vs.emitPcm===true?'مفعّل ✓':(_vs.emitPcm===false?'⚠ غير مفعّل':'—'))+' · حالة الالتقاط الأصلي: '+(_vs.listening===true?'يعمل':(_vs.listening===false?'متوقف':'—')));
     L.push('── قرارات النافذة النامية (لقطة كل ثانية: v=صوت win=طول resets=ارتساءات cap=سقف) ──',
       _vs.winDiag||'— (لا لقطات بعد — تظهر أثناء الالتقاط)');
+    /* سجل إرسالات whisper التراكمي: كل إرسال = سطر (وقت/مدة/ذروة/سبب/نص مطبَّع) */
+    L.push('── سجل إرسالات whisper ('+(HB.sent||0)+' إرسال) ──');
+    if(HB.sendLog&&HB.sendLog.length){
+      HB.sendLog.slice(-15).forEach(function(s,i){
+        L.push('#'+(i+1)+' [t='+s.t+'ث] مدة='+s.dur+'ث ذروة='+s.peak+' ('+s.reason+') → «'+s.text+'»');
+      });
+    }else{
+      L.push('— لا إرسالات بعد (تُرسل عند الارتساء صوت→صمت أو سقف 10ث)');
+    }
     if(LM._force){
       var fo=LM._force;
       L.push('── 🔬 إرسال يدوي معزول (آخر ٥ث → whisper مباشرة، بتجاوز VAD والحلقة) ──',
