@@ -1,7 +1,9 @@
 package com.ddcbusiness.noor;
 
 import android.Manifest;
+import android.content.Context;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Base64;
@@ -79,6 +81,9 @@ public class WhisperNativePlugin extends Plugin {
     /* بثّ شرائح PCM الخام للـJS (المحرّك الهجين) — نفس مصدر المايك الواحد،
        اختياري بخيار emit_pcm في startStream. شريحة ≈128ms ≈ 5.5KB base64. */
     private volatile boolean emitPcm = false;
+    /* تركيز صوتي: مكالمة واردة/تطبيق آخر يسحب الصوت → أبلغ JS لينهي الجلسة
+       بملخّص بدل الاستمرار الصامت (AudioRecord يقرأ أصفاراً أثناء المكالمة). */
+    private AudioManager.OnAudioFocusChangeListener focusListener = null;
     /* عتبة السكوت (RMS ~0.008 مطبَّع). 0.45ث سكوت بعد كلام → ارتساء جديد (وقفة آية). */
     private static final double SILENCE_RMS = 260.0;
     private static final int SILENCE_RESET = (int)(SR * 0.45);
@@ -240,6 +245,22 @@ public class WhisperNativePlugin extends Plugin {
             buf.clear(); total = 0; emittedUpTo = 0; seq = 0;
             anchorSample = 0; silenceRun = 0; hadSpeech = false;
         }
+        // اطلب التركيز الصوتي وراقب فقده (مكالمة واردة → إنهاء بملخّص من JS)
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am != null) {
+                if (focusListener == null) {
+                    focusListener = fc -> {
+                        if (fc == AudioManager.AUDIOFOCUS_LOSS || fc == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            JSObject ev = new JSObject();
+                            ev.put("reason", fc == AudioManager.AUDIOFOCUS_LOSS ? "loss" : "transient");
+                            notifyListeners("audio_interrupt", ev);
+                        }
+                    };
+                }
+                am.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+            }
+        } catch (Throwable ignored) {}
         busy = false;
         voskSamplesFed = 0; voskCalls = 0; lastVoskRaw = ""; lastVoskPartial = ""; vadResets = 0;
         rawMin = 0; rawMax = 0; rawPeakSes = 0; rawRmsLast = 0;
@@ -382,6 +403,10 @@ public class WhisperNativePlugin extends Plugin {
         if (!listening) { call.resolve(); return; }
         listening = false;
         emitPcm = false;
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am != null && focusListener != null) am.abandonAudioFocus(focusListener);
+        } catch (Throwable ignored) {}
         try { if (readThread != null) readThread.join(1500); } catch (InterruptedException ignored) {}
         try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
 
@@ -480,15 +505,31 @@ public class WhisperNativePlugin extends Plugin {
                     JSObject r0 = new JSObject(); r0.put("path", modelDir.getAbsolutePath()); r0.put("cached", true);
                     call.resolve(r0); return;
                 }
+                // فحص المساحة قبل البدء: zip 318MB + المفكوك ≈ ذروة ~1GB مؤقتة
+                long free = base.getUsableSpace();
+                if (free > 0 && free < 1_000_000_000L) {
+                    call.reject("vosk-disk: المساحة المتاحة " + (free / 1_000_000) + "MB — يلزم ~1GB مؤقتاً لتنزيل وفكّ محرّك الستريمنغ. حرّر مساحة ثم أعد المحاولة");
+                    return;
+                }
                 File zip = new File(base, name + ".zip");
+                // استئناف: جزئي سابق موجود → اطلب Range من حيث توقّف
+                long existing = zip.exists() ? zip.length() : 0;
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setConnectTimeout(30000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
+                if (existing > 0) c.setRequestProperty("Range", "bytes=" + existing + "-");
                 int status = c.getResponseCode();
+                boolean resuming = (status == 206 && existing > 0);
+                if (!resuming && existing > 0) {
+                    // الخادم لا يدعم Range (أعاد 200 أو رفض): ابدأ من الصفر
+                    try { zip.delete(); } catch (Throwable ignored) {}
+                    existing = 0;
+                }
                 if (status < 200 || status >= 300) { call.reject("vosk-http-" + status); return; }
                 long total = c.getContentLengthLong();
-                byte[] b = new byte[131072]; long done = 0, lastEmit = 0; int rd;
+                if (total > 0) total += existing; // Range: الطول المعلن = المتبقي فقط
+                byte[] b = new byte[131072]; long done = existing, lastEmit = 0; int rd;
                 try (InputStream in = new BufferedInputStream(c.getInputStream());
-                     OutputStream out = new FileOutputStream(zip)) {
+                     OutputStream out = new FileOutputStream(zip, resuming)) {
                     while ((rd = in.read(b)) > 0) {
                         out.write(b, 0, rd); done += rd;
                         if (done - lastEmit > 3_000_000) {
@@ -500,7 +541,14 @@ public class WhisperNativePlugin extends Plugin {
                     }
                 }
                 JSObject uz = new JSObject(); uz.put("phase", "unzip"); notifyListeners("vosk_progress", uz);
-                unzip(zip, base);
+                try {
+                    unzip(zip, base);
+                } catch (Throwable uz) {
+                    // zip تالف (تنزيل/استئناف فاسد): احذفه كي لا يُستأنف فوق ملف معطوب
+                    try { zip.delete(); } catch (Throwable ignored) {}
+                    call.reject("vosk-unzip-error: " + uz.getMessage() + " — حُذف الملف الجزئي، أعد المحاولة");
+                    return;
+                }
                 zip.delete();
                 if (!voskModelOk(modelDir)) {
                     call.reject("vosk-unzip-bad: ملفات الموديل ناقصة (am/final.mdl أو conf/model.conf أو graph مفقود — قد تكون المساحة نفدت)"); return;

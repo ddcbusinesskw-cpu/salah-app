@@ -1795,7 +1795,7 @@ function go(id){
   var prev=document.querySelector('.screen.on');
   if(prev&&prev.id==='qibla'){try{disableCompass();}catch(ex){}}
   if(prev&&(prev.id==='quran'||prev.id==='mushafFull')){_qAbort();}
-  if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}}
+  if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}try{_engIdleArm();}catch(ex){}}
   if(prev&&prev.id==='salahw'){try{swLeave();}catch(ex){}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
   if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
@@ -2305,6 +2305,29 @@ function _wnFail(msg,fatal){
   if(fatal){WN.fatal=true;}
   else{WN.attempts++;if(WN.attempts>=WN_MAX_ATTEMPTS)WN.exhausted=true;if(WN.diag)WN.diag.stage='فشل (محاولة '+WN.attempts+'/'+WN_MAX_ATTEMPTS+')';}
 }
+/* ═══ تحرير الذاكرة الكسول: 5 دقائق خمول خارج شاشة التسميع → unload
+   للمحرّكين (whisper ctx + موديل Vosk ≈ مئات MB رام). إعادة التحميل شفافة:
+   فتح التسميع يستدعي _wnEnsure، وبدء الجلسة يستدعي _vkEnsure. ═══ */
+var _engIdleT=null,ENG_IDLE_MS=5*60*1000;
+function _engIdleArm(){
+  if(_engIdleT)clearTimeout(_engIdleT);
+  if(!WN.ready&&!VK.ready)return; /* لا شيء محمّلاً — لا داعي للمؤقّت */
+  _engIdleT=setTimeout(function(){
+    _engIdleT=null;
+    var cur=document.querySelector('.screen.on');
+    if((typeof LM!=='undefined'&&LM.rec)||(typeof HB!=='undefined'&&HB.on))return;
+    if(cur&&cur.id==='memorize')return; /* عاد إلى الشاشة */
+    if(WN.loading||VK.loading)return;   /* تحميل جارٍ — لا تقاطعه */
+    var P=_wnPlug();if(!P||!P.unload)return;
+    P.unload().then(function(){
+      WN.ready=false;WN.tried=false;WN.loading=false;WN.attempts=0;WN.exhausted=false;
+      VK.ready=false;VK.tried=false;VK.loading=false;
+      console.log('[eng] حُرّرت ذاكرة المحرّكين (خمول ٥ دقائق) — يُعاد التحميل عند فتح التسميع');
+    }).catch(function(){});
+  },ENG_IDLE_MS);
+}
+function _engIdleCancel(){if(_engIdleT){clearTimeout(_engIdleT);_engIdleT=null;}}
+
 /* إعادة محاولة يدوية: تصفّر الاستنفاد والعدّاد وتبدأ فوراً (تتجاوز backoff) */
 function _wnRetry(){
   if(WN.fatal){try{toast('البيئة لا تدعم المحرّك الأصلي','warning');}catch(e){}return;}
@@ -2372,15 +2395,28 @@ function _wnDownload(P,FS,_load){
     var bytes=ab.byteLength;WN.diag.savedBytes=bytes;
     /* أقل من 10MB = ليس موديلاً (غالباً صفحة خطأ) — لا تحفظه ولا تحمّله */
     if(bytes<10000000){_wnFail('الحجم المُنزَّل '+bytes+' بايت — ليس موديل GGUF (متوقّع ~43MB). تحقّق من الرفع.');return;}
-    /* ArrayBuffer → base64 → Filesystem.writeFile */
-    var u8=new Uint8Array(ab),bin='',CH=32768;
-    for(var o=0;o<u8.length;o+=CH)bin+=String.fromCharCode.apply(null,u8.subarray(o,Math.min(o+CH,u8.length)));
-    var b64=btoa(bin);
+    /* كتابة مجزأة (3MB/قطعة): base64 لكل قطعة ثم append — بلا سلسلة 43MB
+       واحدة ولا btoa عملاق → ذروة الرام تنخفض من >100MB إلى بضعة MB */
     WN.diag.stage='حفظ الملف';
-    FS.writeFile({path:WN_GGUF_FILE,directory:'DATA',data:b64,recursive:true}).then(function(){
-      if(_mb)_mb.textContent='build '+_buildStamp();
-      _load();
-    }).catch(function(e){_wnFail('فشل حفظ الملف: '+String(e&&e.message||e).slice(0,40));});
+    var u8=new Uint8Array(ab),SEG=3*1024*1024,pos=0;
+    function _b64Of(sub){
+      var bin='',CH=32768;
+      for(var o=0;o<sub.length;o+=CH)bin+=String.fromCharCode.apply(null,sub.subarray(o,Math.min(o+CH,sub.length)));
+      return btoa(bin);
+    }
+    function _writeNext(){
+      if(pos>=u8.length){
+        if(_mb)_mb.textContent='build '+_buildStamp();
+        _load();return;
+      }
+      /* حدود القطع من مضاعفات 3 بايت → base64 بلا حشو وسطي، الإلحاق سليم */
+      var end=Math.min(u8.length,pos+SEG);
+      var seg=u8.subarray(pos,end),first=(pos===0);pos=end;
+      var op=first?FS.writeFile({path:WN_GGUF_FILE,directory:'DATA',data:_b64Of(seg),recursive:true})
+                  :FS.appendFile({path:WN_GGUF_FILE,directory:'DATA',data:_b64Of(seg)});
+      op.then(_writeNext).catch(function(e){_wnFail('فشل حفظ الملف: '+String(e&&e.message||e).slice(0,40));});
+    }
+    _writeNext();
   }).catch(function(e){
     clearTimeout(to);
     _wnFail('فشل الطلب: '+String(e&&e.message||e).slice(0,50)+' (شبكة/CORS)');
@@ -2689,6 +2725,12 @@ function lmStart(){
   var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
   LM._captureErr='';
   var _begin=function(){
+    /* نظافة الجلسة: أوقف كل صوت قيد التشغيل قبل فتح المايك — التقاط
+       السماعة (قرآن/رقية/أذان) يلوّث Vosk ونوافذ whisper بأحكام خاطئة */
+    try{
+      document.querySelectorAll('audio').forEach(function(a){if(!a.paused)try{a.pause();}catch(x){}});
+      if(typeof qpClose==='function'){var _qp=document.getElementById('qplayer');if(_qp&&_qp.classList.contains('on'))qpClose();}
+    }catch(e){}
     LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
     LM._nV=0;LM._nW=0;LM._vkFirstMs=0;LM._vkHeard='';
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
@@ -2700,6 +2742,12 @@ function lmStart(){
     try{P.addListener('partial',lmOnPartial);}catch(e){}
     /* المحرّك الهجين: شرائح PCM من المايك الأصلي الواحد → PcmRing */
     try{P.addListener('pcm_chunk',_hbOnPcm);}catch(e){}
+    /* فقد التركيز الصوتي (مكالمة واردة): أنهِ بملخّص بدل الاستمرار الصامت */
+    try{P.addListener('audio_interrupt',function(){
+      if(!LM.rec)return;
+      toast('انقطع الصوت (مكالمة واردة؟) — أُنهيت الجلسة بملخّص ما سُمع','info');
+      try{lmStop();}catch(e){}
+    });}catch(e){}
     /* إصلاح: removeAllListeners أعلاه يزيل مستمعات Vosk — أعد ربطها دائماً
        (وإلا لا تصل أحداث vosk_partial بعد أول جلسة → Vosk صامت في JS). */
     VK._wired=false;_vkWire(P);
@@ -2935,8 +2983,9 @@ function _lmDiagHtml(){
     +'</details>';
 }
 function initMemorize(){
+  try{_engIdleCancel();}catch(e){} /* عاد للتسميع — ألغِ مؤقّت تحرير الذاكرة */
   var _mb=document.getElementById('lmBuild');if(_mb)_mb.textContent='build '+_buildStamp();
-  try{_wnEnsure();}catch(e){} /* المحرّك الأصلي: تنزيل/تحميل مرة */
+  try{_wnEnsure();}catch(e){} /* المحرّك الأصلي: تنزيل/تحميل مرة (شفاف بعد أي تحرير) */
   lmLoadPages(function(){
     var sel=document.getElementById('lmSurah');
     if(sel&&!sel.options.length){
@@ -4688,6 +4737,12 @@ function toggleAdhan(){
   renderTimesScreen();
 }
 function playAdhan(){
+  /* جلسة نشطة (تسميع/متابع صلاة): أجّل الصوت فقط — الإشعار النظامي يبقى.
+     تشغيل الأذان في السماعة يدخل المايك ويلوّث الأحكام/الرصد. */
+  if((typeof LM!=='undefined'&&LM.rec)||(typeof SW!=='undefined'&&SW.active)){
+    toast('حان وقت الصلاة 🕌 (أُجّل صوت الأذان — جلسة نشطة)');
+    return;
+  }
   toast('جارٍ تشغيل صوت الأذان…');
   var a=document.getElementById('adhanAudio');
   if(ADHAN_B64){try{a.src='data:audio/mpeg;base64,'+ADHAN_B64;a.currentTime=0;var p0=a.play();if(p0&&p0.catch)p0.catch(function(){synthAdhan();});return;}catch(e){}}
@@ -5060,7 +5115,11 @@ function searchHadith(q){
     .catch(function(){clearTimeout(_fTO);_jsonpFallback();});
 }
 function qpIcon(p){document.getElementById('qpPlay').innerHTML=p?PAUSE_SVG:PLAY_SVG;}
-function playSurah(n,name){qpN=n;var a=document.getElementById('quranAudio');a.playbackRate=QP_SPEEDS[qpSpeedIdx];a.src=reciterBase()+pad3(n)+'.mp3';document.getElementById('qpName').textContent=name||('سورة '+ar(n));var rn=document.getElementById('qpReciter');if(rn)rn.textContent=RECITERS[recIdx].n;document.getElementById('qplayer').classList.add('on');qpBuildRecList();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}
+function playSurah(n,name){qpN=n;var a=document.getElementById('quranAudio');a.playbackRate=QP_SPEEDS[qpSpeedIdx];
+  /* بثّ mp3quran يحتاج اتصالاً: فشل التحميل/الشبكة → رسالة واضحة بدل صمت */
+  if(!a._errWired){a._errWired=true;a.addEventListener('error',function(){
+    toast('تعذّر تشغيل التلاوة — تحقّق من اتصال الإنترنت','error');
+  });}a.src=reciterBase()+pad3(n)+'.mp3';document.getElementById('qpName').textContent=name||('سورة '+ar(n));var rn=document.getElementById('qpReciter');if(rn)rn.textContent=RECITERS[recIdx].n;document.getElementById('qplayer').classList.add('on');qpBuildRecList();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}
 function qpToggle(){var a=document.getElementById('quranAudio');if(a.paused){var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}else{a.pause();qpIcon(false);}}
 function qpPrev(){if(qpN>1)playSurah(qpN-1,nameFor(qpN-1));}
 function qpNext(){if(qpN&&qpN<114)playSurah(qpN+1,nameFor(qpN+1));}
