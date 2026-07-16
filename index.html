@@ -71,8 +71,6 @@
 
   [data-theme="light"] .cats button{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .cats button:active{background:rgba(0,0,0,.1);}
-  [data-theme="light"] .dhikr-sel button{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
-  [data-theme="light"] .pills button{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .dhikr-pill{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .dhikr-pill.dhikr-add{background:rgba(0,0,0,.04);}
   [data-theme="light"] .cats button.on,[data-theme="light"] .dhikr-sel button.on,
@@ -88,12 +86,6 @@
   [data-theme="light"] .compass{background:radial-gradient(circle,rgba(0,0,0,.04),transparent);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .needle .bar{background:linear-gradient(var(--gold),rgba(138,106,0,.15));}
 
-  [data-theme="light"] .rak-mode{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
-  [data-theme="light"] .rak-mode.on{color:#fff;}
-  [data-theme="light"] .rak-ctrl-btn{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1);}
-  [data-theme="light"] .rak-ctrl-btn.doubt{border-color:var(--gold);}
-  [data-theme="light"] .rak-track-out{stroke:rgba(0,0,0,.1);}
-  [data-theme="light"] .rak-track-in{stroke:rgba(0,0,0,.07);}
 
   [data-theme="light"] #customModal .cm-sheet{background:var(--bg);}
   [data-theme="light"] #customModal input{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12);}
@@ -117,7 +109,6 @@
   [data-theme="light"] .pt-row.next .nm,[data-theme="light"] .pt-row.next .tm{color:#1a1300;}
   [data-theme="light"] .pt-row.next .done-btn{border-color:rgba(26,19,0,.25);color:#1a1300;}
 
-  [data-theme="light"] .rak-cam-cancel{color:#1a1300;}
 
   /* Light mode khatmah ring */
   [data-theme="light"] .khatmah-ring svg circle:first-child{stroke:rgba(0,0,0,.1);}
@@ -278,10 +269,6 @@
   .bism{text-align:center;font-size:24px;color:var(--gold);padding:14px 0;}
 
   .tasbih{display:flex;flex-direction:column;align-items:center;gap:22px;padding:14px 0;}
-  .dhikr-sel{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
-  .dhikr-sel button{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;
-    font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;}
-  .dhikr-sel button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
   .counter-btn{width:230px;height:230px;border-radius:50%;border:2px solid rgba(234,204,126,.5);background:var(--card);
     color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:var(--tr);}
   .counter-btn:active{transform:scale(.97);background:var(--card2);}
@@ -338,12 +325,6 @@
   #customModal .cm-btns{display:flex;gap:8px;margin-top:4px;}
 
   @keyframes rakDone{0%,100%{transform:scale(1);}40%{transform:scale(1.06);}70%{transform:scale(.97);}}
-  .pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:6px;}
-  .pills button{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;font-weight:600;
-    padding:8px 13px;border-radius:999px;cursor:pointer;}
-  .pills button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1300;border-color:transparent;}
-  .pills .nn{color:var(--gold);font-weight:700;margin-inline-start:4px;}
-  .pills button.on .nn{color:#1a1300;}
   .loading{text-align:center;color:var(--muted);padding:30px;font-size:14px;line-height:1.8;}
 
   /* ===== شاشات البداية (Overlays) ===== */
@@ -845,31 +826,11 @@ button,a{-webkit-tap-highlight-color:transparent;}
 @keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(63,174,142,.5);}60%{box-shadow:0 0 0 6px rgba(63,174,142,0);}}
 @keyframes ihramFlash{0%{background:rgba(78,202,168,.3);border-radius:4px;}100%{background:transparent;}}
 /* صفحة اختبار الرؤية */
-[data-theme="light"] .st-setup-card,[data-theme="light"] .st-prog-wrap,[data-theme="light"] .st-ctr-card,[data-theme="light"] .st-heard-wrap,[data-theme="light"] .st-sum-card{background:rgba(255,255,255,.85);border-color:rgba(0,0,0,.08);}
-[data-theme="light"] .st-ctr-card.st-ctr-gold{background:rgba(138,106,0,.06);}
-[data-theme="light"] .st-sum-item{background:rgba(0,0,0,.04);}
 /* ===== عداد الركعات — منتقي الصلاة ===== */
 
 
 
 /* ===== تسميع الحفظ v2 ===== */
-.mem2-setup-card{background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:20px;margin-bottom:14px;}
-.mem2-label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em;margin-bottom:8px;}
-.mem2-surah-sel{width:100%;background:var(--card2,rgba(255,255,255,.11));border:1px solid var(--line2);color:var(--text);border-radius:14px;padding:13px 14px;font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;cursor:pointer;margin-bottom:14px;}
-.mem2-range-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:14px;}
-.mem2-range-in{width:56px;background:var(--card);border:1px solid var(--line2);color:#fff;border-radius:10px;padding:7px 8px;font-family:inherit;font-size:14px;outline:none;text-align:center;}
-.mem2-range-in:focus{border-color:rgba(234,204,126,.5);}
-.mem2-seg-pills{display:flex;gap:8px;margin-bottom:14px;}
-.mem2-pill{flex:1;background:var(--card);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:13px;padding:8px 0;border-radius:999px;cursor:pointer;transition:all .18s;}
-.mem2-pill.on{background:var(--gold);color:#1a1300;border-color:transparent;font-weight:700;}
-.mem2-rec-row{display:flex;flex-wrap:wrap;gap:6px;}
-.mem2-rec-pill{flex:0 0 auto;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;padding:5px 12px;border-radius:999px;cursor:pointer;transition:all .15s;white-space:nowrap;}
-.mem2-rec-pill.on{background:rgba(15,118,110,.15);border-color:rgba(15,118,110,.4);color:var(--teal);font-weight:700;}
-.mem2-setup-bar{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));left:0;right:0;max-width:680px;margin:0 auto;background:rgba(5,26,22,.97);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid rgba(255,255,255,.08);padding:12px 16px;box-shadow:0 -8px 30px rgba(0,0,0,.4);z-index:130;}
-.mem2-rec-chip{background:rgba(255,255,255,.07);border:1px solid var(--line2);color:var(--muted);font:inherit;font-size:11px;padding:4px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;}
-.mem2-rec-chip:active{border-color:rgba(15,118,110,.4);color:var(--teal);}
-.mem2-seg-hdr{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.05em;text-align:center;margin:18px 0 4px;opacity:.85;}
-.mem2-mushaf{direction:rtl;font-family:"Uthmani","Scheherazade New",serif;font-size:22px;line-height:2.9;text-align:justify;padding:16px 14px;background:var(--card);border:1px solid var(--line2);border-radius:18px;margin-bottom:6px;}
 /* ═══ المصحف الحي ═══ */
 .lm-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
 .lm-sel{flex:1;min-width:130px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;}
@@ -901,35 +862,12 @@ button,a{-webkit-tap-highlight-color:transparent;}
 #mem2Mushaf.revealed .mw2.hidden,#mem2Mushaf.revealed .mw2.pending{color:rgba(255,255,255,.4)!important;background:none!important;}
 @keyframes mw2pop{0%{opacity:0;transform:scale(.82);}100%{opacity:1;transform:scale(1);}}
 .mw2.ok,.mw2.err{animation:mw2pop .22s ease-out;}
-.mem2-ayend{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;border-radius:50%;border:1px solid rgba(185,145,47,.55);color:rgba(185,145,47,.8);font-size:11px;margin:0 4px;font-family:system-ui,sans-serif;vertical-align:middle;background:rgba(185,145,47,.06);}
-.mem2-live{min-height:18px;font-size:13px;color:var(--muted);font-style:italic;text-align:center;direction:rtl;padding:4px 16px 0;}
-.mem2-guide{font-size:11.5px;color:var(--muted);opacity:.65;text-align:center;direction:rtl;padding:6px 16px 0;line-height:1.5;}
-.mem2-bar{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));left:0;right:0;max-width:680px;margin:0 auto;
-  background:rgba(7,15,13,.97);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(255,255,255,.08);
-  padding:10px 16px;
-  box-shadow:0 -14px 40px rgba(0,0,0,.5);z-index:130;}
-.mem2-prog-track{height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin-bottom:10px;overflow:hidden;}
-.mem2-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:2px;transition:width .5s ease;}
-.mem2-bar-main{display:flex;align-items:center;justify-content:space-between;direction:ltr;gap:8px;}
 .mem2-nav-btn{width:46px;height:46px;border-radius:50%;background:var(--card);border:1px solid var(--line2);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .2s;}
 .mem2-nav-btn:disabled{opacity:.22;cursor:default;}
 .mem2-mic-btn{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;color:#1a1300;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:inherit;font-size:11px;font-weight:700;box-shadow:0 4px 18px rgba(234,204,126,.4);transition:background .2s;flex-shrink:0;}
 .mem2-mic-btn.rec{background:linear-gradient(135deg,var(--red),#b83030);color:#fff;box-shadow:0 4px 22px rgba(224,96,96,.45);animation:mem2pulse 1.5s ease-in-out infinite;}
 .mem2-mic-btn:disabled{opacity:.45;cursor:default;animation:none!important;}
 @keyframes mem2pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
-.mem2-hear-btn{width:44px;height:44px;border-radius:50%;background:var(--card);border:1px solid var(--line2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.mem2-bar-foot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;}
-.mem2-back-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;padding:0;}
-.mem2-seg-lbl{font-size:11px;color:var(--muted);}
-.mem2-results{background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:24px 18px;text-align:center;animation:popIn .4s cubic-bezier(.22,.8,.36,1);}
-.mem2-stars{font-size:28px;color:var(--gold);letter-spacing:4px;margin-bottom:4px;}
-.mem2-score-pct{font-size:52px;font-weight:800;line-height:1;margin-bottom:6px;}
-.mem2-grade{font-size:16px;font-weight:700;margin-bottom:16px;}
-.mem2-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
-.mem2-gc{border-radius:14px;padding:12px 4px;}
-.mem2-result-mushaf{direction:rtl;font-family:"Uthmani","Scheherazade New",serif;font-size:20px;line-height:3;text-align:justify;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px;margin-bottom:14px;}
-.mem2-sheikh{border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--muted);line-height:1.75;margin-top:14px;}
 @media(prefers-reduced-motion:reduce){.mw2.ok,.mw2.err{animation:none!important;}
   .mem2-mic-btn.rec,.mem2-mic-btn{animation:none!important;}.mem2-prog-fill{transition:none;}}
 .mayah{cursor:pointer;border-radius:5px;transition:background .15s;}
@@ -1841,9 +1779,6 @@ function _buildStamp(){return (BUILD_STAMP.indexOf('__BUILD')===0)?'dev':BUILD_S
    يُحمَّل مسبقاً عند فتح الشاشة؛ إن غاب المستودع (لم يُنشر بعد) يسقط الشلال
    إلى base وحده بأمان. W2._tinyReady يحسم المسار. */
 var TINY_MODEL='Oa-4/whisper-tiny-ar-quran-ONNX-tjs';
-var WIN_SEC=8;      /* طول نافذة المرحلة السريعة (ث) */
-var WIN_OVERLAP=1;  /* تداخل بين النوافذ (ث) — يمنع بتر الكلمات على الحدود */
-
 /* ============================================================
    hybrid-tasmee.js — محرك التسميع الهجين (Vosk لحظي + Whisper مدقق)
    المعمارية: مايك واحد → توزيع للمحركين → قاضٍ حتمي → UI
@@ -2595,14 +2530,8 @@ function _idbPut(store,key,val){
     try{db.transaction(store,'readwrite').objectStore(store).put(val,key);}catch(e){}
   });
 }
-var _m2sl=1,_m2PageMode=false;
-var _liveSR=null,_liveText='',_liveSRInterim='',_liveSRDone=true;
-/* التعرّف الأصلي (Capacitor) كمصدر شلال على أندرويد — WebSpeech غير متاح في WebView */
-var _liveNsrPlug=null,_liveNsrActive=false,_liveNsrCollecting=false,_liveNsrMuted=false,_liveNsrRestarting=false,_liveSilent=null,_liveNsrT0=0;
 /* إشارات إعادة التشغيل الثلاثية (كما في تتبّع الصلاة): حدث listeningState +
    حلّ وعد start() + رقيب صمت — الاعتماد على الحدث وحده أثبت فشله ميدانياً */
-var _liveNsrLastEvT=0,_liveNsrSesN=0,_liveNsrComSes=0,_liveNsrWatch=null;
-var _m2pgTimerInt=null,_m2pgTimerSec=0,_m2pgMaxSec=360,_m2pgProcInt=null,_m2pgProcPct=0;
 /* ═══════════════════════════════════════════════════════════════════
    المصحف الحي (LM) — تسميع بمعمارية ترتيل: خط QCF + بثّ أصلي + محاذاة لحظية
    ═══════════════════════════════════════════════════════════════════ */
@@ -2995,27 +2924,6 @@ function initMemorize(){
     lmRender();
   });
 }
-function memSurahChange(){
-  var n=+document.getElementById('memSurah').value;
-  if(!n||!QURAN_EMBED)return;
-  var arr=QURAN_EMBED.surahs[String(n)];var tot=arr?arr.length:0;
-  var fi=document.getElementById('memFrom'),ti=document.getElementById('memTo');
-  if(fi){fi.value=1;fi.max=tot;}if(ti){ti.value=tot;ti.max=tot;}
-  var ac=document.getElementById('memAyahCount');if(ac)ac.textContent=ar(tot)+' آية';
-}
-function _memClampRange(){
-  var n=+document.getElementById('memSurah').value;
-  var arr=QURAN_EMBED&&QURAN_EMBED.surahs[String(n)];
-  var tot=arr?arr.length:1;
-  var fi=document.getElementById('memFrom'),ti=document.getElementById('memTo');
-  if(!fi||!ti)return;
-  fi.max=tot;ti.max=tot;
-  if(fi.value&&+fi.value>tot)fi.value=tot;
-  if(fi.value&&+fi.value<1)fi.value=1;
-  ti.min=Math.max(1,+fi.value||1);
-  if(ti.value&&+ti.value>tot)ti.value=tot;
-  if(ti.value&&+ti.value<+ti.min)ti.value=ti.min;
-}
 /* ── Page mode helpers ─────────────────────────────────────────────────── */
 /* جدول حدود الصفحات الدقيق: _QP[i] = surah*1000+ayah (1-indexed) لأول آية في الصفحة i+1 */
 var _QP=[
@@ -3080,59 +2988,11 @@ var _QP=[
 77020,78001,78031,79016,80001,81001,82001,83007,83035,85001,
 86001,87016,89001,89024,91001,92015,95001,97001,98008,100010,
 103001,106001,109001,112001];
-function _getPageAyahs(page){
-  if(!window.QURAN_EMBED)return[];
-  var p=Math.max(1,Math.min(604,page));
-  var sv=_QP[p-1];
-  var s1=Math.floor(sv/1000),a1=(sv%1000)-1; // a1: 0-indexed
-  var es=-1,ea=-1; // start of next page (exclusive); -1 = unbounded (page 604)
-  if(p<604){var ev=_QP[p];es=Math.floor(ev/1000);ea=(ev%1000)-1;}
-  var res=[];
-  for(var s=s1;s<=114;s++){
-    if(es>=0&&s>es)break;
-    var arr=QURAN_EMBED.surahs&&QURAN_EMBED.surahs[String(s)];
-    if(!arr||!arr.length){if(es>=0&&s===es)break;continue;}
-    var a0=(s===s1)?a1:0;
-    var aMax=(es>=0&&s===es)?ea:arr.length;
-    for(var a=a0;a<aMax;a++)res.push({s:s,a:a});
-    if(es>=0&&s>=es)break;
-  }
-  return res;
-}
-/* ── Page-mode recording timer ── */
-/* ── Whisper processing progress bar (page mode) ── */
-/* ── Cascade: live SpeechRecognition alongside MediaRecorder ── */
-/* إيقاف رشيق: يُبقي onresult حياً حتى onend كي تصل النتائج النهائية
-   المتأخرة (كانت تُفصل لحظة الضغط فيضيع ذيل النص في المقاطع القصيرة) */
-/* ═══ شلال التعرّف الأصلي (أندرويد) — يغذّي نفس _liveText/_liveSRInterim/_liveSRDone ═══
-   بنية مطابقة لتتبّع الصلاة: partialResults + إعادة تشغيل عند التوقف + كتم البيب. */
-/* إلحاق نص الجلسة المنتهية مع إزالة التداخل (حتى 6 كلمات) — دورة جديدة قد
-   تعيد سماع ذيل السابقة، والتكرار يفسد مقارنة الشلال */
 /* ═══════════════════════════════════════════════════════════════════
    AudioPolicy — سياسة الصوت المركزية الواحدة
    التعرّف الأصلي معزول خلف علم تجريبي (sr_exp) مطفأ افتراضياً على native.
    قدرات الجهاز تُكتشف مرة وتُخزَّن. ═══════════════════════════════════ */
 var AP={caps:null};
-function _apCaps(){
-  if(AP.caps)return AP.caps;
-  try{var c=JSON.parse(lsGet('audio_caps_v1')||'null');if(c&&c.v===1){AP.caps=c;return c;}}catch(e){}
-  var mime='';
-  try{
-    if(window.MediaRecorder&&MediaRecorder.isTypeSupported){
-      mime=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'].find(function(x){return window.MediaRecorder&&MediaRecorder.isTypeSupported(x);})||'';
-    }
-  }catch(e){}
-  var caps={v:1,mr:!!(window.MediaRecorder&&mime),mime:mime,gum:!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)};
-  AP.caps=caps;
-  try{lsSet('audio_caps_v1',JSON.stringify(caps));}catch(e){}
-  return caps;
-}
-/* هل يُسمح بلمس التعرّف الأصلي؟ الويب: WebSpeech كما هو. native: علم تجريبي + صحة */
-function _apSrAllowed(){
-  if(!_isAndroidNative())return true;
-  if(lsGet('sr_exp')!=='1')return false; /* مطفأ افتراضياً — صفر تعرّف على native */
-  return lsGet('sr_health')!=='bad';
-}
 /* FFT حقيقية 512 نقطة (radix-2, in-place) */
 /* مرشّحات mel (26 مرشّحاً على 0-8kHz لطيف 512/16k) — تُحسب مرة */
 /* MFCC: إطار 25ms / قفزة 10ms على 16kHz → 13 معاملاً لكل إطار (مع CMS) */
@@ -3181,12 +3041,6 @@ function _ltAdvance(state,words){
     }
   }
 }
-/* تغذية المتتبّع: يجمّد النهائي المثبَّت (_liveText) ويعرض الجزئي تفاؤلياً */
-/* الإنهاء: أحكام ثلاثية فورية — كل مسار يصل شاشة نتيجة خلال ثوانٍ محدودة */
-/* ── الفحص الموضعي: أول نطاق مشكوك (❌/⬜) موسَّعاً لحدود الآية ── */
-/* دمج حكم Whisper الموضعي في نتيجة المقطع */
-/* زر «تشخيص دقيق»: على الويب يعيد استخدام الصوت المحفوظ (W2._cascBuf)؛
-   على أندرويد (لا صوت في وضع الشلال) يُسلّح إعادة تسجيل لـWhisper */
 /* سطر تشخيص تنزيل GGUF: الرابط + رمز HTTP + الحجم + مسار الملف + سبب الفشل */
 function _wnDownDiag(){
   var g=WN.diag;if(!g)return _isAndroidNative()?'تنزيل GGUF: لم يُبدأ بعد':'';
@@ -4017,30 +3871,6 @@ function _w2Kill(){
 /* الحكم النهائي بعد الالتقاط الأصلي — سريع → أحسنت / شك → base WASM للتشخيص */
 /* Levenshtein distance — تستعمله _lmWordMatch (المحاذاة الحيّة) و_ltWordMatch (حزمة الذهب) */
 function _memED(a,b){if(a===b)return 0;if(!a.length)return b.length;if(!b.length)return a.length;var p=[],r=[];for(var j=0;j<=b.length;j++)p[j]=j;for(var i=1;i<=a.length;i++){r=[i];for(var j=1;j<=b.length;j++)r[j]=a[i-1]===b[j-1]?p[j-1]:1+Math.min(p[j-1],p[j],r[j-1]);p=r.slice();}return p[b.length];}
-function _memFuz(rec,tgt){
-  if(rec===tgt)return true;
-  var d=_memED(rec,tgt);
-  // d=1 for words ≥3 chars
-  if(d===1&&tgt.length>=3)return true;
-  // d=2 for words ≥7 chars (unchanged)
-  if(d===2&&tgt.length>=7)return true;
-  // d=2 for 5-6 char words where difference is ONLY in the final 1-2 chars
-  // (Whisper suffix/inflection variation on same stem; safe because we require
-  // a long shared leading portion — guards against الرحمن↔الرحيم which differ
-  // at position 5, not just at the end)
-  if(d===2&&tgt.length>=5&&tgt.length<=6){
-    var pfx=tgt.length-1; // must match all but last char
-    if(rec.length>=pfx&&tgt.length>=pfx&&rec.slice(0,pfx)===tgt.slice(0,pfx))return true;
-  }
-  // d=3 for very long words (≥9 chars) with relative distance ≤ 30%
-  // covers rare Quranic words where Whisper makes multiple small errors
-  if(tgt.length>=9&&d===3&&d/tgt.length<=0.30)return true;
-  // Trailing single-char difference (ا↔ي↔و at end — alef-maqsura/waw confusion)
-  if(rec.length===tgt.length&&rec.length>=2&&rec.slice(0,-1)===tgt.slice(0,-1))return true;
-  // Leading single-char difference (same word with different prefixed particle)
-  if(rec.length===tgt.length&&rec.length>=4&&rec.slice(1)===tgt.slice(1))return true;
-  return false;
-}
 /* Needleman–Wunsch global alignment */
 /* Strict word-level alignment — exact after normalisation, alef/madd tolerant */
 /* Build normalised reference word list for a segment from W2_REF JSON.
@@ -6833,17 +6663,6 @@ function khatmahSaveToday(){
   lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
   loadKhatmah();
 }
-function khatmahReadToday(){
-  var saved=lsGet('khatmah_data');if(!saved)return;
-  var data=null;try{data=JSON.parse(saved);}catch(e){}
-  if(!data)return;
-  var pagesDay=Math.ceil(604/(data.days||30));
-  data.pagesRead=Math.min(604,(data.pagesRead||0)+pagesDay);
-  _khatmahCheckComplete(data);
-  lsSet('khatmah_data',JSON.stringify(data));
-  lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
-  loadKhatmah();
-}
 function resetKhatmah(){lsSet('khatmah_data','');try{localStorage.removeItem('khatmah_today_'+todayKey());}catch(e){}loadKhatmah();}
 
 /* ===== v18: Streak System ===== */
@@ -7535,18 +7354,6 @@ var ST_MIN_DWELL={qiyam1:10000,ruku:2500,qiyam2:1500,sujud1:2500,sujud2:2500,jal
    معايرة خط أساس أول 3 ثوانٍ (نمط معايرة الحركة)، ثم:
    thud=نبضة هبوط الجسم · still=سكون في وضعية · shift=تحوّل اتجاهي */
 var _IMU={active:false,onObs:null,base:null,baseT:0,_hist:[],_still:false,_stillT:0,_lastThud:0,_g:null,_lastShift:0};
-function _imuStart(onObs){
-  if(_IMU.active||!window.DeviceMotionEvent)return false;
-  _IMU.active=true;_IMU.onObs=onObs;
-  _IMU.base=null;_IMU.baseT=Date.now();_IMU._hist=[];_IMU._still=false;_IMU._stillT=0;_IMU._lastThud=0;_IMU._g=null;_IMU._lastShift=0;
-  try{window.addEventListener('devicemotion',_imuHandler,{passive:true});}catch(e){_IMU.active=false;return false;}
-  return true;
-}
-function _imuStop(){
-  if(!_IMU.active)return;
-  _IMU.active=false;_IMU.onObs=null;
-  try{window.removeEventListener('devicemotion',_imuHandler);}catch(e){}
-}
 function _imuHandler(ev){
   if(!_IMU.active)return;
   var a=ev.accelerationIncludingGravity;
@@ -7594,31 +7401,6 @@ function _imuHandler(ev){
 }
 /* ═══ قناة حساس القرب: near في نافذة توقّع السجود = دليل قوي جداً ═══ */
 var _PROXCH={active:false,onObs:null,_last:null};
-function _proxChStart(onObs){
-  var P=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor;
-  if(!P||_PROXCH.active)return false;
-  _PROXCH.active=true;_PROXCH.onObs=onObs;_PROXCH._last=null;
-  try{var _rl=P.removeAllListeners&&P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
-  try{
-    P.addListener('proximity',function(d){
-      if(!_PROXCH.active||!d)return;
-      var s=d.near?'near':'far';
-      if(s===_PROXCH._last)return;
-      _PROXCH._last=s;
-      if(_PROXCH.onObs)_PROXCH.onObs({type:'prox',state:s});
-    });
-    var _sp=P.start();if(_sp&&_sp.catch)_sp.catch(function(){_PROXCH.active=false;});
-  }catch(e){_PROXCH.active=false;return false;}
-  return true;
-}
-function _proxChStop(){
-  if(!_PROXCH.active)return;
-  _PROXCH.active=false;_PROXCH.onObs=null;
-  try{
-    var P=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor;
-    if(P){var _rl=P.removeAllListeners&&P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});var _st=P.stop();if(_st&&_st.catch)_st.catch(function(){});}
-  }catch(e){}
-}
 
 /* ===== Settings: adhan controls for settings screen ===== */
 function _renderAdhanSett(){
@@ -7651,7 +7433,6 @@ function _renderAdhanSett(){
 }
 function _settToggleAdhan(){toggleAdhan();_renderAdhanSett();}
 function _settToggleNotifPrayer(k){toggleNotifPrayer(k);_renderAdhanSett();}
-function _settReqNotif(){reqNotifPerm();setTimeout(_renderAdhanSett,500);}
 function _settSetAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));_renderAdhanSett();}
 function loadSettingsScreen(){loadCalcSettings();_renderAdhanSett();}
 
@@ -7857,53 +7638,7 @@ togglePrayer=function(p){
 /* WebView على أندرويد: WebGL قد يفشل أو يُعطَّل — اضمن backend صالحاً
    قبل إنشاء الكاشف، مع سقوط إلى CPU بدل الفشل الصامت */
 // Camera-invariant geometric features from MoveNet keypoints
-function _geoFeat(kp){
-  var lS=kp[5],rS=kp[6],lH=kp[11],rH=kp[12];
-  var lK=kp[13],rK=kp[14],lA=kp[15],rA=kp[16],nose=kp[0];
-  var avg=0;for(var i=0;i<kp.length;i++)avg+=kp[i].score;avg/=kp.length;
-  if(avg<0.10)return null;
-  var shVis=Math.max(lS.score,rS.score),hpVis=Math.max(lH.score,rH.score);
-  if(shVis<0.12||hpVis<0.12)return null;
-  // Weighted mid-shoulder and mid-hip
-  var sw=lS.score+rS.score,hw=lH.score+rH.score;
-  var sX=(lS.x*lS.score+rS.x*rS.score)/sw,sY=(lS.y*lS.score+rS.y*rS.score)/sw;
-  var hX=(lH.x*lH.score+rH.x*rH.score)/hw,hY=(lH.y*lH.score+rH.y*rH.score)/hw;
-  // Trunk angle from vertical: 0=upright, 90=horizontal
-  var dY=hY-sY,dX=Math.abs(hX-sX);
-  var trunk=dY<=0?90:Math.round(Math.atan2(dX,dY)*180/Math.PI);
-  // Body length for normalisation
-  var bodyLen=Math.max(Math.abs(hY-sY),1);
-  // Leg angle at knee (180=straight, decreases when seated/kneeling)
-  var legAngle=180;
-  var useL=lK.score>rK.score&&lA.score>0.12&&lH.score>0.12&&lK.score>0.12;
-  var useR=!useL&&rK.score>0.12&&rA.score>0.12&&rH.score>0.12;
-  if(useL||useR){
-    var hKp=useL?lH:rH,kKp=useL?lK:rK,aKp=useL?lA:rA;
-    var v1x=hKp.x-kKp.x,v1y=hKp.y-kKp.y;
-    var v2x=aKp.x-kKp.x,v2y=aKp.y-kKp.y;
-    var dot=v1x*v2x+v1y*v2y;
-    var mag=Math.sqrt((v1x*v1x+v1y*v1y)*(v2x*v2x+v2y*v2y));
-    legAngle=mag>0?Math.round(Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI):180;
-  }
-  // Head relative to hip: positive=head above hip, ~0=head at hip level (sujud)
-  var headRel=nose.score>0.12?Math.max(-2,Math.min(3,(hY-nose.y)/bodyLen)):-99;
-  return {trunk:trunk,leg:legAngle,head:headRel,conf:avg};
-}
 // Rule-based classifier using geometric features
-function _geoClassify(f){
-  if(!f||f.conf<0.12)return 'unknown';
-  // Sujud: nose near or below hip level
-  if(f.head<0.30&&f.head>-90)return 'sujud';
-  // Sujud fallback: very horizontal trunk when nose is occluded
-  if(f.trunk>62&&f.head===-99)return 'sujud';
-  // Ruku: trunk tilted, legs mostly straight, head clearly above hips
-  if(f.trunk>=38&&f.leg>143&&f.head>=0.25)return 'ruku';
-  // Jalsa: seated (legs bent), trunk upright, head above hips
-  if(f.leg<148&&f.trunk<40&&f.head>0.35)return 'jalsa';
-  // Qiyam: upright trunk + straight legs
-  if(f.trunk<35&&f.leg>147)return 'qiyam';
-  return 'unknown';
-}
 
 
 
@@ -8435,7 +8170,6 @@ function _fbShowErr(e){
   _fbRefreshDiag();
   console.warn('[NoorFB]',code,msg);
 }
-function _fbErrMsg(msg){_fbShowErr({message:msg});}
 
 function _fbRefreshDiag(){
   var d=window._fbDiag;
