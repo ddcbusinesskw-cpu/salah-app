@@ -1,8 +1,7 @@
-const CACHE='mujaddid-v45';
+const CACHE='mujaddid-v46';
 const CORE=[
   './','./index.html','./manifest.json',
   './favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png','./icon-maskable-512.png',
-  './models/tf.min.js','./models/pose-detection.min.js',
   './firebase/firebase-app-compat.js',
   './firebase/firebase-auth-compat.js',
   './firebase/firebase-database-compat.js'
