@@ -5,11 +5,11 @@
 <script>(function(){try{var t=localStorage.getItem('app_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>المجدّد — أذكار الصباح والمساء • مواقيت الصلاة • القرآن الكريم</title>
-<meta name="description" content="تطبيق المجدّد: المصحف الكامل، مواقيت الصلاة الدقيقة، اتجاه القبلة، أذكار الصباح والمساء، عداد الركعات وتتبع الصلوات — يعمل بدون إنترنت.">
+<meta name="description" content="تطبيق المجدّد: المصحف الكامل، مواقيت الصلاة والأذان، اتجاه القبلة، أذكار الصباح والمساء، تسميع الحفظ بالذكاء على جهازك، متابع الصلاة، الختمة والتسبيح — يعمل بدون إنترنت.">
 <link rel="canonical" href="https://ddcbusinesskw-cpu.github.io/salah-app/">
 <meta property="og:type"        content="website">
 <meta property="og:title"       content="المجدّد — أذكار الصباح والمساء • مواقيت الصلاة • القرآن الكريم">
-<meta property="og:description" content="تطبيق المجدّد: المصحف الكامل، مواقيت الصلاة الدقيقة، اتجاه القبلة، أذكار الصباح والمساء، عداد الركعات وتتبع الصلوات — يعمل بدون إنترنت.">
+<meta property="og:description" content="تطبيق المجدّد: المصحف الكامل، مواقيت الصلاة والأذان، اتجاه القبلة، أذكار الصباح والمساء، تسميع الحفظ بالذكاء على جهازك، متابع الصلاة، الختمة والتسبيح — يعمل بدون إنترنت.">
 <meta property="og:image"       content="https://ddcbusinesskw-cpu.github.io/salah-app/icon-1024.png">
 <meta property="og:url"         content="https://ddcbusinesskw-cpu.github.io/salah-app/">
 <meta property="og:locale"      content="ar_KW">
@@ -1446,6 +1446,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
           • بياناتك تُخزَّن محلياً على جهازك. عند تسجيل الدخول بـ Google، تُرسَل نسخة احتياطية لخوادم Firebase (Google) محمية ومُرسَلة بأمان عبر HTTPS ومرتبطة بحسابك فقط.<br>
           • الموقع الجغرافي يُحسَب داخل التطبيق بالكامل ولا يُرسَل إلى أي خادم خارجي.<br>
           • تسميع الحفظ يعمل بمحرّكي تعرّف على جهازك بالكامل (طبقة فورية + طبقة تدقيق) — يُنزَّل النموذجان مرة واحدة ثم يعمل دون إنترنت، وصوتك يُعالَج على الجهاز فقط ولا يغادر جهازك ولا يُرفَع لأي خادم.<br>
+          • متابع الصلاة: وضع الكاميرا يحلّل الوضعيات على جهازك حصراً (لا حفظ ولا إرسال لأي صورة)، ووضع الحسّاس يقرأ حسّاس القرب محلياً فقط — تُطلب صلاحية الكاميرا عند اختيار وضعها فقط.<br>
           • بحث الحديث يُرسِل نصَّ البحث إلى موسوعة الدرر السنية (dorar.net) للحصول على النتائج.<br>
           • يمكنك حذف حسابك وبياناتك من Firebase في أي وقت من شاشة الإعدادات.<br>
           • لا تتبَّع، لا إعلانات، لا بيع للبيانات.
@@ -2745,6 +2746,8 @@ function lmFinish(){
     else{_lmSetClass(i,'miss');miss++;}
   }
   if(LM.active!=null){var ae=_lmSpan(LM.active);if(ae)ae.classList.remove('active');}
+  /* شارة «حافظ»: صفحة تسميع مكتملة — كل كلماتها محسومة (لا كلمة فائتة) */
+  if(N>0&&miss===0){try{checkBadge('memorize_done');}catch(e){}}
   var pct=N?Math.round(ok/N*100):0;
   var st=document.getElementById('lmStatus');
   if(st)st.innerHTML=miss===0?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(miss?' · '+ar(miss)+' لم تُسمع':'');
