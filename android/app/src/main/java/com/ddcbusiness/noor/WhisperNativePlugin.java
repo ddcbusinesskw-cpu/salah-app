@@ -543,10 +543,10 @@ public class WhisperNativePlugin extends Plugin {
                 JSObject uz = new JSObject(); uz.put("phase", "unzip"); notifyListeners("vosk_progress", uz);
                 try {
                     unzip(zip, base);
-                } catch (Throwable uz) {
+                } catch (Throwable unzipErr) {
                     // zip تالف (تنزيل/استئناف فاسد): احذفه كي لا يُستأنف فوق ملف معطوب
                     try { zip.delete(); } catch (Throwable ignored) {}
-                    call.reject("vosk-unzip-error: " + uz.getMessage() + " — حُذف الملف الجزئي، أعد المحاولة");
+                    call.reject("vosk-unzip-error: " + unzipErr.getMessage() + " — حُذف الملف الجزئي، أعد المحاولة");
                     return;
                 }
                 zip.delete();
