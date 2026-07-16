@@ -1718,6 +1718,16 @@ var _mushafScrollT=null;
 function _onMushafScroll(){
   clearTimeout(_mushafScrollT);
   _mushafScrollT=setTimeout(function(){
+    /* شارة «قارئ القرآن»: تجميع صفحات مقروءة من مسافة التمرير الفعلية
+       (الارتفاع الكلي/604 ≈ صفحة) — القفزات الكبيرة (انتقال قائمة) تُهمل */
+    var _prev=+(lsGet('mushaf_pos')||0),_now=window.scrollY;
+    var _ph=Math.max(600,(document.body.scrollHeight||1)/604);
+    var _dpg=Math.abs(_now-_prev)/_ph;
+    if(_dpg>0.05&&_dpg<20){
+      var _mp=Math.min(9999,(+lsGet('mushaf_pages_read')||0)+_dpg);
+      lsSet('mushaf_pages_read',String(Math.round(_mp*10)/10));
+      if(_mp>=50)checkBadge('quran_10');
+    }
     lsSet('mushaf_pos',String(window.scrollY));
     var mid=window.scrollY+window.innerHeight*0.4,cur=1;
     document.querySelectorAll('.msura').forEach(function(el){if(el.offsetTop<=mid)cur=+el.id.replace('ms','');});
@@ -1768,8 +1778,10 @@ function go(id){
     window.scrollTo(0,0);
   }
   if(id==='quran')initQuran();if(id==='ruqya')initRuqya();if(id==='adhkar')initAdhkar();if(id==='times'){try{renderTimesScreen();}catch(_e){console.error('[go:times] renderTimesScreen:',_e&&_e.message||String(_e));}}if(id==='fadail')initFadail();if(id==='adiya')initAdiya();if(id==='search')initSearch();if(id==='memorize')initMemorize();if(id==='salahw')initSalahw();if(id==='about'){var _ab=document.getElementById('aboutBuild');if(_ab)_ab.textContent='build: '+_buildStamp();}if(id==='home'){renderVotd();renderDailyCards();}
-  if(id==='quran'){var _qd=todayKey(),_qk='quran_opens_'+_qd;if(!lsGet(_qk)){lsSet(_qk,'1');var _qn=+(lsGet('quran_opens')||0)+1;lsSet('quran_opens',String(_qn));if(_qn>=10)checkBadge('quran_10');}}
-  if(id==='adiya'){var _ad=todayKey(),_ak='adiya_opens_'+_ad;if(!lsGet(_ak)){lsSet(_ak,'1');var _an=+(lsGet('adiya_opens')||0)+1;lsSet('adiya_opens',String(_an));if(_an>=20)checkBadge('adiya_20');}}
+  /* عدّادا الفتح يبقيان للإحصاء؛ الشارتان صارتا بشروط فعل حقيقي:
+     quran_10 = قراءة ٥٠ صفحة (تُتتبّع في تمرير المصحف)، adiya_20 = ١٠ أوراد أذكار */
+  if(id==='quran'){var _qd=todayKey(),_qk='quran_opens_'+_qd;if(!lsGet(_qk)){lsSet(_qk,'1');var _qn=+(lsGet('quran_opens')||0)+1;lsSet('quran_opens',String(_qn));}}
+  if(id==='adiya'){var _ad=todayKey(),_ak='adiya_opens_'+_ad;if(!lsGet(_ak)){lsSet(_ak,'1');var _an=+(lsGet('adiya_opens')||0)+1;lsSet('adiya_opens',String(_an));}}
   if(id==='account'){setTimeout(function(){_renderThemeBtn();_updateSubCard();},60);}
   // تحديث تبويب شريط التنقّل
   document.querySelectorAll('.bnav-tab').forEach(function(t){t.classList.remove('on');});
@@ -2754,8 +2766,28 @@ function lmFinish(){
     else{_lmSetClass(i,'miss');miss++;}
   }
   if(LM.active!=null){var ae=_lmSpan(LM.active);if(ae)ae.classList.remove('active');}
-  /* شارة «حافظ»: صفحة تسميع مكتملة — كل كلماتها محسومة (لا كلمة فائتة) */
-  if(N>0&&miss===0){try{checkBadge('memorize_done');}catch(e){}}
+  /* شارات التسميع: «حافظ» = كل الكلمات محسومة · «مُسمِّع» = كلها مؤكّدة ·
+     «متقن الجزء» = ٢٠ صفحة بتثبيت ≥٩٠٪ · «ورد التسميع» = ٧ أيام متتالية */
+  try{
+    if(N>0&&miss===0)checkBadge('memorize_done');
+    if(hbActive&&N>0){
+      var _conf=0;for(var _ci=0;_ci<N;_ci++)if(HB.wordState[_ci]==='confirmed')_conf++;
+      if(_conf===N)checkBadge('tasmee_page_full');
+      if(_conf/N>=0.9){
+        var _tp=(+lsGet('tasmee_pages_90')||0)+1;lsSet('tasmee_pages_90',String(_tp));
+        if(_tp>=20)checkBadge('tasmee_20p');
+      }
+    }
+    if(ok>0){
+      var _tl=lsGet('tasmee_streak_last'),_td=new Date().toDateString();
+      if(_tl!==_td){
+        var _ts=+(lsGet('tasmee_streak')||0);
+        if(_tl){var _dd=Math.round((new Date(_td)-new Date(_tl))/86400000);_ts=(_dd===1)?_ts+1:1;}else _ts=1;
+        lsSet('tasmee_streak',String(_ts));lsSet('tasmee_streak_last',_td);
+        if(_ts>=7)checkBadge('tasmee_streak7');
+      }
+    }
+  }catch(e){}
   var pct=N?Math.round(ok/N*100):0;
   var st=document.getElementById('lmStatus');
   if(st)st.innerHTML=miss===0?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(miss?' · '+ar(miss)+' لم تُسمع':'');
@@ -4046,6 +4078,9 @@ function markAdhkarDone(cat){
       lsSet(sKey,String(cnt));lsSet(lKey,today);
       if(cnt>=3)setTimeout(function(){toast(dispName+' · '+ar(cnt)+' أيام متتالية 🔥','success');},2700);
       if(stateKey==='صباح'&&cnt>=7)checkBadge('morn_7');
+      /* شارة «داعي»: إكمال ورد أذكار (صباح أو مساء) ١٠ مرات */
+      var _wd=(+lsGet('wird_done_count')||0)+1;lsSet('wird_done_count',String(_wd));
+      if(_wd>=10)checkBadge('adiya_20');
     }
   }
   renderDailyCards();
@@ -5794,6 +5829,15 @@ function swSaveStats(){
     a.push({d:todayKey(),m:SW.mode,p:SW.prayer,x:SW.expected,c:SW.count,f:SW.flags});
     if(a.length>400)a=a.slice(-400);
     lsSet('sw_stats_v1',JSON.stringify(a));
+    /* شارتا متابع الصلاة: «حاضر القلب» جلسة مكتملة بلا ⚠ · «خاشع الفجر» */
+    if(SW.expected>0&&SW.count===SW.expected&&SW.flags===0){
+      var _fs=(+lsGet('sw_full_sessions')||0)+1;lsSet('sw_full_sessions',String(_fs));
+      if(_fs>=10)checkBadge('salahw_10');
+    }
+    if(SW.prayer==='Fajr'&&SW.count>0){
+      var _ff=(+lsGet('sw_fajr_sessions')||0)+1;lsSet('sw_fajr_sessions',String(_ff));
+      if(_ff>=5)checkBadge('salahw_fajr5');
+    }
   }catch(e){}
 }
 function swRenderStats(){
@@ -6562,6 +6606,8 @@ function _surahForPage(p){for(var i=SURAH_START_PAGE.length-1;i>=0;i--)if(SURAH_
 function _juzForPage(p){for(var i=JUZ_START_PAGE.length-1;i>=0;i--)if(JUZ_START_PAGE[i]<=p)return i+1;return 1;}
 function _daysSince(ds){return Math.max(0,Math.round((new Date().setHours(0,0,0,0)-new Date(ds).setHours(0,0,0,0))/86400000));}
 function _khatmahCheckComplete(data){
+  /* «نصف الطريق»: بلوغ صفحة ٣٠٢ */
+  if((data.pagesRead||0)>=302)try{checkBadge('khatmah_half');}catch(e){}
   if((data.pagesRead||0)>=604&&!data.completedOnce){
     data.completedOnce=true;
     toast('مبارك! أتممت ختمة القرآن الكريم 🎉','success');
@@ -6712,13 +6758,13 @@ var BADGES=[
    ic:_achvIc('c4','<path d="M12 2c0 5-5 8-5 14a7 7 0 0 0 14 0c0-6-4-9-4-14z"/><path d="M12 22a3 3 0 0 1-3-3c0-3 3-4.5 3-7.5 0 3 3 4.5 3 7.5a3 3 0 0 1-3 3z" fill="currentColor" stroke="none"/>')},
   {id:'streak_30',icon:'⭐',name:'شهر كامل',desc:'٣٠ يوماً متواصلة',
    ic:_achvIc('c2','<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>')},
-  {id:'quran_10',icon:'📖',name:'قارئ القرآن',desc:'فتح القرآن ١٠ مرات',
+  {id:'quran_10',icon:'📖',name:'قارئ القرآن',desc:'قراءة ٥٠ صفحة من المصحف',
    ic:_achvIc('c2','<path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/><line x1="6.5" y1="9.5" x2="9.5" y2="9.5"/><line x1="6.5" y1="12.5" x2="9.5" y2="12.5"/><line x1="14.5" y1="9.5" x2="17.5" y2="9.5"/><line x1="14.5" y1="12.5" x2="17.5" y2="12.5"/>')},
   {id:'memorize_done',icon:'🧠',name:'حافظ',desc:'إتمام تسميع سورة',
    ic:_achvIc('c6','<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>')},
   {id:'tasbih_1000',icon:'📿',name:'مسبّح',desc:'١٠٠٠ تسبيحة',
    ic:_achvIc('c5','<circle cx="12" cy="3.8" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="5.5" x2="12" y2="7"/><circle cx="12" cy="12" r="5.5" stroke-dasharray="3.9 2.2"/><circle cx="12" cy="18.2" r="1.3"/><circle cx="17.2" cy="15.2" r="1.3"/><circle cx="17.2" cy="8.8" r="1.3"/><circle cx="6.8" cy="15.2" r="1.3"/><circle cx="6.8" cy="8.8" r="1.3"/>')},
-  {id:'adiya_20',icon:'🤲',name:'داعي',desc:'فتح الأدعية ٢٠ مرة',
+  {id:'adiya_20',icon:'🤲',name:'داعي',desc:'إكمال ورد الأذكار (صباح/مساء) ١٠ مرات',
    ic:_achvIc('c1','<path d="M8.5 4a1 1 0 0 1 1 1v8h-2V5a1 1 0 0 1 1-1z"/><path d="M11.5 3a1 1 0 0 1 1 1v9h-2V4a1 1 0 0 1 1-1z"/><path d="M14.5 4a1 1 0 0 1 1 1v8h-2V5a1 1 0 0 1 1-1z"/><path d="M6 13h12v2a6 6 0 0 1-12 0v-2z"/>')},
   {id:'morn_7',icon:'🌅',name:'محصّن',desc:'أذكار الصباح ٧ مرات',
    ic:_achvIc('c2','<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9.5,12 11,14 14.5,10"/>')},
@@ -6729,8 +6775,42 @@ var BADGES=[
   {id:'fajr_7',icon:'🌙',name:'ملتزم الفجر',desc:'صلاة الفجر ٧ أيام متواصلة',
    ic:_achvIc('c3','<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><circle cx="17.5" cy="5.5" r="1.2" fill="currentColor" stroke="none"/>')},
   {id:'tasbih_3000',icon:'💎',name:'الذاكر',desc:'٣٠٠٠ تسبيحة',
-   ic:_achvIc('c6','<path d="M6 3h12l4 6-10 13L2 9z"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="10" y1="3" x2="8" y2="9"/><line x1="14" y1="3" x2="16" y2="9"/>')}
+   ic:_achvIc('c6','<path d="M6 3h12l4 6-10 13L2 9z"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="10" y1="3" x2="8" y2="9"/><line x1="14" y1="3" x2="16" y2="9"/>')},
+  {id:'tasmee_page_full',icon:'🎙',name:'مُسمِّع',desc:'صفحة تسميع كاملة كل كلماتها مؤكّدة',
+   ic:_achvIc('c4','<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><polyline points="16,4 18,6 22,2"/>')},
+  {id:'tasmee_20p',icon:'🏅',name:'متقن الجزء',desc:'٢٠ صفحة تسميع بتثبيت ≥٩٠٪',
+   ic:_achvIc('c2','<path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/><polyline points="6.5,10 8.5,12 11,8.5" transform="translate(8,0)"/>')},
+  {id:'tasmee_streak7',icon:'📆',name:'ورد التسميع',desc:'تسميع ٧ أيام متتالية',
+   ic:_achvIc('c4','<rect x="3" y="5" width="18" height="16" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><path d="M12 12.5c0 2-2 3-2 4.5a2 2 0 0 0 4 0c0-1.5-2-2.5-2-4.5z"/>')},
+  {id:'salahw_10',icon:'🕌',name:'حاضر القلب',desc:'١٠ جلسات متابع صلاة مكتملة بلا خلل',
+   ic:_achvIc('c6','<circle cx="12" cy="4.6" r="2"/><path d="M12 6.8v5l4.2 3.2v4.6"/><path d="M12 11.8l-4.2 3.2v4.6"/><line x1="4" y1="21" x2="20" y2="21"/><polyline points="17,4 19,6 23,2"/>')},
+  {id:'salahw_fajr5',icon:'🌄',name:'خاشع الفجر',desc:'٥ جلسات متابع صلاة للفجر',
+   ic:_achvIc('c1','<path d="M12 3v3M5.6 5.6l2.1 2.1M18.4 5.6l-2.1 2.1M3 12h3M18 12h3"/><path d="M7 16a5 5 0 0 1 10 0"/><line x1="3" y1="20" x2="21" y2="20"/>')},
+  {id:'quiz_perfect',icon:'🌟',name:'عالِم اليوم',desc:'٥/٥ في المسابقة اليومية',
+   ic:_achvIc('c2','<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/><circle cx="12" cy="12" r="2.2"/>')},
+  {id:'quiz_streak30',icon:'📚',name:'موسوعة',desc:'٣٠ يوم مسابقة متتالية',
+   ic:_achvIc('c3','<path d="M4 19V5a2 2 0 0 1 2-2h2v18H6a2 2 0 0 1-2-2z"/><path d="M8 3h4v18H8z"/><path d="M12 4l5-1 3 17-5 1z"/>')},
+  {id:'khatmah_half',icon:'🌗',name:'نصف الطريق',desc:'بلوغ صفحة ٣٠٢ في الختمة',
+   ic:_achvIc('c5','<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" opacity=".55"/>')}
 ];
+/* تقدّم الشارات العددية غير المكتملة (شريط 750/1000…) */
+var _badgeProg={
+  streak_7:function(){return{c:+lsGet('streak_count')||0,m:7};},
+  streak_30:function(){return{c:+lsGet('streak_count')||0,m:30};},
+  quran_10:function(){return{c:Math.floor(+lsGet('mushaf_pages_read')||0),m:50};},
+  tasbih_1000:function(){return{c:+lsGet('tasbih_total')||0,m:1000};},
+  tasbih_3000:function(){return{c:+lsGet('tasbih_total')||0,m:3000};},
+  adiya_20:function(){return{c:+lsGet('wird_done_count')||0,m:10};},
+  morn_7:function(){return{c:+lsGet('morn_streak')||0,m:7};},
+  fajr_7:function(){return{c:+lsGet('fajr_streak')||0,m:7};},
+  khatmah_month:function(){return{c:+lsGet('khatmah_count')||0,m:2};},
+  tasmee_20p:function(){return{c:+lsGet('tasmee_pages_90')||0,m:20};},
+  tasmee_streak7:function(){return{c:+lsGet('tasmee_streak')||0,m:7};},
+  salahw_10:function(){return{c:+lsGet('sw_full_sessions')||0,m:10};},
+  salahw_fajr5:function(){return{c:+lsGet('sw_fajr_sessions')||0,m:5};},
+  quiz_streak30:function(){return{c:+lsGet('quiz_streak')||0,m:30};},
+  khatmah_half:function(){var p=0;try{p=(JSON.parse(lsGet('khatmah_data')||'{}').pagesRead)||0;}catch(e){}return{c:p,m:302};}
+};
 function checkBadge(id){
   var earned=lsGet('badges_earned');
   var arr=[];try{if(earned)arr=JSON.parse(earned);}catch(e){}
@@ -6738,7 +6818,7 @@ function checkBadge(id){
   arr.push(id);
   lsSet('badges_earned',JSON.stringify(arr));
   var b=BADGES.filter(function(x){return x.id===id;})[0];
-  if(b)setTimeout(function(){toast(b.icon+' شارة جديدة: '+b.name+' 🎉');},300);
+  if(b)setTimeout(function(){toast('شارة جديدة: '+b.name+' 🎉','success');},300);
 }
 /* ─── نظام الإنجازات ─── */
 var ACHV_DEFS=[
@@ -6886,7 +6966,7 @@ function loadBadges(){
     var barCol=done?'var(--gold)':pct>=60?'var(--green)':'rgba(78,202,168,.55)';
     return '<div class="achv-card'+(done?' done':'')+'">'+
       (done?'<div class="achv-crown">👑</div>':'')+
-      '<div class="achv-icon">'+(d.ic||d.icon)+'</div>'+
+      '<div class="achv-icon">'+d.ic+'</div>'+
       '<div class="achv-name">'+d.name+'</div>'+
       '<div class="achv-bar-wrap"><div class="achv-bar" style="width:'+pct+'%;background:'+barCol+'"></div></div>'+
       '<div class="achv-frac">'+_achvFmtVal(val,mxv,d.id)+'</div></div>';
@@ -6896,10 +6976,22 @@ function loadBadges(){
   var earned=[];try{var e=lsGet('badges_earned');if(e)earned=JSON.parse(e);}catch(ex){}
   g.innerHTML=BADGES.map(function(b){
     var ok=earned.indexOf(b.id)>-1;
+    /* SVG حصراً (b.ic) — لا ازدواج مع الإيموجي؛ وشريط تقدّم للعددية غير المكتملة */
+    var prog='';
+    if(!ok&&_badgeProg[b.id]){
+      try{
+        var pr=_badgeProg[b.id]();
+        if(pr&&pr.c>0){
+          var pcnt=Math.min(100,Math.round(pr.c/pr.m*100));
+          prog='<div class="achv-bar-wrap" style="margin-top:7px;height:5px"><div class="achv-bar" style="width:'+pcnt+'%;background:var(--gold);height:100%;border-radius:3px"></div></div>'
+              +'<div class="badge-desc" style="margin-top:3px">'+ar(Math.min(pr.c,pr.m))+' / '+ar(pr.m)+'</div>';
+        }
+      }catch(e){}
+    }
     return '<div class="badge-card'+(ok?' earned':'')+'">'+
-      '<div class="badge-icon">'+(b.ic||b.icon)+'</div>'+
+      '<div class="badge-icon">'+b.ic+'</div>'+
       '<div class="badge-name">'+b.name+'</div>'+
-      '<div class="badge-desc">'+b.desc+'</div></div>';
+      '<div class="badge-desc">'+b.desc+'</div>'+prog+'</div>';
   }).join('');
 }
 /* ─── مشاركة الإنجازات ─── */
@@ -7221,6 +7313,17 @@ function renderQuizQ(){
   var s=_quizState;
   if(s.cur>=s.qs.length){
     lsSet('quiz_today',_quizDayKey());lsSet('quiz_score',String(s.score));
+    /* شارتا المسابقة: «عالِم اليوم» ٥/٥ · «موسوعة» ٣٠ يوماً متتالية */
+    try{
+      if(s.score===5)checkBadge('quiz_perfect');
+      var _ql=lsGet('quiz_streak_last'),_qt=new Date().toDateString();
+      if(_ql!==_qt){
+        var _qs=+(lsGet('quiz_streak')||0);
+        if(_ql){var _qd=Math.round((new Date(_qt)-new Date(_ql))/86400000);_qs=(_qd===1)?_qs+1:1;}else _qs=1;
+        lsSet('quiz_streak',String(_qs));lsSet('quiz_streak_last',_qt);
+        if(_qs>=30)checkBadge('quiz_streak30');
+      }
+    }catch(e){}
     pad.innerHTML='<div class="quiz-result"><div class="score">'+ar(s.score)+'<span style="font-size:22px">/٥</span></div>'+
       '<div style="margin:10px 0;color:var(--text);font-size:18px">'+(s.score===5?'ممتاز! 🌟':s.score>=3?'جيد جداً 👍':'استمر في التعلم 📚')+'</div>'+
       '<button class="btn" onclick="loadQuiz()" style="margin-top:16px">إعادة المحاولة</button></div>';
