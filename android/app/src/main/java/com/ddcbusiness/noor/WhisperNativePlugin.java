@@ -696,6 +696,43 @@ public class WhisperNativePlugin extends Plugin {
         }
     }
 
+    /** حجم موديل Vosk الفعلي على القرص (قسم «التخزين والنماذج») */
+    @PluginMethod
+    public void voskDiskUsage(PluginCall call) {
+        exec.execute(() -> {
+            File base = new File(getContext().getFilesDir(), "vosk");
+            JSObject r = new JSObject();
+            r.put("exists", base.exists());
+            r.put("bytes", dirSize(base));
+            call.resolve(r);
+        });
+    }
+
+    /** حذف موديل Vosk من القرص (يُغلق من الذاكرة أولاً) */
+    @PluginMethod
+    public void voskDeleteModel(PluginCall call) {
+        exec.execute(() -> {
+            closeVosk();
+            deleteRecursive(new File(getContext().getFilesDir(), "vosk"));
+            call.resolve();
+        });
+    }
+
+    private long dirSize(File f) {
+        if (f == null || !f.exists()) return 0;
+        if (f.isFile()) return f.length();
+        long s = 0; File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) s += dirSize(k);
+        return s;
+    }
+
+    private void deleteRecursive(File f) {
+        if (f == null || !f.exists()) return;
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteRecursive(k);
+        try { f.delete(); } catch (Throwable ignored) {}
+    }
+
     @PluginMethod
     public void unload(PluginCall call) {
         listening = false;

@@ -1303,23 +1303,31 @@ button,a{-webkit-tap-highlight-color:transparent;}
       </div>
     </div>
 
-    <!-- الأذان والإشعارات -->
+    <!-- الأذان والإشعارات (+التذكير اليومي — مترابطان) -->
     <div class="sett-sec">
       <div class="sett-sec-title">الأذان والإشعارات</div>
       <div class="auth-card" style="padding:16px 20px" id="adhanSettCard"><!-- تُملأ بـ loadSettingsScreen() --></div>
-    </div>
-
-    <!-- التذكير اليومي -->
-    <div class="sett-sec">
-      <div class="sett-sec-title">التذكير اليومي</div>
-      <div class="auth-card" style="padding:16px 20px">
+      <div class="auth-card" style="padding:16px 20px;margin-top:10px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">التذكير اليومي</div>
         <div id="reminderSection"><!-- تُملأ بـ loadCalcSettings() --></div>
       </div>
     </div>
 
-    <!-- حجم الخط -->
+    <!-- التلاوة -->
     <div class="sett-sec">
-      <div class="sett-sec-title">حجم الخط</div>
+      <div class="sett-sec-title">التلاوة</div>
+      <div class="auth-card" style="padding:16px 20px" id="recitationSett"><!-- تُملأ بـ loadSettingsScreen() --></div>
+    </div>
+
+    <!-- التخزين والنماذج -->
+    <div class="sett-sec">
+      <div class="sett-sec-title">التخزين والنماذج</div>
+      <div class="auth-card" style="padding:16px 20px" id="storageSett"><!-- تُملأ بـ loadSettingsScreen() --></div>
+    </div>
+
+    <!-- حجم خط المصحف -->
+    <div class="sett-sec">
+      <div class="sett-sec-title">حجم خط المصحف</div>
       <div class="auth-card" style="padding:16px 20px">
         <div class="font-slider-row">
           <span style="font-size:14px;color:var(--muted)">أ</span>
@@ -1351,7 +1359,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
           <button onclick="var o=document.getElementById('langOv');if(o)o.style.display='flex'" style="background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 16px;color:var(--text);font:inherit;font-size:14px;cursor:pointer">🌐 <span id="settLangLbl">العربية</span></button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div style="font-size:13px;color:var(--muted)">الزر العائم للغة</div>
+          <div style="font-size:13px;color:var(--muted)">الزر العائم للغة<br><span style="font-size:11px;opacity:.75">زر يطفو فوق الشاشات لعرض ترجمة النصوص الدينية بلغتك بضغطة واحدة</span></div>
           <button onclick="_toggleLangFab()" style="background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 16px;color:var(--text);font:inherit;font-size:14px;cursor:pointer"><span id="langFabToggleLbl">مفعّل</span></button>
         </div>
       </div>
@@ -4985,7 +4993,9 @@ function qpSeekTo(v){var a=document.getElementById('quranAudio');if(a.duration)a
 var qpLooping=false;
 function qpLoopToggle(){qpLooping=!qpLooping;var btn=document.getElementById('qpLoopBtn');if(btn)btn.classList.toggle('on',qpLooping);}
 var QP_SPEEDS=[1,1.25,1.5,0.75],qpSpeedIdx=0;
-function qpSpeedNext(){qpSpeedIdx=(qpSpeedIdx+1)%QP_SPEEDS.length;var s=QP_SPEEDS[qpSpeedIdx];var a=document.getElementById('quranAudio');a.playbackRate=s;var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=s+'×';btn.classList.toggle('on',s!==1);}}
+/* السرعة الافتراضية محفوظة — مصدر حقيقة واحد يقرأه المشغّل وقسم «التلاوة» */
+try{var _qs0=lsGet('qp_speed');if(_qs0!==null)qpSpeedIdx=Math.min(QP_SPEEDS.length-1,Math.max(0,+_qs0||0));}catch(e){}
+function qpSpeedNext(){qpSpeedIdx=(qpSpeedIdx+1)%QP_SPEEDS.length;lsSet('qp_speed',String(qpSpeedIdx));var s=QP_SPEEDS[qpSpeedIdx];var a=document.getElementById('quranAudio');a.playbackRate=s;var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=s+'×';btn.classList.toggle('on',s!==1);}}
 function qpBuildRecList(){var list=document.getElementById('qpRecList');if(!list)return;list.innerHTML=RECITERS.map(function(r,i){return '<button class="qp-extra-btn'+(i===recIdx?' on':'')+'" onclick="qpSetRec('+i+')">'+r.n+'</button>';}).join('');}
 function qpSetRec(i){setReciter(i);qpBuildRecList();}
 (function(){var a=document.getElementById('quranAudio');if(!a)return;
@@ -5655,7 +5665,10 @@ var SW_PRAYERS=[
 ];
 var _swNaflN=2;
 
-function initSalahw(){swShowPane('pick');swRenderStats();}
+function initSalahw(){
+  swShowPane('pick');swRenderStats();
+  var rq=document.getElementById('swRaqibNow');if(rq)rq.checked=lsGet('sw_raqib')==='1';
+}
 function swShowPane(p){
   ['Pick','Prayer','Session','Summary'].forEach(function(x){
     var el=document.getElementById('swPane'+x);
@@ -5702,6 +5715,7 @@ function swStartSession(){
   if(!p)return;
   SW.expected=p.rk||_swNaflN;
   var rq=document.getElementById('swRaqibNow');SW.raqib=!!(rq&&rq.checked);
+  lsSet('sw_raqib',SW.raqib?'1':'0'); /* يُتذكَّر بين الجلسات */
   SW.active=true;SW.count=0;SW.flags=0;SW.evid=[];SW.sums=null;SW.t0=Date.now();
   var e1=document.getElementById('swSessPrayer');if(e1)e1.textContent=p.nm+' — '+(SW.mode==='sensor'?'وضع الحسّاس':'وضع الكاميرا');
   var e2=document.getElementById('swCount');if(e2)e2.textContent='٠';
@@ -7437,7 +7451,97 @@ function _renderAdhanSett(){
 function _settToggleAdhan(){toggleAdhan();_renderAdhanSett();}
 function _settToggleNotifPrayer(k){toggleNotifPrayer(k);_renderAdhanSett();}
 function _settSetAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));_renderAdhanSett();}
-function loadSettingsScreen(){loadCalcSettings();_renderAdhanSett();}
+function loadSettingsScreen(){loadCalcSettings();_renderAdhanSett();try{_renderRecitationSett();}catch(e){}try{_renderStorageSett();}catch(e){}}
+
+/* ═══ قسم «التلاوة»: القارئ والسرعة الافتراضيان — نفس مفاتيح المشغّل ═══ */
+function _renderRecitationSett(){
+  var host=document.getElementById('recitationSett');if(!host)return;
+  var rec=RECITERS.map(function(r,i){
+    return '<button class="madhhab-btn'+(i===recIdx?' active':'')+'" style="flex:none;min-width:46%" onclick="setReciter('+i+');_renderRecitationSett()">'+r.n+'</button>';
+  }).join('');
+  var sp=QP_SPEEDS.map(function(s,i){
+    return '<button class="madhhab-btn'+(i===qpSpeedIdx?' active':'')+'" onclick="_settSetSpeed('+i+')">'+s+'×</button>';
+  }).join('');
+  host.innerHTML='<div style="font-size:13px;color:var(--muted);margin-bottom:8px">القارئ الافتراضي</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px">'+rec+'</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin:14px 0 8px">سرعة التلاوة الافتراضية</div>'
+    +'<div style="display:flex;gap:8px">'+sp+'</div>';
+}
+function _settSetSpeed(i){
+  qpSpeedIdx=i;lsSet('qp_speed',String(i));
+  var a=document.getElementById('quranAudio');if(a)a.playbackRate=QP_SPEEDS[i];
+  var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=QP_SPEEDS[i]+'×';btn.classList.toggle('on',QP_SPEEDS[i]!==1);}
+  _renderRecitationSett();
+}
+
+/* ═══ قسم «التخزين والنماذج»: حجم فعلي + حذف (بعد تحرير الذاكرة) + إعادة تنزيل ═══ */
+function _fmtBytes(b){if(b==null||b<0)return '—';return b>=1048576?(b/1048576).toFixed(1)+'MB':(b>=1024?Math.round(b/1024)+'KB':b+'B');}
+function _renderStorageSett(){
+  var host=document.getElementById('storageSett');if(!host)return;
+  if(!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){
+    host.innerHTML='<div style="font-size:13px;color:var(--muted)">إدارة النماذج متاحة في تطبيق أندرويد.</div>';return;
+  }
+  var P=window.Capacitor.Plugins,FS=P.Filesystem,WNP=P.WhisperNative;
+  var models=[
+    {id:'gguf',name:'محرّك التدقيق (whisper)',size:null,loaded:function(){return WN.ready;}},
+    {id:'vosk',name:'المحرّك الفوري (Vosk)',size:null,loaded:function(){return VK.ready;}},
+    {id:'pose',name:'نموذج الكاميرا (الوضعيات)',size:null,loaded:function(){return typeof SWC!=='undefined'&&SWC.ready;}}
+  ];
+  var left=3;
+  function done(){
+    left--;if(left>0)return;
+    host.innerHTML=models.map(function(m){
+      var has=m.size!=null&&m.size>0;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
+        +'<div style="flex:1"><div style="font-size:14px;color:var(--text)">'+m.name+'</div>'
+        +'<div style="font-size:12px;color:var(--muted)">'+(has?('✓ منزَّل · '+_fmtBytes(m.size)+(m.loaded()?' · محمَّل بالذاكرة':'')):'غير منزَّل')+'</div></div>'
+        +(has?'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px;border-color:rgba(224,96,96,.5);color:var(--red)" onclick="_settDeleteModel(\''+m.id+'\')">حذف</button>':'')
+        +'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settRedownloadModel(\''+m.id+'\')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>'
+        +'</div>';
+    }).join('')+'<p class="note" style="margin:8px 0 0">النماذج تعمل على جهازك — حذفها يحرّر المساحة ويُعاد تنزيلها عند الحاجة.</p>';
+  }
+  FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(s){models[0].size=s.size;}).catch(function(){models[0].size=-1;}).then(done,done);
+  FS.stat({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(s){models[2].size=s.size;}).catch(function(){models[2].size=-1;}).then(done,done);
+  if(WNP&&WNP.voskDiskUsage)WNP.voskDiskUsage().then(function(r){models[1].size=(r&&r.exists)?(r.bytes||0):-1;}).catch(function(){models[1].size=-1;}).then(done,done);
+  else{models[1].size=-1;done();}
+}
+/* الحذف: حرّر المحرّك من الذاكرة أولاً إن كان محمّلاً، ثم احذف الملفات */
+function _settDeleteModel(id){
+  var P=window.Capacitor&&window.Capacitor.Plugins,FS=P&&P.Filesystem,WNP=P&&P.WhisperNative;
+  if(!FS)return;
+  function resetWN(){WN.ready=false;WN.tried=false;WN.loading=false;WN.attempts=0;WN.exhausted=false;}
+  function resetVK(){VK.ready=false;VK.tried=false;VK.loading=false;}
+  if(id==='gguf'){
+    var pre=(WN.ready&&WNP&&WNP.unload)?WNP.unload():Promise.resolve();
+    /* unload يحرّر whisper وVosk من الذاكرة معاً — Vosk يبقى على القرص */
+    pre.catch(function(){}).then(function(){
+      resetWN();resetVK();
+      return FS.deleteFile({path:WN_GGUF_FILE,directory:'DATA'});
+    }).then(function(){toast('حُذف محرّك التدقيق ✓','success');_renderStorageSett();})
+      .catch(function(e){toast('تعذّر الحذف: '+String(e&&e.message||e).slice(0,50),'error');_renderStorageSett();});
+  }else if(id==='vosk'){
+    var pre2=(WNP&&WNP.unload)?WNP.unload():Promise.resolve();
+    pre2.catch(function(){}).then(function(){
+      resetWN();resetVK();
+      return WNP&&WNP.voskDeleteModel?WNP.voskDeleteModel():Promise.resolve();
+    }).then(function(){toast('حُذف المحرّك الفوري ✓','success');_renderStorageSett();})
+      .catch(function(e){toast('تعذّر الحذف: '+String(e&&e.message||e).slice(0,50),'error');_renderStorageSett();});
+  }else if(id==='pose'){
+    try{if(typeof SWC!=='undefined'&&SWC.lm){try{SWC.lm.close();}catch(e){}SWC.lm=null;SWC.ready=false;SWC.loading=false;}}catch(e){}
+    FS.deleteFile({path:SWC_MODEL_FILE,directory:'DATA'})
+      .then(function(){toast('حُذف نموذج الكاميرا ✓','success');_renderStorageSett();})
+      .catch(function(e){toast('تعذّر الحذف: '+String(e&&e.message||e).slice(0,50),'error');_renderStorageSett();});
+  }
+}
+function _settRedownloadModel(id){
+  if(id==='gguf'){toast('بدأ تنزيل محرّك التدقيق (~43MB)…');try{_wnEnsure(true);}catch(e){}
+    var iv=setInterval(function(){if(!WN.loading){clearInterval(iv);_renderStorageSett();}},1500);
+  }else if(id==='vosk'){toast('بدأ تنزيل المحرّك الفوري (~318MB)…');
+    try{_vkEnsure(function(){_renderStorageSett();});}catch(e){}
+  }else if(id==='pose'){toast('بدأ تنزيل نموذج الكاميرا (~6MB)…');
+    try{_swcEnsure(function(){_renderStorageSett();});}catch(e){}
+  }
+}
 
 /* ===== v18: go() hook for new screens ===== */
 var _origGo=go;
