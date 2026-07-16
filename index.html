@@ -4701,13 +4701,23 @@ function _cancelAdhanNotifications(){
   if(typeof window.cancelAdhanNotifications==='function')window.cancelAdhanNotifications();
 }
 /* طلب استثناء اختياري من تحسين البطارية — مرة واحدة، لضمان وصول الأذان
-   على أجهزة OEM ذات قاتلات الخلفية. صامت إن لم يتوفّر الحوار الأصلي. */
+   على أجهزة OEM ذات قاتلات الخلفية. حوار النظام الفعلي عبر KeepAwake plugin؛
+   السقوط: توست إرشادي إن غاب الـplugin (ويب). */
 function _reqBatteryExemption(){
   if(lsGet('batt_exempt_asked')==='1')return;
   lsSet('batt_exempt_asked','1');
   try{
-    var _App=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
-    /* لا plugin مخصّص للاستثناء؛ نوجّه المستخدم بلطف لإعدادات التطبيق */
+    var KA=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.KeepAwake;
+    if(KA&&KA.requestBatteryExemption){
+      setTimeout(function(){
+        KA.requestBatteryExemption().then(function(r){
+          if(r&&r.granted)console.log('[batt] مستثنى من تحسين البطارية أصلاً');
+        }).catch(function(){
+          toast('لضمان وصول الأذان دائماً: أوقف تحسين البطارية للتطبيق من إعدادات النظام','info');
+        });
+      },1800);
+      return;
+    }
     setTimeout(function(){toast('لضمان وصول الأذان دائماً: أوقف تحسين البطارية للتطبيق من إعدادات النظام','info');},1800);
   }catch(e){}
 }

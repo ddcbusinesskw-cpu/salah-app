@@ -11,7 +11,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(FirebaseAuthenticationPlugin.class);
         registerPlugin(ProximitySensorPlugin.class);
         registerPlugin(AudioRecorderPlugin.class);
-        registerPlugin(SilentSpeechPlugin.class);
         registerPlugin(KeepAwakePlugin.class);
         registerPlugin(WhisperNativePlugin.class);
         super.onCreate(savedInstanceState);
