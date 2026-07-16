@@ -882,8 +882,8 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .qw.active{color:var(--gold);animation:qwglow 1.05s ease-in-out infinite alternate;}
 @keyframes qwglow{from{text-shadow:0 0 5px rgba(234,204,126,.45);}to{text-shadow:0 0 17px rgba(234,204,126,.95),0 0 3px rgba(234,204,126,.7);}}
 .qw.ok{color:var(--green);}
-.qw.tent{color:rgba(78,202,168,.5);}
-[data-theme="light"] .qw.tent{color:rgba(46,122,98,.55);}
+.qw.tent{color:rgba(78,202,168,.65);}
+[data-theme="light"] .qw.tent{color:rgba(46,122,98,.65);}
 .qw.err{color:var(--red);cursor:pointer;}
 .qw.miss{color:rgba(255,255,255,.34);}
 [data-theme="light"] .qw.miss{color:rgba(0,0,0,.28);}
@@ -4095,6 +4095,7 @@ function mushafBuildEl(el,n){
       if(!d||!d.data||!d.data.ayahs)return;
       var tr=d.data.ayahs.map(function(a){return a.text;});
       lsSet('tr_'+ed+'_'+n,JSON.stringify(tr));
+      _trLruTouch('tr_'+ed+'_'+n);
       if((window.noorLang||'ar')!==lang)return;
       var w=document.getElementById('fmw'+n);
       if(w)w.innerHTML=_mkInner(tr);
@@ -4152,6 +4153,9 @@ function _lsDailyCleanup(){
         }
       }
     }
+    /* مفاتيح يتيمة من أنظمة قديمة (WASM/المقارنة/التعرّف المحذوف) — تُكنس مرة */
+    ['audio_caps_v1','bm_engine','sr_exp','sr_health','w2_engine_v','w2_fp32_purged','w2_persisted','webgpu_ok']
+      .forEach(function(k){if(lsGet(k)!=null)_del.push(k);});
     _del.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
     lsSet('ls_cleanup_day',_t);
   }catch(e){}
@@ -4873,7 +4877,7 @@ function transEdition(){return TR_ED[window.noorLang]||'en.sahih';}
 function _transPrefetch(ed,n){
   if(!ed||!n||lsGet('tr_'+ed+'_'+n))return;
   fetch('https://api.alquran.cloud/v1/surah/'+n+'/'+ed).then(function(r){return r.json();}).then(function(d){
-    if(d&&d.data&&d.data.ayahs)lsSet('tr_'+ed+'_'+n,JSON.stringify(d.data.ayahs.map(function(a){return a.text;})));
+    if(d&&d.data&&d.data.ayahs){lsSet('tr_'+ed+'_'+n,JSON.stringify(d.data.ayahs.map(function(a){return a.text;})));_trLruTouch('tr_'+ed+'_'+n);}
   }).catch(function(){});
 }
 /* ═══ القاعدة الذهبية: تبديل لغة التطبيق يفعّل ترجمة القرآن المطابقة
@@ -4900,7 +4904,17 @@ window._onLangQuran=function(lang){
 function stripBism(s,num,n){if(num===1&&n!==1&&n!==9){return s.replace(/^بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ\s*/,'').replace(/^بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ\s*/,'');}return s;}
 function bismHtml(n){if(n===1||n===9)return '';var _b=(QURAN_EMBED&&QURAN_EMBED.surahs&&QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';return '<div class="bism">'+_b+'</div>';}
 function toggleTrans(){transOn=!transOn;lsSet('transOn',transOn?'1':'0');renderAyat(CUR_S,{ayahs:CUR_AYAT});}
-function loadTrans(n){var ed=transEdition();var key='tr_'+ed+'_'+n;var c=lsGet(key);if(c){TRANS=JSON.parse(c);TRANS_S=n;TRANS_ED=ed;renderAyat(n,{ayahs:CUR_AYAT});return;}_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/surah/'+n+'/'+ed,{signal:_quranAC.signal}).then(function(r){return r.json();}).then(function(d){if(!d.data||!d.data.ayahs)throw 0;TRANS=d.data.ayahs.map(function(a){return a.text;});TRANS_S=n;TRANS_ED=ed;lsSet(key,JSON.stringify(TRANS));try{var _pfx='tr_'+ed+'_';for(var _i=localStorage.length-1;_i>=0;_i--){var _lk=localStorage.key(_i);if(_lk&&_lk.indexOf('tr_')===0&&_lk.indexOf(_pfx)!==0)localStorage.removeItem(_lk);}}catch(e){}renderAyat(n,{ayahs:CUR_AYAT});}).catch(function(e){if(e&&e.name==='AbortError')return;transOn=false;lsSet('transOn','0');toast('تعذّر تحميل الترجمة — تأكد من الإنترنت');renderAyat(n,{ayahs:CUR_AYAT});});}
+/* سقف LRU لترجمات السور المخبأة (أحدث 15) — يمنع تضخم localStorage */
+function _trLruTouch(key){
+  try{
+    var l=[];try{l=JSON.parse(lsGet('tr_lru')||'[]');}catch(e){}
+    var i=l.indexOf(key);if(i>=0)l.splice(i,1);
+    l.push(key);
+    while(l.length>15){var old=l.shift();try{localStorage.removeItem(old);}catch(e){}}
+    lsSet('tr_lru',JSON.stringify(l));
+  }catch(e){}
+}
+function loadTrans(n){var ed=transEdition();var key='tr_'+ed+'_'+n;var c=lsGet(key);if(c){try{TRANS=JSON.parse(c);TRANS_S=n;TRANS_ED=ed;_trLruTouch(key);renderAyat(n,{ayahs:CUR_AYAT});return;}catch(e){try{localStorage.removeItem(key);}catch(x){}}}_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/surah/'+n+'/'+ed,{signal:_quranAC.signal}).then(function(r){return r.json();}).then(function(d){if(!d.data||!d.data.ayahs)throw 0;TRANS=d.data.ayahs.map(function(a){return a.text;});TRANS_S=n;TRANS_ED=ed;lsSet(key,JSON.stringify(TRANS));try{var _pfx='tr_'+ed+'_';for(var _i=localStorage.length-1;_i>=0;_i--){var _lk=localStorage.key(_i);if(_lk&&_lk.indexOf('tr_')===0&&_lk.indexOf(_pfx)!==0)localStorage.removeItem(_lk);}}catch(e){}renderAyat(n,{ayahs:CUR_AYAT});}).catch(function(e){if(e&&e.name==='AbortError')return;transOn=false;lsSet('transOn','0');toast('تعذّر تحميل الترجمة — تأكد من الإنترنت');renderAyat(n,{ayahs:CUR_AYAT});});}
 var mushafOn=false;try{mushafOn=lsGet('mushafOn')==='1';}catch(e){}
 function toggleMushaf(){mushafOn=!mushafOn;lsSet('mushafOn',mushafOn?'1':'0');if(mushafOn)transOn=false;renderAyat(CUR_S,{ayahs:CUR_AYAT});}
 function renderAyat(n,d){CUR_S=n;CUR_AYAT=d.ayahs;var head='<div class="qr-nav-row"><button class="btn" onclick="playSurah('+n+',nameFor('+n+'))">▶ استماع</button><button class="btn'+(mushafOn?' qr-on-g':'')+'" onclick="toggleMushaf()">📖 المصحف</button><button class="btn'+(transOn?' qr-on-t':'')+'" onclick="toggleTrans()">🌐 الترجمة</button></div>';var bism=bismHtml(n);var body=document.getElementById('quranBody');if(mushafOn){var inner=d.ayahs.map(function(a){var s=stripBism(a.text,a.numberInSurah,n);return s+'<span class="mnum">'+ar(a.numberInSurah)+'</span>';}).join(' ');var banner='<div class="msura">سُورَةُ '+nameFor(n)+'</div>';var bismM=(n!==1&&n!==9)?'<div class="mbism">'+((QURAN_EMBED&&QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'')+'</div>':'';var pv=(n>1?n-1:114),nx=(n<114?n+1:1);var nav='<div class="mnav"><button onclick="openSurah('+nx+',nameFor('+nx+'))">'+nameFor(nx)+' ›</button><button onclick="openSurah('+pv+',nameFor('+pv+'))">‹ '+nameFor(pv)+'</button></div>';body.innerHTML=head+'<div class="mushaf-page"><div class="mframe">'+banner+bismM+'<div class="mtext">'+inner+'</div></div></div>'+nav;window.scrollTo(0,0);return;}if(transOn){if(!TRANS||TRANS_S!==n||TRANS_ED!==transEdition()){body.innerHTML=head+bism+'<div class="loading">جارٍ تحميل الترجمة…</div>';loadTrans(n);return;}var blocks=d.ayahs.map(function(a){var s=stripBism(a.text,a.numberInSurah,n);return '<div class="ayblk" onclick="ayahMenu('+n+','+a.numberInSurah+')"><div class="ayat" style="margin:0 0 6px">'+s+'<span class="num">﴿'+ar(a.numberInSurah)+'﴾</span></div><div class="tr">'+_esc(TRANS[a.numberInSurah-1]||'')+'</div></div>';}).join('');body.innerHTML=head+bism+blocks;}else{var txt=d.ayahs.map(function(a){var s=stripBism(a.text,a.numberInSurah,n);return '<span class="a" onclick="ayahMenu('+n+','+a.numberInSurah+')">'+s+'<span class="num">﴿'+ar(a.numberInSurah)+'﴾</span></span> ';}).join('');body.innerHTML=head+bism+'<div class="ayat">'+txt+'</div>';}window.scrollTo(0,0);}
@@ -7339,10 +7353,20 @@ var QUIZ_Q=[
   {q:'ما أول ما خلق الله؟',opts:['الماء','القلم','النور','العقل'],ans:1,cat:'سيرة'}
 ];
 var _quizState={qs:[],cur:0,score:0,answered:false};
+/* مفتاح يوم ثابت YYYY-MM-DD — صيغة locale السابقة تتغيّر بتغيير لغة الجهاز */
+function _quizDayKey(){
+  var d=new Date(),m=d.getMonth()+1,dd=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;
+}
 function loadQuiz(){
   var pad=document.getElementById('quizPad');if(!pad)return;
-  var today=new Date().toLocaleDateString();
+  var today=_quizDayKey();
   var saved=lsGet('quiz_today');
+  /* ترحيل القيمة القديمة (صيغة locale): إن كانت تساوي «اليوم» بصيغة الجهاز
+     القديمة فاعتبرها اليوم وأعد كتابتها بالصيغة الثابتة */
+  if(saved&&saved!==today&&saved===new Date().toLocaleDateString()){
+    saved=today;lsSet('quiz_today',today);
+  }
   if(saved===today){
     var score=lsGet('quiz_score')||'0';
     pad.innerHTML='<div class="quiz-result"><div class="score">'+ar(score)+'<span style="font-size:22px">/٥</span></div>'+
@@ -7360,7 +7384,7 @@ function renderQuizQ(){
   var pad=document.getElementById('quizPad');if(!pad)return;
   var s=_quizState;
   if(s.cur>=s.qs.length){
-    lsSet('quiz_today',new Date().toLocaleDateString());lsSet('quiz_score',String(s.score));
+    lsSet('quiz_today',_quizDayKey());lsSet('quiz_score',String(s.score));
     pad.innerHTML='<div class="quiz-result"><div class="score">'+ar(s.score)+'<span style="font-size:22px">/٥</span></div>'+
       '<div style="margin:10px 0;color:var(--text);font-size:18px">'+(s.score===5?'ممتاز! 🌟':s.score>=3?'جيد جداً 👍':'استمر في التعلم 📚')+'</div>'+
       '<button class="btn" onclick="loadQuiz()" style="margin-top:16px">إعادة المحاولة</button></div>';
