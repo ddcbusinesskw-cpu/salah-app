@@ -111,6 +111,12 @@ public class WhisperNativePlugin extends Plugin {
     /* لقطة قرار النافذة النامية كل ثانية: voiced/rms/طول النافذة/الارتساءات/السقف */
     private final java.util.ArrayDeque<String> winDiag = new java.util.ArrayDeque<>();
     private int lastSnapAt = 0;
+    /* ── VAD متكيف: أرضية الضجيج = وسيط أهدأ 20% من إطارات آخر ~10ث ──
+       عتبة الصوت = max(260, أرضية×2.5) · عتبة الصمت = max(200, أرضية×1.5)
+       يحل فشل العتبة الثابتة في الغرف ذات الضجيج المستمر (rms خلفية ~1500) */
+    private final double[] rmsHist = new double[80]; // 80 إطار × ~128ms ≈ 10ث
+    private int rmsHistN = 0, rmsHistPos = 0;
+    private volatile double noiseFloor = 260.0;
 
     private static native long nativeInit(String path);
     private static native String nativeTranscribe(long ctx, short[] pcm, String lang, int threads, String prompt);
@@ -266,6 +272,7 @@ public class WhisperNativePlugin extends Plugin {
         rawMin = 0; rawMax = 0; rawPeakSes = 0; rawRmsLast = 0;
         voskMin = 0; voskMax = 0; voskPeakSes = 0; voskRmsLast = 0;
         lastSnapAt = 0;
+        rmsHistN = 0; rmsHistPos = 0; noiseFloor = 260.0; // أرضية ابتدائية لكل جلسة
         synchronized (winDiag) { winDiag.clear(); }
         listening = true;
         recorder.startRecording();
@@ -325,17 +332,31 @@ public class WhisperNativePlugin extends Plugin {
                             }
                         }
                     }
-                    // VAD بـRMS (أمتن من الذروة ضدّ ضجيج عابر) → إعادة الارتساء عند وقفات الآيات
-                    // (brms محسوب أعلاه بمرور واحد مع min/max — مقياس int16، العتبة 260 ≈ 0.0079 float)
-                    boolean silent = brms < SILENCE_RMS;
+                    // ── VAD متكيف: حدّث أرضية الضجيج ثم اشتقّ العتبتين ──
+                    rmsHist[rmsHistPos] = brms;
+                    rmsHistPos = (rmsHistPos + 1) % rmsHist.length;
+                    if (rmsHistN < rmsHist.length) rmsHistN++;
+                    if (rmsHistN >= 10) {
+                        double[] tmp = new double[rmsHistN];
+                        System.arraycopy(rmsHist, 0, tmp, 0, rmsHistN);
+                        java.util.Arrays.sort(tmp);
+                        int q = Math.max(1, rmsHistN / 5);   // أهدأ 20%
+                        noiseFloor = tmp[q / 2];             // وسيطها
+                    }
+                    double voiceThr = Math.max(SILENCE_RMS, noiseFloor * 2.5);
+                    double silThr   = Math.max(200.0, noiseFloor * 1.5);
+                    boolean voicedNow = brms > voiceThr;
+                    boolean silent    = brms < silThr;
                     int nowTotal;
                     synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
                     // ارتساء جديد: سكوت SILENCE_RESET بعد كلام = نهاية عبارة → ابدأ النافذة من هنا
-                    if (silent) {
+                    if (voicedNow) {
+                        silenceRun = 0; hadSpeech = true;
+                    } else if (silent) {
                         silenceRun += nr;
                         if (hadSpeech && silenceRun >= SILENCE_RESET) { anchorSample = nowTotal; hadSpeech = false; vadResets++; }
                     } else {
-                        silenceRun = 0; hadSpeech = true;
+                        silenceRun = 0; // منطقة رمادية: تقطع الصمت المتصل ولا تُعدّ كلاماً
                     }
                     // سقف صلب: لا تدع النافذة النامية تتجاوز maxWinSamples
                     boolean capped = nowTotal - anchorSample > maxWinSamples;
@@ -344,8 +365,9 @@ public class WhisperNativePlugin extends Plugin {
                     if (nowTotal - lastSnapAt >= SR) {
                         lastSnapAt = nowTotal;
                         int winLen = nowTotal - anchorSample;
-                        String snap = "t=" + (nowTotal / SR) + "s v=" + (silent ? 0 : 1)
+                        String snap = "t=" + (nowTotal / SR) + "s v=" + (voicedNow ? 1 : 0)
                                 + " rms16=" + Math.round(brms)
+                                + " floor=" + Math.round(noiseFloor)
                                 + " win=" + (Math.round(winLen * 10.0 / (double) SR) / 10.0) + "s"
                                 + " resets=" + vadResets + (capped ? " cap=1" : "");
                         synchronized (winDiag) {
@@ -615,6 +637,9 @@ public class WhisperNativePlugin extends Plugin {
         r.put("rawRms", Math.round(rawRmsLast)); r.put("rawPeak", rawPeakSes);
         r.put("voskMin", voskMin); r.put("voskMax", voskMax);
         r.put("voskRms", Math.round(voskRmsLast)); r.put("voskPeak", voskPeakSes);
+        r.put("noiseFloor", Math.round(noiseFloor));
+        r.put("voiceThr", Math.round(Math.max(SILENCE_RMS, noiseFloor * 2.5)));
+        r.put("silThr", Math.round(Math.max(200.0, noiseFloor * 1.5)));
         String wd;
         synchronized (winDiag) { wd = String.join(" | ", winDiag); }
         r.put("winDiag", wd);

@@ -1845,8 +1845,9 @@ class PcmRing {
     const n = Math.min(this.len, Math.floor(this.rate * ms / 1000));
     return this.buf.slice(this.len - n, this.len);
   }
-  /* هل فيه صوت فعلي؟ (بوابة ضد هلوسة Whisper بالسكوت) */
-  hasVoice(ms = 1200, thresh = 0.008) {
+  /* هل فيه صوت فعلي؟ (بوابة ضد هلوسة Whisper بالسكوت) — عتبة متكيفة من الأرضية */
+  hasVoice(ms = 1200, thresh) {
+    if (thresh == null) thresh = (typeof _vadVoiceThr === 'function') ? _vadVoiceThr() : 0.008;
     const seg = this.tail(ms);
     let e = 0;
     for (let i = 0; i < seg.length; i++) e += seg[i] * seg[i];
@@ -2003,7 +2004,8 @@ function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
       ring.push(f32);
       const now = performance.now();
       let e = 0; for (let i=0;i<f32.length;i++) e += f32[i]*f32[i];
-      const voiced = Math.sqrt(e/f32.length) > 0.008;
+      /* نفس العتبة المتكيفة (مقياس float ±1 — التحويل ÷32768 في _vadVoiceThr) */
+      const voiced = Math.sqrt(e/f32.length) > ((typeof _vadVoiceThr==='function')?_vadVoiceThr():0.008);
       voiceMs = voiced ? voiceMs + (now-(lastChunkT||now)) : 0;
       lastChunkT = now;
       if (voiced) judge.onSustainedVoice(voiceMs);
@@ -2019,7 +2021,8 @@ function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
    جلسة الصفحة تُقسَّم آيات؛ HybridJudge جديد لكل آية (onAyahDone → التالية).
    الحلقة لا تعمل إلا أثناء جلسة نشطة (تُدار من lmStart/lmStop حصراً). */
 var HB={on:false,cur:null,ayahs:[],idx:0,heardMap:{},
-        diag:{chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0}};
+        diag:{chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0},
+        vad:{hist:[],floor:260,noisyMs:0,warned:false}};
 
 /* غلاف whisper الأصلي: Float32 → PCM16 b64 → P.transcribe (خيط خلفي أصلي) */
 var _hbAdapter={
@@ -2102,6 +2105,7 @@ function _hbStart(){
   _hbBuildAyahs();
   HB.on=true;HB.idx=0;HB.heardMap={};HB.wordState={};
   HB.diag={chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0};
+  HB.vad={hist:[],floor:260,noisyMs:0,warned:false}; /* أرضية ابتدائية لكل جلسة */
   HB.sendLog=[];HB.sent=0;
   HB._tailLen=0;
   _hbWinReset();
@@ -2128,11 +2132,39 @@ function _hbOnPcm(ev){
   d.min=mn;d.max=mx;d.rms=Math.sqrt(sq/f.length);
   var ap=Math.max(-mn,mx);if(ap>d.peak)d.peak=ap;
   d.lastAt=Date.now();
+  var rms16=d.rms*32768;
+  _hbVadUpdate(rms16,f.length); /* أرضية الضجيج المتكيفة + إنذار الضجيج */
   _hbTailPush(f); /* نسخة آخر ٥ث للزر اليدوي (تشخيص فقط) */
   if(!HB.on||!HB.cur)return;
   HB.cur.onPcmChunk(f); /* ring الوحدة (فواتح onSustainedVoice) */
-  _hbWinPush(f,d.rms>0.008); /* مسار الإرسال: النافذة النامية ارتساء/سقف */
+  _hbWinPush(f,rms16); /* مسار الإرسال: النافذة النامية ارتساء/سقف */
 }
+
+/* ═══ VAD متكيف (نفس منطق الأصلي، مقياس int16 ثم ÷32768 عند الحاجة) ═══
+   الأرضية = وسيط أهدأ 20% من إطارات آخر ~10ث (ابتدائية 260) — تتحدث كل شريحة.
+   صوت = rms16 > max(260, أرضية×2.5) · صمت (ارتساء) = rms16 < max(200, أرضية×1.5) */
+function _hbVadUpdate(rms16,nSamples){
+  var v=HB.vad;if(!v)return;
+  v.hist.push(rms16);if(v.hist.length>80)v.hist.shift(); /* 80×~128ms ≈ 10ث */
+  if(v.hist.length>=10){
+    var s=v.hist.slice().sort(function(a,b){return a-b;});
+    var q=Math.max(1,Math.floor(s.length/5));   /* أهدأ 20% */
+    v.floor=s[Math.floor(q/2)];                  /* وسيطها */
+  }
+  /* إنذار الضجيج: الأرضية > 2000 لمدة 10ث متصلة → توست واحد بالجلسة */
+  var ms=nSamples/16;
+  if(v.floor>2000){
+    v.noisyMs+=ms;
+    if(v.noisyMs>=10000&&!v.warned){
+      v.warned=true;
+      toast('الضجيج مرتفع — قرّب الهاتف أو انتقل لمكان أهدأ','warning');
+    }
+  }else v.noisyMs=0;
+}
+function _hbVoiceThr16(){return Math.max(260,(HB.vad?HB.vad.floor:260)*2.5);}
+function _hbSilThr16(){return Math.max(200,(HB.vad?HB.vad.floor:260)*1.5);}
+/* كاشف صوت الوحدة الهجينة يقرأ نفس العتبة (بمقياس float ±1: ÷32768) */
+function _vadVoiceThr(){return _hbVoiceThr16()/32768;}
 
 /* ═══ مسار الإرسال إلى whisper: نافذة نامية بارتساء VAD وسقف صلب ═══
    القاعدة: يُمنع تصفير أي نافذة تحتوي صوتاً (≥1ث) دون إرسالها.
@@ -2142,7 +2174,7 @@ function _hbOnPcm(ev){
 var HB_WIN_BUF=12*16000,HB_WIN_CAP=10*16000,HB_OVERLAP=8000/*0.5ث*/,
     HB_MIN_VOICE=16000/*1ث*/,HB_SIL_RESET=7200/*0.45ث*/;
 function _hbWinReset(){HB.win={buf:new Float32Array(HB_WIN_BUF),len:0,voiceSamp:0,silRun:0};}
-function _hbWinPush(f,voiced){
+function _hbWinPush(f,rms16){
   var w=HB.win;if(!w)return;
   var n=f.length;
   if(w.len+n>HB_WIN_BUF){ /* حافة قصوى (إرسالات معلّقة): أرسل قبل أن نفيض */
@@ -2152,8 +2184,11 @@ function _hbWinPush(f,voiced){
   var room=Math.min(n,HB_WIN_BUF-w.len);
   w.buf.set(room===n?f:f.subarray(0,room),w.len);
   w.len+=room;
-  if(voiced){w.voiceSamp+=n;w.silRun=0;}
-  else{w.silRun+=n;}
+  /* عتبتان متكيفتان بهامش وسطي: صوت > عتبة الصوت · صمت الارتساء < عتبة الصمت ·
+     المنطقة الرمادية بينهما تقطع الصمت المتصل ولا تُعدّ كلاماً */
+  if(rms16>_hbVoiceThr16()){w.voiceSamp+=n;w.silRun=0;}
+  else if(rms16<_hbSilThr16()){w.silRun+=n;}
+  else{w.silRun=0;}
   /* ارتساء: صمت متصل بعد صوت كافٍ → إرسال أولاً ثم تصفير */
   if(w.silRun>=HB_SIL_RESET&&w.voiceSamp>=HB_MIN_VOICE){_hbSendWin('ارتساء');return;}
   /* نافذة صامتة بالكامل طالت: صفّرها بلا إرسال (لا صوت يُهدر) */
@@ -2847,7 +2882,8 @@ function _lmDiagText(){
         return ' · آخر وصول قبل '+ago+(LM.rec?'':' (الجلسة منتهية — العدّاد يواصل)')+stale;
       })(),
       'التحويل: PCM16→Float32 قسمة ÷32768 مرة واحدة فقط (_wnPcmB64ToF32 حصراً — لا قسمة ثانية بالمسار)',
-      'اتساق عتبات VAD: الأصلي rms16=260 (int16) ≈ '+(Math.round(260/32768*10000)/10000)+' float ≡ عتبة الوحدة 0.008 ✓ (المقياسان متسقان)',
+      'اتساق عتبات VAD: الحد الأدنى rms16=260 (int16) ≈ '+(Math.round(260/32768*10000)/10000)+' float — المقياسان متسقان ✓',
+      'VAD متكيف: أرضية الضجيج الحالية='+(typeof HB!=='undefined'&&HB.vad?Math.round(HB.vad.floor):'—')+' · عتبة الصوت='+(typeof _hbVoiceThr16==='function'?Math.round(_hbVoiceThr16()):'—')+' · عتبة الصمت='+(typeof _hbSilThr16==='function'?Math.round(_hbSilThr16()):'—')+' (JS) — الأصلي: أرضية='+_v(_vs.noiseFloor)+' عتبة صوت='+_v(_vs.voiceThr)+' عتبة صمت='+_v(_vs.silThr),
       'التوزيع (fan-out): قارئ AudioRecord واحد فقط في التطبيق كله → ينسخ لثلاث وجهات: مخزن التشغيل + Vosk + pcm_chunk (لا قارئ ثانٍ)',
       'بثّ pcm_chunk: '+(_vs.emitPcm===true?'مفعّل ✓':(_vs.emitPcm===false?'⚠ غير مفعّل':'—'))+' · حالة الالتقاط الأصلي: '+(_vs.listening===true?'يعمل':(_vs.listening===false?'متوقف':'—')));
     L.push('── قرارات النافذة النامية (لقطة كل ثانية: v=صوت win=طول resets=ارتساءات cap=سقف) ──',
