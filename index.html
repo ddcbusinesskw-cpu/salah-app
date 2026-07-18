@@ -895,17 +895,26 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .lm-pnum{width:64px;text-align:center;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 6px;font:inherit;}
 .lm-go{margin:0;padding:9px 16px;}
 .lm-status{text-align:center;color:var(--muted);font-size:var(--fs-sm);min-height:18px;margin-bottom:8px;line-height:1.7;}
-.lm-page{direction:rtl;text-align:center;line-height:2.4;font-size:30px;padding:14px 8px;min-height:56vh;color:var(--text);}
+/* لوح زجاجي مضيء من الخلف — صفحة المصحف قلب شاشة التسميع */
+.lm-page{direction:rtl;text-align:center;line-height:2.4;font-size:30px;padding:18px 12px;min-height:56vh;color:var(--text);
+  background:radial-gradient(ellipse at 50% 0%,rgba(232,197,95,.06),transparent 62%),var(--glass);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);box-shadow:var(--sh);}
+[data-theme="light"] .lm-page{background:radial-gradient(ellipse at 50% 0%,rgba(138,106,31,.06),transparent 62%),var(--glass);}
 .lm-page .lm-ayah{display:inline;}
 .qw{display:inline-block;transition:color .18s ease,text-shadow .18s ease,opacity .18s;color:var(--text);}
 .qw.active{color:var(--gold);animation:qwglow 1.05s ease-in-out infinite alternate;}
 @keyframes qwglow{from{text-shadow:0 0 5px rgba(234,204,126,.45);}to{text-shadow:0 0 17px rgba(234,204,126,.95),0 0 3px rgba(234,204,126,.7);}}
-.qw.ok{color:var(--green);}
-.qw.tent{color:rgba(78,202,168,.65);}
-[data-theme="light"] .qw.tent{color:rgba(46,122,98,.65);}
-.qw.err{color:var(--red);cursor:pointer;}
+/* حالات الكلمات بلغة المشكاة: التثبيت نور (--nur) بوميض 180ms لحظة التثبيت،
+   الفوري فيروزي خافت بلا وميض، الخطأ تحويق --err خافت، المتجاوَز رمادي هادئ */
+.qw.ok{color:var(--nur);animation:nurConfirm .18s ease-out;}
+@keyframes nurConfirm{0%{text-shadow:0 0 14px var(--nur-glow),0 0 4px var(--nur);color:#FFF3D0;}100%{text-shadow:none;}}
+.qw.tent{color:rgba(63,185,164,.65);}
+[data-theme="light"] .qw.tent{color:rgba(21,122,110,.7);}
+.qw.err{color:var(--err);cursor:pointer;text-shadow:0 0 9px rgba(224,112,95,.30);}
+[data-theme="light"] .qw.err{text-shadow:0 0 8px rgba(184,74,58,.25);}
 .qw.miss{color:rgba(255,255,255,.34);}
 [data-theme="light"] .qw.miss{color:rgba(0,0,0,.28);}
+@media(prefers-reduced-motion:reduce){.qw.ok{animation:none;}}
 .lm-anum{font-size:.62em;color:var(--gold);opacity:.85;margin:0 3px;font-family:system-ui,sans-serif;vertical-align:middle;}
 .lm-page.lm-hidden .qw:not(.ok):not(.tent):not(.err):not(.active){color:transparent;}
 .lm-bar{position:fixed;left:0;right:0;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px;background:linear-gradient(0deg,var(--bg) 60%,transparent);z-index:60;}
