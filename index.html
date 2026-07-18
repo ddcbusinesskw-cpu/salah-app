@@ -1994,7 +1994,10 @@ class HybridJudge {
     const got = normText(text);
     if (!got.length) return;
     const N = this.expected.length;
-    const start = Math.max(0, this.cursor - 6);
+    /* النوافذ قصيرة ومتداخلة (0.5ث): المطابقة تبدأ من المؤشر الحالي —
+       الكلمات المثبتة المكررة في رأس النافذة تُتجاوز من جهة المسموع
+       (lookahead ±3)، و_set تحمي confirmed من أي نقض أصلاً */
+    const start = this.cursor;
     const pairs = [];
     let i = start, g = 0;
     while (i < N && g < got.length) {
@@ -2241,12 +2244,13 @@ function _hbSilThr16(){return Math.max(200,(HB.vad?HB.vad.floor:260)*1.5);}
 function _vadVoiceThr(){return _hbVoiceThr16()/32768;}
 
 /* ═══ مسار الإرسال إلى whisper: نافذة نامية بارتساء VAD وسقف صلب ═══
-   القاعدة: يُمنع تصفير أي نافذة تحتوي صوتاً (≥1ث) دون إرسالها.
-   - ارتساء: انتقال صوت→صمت (صمت متصل ≥0.45ث بعد صوت ≥1ث) → أرسل ثم صفّر.
-   - سقف: بلوغ 10ث → أرسل فوراً واحتفظ بآخر 0.5ث تداخلاً لبداية التالية.
+   القاعدة: يُمنع تصفير أي نافذة تحتوي صوتاً (≥0.8ث) دون إرسالها.
+   - ارتساء: انتقال صوت→صمت (صمت متصل ≥0.35ث بعد صوت ≥0.8ث) → أرسل ثم صفّر.
+   - سقف: بلوغ 5ث → أرسل فوراً واحتفظ بآخر 0.5ث تداخلاً لبداية التالية.
+   الهدف: نوافذ 2–5ث (نطاق ثقة tiny) — الطويلة 8–10ث تُخرج هذياناً تراكمياً.
    المخزن 12ث (أكبر من السقف — لا يشبع قبله). كل إرسال يُسجَّل في سجل تراكمي. */
-var HB_WIN_BUF=12*16000,HB_WIN_CAP=10*16000,HB_OVERLAP=8000/*0.5ث*/,
-    HB_MIN_VOICE=16000/*1ث*/,HB_SIL_RESET=7200/*0.45ث*/;
+var HB_WIN_BUF=12*16000,HB_WIN_CAP=5*16000,HB_OVERLAP=8000/*0.5ث*/,
+    HB_MIN_VOICE=12800/*0.8ث*/,HB_SIL_RESET=5600/*0.35ث*/;
 function _hbWinReset(){HB.win={buf:new Float32Array(HB_WIN_BUF),len:0,voiceSamp:0,silRun:0};}
 function _hbWinPush(f,rms16){
   var w=HB.win;if(!w)return;
@@ -2289,9 +2293,24 @@ function _hbSendWin(reason,keepOverlap){
   HB.sendLog.push(entry);if(HB.sendLog.length>25)HB.sendLog.shift();
   HB.sent=(HB.sent||0)+1;
   _hbAdapter.transcribe(seg).then(function(t){
-    entry.text=(typeof normText==='function'?normText(t).join(' '):(t||''))||'(فارغ)';
+    var gotWords=(typeof normText==='function')?normText(t):((t||'').split(/\s+/).filter(Boolean));
+    entry.words=gotWords.length;
+    entry.text=gotWords.join(' ')||'(فارغ)';
     LM._heard=entry.text; /* حقل «whisper سمع»: آخر نص راجع بعد التطبيع */
-    if(HB.on&&HB.cur&&t){try{HB.cur.judge.onWhisperText(t);}catch(e){}}
+    /* حارس الهذيان التراكمي: نص أطول من ضِعف المتوقع في نطاق المؤشر±8
+       = نافذة مشبوهة → تُهمل بلا أي حكم وتُوسم في السجل */
+    if(HB.on&&HB.cur&&t){
+      try{
+        var j=HB.cur.judge;
+        var lo=Math.max(0,j.cursor-8),hi=Math.min(j.expected.length,j.cursor+8);
+        var expC=hi-lo;
+        if(expC>0&&gotWords.length>=expC*2){
+          entry.text='مُهملة: طول شاذ ('+gotWords.length+' كلمة مقابل '+expC+' متوقعة) — «'+entry.text.slice(0,60)+'…»';
+          return;
+        }
+        j.onWhisperText(t);
+      }catch(e){}
+    }
   }).catch(function(e){
     entry.text='⚠ '+String(e&&e.message||e).slice(0,60);
   });
@@ -2816,7 +2835,7 @@ function lmStart(){
     /* الهجين يتولّى نوافذ whisper من JS (WhisperLoop) — عطّل النوافذ الأصلية
        بمزلاق ضخم كي لا يعمل المحرّك مرّتين؛ Vosk وpcm_chunk يستمران كالمعتاد */
     _hbStart();
-    P.startStream({slide_sec:99999,max_sec:10,prompt:'',emit_pcm:true}).catch(function(e){
+    P.startStream({slide_sec:99999,max_sec:5,prompt:'',emit_pcm:true}).catch(function(e){
       LM.rec=false;
       _hbStop();
       var msg=String(e&&e.message||e);LM._captureErr=msg;
@@ -2938,7 +2957,7 @@ function _lmDiagText(){
     (LM._winMs&&LM._winMs.length)?'أزمنة النوافذ: '+LM._winMs.slice(-8).join('ms · ')+'ms':'',
     'النص المستهدف: '+target,
     'whisper سمع (آخر نافذة راجعة، بعد التطبيع): '+(LM._heard||'—'),
-    'الطريقة: نافذة نامية JS — إرسال عند الارتساء (صمت 0.45ث بعد صوت ≥1ث) أو السقف 10ث (بتداخل 0.5ث) · مخزن دائري 12ث · تعرّف حرّ بلا prompt',
+    'الطريقة: نافذة نامية JS — إرسال عند الارتساء (صمت 0.35ث بعد صوت ≥0.8ث) أو السقف 5ث (بتداخل 0.5ث، نطاق ثقة tiny) · مخزن دائري 12ث · تعرّف حرّ بلا prompt',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
   /* ٠ — تتبّع مقياس العينات عبر السلسلة كاملة (٣ نقاط) + اتساق العتبات */
   (function(){
@@ -2966,7 +2985,7 @@ function _lmDiagText(){
     L.push('── سجل إرسالات whisper ('+(HB.sent||0)+' إرسال) ──');
     if(HB.sendLog&&HB.sendLog.length){
       HB.sendLog.slice(-15).forEach(function(s,i){
-        L.push('#'+(i+1)+' [t='+s.t+'ث] مدة='+s.dur+'ث ذروة='+s.peak+' ('+s.reason+') → «'+s.text+'»');
+        L.push('#'+(i+1)+' [t='+s.t+'ث] مدة='+s.dur+'ث كلمات='+(s.words!=null?s.words:'…')+' ذروة='+s.peak+' ('+s.reason+') → «'+s.text+'»');
       });
     }else{
       L.push('— لا إرسالات بعد (تُرسل عند الارتساء صوت→صمت أو سقف 10ث)');
