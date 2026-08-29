@@ -18,6 +18,11 @@ ios/App/App/public/
 ios/.xcode.env.local
 ios/App/build/
 
+# Signing — NEVER commit keystores or signing secrets
+*.jks
+*.keystore
+keystore.properties
+
 # Misc
 .DS_Store
 *.log
