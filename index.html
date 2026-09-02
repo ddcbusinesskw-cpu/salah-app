@@ -4111,13 +4111,21 @@ function mushafEnsure(n,cb){
 }
 function resumeMushaf(){
   var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}
-  if(!l.length){toast('لا يوجد موضع محفوظ — اكبس على آية ثم «حفظ»');return;}
-  var last=l[l.length-1];
-  mushafEnsure(last.s,function(){
-    var el=document.getElementById('fm'+last.s+'_'+last.a);
-    if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع: '+nameFor(last.s)+' · آية '+ar(last.a));}
-    else{var s=document.getElementById('ms'+last.s);if(s)s.scrollIntoView();}
-  });
+  if(l.length){
+    var last=l[l.length-1];
+    mushafEnsure(last.s,function(){
+      var el=document.getElementById('fm'+last.s+'_'+last.a);
+      if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع محفوظ: '+nameFor(last.s)+' · آية '+ar(last.a));}
+      else{var s=document.getElementById('ms'+last.s);if(s)s.scrollIntoView();}
+    });
+    return;
+  }
+  /* لا إشارة مرجعية يدوية: اسقط تلقائياً إلى موضع القراءة المحفوظ (الحافظة
+     التلقائية — يُحفظ mushaf_pos/mushaf_surah أثناء التصفّح) */
+  var sp=+(lsGet('mushaf_pos')||0),si=+(lsGet('mushaf_surah')||0);
+  if(sp>100){window.scrollTo(0,sp);toast('تابعتَ من آخر موضع قرأت'+(si?(' — '+nameFor(si)):''));}
+  else if(si){var s=document.getElementById('ms'+si);if(s){s.scrollIntoView();toast('تابعتَ من '+nameFor(si));}}
+  else{toast('ابدأ القراءة وسيُحفَظ موضعك تلقائياً لتتابع لاحقاً');}
 }
 function jumpMushaf(n){mushafEnsure(n,function(){var el=document.getElementById('ms'+n);if(el)el.scrollIntoView();});}
 function toggleDrawer(){var dw=document.getElementById('drawer'),db=document.getElementById('drawerBk');var on=dw.classList.toggle('on');db.classList.toggle('on',on);}
@@ -5233,7 +5241,7 @@ var ADHKAR={
     {t:'باسمك اللهم أموت وأحيا',r:1,src:'متفق عليه — البخاري (٦٣١٤) ومسلم (٢٧١١)',review:true},
     {t:'آية الكرسي',r:1,src:'رواه البخاري (٢٣١١ تعليقاً) — من قرأها حين يأوي إلى فراشه لم يزل معه حافظ',review:true},
     {t:'قل هو الله أحد / الفلق / الناس (ثم انفث في كفيك وامسح بهما جسدك)',r:3,src:'متفق عليه — البخاري (٥٠١٧) وأبو داود (٥٠٥٦)',review:true},
-    {t:'خواتيم سورة البقرة: آمن الرسول… إلى آخر السورة',r:1,src:'متفق عليه — البخاري (٥٠٤٠) ومسلم (٨٠٧)',review:true},
+    {t:'خواتيم سورة البقرة (آمن الرسول — تُقرأ قبل النوم): ءَامَنَ ٱلرَّسُولُ بِمَآ أُنزِلَ إِلَيۡهِ مِن رَّبِّهِۦ وَٱلۡمُؤۡمِنُونَۚ كُلٌّ ءَامَنَ بِٱللَّهِ وَمَلَٰٓئِكَتِهِۦ وَكُتُبِهِۦ وَرُسُلِهِۦ لَا نُفَرِّقُ بَيۡنَ أَحَدٖ مِّن رُّسُلِهِۦۚ وَقَالُواْ سَمِعۡنَا وَأَطَعۡنَاۖ غُفۡرَانَكَ رَبَّنَا وَإِلَيۡكَ ٱلۡمَصِيرُ ۝ لَا يُكَلِّفُ ٱللَّهُ نَفۡسًا إِلَّا وُسۡعَهَاۚ لَهَا مَا كَسَبَتۡ وَعَلَيۡهَا مَا ٱكۡتَسَبَتۡۗ رَبَّنَا لَا تُؤَاخِذۡنَآ إِن نَّسِينَآ أَوۡ أَخۡطَأۡنَاۚ رَبَّنَا وَلَا تَحۡمِلۡ عَلَيۡنَآ إِصۡرٗا كَمَا حَمَلۡتَهُۥ عَلَى ٱلَّذِينَ مِن قَبۡلِنَاۚ رَبَّنَا وَلَا تُحَمِّلۡنَا مَا لَا طَاقَةَ لَنَا بِهِۦۖ وَٱعۡفُ عَنَّا وَٱغۡفِرۡ لَنَا وَٱرۡحَمۡنَآۚ أَنتَ مَوۡلَىٰنَا فَٱنصُرۡنَا عَلَى ٱلۡقَوۡمِ ٱلۡكَٰفِرِينَ',r:1,src:'متفق عليه — البخاري (٥٠٤٠) ومسلم (٨٠٧) — من قرأهما في ليلة كفتاه',review:true},
     {t:'اللهم أسلمتُ نفسي إليك، ووجّهتُ وجهي إليك، وفوّضتُ أمري إليك، وألجأتُ ظهري إليك، رغبةً ورهبةً إليك، لا ملجأ ولا منجا منك إلا إليك، آمنتُ بكتابك الذي أنزلت، وبنبيك الذي أرسلت',r:1,src:'متفق عليه — البخاري (٦٣١٣) ومسلم (٢٧١٠)',review:true},
     {t:'باسمك ربي وضعتُ جنبي، وبك أرفعه، إن أمسكت نفسي فارحمها، وإن أرسلتها فاحفظها بما تحفظ به عبادك الصالحين',r:1,src:'متفق عليه — البخاري (٦٣٢٠) ومسلم (٢٧١٤)',review:true},
     {t:'اللهم قني عذابك يوم تبعث عبادك',r:3,src:'رواه أبو داود (٥٠٤٥) والترمذي — صحيح',review:true},
