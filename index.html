@@ -1886,6 +1886,8 @@ const AR_DIAC = /[ـً-ْٓ-ٰٟۖ-ۭؐ-ؚ]/g;
    يجب أن يسبق AR_DIAC لأن مداه (06D6-06ED) كان يحذف ۥ/ۦ بدل تحويلهما. */
 function normWord(w) {
   return (w || '')
+    /* \u0635\u0644\u0629 \u0647\u0627\u0621 \u0627\u0644\u0636\u0645\u064a\u0631 (\u0644\u064e\u0647\u064f\u06e5\u060c \u0628\u0650\u0625\u0650\u0630\u06e1\u0646\u0650\u0647\u0650\u06e6) \u062a\u064f\u0646\u0637\u0642 \u0645\u062f\u0651\u0627\u064b \u0644\u0627 \u062d\u0631\u0641\u0627\u064b: \u062a\u064f\u062d\u0630\u0641 \u0643\u064a \u062a\u0637\u0627\u0628\u0642 \u0627\u0644\u0625\u0645\u0644\u0627\u0626\u064a (\u0644\u0647\u060c \u0628\u0625\u0630\u0646\u0647) */
+    .replace(/\u0647([\u064b-\u0652]*)[\u06e5\u06e6]/g, '\u0647$1')
     .replace(/\u0671/g, '\u0627')
     .replace(/\u06E5/g, '\u0648')
     .replace(/\u06E6/g, '\u064A')
@@ -1963,16 +1965,20 @@ class HybridJudge {
     let g = 0;
     let t = this.tentative;
     while (g < got.length && t < this.expected.length) {
-      if (got[g] === this.expected[t]) { this._set(t, this.state[t]==='confirmed'?'confirmed':'tentative'); t++; g++; continue; }
+      if (this._eq(got[g], this.expected[t])) {
+        /* المبدئي لا يمسّ حكماً نهائياً (confirmed/wrong/skipped) — يلوّن المعلّق فقط */
+        if (this.state[t] === 'pending') this._set(t, 'tentative');
+        t++; g++; continue;
+      }
       // قفزة كلمة واحدة (فوسك بيطرش عن المدود)
-      if (t + 1 < this.expected.length && got[g] === this.expected[t + 1]) { t++; continue; }
+      if (t + 1 < this.expected.length && this._eq(got[g], this.expected[t + 1])) { t++; continue; }
       // ارتساء أمامي: أول تطابق لكلمتين متتاليتين من المسموع ضمن 8 كلمات قادمة
       let jumped = false;
       if (g + 1 < got.length) {
         const LOOK = 8;
         const kEnd = Math.min(this.expected.length - 1, t + LOOK);
         for (let k = t; k < kEnd; k++) {
-          if (got[g] === this.expected[k] && got[g + 1] === this.expected[k + 1]) {
+          if (this._eq(got[g], this.expected[k]) && this._eq(got[g + 1], this.expected[k + 1])) {
             for (let s = t; s < k; s++) { if (this.state[s] === 'pending') this._set(s, 'skipped'); }
             // المتخطّى لا يُعاد الحكم عليه: المؤشر يتجاوزه كي لا يعلّمه whisper خطأً
             this.cursor = Math.max(this.cursor, k);
@@ -2011,12 +2017,22 @@ class HybridJudge {
         if (!adv) { i++; g++; }
       }
     }
-    if (pairs.length < 2) return; // لا رسوّ كافٍ = نافذة مهملة (هلوسة) — لا أحكام إطلاقاً
+    /* رسوّان مطلوبان ضد الهلوسة — إلا إن بقيت كلمة واحدة فقط (آية من كلمة
+       واحدة كـ«والفجر»، أو آخر كلمة في الآية): مطابقة واحدة دقيقة تكفي */
+    const need = Math.min(2, N - start);
+    this.lastG = -1;
+    if (!pairs.length || pairs.length < need) return; // لا رسوّ كافٍ = نافذة مهملة (هلوسة) — لا أحكام إطلاقاً
+    this.lastG = pairs[pairs.length - 1][1];
     for (const [ei] of pairs) this._set(ei, 'confirmed');
     for (let p = 0; p + 1 < pairs.length; p++) {
       const [e0, g0] = pairs[p], [e1, g1] = pairs[p + 1];
-      if (e1 - e0 === 2 && g1 - g0 === 2) this._set(e0 + 1, 'wrong', got[g0 + 1]);
-      else if (e1 - e0 === 2 && g1 - g0 === 1) this._set(e0 + 1, 'skipped');
+      const dE = e1 - e0 - 1, dG = g1 - g0 - 1;   // كلمات متوقعة / مسموعة محصورة بين الرسوّين
+      if (dE < 1) continue;
+      for (let q = 0; q < dE; q++) {
+        if (dG === 0) this._set(e0 + 1 + q, 'skipped');                       // لم تُقرأ أصلاً
+        else if (dG === dE) this._set(e0 + 1 + q, 'wrong', got[g0 + 1 + q]);  // استُبدلت كلمة بكلمة
+        else this._set(e0 + 1 + q, 'wrong', q < dG ? got[g0 + 1 + q] : '');    // اختلاف غير متناظر
+      }
     }
     let c = this.cursor;
     while (c < N && ['confirmed','wrong','skipped'].includes(this.state[c])) c++;
@@ -2025,8 +2041,32 @@ class HybridJudge {
 
   _eq(a, b) { // تسامح رسم: أ/إ/آ/ٱ→ا · ى→ي · ة/ت الختامية→ه («بالآخرت»=«بالآخرة» وصلاً)
     if (a === b) return true;
+    if (!a || !b) return false;
     const f = s => s.replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/[ةت]$/,'ه');
-    return f(a) === f(b);
+    const fa = f(a), fb = f(b);
+    if (fa === fb) return true;
+    /* العثماني بلا ألف المدّ (العلمين/الكتب/السموت/ملك) مقابل الإملائي (العالمين/الكتاب/السماوات/مالك):
+       قارن الهيكل بلا ألف/همزة. بوّابة الطول ≥4 تمنع دمج القصار (قل/قال). */
+    const k = s => s.replace(/[اءٔ]/g,'');
+    const ka = k(fa), kb = k(fb);
+    if (Math.max(fa.length, fb.length) >= 4 && ka === kb) return true;
+    /* رسم حروف المدّ (الصلوة/الصلاة، الحيوة/الحياة): تسامح في و/ي/ى/ئ/ؤ فقط —
+       لا تسامح في الحروف الصامتة كي يبقى الخطأ الحقيقي («نستعيم» بدل «نستعين») خطأً */
+    if (Math.max(fa.length, fb.length) >= 4 && Math.abs(fa.length - fb.length) <= 1) {
+      const v = s => s.replace(/[ويىئؤ]/g,'');
+      if (v(ka) === v(kb)) return true;
+    }
+    return false;
+  }
+
+  /* —— إنهاء آية انتقل عنها القارئ (رُصدت بداية الآية التالية): ما سمعه Vosk
+     (tentative) يُثبَّت — دليلان: تطابق الكلمة + تجاوز القارئ لها؛ وما لم يُسمع
+     إطلاقاً (pending) يصير skipped (رمادي، لا يُحاسَب خطأً). فتُستدعى onAyahDone. —— */
+  finishRest() {
+    const idx = [];
+    for (let i = 0; i < this.expected.length; i++) if (this.state[i] === 'pending' || this.state[i] === 'tentative') idx.push(i);
+    this.cursor = this.expected.length;
+    idx.forEach(i => this._set(i, this.state[i] === 'tentative' ? 'confirmed' : 'skipped'));
   }
 
   /* —— فواتح السور: نداء من كاشف الصوت (مدة صوت متصل) —— */
@@ -2171,6 +2211,30 @@ function _hbUiFor(ayIdx){
     }
   };
 }
+/* حكم نص whisper عبر حدود الآيات (مدخل موحّد لكل نداءات onWhisperText):
+   - إن أتمّ النصُّ الآيةَ الحالية: يُمرَّر الباقي بعد آخر رسوّ إلى قاضي الآية التالية.
+   - إن لم تكتمل لكن ظهرت بداية الآية التالية بعد آخر رسوّ: القارئ انتقل —
+     تُحسم الحالية (finishRest) وتُتابَع التالية بدل تجمّد الصفحة عند كلمة. */
+function _hbJudgeText(t){
+  if(!HB.on||!HB.cur||!t)return;
+  var got=normText(t);if(!got.length)return;
+  for(var guard=0;guard<6&&HB.on&&HB.cur&&got.length;guard++){
+    var j=HB.cur.judge,idx0=HB.idx;
+    j.onWhisperText(got.join(' '));
+    var lg=(typeof j.lastG==='number')?j.lastG:-1;
+    if(HB.idx!==idx0){got=got.slice(lg+1);continue;}
+    var nx=HB.ayahs[HB.idx+1];if(!nx)break;
+    var nw=normText(nx.text);if(!nw.length)break;
+    var hit=-1;
+    for(var p=lg+1;p<got.length;p++){
+      if(j._eq(got[p],nw[0])&&(nw.length<2||(p+1<got.length&&j._eq(got[p+1],nw[1])))){hit=p;break;}
+    }
+    if(hit<0)break;
+    j.finishRest();
+    if(HB.idx===idx0)break;
+    got=got.slice(hit);
+  }
+}
 function _hbStartAyah(i){
   var ay=HB.ayahs[i];if(!ay)return;
   HB.cur=createHybridTasmee(ay.text,_hbUiFor(i),_hbAdapter);
@@ -2301,14 +2365,17 @@ function _hbSendWin(reason,keepOverlap){
        = نافذة مشبوهة → تُهمل بلا أي حكم وتُوسم في السجل */
     if(HB.on&&HB.cur&&t){
       try{
-        var j=HB.cur.judge;
-        var lo=Math.max(0,j.cursor-8),hi=Math.min(j.expected.length,j.cursor+8);
-        var expC=hi-lo;
-        if(expC>0&&gotWords.length>=expC*2){
+        /* المتوقَّع حول الموضع على مستوى الصفحة (لا الآية الحالية وحدها):
+           الآيات القصيرة تعبر نوافذُها إلى الآية التالية — حدّ أدنى 4 */
+        var j=HB.cur.judge,ay=HB.ayahs[HB.idx]||{start:0};
+        var pos=ay.start+j.cursor;
+        var lo=Math.max(0,pos-8),hi=Math.min(LM.words.length,pos+8);
+        var expC=Math.max(hi-lo,4);
+        if(gotWords.length>=expC*2){
           entry.text='مُهملة: طول شاذ ('+gotWords.length+' كلمة مقابل '+expC+' متوقعة) — «'+entry.text.slice(0,60)+'…»';
           return;
         }
-        j.onWhisperText(t);
+        _hbJudgeText(t);
       }catch(e){}
     }
   }).catch(function(e){
@@ -2341,7 +2408,7 @@ function _hbForceWhisper(){
   _hbAdapter.transcribe(seg).then(function(t){
     LM._force.text=(t||'').trim()||'(فارغ)';LM._force.ms=Date.now()-t0;
     if(st)st.textContent='🔬 whisper سمع: '+LM._force.text;
-    if(HB.on&&HB.cur&&t){try{HB.cur.judge.onWhisperText(t);}catch(e){}}
+    if(HB.on&&HB.cur&&t){try{_hbJudgeText(t);}catch(e){}}
     _refresh();
   }).catch(function(e){
     LM._force.err=String(e&&e.message||e).slice(0,80);LM._force.ms=Date.now()-t0;
@@ -2776,7 +2843,7 @@ function lmOnPartial(ev){
   }
   if(!t)return;
   /* المحرّك الهجين نشط: نص whisper (النافذة الأخيرة عند الإيقاف) → القاضي */
-  if(HB.on&&HB.cur){try{HB.cur.judge.onWhisperText(t);}catch(e){}return;}
+  if(HB.on&&HB.cur){try{_hbJudgeText(t);}catch(e){}return;}
   var heard=t.split(/\s+/).filter(Boolean).map(_lmNorm);
   /* المرحلة ٣ — التأكيد الدقيق: whisper القرآني يغذّي نفس المؤشر الرتيب.
      يلحق الكلمات التي فات Vosk تمييزها (تجويد/التباس MGB2) → دقّة نهائية.
@@ -2791,6 +2858,10 @@ function _micLblSet(rec){
 function lmToggleRec(){LM.rec?lmStop():lmStart();}
 function lmStart(){
   var st=document.getElementById('lmStatus');
+  /* حارس الجلسة: لا بدء أثناء إنهاء جلسة سابقة (stopStream يستغرق ~1.5ث؛ إنهاؤها
+     المتأخر كان يهدم الجلسة الجديدة: يزيل مستمعيها ويحرّر مايكها) ولا بدء مزدوج */
+  if(LM.stopping){if(st)st.textContent='⏳ إنهاء الجلسة السابقة… لحظة ثم اضغط مجدداً';return;}
+  if(LM.starting)return;
   /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
   if(!WN.ready){
     var d=WN.diag||{};
@@ -2802,7 +2873,10 @@ function lmStart(){
   }
   var P=_wnPlug();if(!P){if(st)st.textContent='WhisperNative غير متاح في هذه البيئة';return;}
   LM._captureErr='';
+  LM.starting=true;
   var _begin=function(){
+    LM.starting=false;
+    if(LM.rec||LM.stopping)return;
     /* نظافة الجلسة: أوقف كل صوت قيد التشغيل قبل فتح المايك — التقاط
        السماعة (قرآن/رقية/أذان) يلوّث Vosk ونوافذ whisper بأحكام خاطئة */
     try{
@@ -2853,13 +2927,17 @@ function lmStart(){
       if(st)st.textContent='طلب إذن المايكروفون…';
       P.requestPermissions().then(function(r){
         if(r&&r.microphone==='granted')_begin();
-        else{LM._captureErr='إذن المايكروفون مرفوض';if(st)st.textContent='إذن المايكروفون مرفوض — فعّله من إعدادات التطبيق';}
+        else{LM.starting=false;LM._captureErr='إذن المايكروفون مرفوض';if(st)st.textContent='إذن المايكروفون مرفوض — فعّله من إعدادات التطبيق';}
       }).catch(function(){_begin();});
     }).catch(function(){_begin();});
   }else{_begin();}
 }
 function lmStop(){
   if(!LM.rec)return;LM.rec=false;VK.listening=false;
+  LM.stopping=true;
+  var _stopPage=LM.page;
+  /* صمّام أمان: إن لم يعُد وعد الإيقاف أبداً لا يبقى المايك مقفلاً */
+  var _stopSafety=setTimeout(function(){LM.stopping=false;},8000);
   _hbStop(); /* أوقف حلقة whisper الهجينة فوراً — لا تعمل خارج الجلسة */
   try{if(VK._statIv){clearInterval(VK._statIv);VK._statIv=null;}}catch(e){}
   try{_vkPollStats();}catch(e){}
@@ -2870,11 +2948,15 @@ function lmStop(){
   if(st)st.textContent='⏳ إنهاء…';
   try{rakWakeLock(false);}catch(e){}
   var _fin=function(res){
+    clearTimeout(_stopSafety);
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     if(res&&res.pcm){var f=_wnPcmB64ToF32(res.pcm);if(f){W2._lastAudio16k=f;W2._lastAudioRaw={pcm:f,rate:res.sampleRate||16000};}}
+    LM.stopping=false;
+    /* قلّب المستخدم الصفحة أثناء الإنهاء: لا تُرسم نتائج الجلسة على صفحة أخرى ولا تُمنح شارات */
+    if(LM.page!==_stopPage){var s2=document.getElementById('lmStatus');if(s2)s2.textContent='اختر سورة أو صفحة ثم اضغط «🎙 استمع» وابدأ التلاوة';return;}
     setTimeout(lmFinish,150);
   };
-  if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else lmFinish();
+  if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else{clearTimeout(_stopSafety);LM.stopping=false;lmFinish();}
 }
 /* الحكم النهائي: ✅ مثبت · ❌ خطأ مسموع · ⬜ ما لم يُسمع/متخطّى (لا يُحسب خطأً)
    مع الهجين: الحالات من سجل القاضي حصراً (لا يُلوَّن متخطّى صحيحاً) */
