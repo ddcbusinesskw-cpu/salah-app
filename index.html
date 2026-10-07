@@ -1787,6 +1787,7 @@ var _mushafScrollT=null;
 function _onMushafScroll(){
   clearTimeout(_mushafScrollT);
   _mushafScrollT=setTimeout(function(){
+    var _mf=document.getElementById('mushafFull');if(!_mf||!_mf.classList.contains('on'))return;
     /* شارة «قارئ القرآن»: تجميع صفحات مقروءة من مسافة التمرير الفعلية
        (الارتفاع الكلي/604 ≈ صفحة) — القفزات الكبيرة (انتقال قائمة) تُهمل */
     var _prev=+(lsGet('mushaf_pos')||0),_now=window.scrollY;
@@ -1808,8 +1809,14 @@ function _onMushafScroll(){
       if(kd&&typeof SURAH_START_PAGE!=='undefined'){
         var km=JSON.parse(kd);
         if(km&&km.days){
-          var pg=SURAH_START_PAGE[cur-1]||1;
-          if(pg>(km.pagesRead||0)){km.pagesRead=pg;_khatmahCheckComplete(km);lsSet('khatmah_data',JSON.stringify(km));}
+          /* بلوغ بداية سورة = قراءة ما قبلها؛ يُقبل التقدّم المتصل فقط —
+             التصفّح/القفز إلى سورة بعيدة لا يُحتسب قراءةً للختمة */
+          var pg=(SURAH_START_PAGE[cur-1]||1)-1,_pr=km.pagesRead||0,_d=pg-_pr;
+          if(_d>0&&_d<=30){
+            var _b=_khatmahToday(km).base;
+            km.pagesRead=pg;km.td=todayKey();km.tp=pg-_b;
+            _khatmahCheckComplete(km);lsSet('khatmah_data',JSON.stringify(km));
+          }
         }
       }
     }catch(ex){}
@@ -1824,7 +1831,7 @@ function go(id){
   if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}try{_engIdleArm();}catch(ex){}}
   if(prev&&prev.id==='salahw'){try{swLeave();}catch(ex){}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
-  if(prev&&prev.id==='mushafFull'){lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
+  if(prev&&prev.id==='mushafFull'){clearTimeout(_mushafScrollT);lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   /* مكدّس التنقّل لزر الرجوع النظامي: سجّل الشاشة المغادَرة (بلا تكرار
      متتالٍ)؛ الانتقال إلى home يمسح المكدّس (الجذر) */
   if(prev&&prev.id&&prev.id!==id){
@@ -6018,7 +6025,7 @@ function swEndSession(src){
   if(SW.mode==='sensor')swsStop();else swcStop();
   try{rakWakeLock(false);}catch(e){}
   var scr=document.getElementById('salahw');if(scr)scr.classList.remove('sw-dimmed');
-  swEvid('انتهت الجلسة ('+(src==='auto'?'سكون ٩٠ث':src==='user'?'زر الإنهاء':src==='hidden'?'مغادرة التطبيق':'رجوع')+')');
+  swEvid('انتهت الجلسة ('+(src==='auto'?'سكون':src==='user'?'زر الإنهاء':src==='hidden'?'مغادرة التطبيق':'رجوع')+')');
   swSaveStats();
   swRenderSummary();
   swShowPane('summary');
@@ -6100,12 +6107,13 @@ document.addEventListener('visibilitychange',function(){
 
 /* ═══ الوضع الأول: محرّك حسّاس القرب (مستقل تماماً — لا كاميرا ولا صوت) ═══
    حتمي: سجدة = near مستمر ≥700ms ثم far. ركعة = سجدتان بينهما فاصل far
-   قصير (2–20ث). النهاية: 90ث سكون بعد آخر نشاط أو زر الإنهاء. */
-var SWS={on:false,near:false,nearT0:0,pendSuj:false,pendT:0,sujDur:[],idleT:null,orphT:null};
-var SWS_MIN_SUJ=700,SWS_GAP_MIN=2000,SWS_GAP_MAX=20000,SWS_IDLE_MS=90000,SWS_ORPHAN_MS=30000;
+   قصير (0.8–20ث). النهاية: 90ث سكون بعد اكتمال الركعات المتوقعة (أو 10د
+   قبل اكتمالها — القيام والقراءة لا يحرّكان الحسّاس) أو زر الإنهاء. */
+var SWS={on:false,near:false,nearT0:0,pendSuj:false,pendT:0,sujDur:[],idleT:null,orphT:null,lastAct:0,lastSujEnd:0};
+var SWS_MIN_SUJ=700,SWS_GAP_MIN=800,SWS_GAP_MAX=20000,SWS_IDLE_MS=90000,SWS_IDLE_PRE_MS=600000,SWS_ORPHAN_MS=30000;
 
 function swsStart(){
-  SWS.on=true;SWS.near=false;SWS.nearT0=0;SWS.pendSuj=false;SWS.pendT=0;SWS.sujDur=[];
+  SWS.on=true;SWS.near=false;SWS.nearT0=0;SWS.pendSuj=false;SWS.pendT=0;SWS.sujDur=[];SWS.lastSujEnd=0;
   var P=window.Capacitor&&window.Capacitor.Plugins,PX=P&&P.ProximitySensor;
   if(!PX){swInd('حسّاس القرب غير متاح في هذه البيئة',false);swEvid('✗ لا حسّاس قرب (بيئة ويب؟)');return;}
   try{PX.removeAllListeners&&PX.removeAllListeners();}catch(e){}
@@ -6135,6 +6143,13 @@ function _swsOnProx(ev){
   }
 }
 function _swsSujood(t0,t1,dur){
+  /* ارتداد الحسّاس بعد سجدة مكتملة العدّ: امتداد لها لا زوج جديد */
+  if(!SWS.pendSuj&&SWS.lastSujEnd&&t0-SWS.lastSujEnd<SWS_GAP_MIN){
+    swEvid('ارتداد بعد السجدة (فاصل '+((t0-SWS.lastSujEnd)/1000).toFixed(1)+'ث) — امتداد لنفس السجدة');
+    SWS.lastSujEnd=t1;
+    return;
+  }
+  SWS.lastSujEnd=t1;
   SWS.sujDur.push({dur:dur});
   swEvid('سجدة مرصودة — '+(dur/1000).toFixed(1)+'ث');
   if(SWS.orphT){clearTimeout(SWS.orphT);SWS.orphT=null;}
@@ -6148,8 +6163,9 @@ function _swsSujood(t0,t1,dur){
     if(gap<SWS_GAP_MIN){
       /* ارتداد الحسّاس خلال السجدة نفسها: امتداد، لا سجدة جديدة */
       SWS.sujDur.pop();
-      swEvid('فاصل أقصر من ٢ث ('+(gap/1000).toFixed(1)+'ث) — امتداد لنفس السجدة');
+      swEvid('فاصل قصير جداً ('+(gap/1000).toFixed(1)+'ث) — امتداد لنفس السجدة');
       SWS.pendT=t1;
+      _swsArmOrphan();
       return;
     }
     /* فاصل أطول من ٢٠ث: الأولى يتيمة — تبقى في السجل، وهذه تبدأ زوجاً جديداً */
@@ -6171,12 +6187,18 @@ function _swsArmOrphan(){
 }
 function _swsArmIdle(){
   if(SWS.idleT)clearTimeout(SWS.idleT);
-  SWS.idleT=setTimeout(function(){
-    SWS.idleT=null;
-    if(!SWS.on)return;
-    swEvid('سكون ٩٠ث — إنهاء تلقائي');
-    swEndSession('auto');
-  },SWS_IDLE_MS);
+  SWS.lastAct=Date.now();
+  SWS.idleT=setTimeout(_swsIdleCheck,SWS_IDLE_MS);
+}
+/* الحدّ يُختار عند الانتهاء لا عند التسليح: آخر far يسبق زيادة SW.count */
+function _swsIdleCheck(){
+  SWS.idleT=null;
+  if(!SWS.on)return;
+  var lim=(SW.count>=SW.expected)?SWS_IDLE_MS:SWS_IDLE_PRE_MS;
+  var left=lim-(Date.now()-SWS.lastAct);
+  if(left>0){SWS.idleT=setTimeout(_swsIdleCheck,left);return;}
+  swEvid('سكون '+(lim>=60000&&lim%60000===0?ar(lim/60000)+'د':ar(Math.round(lim/1000))+'ث')+' — إنهاء تلقائي');
+  swEndSession('auto');
 }
 function swsStop(){
   SWS.on=false;
@@ -6358,7 +6380,8 @@ function _swcOnStable(p,now){
   SWC.arkan.push({k:p,t0:now,dur:0});
   swEvid(_swcAr(p)+' مؤكّد (ثبات ٠٫٨ث)');
   swInd('الوضعية: '+_swcAr(p),p==='sujud');
-  if(p==='qiyam'&&SWC.cyc.length)_swcCloseCycle();
+  /* الاعتدال من الركوع يُصنَّف «قياماً» أيضاً — الدورة تُغلق فقط بقيامٍ بعد السجود */
+  if(p==='qiyam'&&SWC.cyc.indexOf('sujud')>=0)_swcCloseCycle();
   SWC.cyc.push(p);
 }
 /* إغلاق دورة (عند قيام جديد أو نهاية الجلسة): تقييم حتمي لما شوهد فقط */
@@ -6824,6 +6847,11 @@ var JUZ_START_PAGE=[1,22,42,62,82,102,121,142,162,182,201,222,242,262,282,302,32
 function _surahForPage(p){for(var i=SURAH_START_PAGE.length-1;i>=0;i--)if(SURAH_START_PAGE[i]<=p)return i+1;return 1;}
 function _juzForPage(p){for(var i=JUZ_START_PAGE.length-1;i>=0;i--)if(JUZ_START_PAGE[i]<=p)return i+1;return 1;}
 function _daysSince(ds){return Math.max(0,Math.round((new Date().setHours(0,0,0,0)-new Date(ds).setHours(0,0,0,0))/86400000));}
+/* base = الصفحات المقروءة قبل اليوم؛ done = ما سُجِّل اليوم (td/tp) */
+function _khatmahToday(data){
+  var pr=data.pagesRead||0,tp=(data.td===todayKey())?Math.max(0,Math.min(pr,data.tp||0)):0;
+  return {base:pr-tp,done:tp};
+}
 function _khatmahCheckComplete(data){
   /* «نصف الطريق»: بلوغ صفحة ٣٠٢ */
   if((data.pagesRead||0)>=302)try{checkBadge('khatmah_half');}catch(e){}
@@ -6852,13 +6880,15 @@ function loadKhatmah(){
     return;
   }
   var pagesRead=data.pagesRead||0;
-  var pagesDay=Math.ceil(604/data.days);
   var dayIdx=_daysSince(data.startDate);
-  var rangeStart=Math.min(604,dayIdx*pagesDay+1);
-  var rangeEnd=Math.min(604,(dayIdx+1)*pagesDay);
-  var todayBase=dayIdx*pagesDay;
-  var todayDone=Math.max(0,Math.min(rangeEnd-rangeStart+1,pagesRead-todayBase));
+  /* ورد اليوم يبدأ بعد آخر صفحة قُرئت فعلاً (لا بعد عدد الأيام المنقضية):
+     الأيام الفائتة لا تُحتسَب مقروءة، ويُوزَّع الباقي على الأيام المتبقية */
+  var _kt=_khatmahToday(data),todayBase=_kt.base,todayDone=_kt.done;
+  var pagesDay=Math.max(1,Math.ceil((604-todayBase)/Math.max(1,data.days-dayIdx)));
+  var rangeStart=Math.min(604,todayBase+1);
+  var rangeEnd=Math.min(604,todayBase+pagesDay);
   var todayGoal=rangeEnd-rangeStart+1;
+  todayDone=Math.min(todayGoal,todayDone);
   var todayPct=Math.min(100,Math.round(todayDone/todayGoal*100));
   var overallPct=Math.min(100,Math.round(pagesRead/604*100));
   var juzS=_juzForPage(rangeStart),juzE=_juzForPage(rangeEnd);
@@ -6936,10 +6966,9 @@ function khatmahSaveToday(){
   if(!data)return;
   /* هجرة الصيغة القديمة (months بلا days) — كما في loadKhatmah */
   if(data.months&&!data.days){data.days=data.months*30;}
-  var pagesDay=Math.ceil(604/(data.days||30));
-  var dayIdx=_daysSince(data.startDate);
-  var newPagesRead=Math.min(604,dayIdx*pagesDay+todayPages);
-  if(newPagesRead>(data.pagesRead||0))data.pagesRead=newPagesRead;
+  var base=_khatmahToday(data).base;
+  data.pagesRead=Math.min(604,base+todayPages);
+  data.td=todayKey();data.tp=data.pagesRead-base;
   _khatmahCheckComplete(data);
   lsSet('khatmah_data',JSON.stringify(data));
   lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
@@ -7647,7 +7676,7 @@ function openWeeklySheet(){
   var sheet=document.getElementById('weeklySheet');var bk=document.getElementById('weeklyBk');
   if(!sheet)return;
   var body=document.getElementById('weeklyBody');
-  var prayers=0;for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.toDateString();var s=lsGet('daily_'+ds);if(s){try{var o=JSON.parse(s);['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(p){if(o['prayer_'+p])prayers++;});}catch(e){}}}
+  var prayers=0;for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();var s=lsGet('daily_'+ds);if(s){try{var o=JSON.parse(s);['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(p){if(o['prayer_'+p])prayers++;});}catch(e){}}}
   var mornCount=+(lsGet('morn_streak')||0);var eveCount=+(lsGet('eve_streak')||0);
   var tasCount=+(lsGet('tasbih_total')||0);
   var pageCount=0;try{var kd=lsGet('khatmah_data');if(kd){var kp=JSON.parse(kd);pageCount=kp.pagesRead||0;}}catch(e){}
