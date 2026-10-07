@@ -61,12 +61,13 @@
     --text:#1C2620; --muted:#5C7268;
     --mosque:#E6E2D5; --win:rgba(138,106,31,.9);
     --gold2:#6E5416; --green2:#116256;
+    --on-gold:#fff; /* الذهبي الداكن في الفاتح: أبيض (٥:١+) بدل الأسود (≈٣:١) */
   }
   [data-theme="light"] body{background:radial-gradient(ellipse 120% 55% at 50% -8%,#E4EFE7,var(--bg) 65%),var(--bg);}
   [data-theme="light"] .hero::after{background:linear-gradient(to bottom,transparent,var(--bg));}
   /* ═══ Light mode: global components ═══ */
   [data-theme="light"] .bnav{background:rgba(242,238,230,.97);border-top:1px solid rgba(0,0,0,.07);}
-  [data-theme="light"] .bnav-tab{color:#7a9088;}
+  [data-theme="light"] .bnav-tab{color:var(--muted);}
   [data-theme="light"] .bnav-tab.on{color:#157A6E;}
   [data-theme="light"] .bnav-tab.on svg{filter:drop-shadow(0 0 5px rgba(21,122,110,.3));}
   [data-theme="light"] .bnav-tab.on::after{background:#157A6E;}
@@ -123,10 +124,14 @@
   [data-theme="light"] .auth-google-btn{background:var(--white);border-color:rgba(0,0,0,.14);}
 
   [data-theme="light"] .khatmah-stat,.khatmah-wird,.khatmah-today{background:rgba(255,255,255,.7)!important;}
-  [data-theme="light"] .ov{background:linear-gradient(180deg,rgba(8,48,36,.88),rgba(5,38,30,.97)),var(--photo);}
+  [data-theme="light"] .ov{background:linear-gradient(180deg,rgba(8,48,36,.88),rgba(5,38,30,.97)),var(--photo);
+    --text:#ECF4EF;--muted:#8FB2A5;--nur:#E8C55F;--gold:#E8C55F;--gold2:#C7A346;--on-gold:#1a1300;--glass:rgba(255,255,255,.06);--glass-border:rgba(255,255,255,.14);--card:rgba(255,255,255,.06);--card2:rgba(255,255,255,.10);--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.14);--accent2:#3FB9A4;--green:#3FB9A4;}
+  /* داخل التراكبات الداكنة: أعِد درجات الوضع الداكن */
+  [data-theme="light"] .ov .cats button{background:var(--card);border-color:var(--line);}
 
   [data-theme="light"] .ramadan-banner{background:linear-gradient(135deg,rgba(138,106,31,.14),rgba(21,122,110,.1));border-color:rgba(138,106,31,.3);}
   [data-theme="light"] .daily-card{background:rgba(255,255,255,.6);}
+  [data-theme="light"] #mushafJump option{background:var(--bg);}
   [data-theme="light"] .daily-card.done{background:rgba(46,170,130,.08);}
   [data-theme="light"] .pt-dot .pd-icon{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.1);}
   [data-theme="light"] .cs-diag{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.08);}
@@ -352,7 +357,7 @@
   .sect-add-btn{display:block;width:100%;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.15);color:var(--muted);font:inherit;font-size:var(--fs-md);padding:13px;border-radius:var(--r-sm);cursor:pointer;margin:10px 0 4px;text-align:center;}
   .sect-add-btn:active{background:rgba(255,255,255,.08);}
   #customModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-end;}
-  #customModal .cm-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;box-sizing:border-box;}
+  #customModal .cm-sheet{background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;box-sizing:border-box;}
   #customModal h3{margin:0 0 18px;text-align:center;color:var(--text);}
   #customModal label{display:block;color:var(--muted);font-size:var(--fs-sm);margin-bottom:4px;}
   #customModal input{width:100%;box-sizing:border-box;background:var(--card2,rgba(255,255,255,.07));border:1px solid var(--line);color:var(--text);font:inherit;font-size:var(--fs-lg);padding:12px 14px;border-radius:var(--r-sm);margin-bottom:12px;outline:none;}
@@ -834,7 +839,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .sheet .grab{width:42px;height:5px;background:rgba(255,255,255,.25);border-radius:3px;margin:4px auto 14px;}
 .sheet h4{margin:0 0 14px;color:var(--gold);font-size:var(--fs-lg);text-align:center;font-weight:700;}
 .sheet .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.sheet .acts button{background:var(--card);border:none;color:var(--white);border-radius:var(--r-md);padding:14px 4px;font-size:var(--fs-sm);display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;font-family:inherit;}
+.sheet .acts button{background:var(--card);border:none;color:var(--text);border-radius:var(--r-md);padding:14px 4px;font-size:var(--fs-sm);display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;font-family:inherit;}
 .sheet .acts button svg{width:24px;height:24px;}
 .sheet .acts button.act-on{background:rgba(232,197,95,.22);color:var(--gold);}
 .tafbox{max-height:42vh;overflow:auto;margin-top:14px;background:var(--card);border-radius:var(--r-md);padding:14px;line-height:2;font-size:var(--fs-lg);display:none;}
@@ -844,13 +849,17 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .toast.t-success{background:rgba(10,46,34,.96);border-color:rgba(63,185,164,.4);color:var(--green);}
 .toast.t-error{background:rgba(46,10,10,.96);border-color:rgba(224,112,95,.4);color:var(--red);}
 .toast.t-warning{background:rgba(46,36,6,.96);border-color:rgba(232,197,95,.4);color:var(--gold);}
+/* خلفيات التنبيه داكنة دائماً — ألوان النص ثابتة بدرجات الوضع الداكن */
+[data-theme="light"] .toast.t-success{color:#3FB9A4;}
+[data-theme="light"] .toast.t-error{color:#E0705F;}
+[data-theme="light"] .toast.t-warning{color:#E8C55F;}
 #offlineBadge{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:50%;transform:translateX(-50%) translateY(-50px);background:rgba(46,36,6,.96);color:var(--gold);border:1px solid rgba(232,197,95,.35);border-radius:var(--r-lg);padding:5px 16px;font-size:var(--fs-sm);z-index:400;transition:transform .35s cubic-bezier(.22,.8,.36,1);pointer-events:none;backdrop-filter:blur(8px);white-space:nowrap;}
 #offlineBadge.show{transform:translateX(-50%) translateY(0);}
 #pwaInstallBar{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 14px);left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg,#1a4a3a,#0d2e26);border:1px solid rgba(232,197,95,.35);border-radius:50px;padding:10px 22px;display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);color:var(--gold);cursor:pointer;z-index:360;transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .4s;opacity:0;white-space:nowrap;box-shadow:var(--sh);}
 #pwaInstallBar.show{transform:translateX(-50%) translateY(0);opacity:1;}
 #pwaInstallBar svg{width:18px;height:18px;flex-shrink:0;}
 #pwaInstallBar .pwa-close{background:none;border:none;color:var(--muted);font-size:var(--fs-lg);cursor:pointer;padding:0 0 0 6px;line-height:1;}
-.tr{font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:var(--fs-md);line-height:1.7;color:#cfe5df;direction:ltr;text-align:left;opacity:.92;}
+.tr{font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:var(--fs-md);line-height:1.7;color:var(--muted);direction:ltr;text-align:left;opacity:.92;}
 .ayblk{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;border-radius:var(--r-xs);content-visibility:auto;contain-intrinsic-size:auto 140px;}
 .ayblk.sel{background:rgba(232,197,95,.16);}
 .votd{background:linear-gradient(160deg,rgba(232,197,95,.16),rgba(63,185,164,.07));border:1px solid rgba(232,197,95,.28);border-radius:var(--r-lg);padding:24px 18px;margin:6px 4px 20px;cursor:pointer;text-align:center;}
@@ -872,7 +881,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .mtext{font-family:"Uthmani",serif;font-size:var(--qfont);line-height:2.6;text-align:justify;text-align-last:center;color:#15201d;direction:rtl;}
 .mnum{display:inline-block;min-width:23px;height:23px;line-height:23px;text-align:center;border-radius:50%;border:1px solid #b9912f;color:#7a5a16;font-size:var(--fs-sm);margin:0 5px;font-family:system-ui,sans-serif;background:#f1e6c8;}
 .mnav{display:flex;gap:10px;margin-top:14px;}
-.mnav button{flex:1;background:var(--card);border:none;color:var(--white);border-radius:var(--r-md);padding:14px;font-size:var(--fs-md);cursor:pointer;font-family:inherit;}
+.mnav button{flex:1;background:var(--card);border:none;color:var(--text);border-radius:var(--r-md);padding:14px;font-size:var(--fs-md);cursor:pointer;font-family:inherit;}
 .qr-nav-row{display:flex;gap:8px;margin-bottom:16px;}
 .qr-nav-row .btn{flex:1;margin:0;padding:11px 6px;font-size:var(--fs-md);}
 .qr-nav-row .btn.qr-on-g{background:rgba(232,197,95,.2);color:var(--gold);box-shadow:none;border:1px solid rgba(232,197,95,.4);}
@@ -945,7 +954,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .sv-title{font-size:var(--fs-xl);font-weight:700;color:var(--gold);margin:0 0 10px;}
 .sv-desc{font-size:var(--fs-sm);color:var(--muted);margin:0 0 14px;line-height:1.65;}
 .sv-list{text-align:right;margin:0 0 18px;padding:0;list-style:none;}
-.sv-list li{font-size:var(--fs-sm);color:var(--fg);padding:3px 0 3px 4px;display:flex;align-items:center;gap:6px;}
+.sv-list li{font-size:var(--fs-sm);color:var(--text);padding:3px 0 3px 4px;display:flex;align-items:center;gap:6px;}
 .sv-list li::before{content:'↓';color:var(--gold);font-size:var(--fs-xs);flex-shrink:0;}
 .sv-size{font-size:var(--fs-xs);color:var(--muted);margin-right:auto;}
 .sv-track{height:7px;background:rgba(255,255,255,.09);border-radius:4px;overflow:hidden;margin:14px 0 6px;}
@@ -1120,7 +1129,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <div class="pad">
       <div class="cats" style="margin-bottom:12px"><button id="tabQ" class="on" onclick="searchTab('q')">القرآن</button><button id="tabH" onclick="searchTab('h')">الحديث</button></div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input id="searchInput" type="search" placeholder="اكتب كلمة أو جملة…" style="flex:1;background:var(--card);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:14px;padding:13px 16px;font-size:16px;font-family:inherit;outline:none">
+        <input id="searchInput" type="search" placeholder="اكتب كلمة أو جملة…" style="flex:1;background:var(--card);border:1px solid var(--line2);color:var(--text);border-radius:14px;padding:13px 16px;font-size:16px;font-family:inherit;outline:none">
         <button class="btn" style="margin:0;flex:0 0 auto;padding:0 20px" onclick="doSearch()">ابحث</button>
       </div>
       <div id="searchRes"></div>
@@ -1130,7 +1139,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 
   <div id="mushafFull" class="screen">
     <div class="top" style="background:var(--bg2)"><button class="back" aria-label="رجوع" onclick="go('home')">→</button><h2 style="flex:1">المصحف كامل<span id="mushafSurahInd" style="display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:1px;min-height:14px"></span></h2>
-      <select id="mushafJump" onchange="jumpMushaf(this.value)" style="margin-inline-start:auto;background:var(--card);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:14px"></select>
+      <select id="mushafJump" onchange="jumpMushaf(this.value)" style="margin-inline-start:auto;background:var(--card);color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:14px"></select>
     </div>
     <div class="pad" id="mushafFullBody" style="padding-top:10px"></div>
   </div>
@@ -1648,7 +1657,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <b>استخدام التطبيق</b>
     «المجدّد» تطبيق للمساعدة على أداء الصلاة (مواقيت، قبلة، أذكار، مصحف). المحتوى الديني للاسترشاد، ويُرجى التحقق من المصادر المعتمدة عند الحاجة.
     <b>الخصوصية والبيانات</b>
-    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم خدمة التعرّف على الكلام في الجهاز (Google على أندرويد، Apple على iOS) — قد يُرسَل صوتك إليها للمعالجة ولا يُخزَّن لدينا. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
+    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّكَي تعرّف على الكلام يعملان على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
     قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
     <b>الاشتراك</b>
@@ -4395,6 +4404,14 @@ function computeTimes(date,lat,lng,tz){
       dhuhr=midDay(jd,12/24),asr=asrTime(jd,13/24,factor,lat),
       sunset=sunAngleTime(jd,18/24,0.833,lat,false),
       isha=_ishaMin>0?sunset+_ishaMin/60:sunAngleTime(jd,18/24,meth.isha,lat,false);
+  /* خطوط العرض العالية (Angle-Based): حين لا تبلغ الشمس زاوية الفجر/العشاء
+     (صيف أوروبا الشمالية) يُحدّ الوقت بجزء من الليل = الزاوية/٦٠. لا يتفعّل
+     في العروض المعتادة لأن الفارق الفعلي أصغر بكثير من هذا الحدّ */
+  var _night=fixhour(sunrise-sunset),_hl=function(t,base,ang,ccw){
+    var por=ang/60*_night,d=ccw?fixhour(base-t):fixhour(t-base);
+    return (isNaN(t)||d>por)?base+(ccw?-por:por):t;};
+  fajr=_hl(fajr,sunrise,meth.fajr,true);
+  if(!(_ishaMin>0))isha=_hl(isha,sunset,meth.isha,false);
   var adj=tz-lng/15;function c(h){return fixhour(h+adj);}
   return {Fajr:c(fajr),Sunrise:c(sunrise),Dhuhr:c(dhuhr),Asr:c(asr),Maghrib:c(sunset),Isha:c(isha)};
 }
@@ -4519,8 +4536,9 @@ function buildTimes(lat,lng){
   if(!lsGet('calc_method')){try{lsSet('calc_method',_regionalDefaultMethod(+lat,+lng));}catch(e){}}
   var tz,t,timings;
   try{
-    tz=-new Date().getTimezoneOffset()/60;
-    t=computeTimes(new Date(),+lat,+lng,tz);
+    var _n=new Date(),_noon=new Date(_n.getFullYear(),_n.getMonth(),_n.getDate(),12);
+    tz=-_noon.getTimezoneOffset()/60;
+    t=computeTimes(_noon,+lat,+lng,tz);
     var ofs=(+(lsGet('time_offset')||0))/60;
     if(ofs!==0){['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(function(k){t[k]=fixhour(t[k]+ofs);});}
     var sunset=t.Maghrib,nextFajr=t.Fajr+24,night=nextFajr-sunset;
@@ -4536,7 +4554,16 @@ function buildTimes(lat,lng){
   try{renderTimesScreen();}catch(e){console.error('[times] renderTimesScreen:',e&&e.message||String(e));}
   try{startCountdown();}catch(e){}
   try{scheduleNoorPrayerAlerts();}catch(e){console.error('[adhan] scheduleNoorPrayerAlerts error:',e&&e.message||String(e),e&&e.stack);}
+  PT._day=todayKey();
 }
+/* تجديد المواقيت عند تغيّر اليوم (بقاء التطبيق مفتوحاً بعد منتصف الليل أو
+   العودة إليه في يوم لاحق) — وإلا تبقى مواقيت الأمس ويُعاد جدولة أذانها */
+function _ptDayCheck(){
+  if(!PT.data||PT._day===todayKey())return;
+  var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}
+}
+setInterval(_ptDayCheck,60000);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')_ptDayCheck();});
 function renderHome(){
   if(!PT.data)return;var t=PT.data.timings;
   document.getElementById('dateBar').textContent=gregStr()+' — '+hijriStr();
@@ -4719,12 +4746,12 @@ function scheduleNoorPrayerAlerts(){
   var coords=lsGet('coords');
   if(coords){try{
     var _co=JSON.parse(coords);
-    var _tz=-now.getTimezoneOffset()/60;
     var _ofs=(+(lsGet('time_offset')||0))/60;
     for(var _nd=1;_nd<=6;_nd++){
       var _dayMap={};
-      var _dd=new Date(+now+_nd*86400000);
-      var _rt=computeTimes(_dd,_co.lat,_co.lng,_tz);
+      /* يوم تقويمي عند الظهر + إزاحة ذلك اليوم (تغيّر التوقيت الصيفي) */
+      var _dd=new Date(now.getFullYear(),now.getMonth(),now.getDate()+_nd,12,0,0,0);
+      var _rt=computeTimes(_dd,_co.lat,_co.lng,-_dd.getTimezoneOffset()/60);
       ADHAN_NOTIF_KEYS.forEach(function(k){
         if(!notifPrefs[k])return;
         var _hv=_ofs!==0?fixhour(_rt[k]+_ofs):_rt[k];
@@ -5201,7 +5228,7 @@ function searchQuran(q){var res=document.getElementById('searchRes');if(!QFLAT){
 function goAyah(s,a){go('quran');openSurah(s,nameFor(s));setTimeout(function(){var els=document.querySelectorAll('.ayblk');if(!els.length)els=document.querySelectorAll('.ayat .a');var el=els[a-1];if(el){el.classList.add('sel');try{el.scrollIntoView({block:'center'});}catch(e){}}},300);}
 function searchHadith(q){
   /* لا حجب على navigator.onLine (كاذب في WebView) — جرّب فعلياً؛
-     للطلب مهلة 8ث + fallback JSONP يعرضان الفشل الحقيقي إن وقع */
+     للطلب مهلة 8ث + بديل CapacitorHttp أصلي يعرضان الفشل الحقيقي إن وقع */
   var res=document.getElementById('searchRes');
   res.innerHTML='<div class="loading">جارٍ البحث في موسوعة الدرر السنية…</div>';
   function _renderHadith(data){
@@ -5221,24 +5248,25 @@ function searchHadith(q){
       res.innerHTML=html;
     }catch(e){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر عرض النتائج</div>';}
   }
-  function _jsonpFallback(){
-    var cb='dcb'+Date.now(),done=false;
-    var sc=document.createElement('script');
-    window[cb]=function(data){
-      done=true;_renderHadith(data);
-      try{delete window[cb];}catch(e){}if(sc.parentNode)sc.parentNode.removeChild(sc);
-    };
-    sc.src='https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q)+'&callback='+cb;
-    sc.onerror=function(){if(!done)res.innerHTML='<div class="muted" style="text-align:center;padding:24px">تعذّر الاتصال — تأكد من الإنترنت</div>';};
-    document.body.appendChild(sc);
-    setTimeout(function(){if(!done){done=true;res.innerHTML='<div class="muted" style="text-align:center;padding:24px">انتهت المهلة — حاول مرة ثانية</div>';try{delete window[cb];}catch(e){}if(sc.parentNode)sc.parentNode.removeChild(sc);}},13000);
+  /* بديل fetch: طلب أصلي عبر CapacitorHttp (لا CORS، ولا تنفيذ لسكربت
+     خارجي داخل الـWebView كما كان JSONP — الذي يملك وصولاً لجسر Capacitor) */
+  function _nativeFallback(){
+    var _fail=function(m){res.innerHTML='<div class="muted" style="text-align:center;padding:24px">'+m+'</div>';};
+    var CH=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.CapacitorHttp;
+    if(!CH||!CH.get){_fail('تعذّر الاتصال — تأكد من الإنترنت');return;}
+    CH.get({url:'https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q),connectTimeout:8000,readTimeout:10000})
+      .then(function(r){
+        var d=r&&r.data;if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=null;}}
+        _renderHadith(d);
+      })
+      .catch(function(){_fail('تعذّر الاتصال — تأكد من الإنترنت');});
   }
   var _fAC=new AbortController();
   var _fTO=setTimeout(function(){try{_fAC.abort();}catch(e){}},8000);
   fetch('https://dorar.net/dorar_api.json?skey='+encodeURIComponent(q),{signal:_fAC.signal})
     .then(function(r){clearTimeout(_fTO);return r.json();})
     .then(function(data){_renderHadith(data);})
-    .catch(function(){clearTimeout(_fTO);_jsonpFallback();});
+    .catch(function(){clearTimeout(_fTO);_nativeFallback();});
 }
 function qpIcon(p){document.getElementById('qpPlay').innerHTML=p?PAUSE_SVG:PLAY_SVG;}
 function playSurah(n,name){qpN=n;var a=document.getElementById('quranAudio');a.playbackRate=QP_SPEEDS[qpSpeedIdx];
@@ -5480,13 +5508,13 @@ function renderAdhkar(cat){
     var d=all[ri];if(!d)return;
     var left=prog[ri]===null||prog[ri]===undefined?d.r:prog[ri];
     var done=left===0;
-    var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+d.src+'</div>':'';
+    var srcHtml=d.src?'<div class="dh-src">'+(d.review?'⚠ بحاجة مراجعة · ':'')+_esc(d.src)+'</div>':'';
     var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_adhkarMove(\''+cat+'\','+pos+',1)">↓</button></span>';
     var chipHtml='<span class="dh-rchip">'+(done?'تم ✓':'×'+ar(d.r))+'</span>';
     var cntStyle=done?'background:rgba(63,185,164,.2);color:var(--green)':'';
     html+='<div class="dhcard'+(done?' dhcard-done':'')+'">' +
       '<div class="dh-head">'+chipHtml+'</div>' +
-      '<div class="txt">'+d.t+'</div>' +
+      '<div class="txt">'+_esc(d.t)+'</div>' +
       srcHtml +
       '<div class="foot">'+ordBtns+'<button class="cnt" data-left="'+left+'" style="'+cntStyle+'" onclick="dhCount(this,'+d.r+',\''+cat+'\','+ri+')">'+(done?'✓':ar(left))+'</button></div>' +
     '</div>';
@@ -5645,9 +5673,9 @@ function renderFadail(cat){
     var d=all[ri];if(!d)return;
     var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_fadailMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_fadailMove(\''+cat+'\','+pos+',1)">↓</button></span>';
     html+='<div class="dhcard">' +
-      '<div class="fad-title">'+d.t+'</div>' +
-      '<div class="txt" style="font-size:18px">'+d.x+'</div>' +
-      '<div class="dh-src">'+d.s+'</div>' +
+      '<div class="fad-title">'+_esc(d.t)+'</div>' +
+      '<div class="txt" style="font-size:18px">'+_esc(d.x)+'</div>' +
+      '<div class="dh-src">'+_esc(d.s)+'</div>' +
       '<div class="foot">'+ordBtns+'</div>' +
     '</div>';
   });
@@ -5784,8 +5812,8 @@ function renderAdiya(cat){
     var d=all[ri];if(!d)return;
     var ordBtns='<span class="ord-btns"><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',-1)">↑</button><button class="ord-btn" onclick="_adiyaMove(\''+cat+'\','+pos+',1)">↓</button></span>';
     html+='<div class="dhcard">' +
-      '<div class="txt" style="font-size:19px;line-height:2.2">'+d.x+'</div>' +
-      '<div class="dh-src">'+d.s+'</div>' +
+      '<div class="txt" style="font-size:19px;line-height:2.2">'+_esc(d.x)+'</div>' +
+      '<div class="dh-src">'+_esc(d.s)+'</div>' +
       '<div class="foot">'+ordBtns+'</div>' +
     '</div>';
   });
@@ -8154,7 +8182,7 @@ function applyLang(lang){
   var prev=LANG;
   LANG=lang;window.noorLang=lang;
   try{localStorage.setItem('noor_lang',lang);}catch(e){}
-  try{localStorage.setItem('settings_updatedAt',String(Date.now()));}catch(e){}
+  if(prev!==lang){try{localStorage.setItem('settings_updatedAt',String(Date.now()));}catch(e){}}
   /* اتجاه صحيح للغة — حيّاً بلا إعادة تشغيل */
   var rtl=(lang==='ar');
   document.documentElement.dir=rtl?'rtl':'ltr';
@@ -8436,16 +8464,23 @@ try{
       _fb._loginHandled=true;
       _fbOnLogin(user);
     }else if(!user){
-      _fb._loginHandled=false;
+      _fb._loginHandled=false;_fb.merged=false;
+      if(_fb._timer){clearTimeout(_fb._timer);_fb._timer=null;}
     }
   });
 
   // Hook lsSet to trigger debounced cloud write
   var _origLsSet=window.lsSet;
   if(typeof _origLsSet==='function'){
+    var _SET_KEYS={calc_method:1,calc_madhhab:1,adhanOn:1,adhanIdx:1,notifOn:1,notif_fajr:1,notif_dhuhr:1,notif_asr:1,notif_maghrib:1,notif_isha:1,reminder_on:1,reminder_time:1,time_offset:1};
     window.lsSet=function(k,v){
-      _origLsSet(k,v);
+      /* تغيير فعلي لإعداد متزامن (لا قيمة افتراضية أولى) يختم الإعدادات —
+         ليفوز الأحدث بين الأجهزة عند الدمج */
+      if(_SET_KEYS[k]){var _pv=null;try{_pv=localStorage.getItem(k);}catch(e){}
+        if(_pv!=null&&_pv!==''&&_pv!==String(v)){try{localStorage.setItem('settings_updatedAt',String(Date.now()));}catch(e){}}}
+      var _r=_origLsSet(k,v);
       _fbDebounce();
+      return _r;
     };
   }
 }catch(e){
@@ -8606,6 +8641,8 @@ window._execDeleteAccount=function(){
 
 window.fbForceSync=function(){
   if(!_fb.user){if(typeof toast==='function') toast('سجّل الدخول أولاً','info');return;}
+  /* لم يكتمل الدمج بعد: اسحب ← ادمج ← ارفع */
+  if(!_fb.merged){_fbOnLogin(_fb.user);return;}
   _fbWriteAll(true);
 };
 
@@ -8775,7 +8812,7 @@ function _fbReadLocal(){
       reminder_on:ls.getItem('reminder_on')||null,
       reminder_time:ls.getItem('reminder_time')||null,
       time_offset:ls.getItem('time_offset')||null,
-      updatedAt:now
+      updatedAt:parseInt(ls.getItem('settings_updatedAt'))||0
     },
     progress:{
       badges_earned:ls.getItem('badges_earned')||null,
@@ -8790,7 +8827,9 @@ function _fbReadLocal(){
    Write to Firebase
 ════════════════════════════════════════════════ */
 function _fbWriteAll(force){
-  if(!_fb.user||!_fb.db) return;
+  /* لا كتابة قبل اكتمال الدمج الأول — وإلا تكتب حالة محلية ناقصة/فارغة
+     فوق النسخة السحابية كاملة (update يستبدل كل قسم) */
+  if(!_fb.user||!_fb.db||!_fb.merged) return;
   _fbSetSync('جارٍ المزامنة…','');
   var data=_fbReadLocal();
   _fb.db.ref('users/'+_fb.user.uid).update(data)
@@ -8814,10 +8853,13 @@ function _fbDebounce(){
 ════════════════════════════════════════════════ */
 function _fbOnLogin(user){
   if(!_fb.db) return;
+  _fb.merged=false;
   _fbSetSync('جارٍ جلب بياناتك…','');
   _fb.db.ref('users/'+user.uid).get()
     .then(function(snap){
+      if(!_fb.user||_fb.user.uid!==user.uid)return;
       var remote=snap.val();
+      _fb.merged=true;
       if(remote){
         _fbMerge(remote);
         /* اكتب النتيجة المدموجة فوراً — لا تنتظر أول lsSet الذي قد يكتب
@@ -8832,6 +8874,12 @@ function _fbOnLogin(user){
     .catch(function(e){
       _fbSetSync('غير متصل — ستتم المزامنة لاحقاً','err');
       console.warn('[NoorFB] login read:',e.message);
+      /* أعد المحاولة مرة عند عودة الاتصال (الكتابة تبقى محجوبة حتى الدمج) */
+      try{
+        var _cr=_fb.db.ref('.info/connected');
+        var _h=function(sn){if(sn.val()===true&&_fb.user&&_fb.user.uid===user.uid&&!_fb.merged){_cr.off('value',_h);_fbOnLogin(user);}};
+        _cr.on('value',_h);
+      }catch(_e){}
     });
 }
 
@@ -8987,18 +9035,18 @@ function _fbMerge(r){
 </script>
 
 <div id="exitAppConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
-    <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(15,118,110,.12);border:1px solid rgba(15,118,110,.2);margin:0 auto 14px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" width="26" height="26"><path d="M18.36 6.64A9 9 0 1 1 5.64 5.64"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
+  <div style="background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(15,118,110,.12);border:1px solid rgba(15,118,110,.2);margin:0 auto 14px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" width="26" height="26"><path d="M18.36 6.64A9 9 0 1 1 5.64 5.64"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
     <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px">إغلاق التطبيق</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">هل تريد إغلاق التطبيق؟</div>
     <div style="display:flex;gap:10px">
-      <button onclick="_execExitApp()" style="flex:1;background:rgba(15,118,110,.15);color:var(--teal);border:1px solid rgba(15,118,110,.3);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">نعم، أغلق</button>
+      <button onclick="_execExitApp()" style="flex:1;background:rgba(15,118,110,.15);color:var(--accent2);border:1px solid rgba(15,118,110,.3);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">نعم، أغلق</button>
       <button onclick="_cancelExitApp()" style="flex:1;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:600 14px/1 inherit;cursor:pointer">إلغاء</button>
     </div>
   </div>
 </div>
 <div id="signoutConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+  <div style="background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
     <div style="font-size:36px;margin-bottom:10px">🚪</div>
     <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px">تسجيل الخروج</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">هل أنت متأكد من تسجيل الخروج؟ يمكنك الدخول مجدّداً في أي وقت.</div>
@@ -9010,7 +9058,7 @@ function _fbMerge(r){
 </div>
 
 <div id="deleteAccountConfirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--card);border:1px solid rgba(248,119,119,.45);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+  <div style="background:var(--bg2);border:1px solid rgba(248,119,119,.45);border-radius:22px;padding:28px 22px;max-width:300px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)">
     <div style="font-size:36px;margin-bottom:10px">🗑</div>
     <div style="font-size:17px;font-weight:700;color:#f87777;margin-bottom:10px">حذف الحساب نهائياً</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.75">سيُحذف حسابك وجميع بياناتك المحفوظة (التقدم، الإنجازات، الإعدادات) من خوادم Firebase نهائياً.<br><br><b style="color:#f87777">هذا الإجراء لا يمكن التراجع عنه.</b></div>
