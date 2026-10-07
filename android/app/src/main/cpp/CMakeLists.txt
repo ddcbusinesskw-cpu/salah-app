@@ -29,3 +29,5 @@ FetchContent_MakeAvailable(whisper)
 
 add_library(whisper_jni SHARED whisper_jni.c)
 target_link_libraries(whisper_jni whisper log)
+# Android 15+/Play: محاذاة صفحات 16KB (NDK r26 يبني على 4KB افتراضياً)
+target_link_options(whisper_jni PRIVATE "-Wl,-z,max-page-size=16384")

@@ -5,6 +5,8 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
     // محرّك Whisper الأصلي (whisper.cpp) عبر CMake/NDK — إصدار مثبَّت
     ndkVersion "26.1.10909125"
+    // AGP 8.2 لا يحاذي zip على 16KB للمكتبات غير المضغوطة — نضغطها بدل ترقية AGP
+    packaging { jniLibs { useLegacyPackaging true } }
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
