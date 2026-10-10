@@ -21,6 +21,7 @@
   .note { background:#fff; border:1px solid #e5e7eb; border-right:4px solid var(--gold);
     padding:12px 16px; border-radius:8px; margin:14px 0; }
   a { color:var(--teal); }
+  .back { display:inline-block; margin-bottom:14px; padding:6px 0; font-size:.95rem; text-decoration:none; }
   footer { margin-top:40px; padding-top:18px; border-top:1px solid #e5e7eb;
     color:var(--muted); font-size:.9rem; }
 </style>
@@ -28,8 +29,10 @@
 <body>
 <div class="wrap">
   <header>
+    <!-- رجوع ظاهر: إن فُتحت الصفحة داخل التطبيق نفسه لا يعيد زر الرجوع النظامي إليه -->
+    <a class="back" href="index.html" onclick="if(history.length>1){history.back();return false;}">→ رجوع للتطبيق</a>
     <h1>سياسة الخصوصية</h1>
-    <div class="sub">تطبيق «المجدّد — طريق الأتقياء» · DDC Business<br>آخر تحديث: يوليو 2026</div>
+    <div class="sub">تطبيق «المجدّد — طريق الأتقياء» · DDC Business<br>آخر تحديث: أكتوبر 2026</div>
   </header>
 
   <p>نحترم خصوصيتك ونلتزم بحماية بياناتك. توضّح هذه السياسة ما الذي يجمعه التطبيق من بيانات، وكيف تُستخدم، ومع من تُشارَك. باستخدامك التطبيق فإنك توافق على ما ورد هنا.</p>
@@ -63,12 +66,18 @@
   </ul>
 
   <h2>اتصالات الشبكة</h2>
-  <p>التطبيق يعمل دون إنترنت بعد التجهيز الأول. الاتصالات الوحيدة التي يجريها:</p>
+  <p>يعمل التطبيق دون إنترنت بعد التجهيز الأول، ويتصل بالمضيفات التالية فقط عند استخدام الميزة المعنية:</p>
   <ul>
     <li><strong>تنزيل نماذج التعرّف مرة واحدة:</strong> نموذج التدقيق (~43MB من HuggingFace)، نموذج الطبقة الفورية (~318MB من alphacephei.com)، ونموذج تحليل الوضعيات (~6MB من Google Storage) — عملية التنزيل تكشف عنوان IP لجهازك لهذه المضيفات كأي تنزيل ملف، ولا يُرسَل معها أي بيانات شخصية. بعد التنزيل تعمل الميزات كاملة دون اتصال.</li>
     <li><strong>بثّ التلاوة الصوتية:</strong> عند الاستماع لتلاوة القرآن يُبَثّ الصوت من خوادم mp3quran.net عند كل استماع.</li>
     <li><strong>بحث الحديث:</strong> نصّ البحث إلى dorar.net (كما ورد أعلاه).</li>
     <li><strong>المزامنة الاختيارية:</strong> بيانات تقدّمك إلى Firebase عبر HTTPS مشفَّر، فقط إذا سجّلت الدخول.</li>
+    <li><strong>نصوص الترجمة والتفسير (api.alquran.cloud):</strong> عند طلب ترجمة سورة أو تفسير آية (أو جلب نصّ سورة غير مخزَّن على الجهاز)، يُرسَل رقم السورة/الآية المطلوبة ونوع الترجمة فقط.</li>
+    <li><strong>تلاوة الآية المفردة (cdn.islamic.network):</strong> عند الاستماع لآية واحدة، يُطلب ملفها الصوتي برقم الآية فقط.</li>
+    <li><strong>أصوات الأذان (cdn.aladhan.com):</strong> تنزيل ملف صوت الأذان الذي تختاره — طلب الملف وعنوان IP فقط.</li>
+    <li><strong>مقاطع مرجعية للتسميع (everyayah.com، وhuggingface.co/datasets):</strong> مقاطع تلاوة معروفة وملف مرجعي لفحص محرّك التسميع ومعايرته — طلب الملف وعنوان IP فقط، ولا يُرسَل صوتك.</li>
+    <li><strong>مكتبات تعمل على الجهاز (cdn.jsdelivr.net، وesm.sh احتياطياً):</strong> تنزيل مكتبة MediaPipe لوضع الكاميرا ومكتبة transformers.js الاحتياطية للتسميع — طلب الملف وعنوان IP فقط.</li>
+    <li><strong>فحص الاتصال (ddcbusinesskw-cpu.github.io):</strong> طلب خفيف لملف manifest.json للتحقق من توفّر الإنترنت — طلب الملف وعنوان IP فقط.</li>
   </ul>
 
   <div class="note">لا نبيع بياناتك الشخصية لأي طرف، ولا نستخدمها لأغراض إعلانية، ولا نتتبّع سلوكك لأغراض تسويقية.</div>
@@ -90,6 +99,10 @@
     <li><strong>dorar.net:</strong> لنتائج بحث الحديث — <a href="https://dorar.net" target="_blank" rel="noopener">dorar.net</a></li>
     <li><strong>mp3quran.net:</strong> لبثّ التلاوة الصوتية عند طلبها.</li>
     <li><strong>مضيفو ملفات النماذج</strong> (HuggingFace، alphacephei، Google Storage): لتنزيل نماذج التعرّف مرة واحدة فقط — لا تُرسَل إليهم أي بيانات شخصية.</li>
+    <li><strong>api.alquran.cloud وcdn.islamic.network:</strong> لنصوص الترجمة والتفسير وتلاوة الآية المفردة عند طلبها.</li>
+    <li><strong>cdn.aladhan.com وeveryayah.com:</strong> لملفات أصوات الأذان ومقاطع التلاوة المرجعية.</li>
+    <li><strong>cdn.jsdelivr.net وesm.sh:</strong> لتنزيل مكتبات برمجية تعمل على جهازك (MediaPipe وtransformers.js).</li>
+    <li><strong>ddcbusinesskw-cpu.github.io:</strong> موقع التطبيق، لفحص توفّر الاتصال فقط.</li>
   </ul>
   <p>لا نشارك بياناتك مع أي جهة أخرى إلا إذا فرض القانون ذلك.</p>
 

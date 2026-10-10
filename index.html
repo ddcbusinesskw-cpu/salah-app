@@ -123,7 +123,7 @@
   [data-theme="light"] .auth-card{background:rgba(255,255,255,.75);border-color:rgba(0,0,0,.08);}
   [data-theme="light"] .auth-google-btn{background:var(--white);border-color:rgba(0,0,0,.14);}
 
-  [data-theme="light"] .khatmah-stat,.khatmah-wird,.khatmah-today{background:rgba(255,255,255,.7)!important;}
+  [data-theme="light"] .khatmah-stat,[data-theme="light"] .khatmah-wird,[data-theme="light"] .khatmah-today{background:rgba(255,255,255,.7)!important;}
   [data-theme="light"] .ov{background:linear-gradient(180deg,rgba(8,48,36,.88),rgba(5,38,30,.97)),var(--photo);
     --text:#ECF4EF;--muted:#8FB2A5;--nur:#E8C55F;--gold:#E8C55F;--gold2:#C7A346;--on-gold:#1a1300;--glass:rgba(255,255,255,.06);--glass-border:rgba(255,255,255,.14);--card:rgba(255,255,255,.06);--card2:rgba(255,255,255,.10);--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.14);--accent2:#3FB9A4;--green:#3FB9A4;}
   /* داخل التراكبات الداكنة: أعِد درجات الوضع الداكن */
@@ -286,7 +286,7 @@
   #duaCard{position:fixed;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 16px);left:16px;right:16px;max-width:488px;margin:0 auto;background:rgba(10,30,25,.97);border:1px solid rgba(232,197,95,.3);border-radius:var(--r-lg);padding:18px 18px 14px;z-index:350;transform:translateY(calc(100% + 200px));transition:transform .4s cubic-bezier(.22,.8,.36,1);backdrop-filter:blur(12px);}
   #duaCard.show{transform:translateY(0);}
   #duaCard .dua-title{font-size:var(--fs-sm);color:var(--gold);margin-bottom:10px;font-weight:600;}
-  #duaCard .dua-text{font-size:var(--fs-lg);line-height:2;color:var(--text);}
+  #duaCard .dua-text{font-size:var(--fs-lg);line-height:2;color:var(--text);direction:rtl;unicode-bidi:isolate;}
   #duaCard .dua-src{font-size:var(--fs-xs);color:var(--muted);margin-top:8px;}
   #duaCard .dua-close{position:absolute;top:6px;inset-inline-start:8px;background:none;border:0;color:var(--muted);font-size:var(--fs-xl);cursor:pointer;padding:10px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
   .font-slider-row{display:flex;align-items:center;gap:12px;margin:12px 0;}
@@ -303,9 +303,10 @@
   .srow .nm{flex:1;}
   .srow .nm b{font-size:var(--fs-lg);font-weight:600;}
   .srow .nm span{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:2px;}
-  .ayat{font-size:var(--qfont);line-height:2.3;text-align:justify;padding:6px 2px 20px;}
+  /* نصّ عربي: اتجاه ثابت rtl حتى لو كانت الواجهة ltr (لغة أخرى) كي لا تنقلب علامة ﴿ن﴾ */
+  .ayat{font-size:var(--qfont);line-height:2.3;text-align:justify;padding:6px 2px 20px;direction:rtl;unicode-bidi:isolate;}
   .ayat .num{display:inline-block;color:var(--gold);font-size:var(--fs-md);margin:0 4px;}
-  .bism{text-align:center;font-size:var(--fs-2xl);color:var(--gold);padding:14px 0;}
+  .bism{text-align:center;font-size:var(--fs-2xl);color:var(--gold);padding:14px 0;direction:rtl;unicode-bidi:isolate;}
 
   .tasbih{display:flex;flex-direction:column;align-items:center;gap:22px;padding:14px 0;}
   .counter-btn{width:230px;height:230px;border-radius:50%;border:2px solid rgba(232,197,95,.5);background:var(--card);
@@ -334,7 +335,7 @@
   .dh-rchip{background:rgba(232,197,95,.12);color:var(--gold);font-size:var(--fs-sm);font-weight:700;padding:3px 10px;border-radius:var(--r-pill);border:1px solid rgba(232,197,95,.2);}
   .dhcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px;margin-bottom:12px;transition:var(--tr);}
   .dh-src{font-size:var(--fs-xs);color:var(--muted);margin:5px 0 8px;padding:3px 10px;border-inline-start:2px solid var(--gold2);line-height:1.5;}
-  .dhcard .txt{font-size:var(--qfont);line-height:2;}
+  .dhcard .txt{font-size:var(--qfont);line-height:2;direction:rtl;unicode-bidi:isolate;}
   .dhcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;}
   .dhcard .cnt{background:rgba(232,197,95,.15);color:var(--gold);font-weight:700;padding:9px 20px;border-radius:var(--r-pill);
     font-size:var(--fs-md);cursor:pointer;border:0;font-family:inherit;}
@@ -1582,7 +1583,7 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
         <h2 style="font-size:15px;color:var(--gold);font-weight:700;margin:0 0 10px">تواصل معنا</h2>
         <p style="color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 10px">لمقترحاتك وملاحظاتك وأي استفسار:</p>
         <a href="mailto:ddcbusiness.kw@gmail.com" style="color:var(--gold);font-size:13px;display:block;margin-bottom:10px">ddcbusiness.kw@gmail.com</a>
-        <a href="privacy.html" target="_blank" style="color:var(--green2);font-size:13px">سياسة الخصوصية ←</a>
+        <a href="privacy.html" target="_blank" onclick="return openPrivacy()" style="color:var(--green2);font-size:13px">سياسة الخصوصية ←</a>
       </div>
     </article>
   </div>
@@ -1671,12 +1672,12 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
     يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّكَي تعرّف على الكلام يعملان على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
     قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
-    <b>الاشتراك</b>
+    <span id="termsSub"><b>الاشتراك</b>
     تتوفّر تجربة مجانية ثم اشتراك مدفوع يُجدَّد تلقائيًا ما لم يُلغَ. يمكنك الإلغاء في أي وقت من إعدادات حسابك.
-  </div>
+  </span></div>
   <div class="grow"></div>
   <button class="cta" onclick="agreeTerms()">موافق ومتابعة</button>
-  <p class="fineprint">بالضغط على «موافق» فإنك تقبل شروط الاستخدام وسياسة الخصوصية.</p>
+  <p class="fineprint">بالضغط على «موافق» فإنك تقبل شروط الاستخدام وسياسة الخصوصية.<br><a href="privacy.html" target="_blank" onclick="return openPrivacy()">سياسة الخصوصية ←</a></p>
 </div>
 
 <!-- تسجيل الدخول -->
@@ -1907,7 +1908,7 @@ function go(id){
   if(prev&&prev.id&&prev.id!==id){
     if(!window._navStack)window._navStack=[];
     if(id==='home')window._navStack=[];
-    else if(_navStack[_navStack.length-1]!==prev.id)_navStack.push(prev.id);
+    else if(!window._navBack&&_navStack[_navStack.length-1]!==prev.id)_navStack.push(prev.id); /* الرجوع (_navBack) لا يدفع */
   }
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
@@ -7068,6 +7069,15 @@ function _setupRunNative(){
 var _svNativeIv=null;
 /* ===== تسلسل البداية: سبلاش → شروط → بريميوم → دخول → التطبيق ===== */
 var PREMIUM_ENABLED=false; /* اضبطه true لإعادة تفعيل شاشة الاشتراك */
+if(!PREMIUM_ENABLED){var _ts=document.getElementById('termsSub');if(_ts)_ts.style.display='none';} /* لا اشتراك → أخفِ فقرته من الشروط */
+/* سياسة الخصوصية: في التطبيق الأصلي تُفتح بالمتصفّح الخارجي — privacy.html المحلي يستبدل
+   index.html في الـWebView الوحيد ولا يعمل زر الرجوع (مستمعه ما زال مسجّلاً) فيعلق المستخدم */
+var PRIVACY_URL='https://ddcbusinesskw-cpu.github.io/salah-app/privacy.html';
+function openPrivacy(){
+  if(!_isNative())return true; /* ويب/PWA: الرابط العادي في تبويب جديد */
+  try{window.open(PRIVACY_URL,'_system');}catch(e){}
+  return false;
+}
 var TRIAL_DAYS=12,splashDone=false;
 function showOv(id){['splash','consent','login','paywall','setup'].forEach(function(k){var el=document.getElementById('ov_'+k);if(el)el.classList.remove('on');});if(id){var t=document.getElementById('ov_'+id);if(t)t.classList.add('on');}}
 function boot(){
@@ -7184,7 +7194,8 @@ function enterApp(){
   showOv(null);
   document.getElementById('locName').textContent=tzCity();
   var tn=document.getElementById('trialNote');
-  if(tn){var d=trialLeft();tn.textContent=d>0?('تجربتك المجانية: متبقٍ '+ar(d)+' يوم'):'انتهت التجربة المجانية';}
+  if(tn){if(!PREMIUM_ENABLED){tn.textContent='';tn.style.display='none';} /* لا تجربة بلا اشتراك */
+  else{var d=trialLeft();tn.textContent=d>0?('تجربتك المجانية: متبقٍ '+ar(d)+' يوم'):'انتهت التجربة المجانية';}}
   var c=lsGet('coords');
   if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[enterApp] coords parse failed:',e&&e.message);toast('خطأ في بيانات الموقع — حدّد مدينتك','error');}}
   else{try{renderTimesScreen();}catch(ex){}} /* تحديث شاشة المواقيت لعرض "تحديد الموقع" */
@@ -8835,6 +8846,9 @@ function dismissPWA(){
         var el=document.getElementById(_dlg[i]);
         if(el&&el.style.display==='flex'){el.style.display='none';return;}
       }
+      /* ورقة «كيفية الاستخدام» (closeHelp يحفظ «شوهد» للدليل التلقائي) */
+      var _hs=document.getElementById('helpSheet');
+      if(_hs&&_hs.classList.contains('show')&&typeof closeHelp==='function'){closeHelp();return;}
       var oc=document.getElementById('ov_city');
       if(oc&&oc.classList.contains('on')){oc.classList.remove('on');return;}
       var sh=document.getElementById('ayahSheet');
@@ -8857,19 +8871,24 @@ function dismissPWA(){
         if(SW.active){try{swEndSession('back');}catch(e){}return;}
         if(SW.pane&&SW.pane!=='pick'){try{swRenderStats();swShowPane('pick');}catch(e){}return;}
       }
-      /* داخل سورة مفتوحة → ارجع لقائمة السور */
+      /* قائمة أذكار/فضائل/أدعية مفتوحة → ارجع للتصنيفات كسهم الشاشة */
+      if(_cid==='adhkar'&&typeof _adhkarInList!=='undefined'&&_adhkarInList){try{adhkarBack();}catch(e){}return;}
+      if(_cid==='fadail'&&typeof _fadailInList!=='undefined'&&_fadailInList){try{fadailBack();}catch(e){}return;}
+      if(_cid==='adiya'&&typeof _adiyaInList!=='undefined'&&_adiyaInList){try{adiyaBack();}catch(e){}return;}
+      /* داخل سورة مفتوحة (نصّ/ترجمة/مصحف) → ارجع لقائمة السور: سهم الشاشة هو المرجع */
       if(_cid==='quran'){
-        var _qbody=document.getElementById('quranBody');
-        if(_qbody&&_qbody.querySelector('.ayblk,.ayat')&&typeof backToSurahs==='function'){try{backToSurahs();}catch(e){}return;}
+        var _qb=document.getElementById('quranBack');
+        if(_qb&&_qb.getAttribute('onclick')==='backToSurahs()'&&typeof backToSurahs==='function'){try{backToSurahs();}catch(e){}return;}
       }
       /* ── التنقّل بالمكدّس: الشاشة السابقة ← home ← تأكيد الخروج ── */
       if(_cid&&_cid!=='home'){
         var st=window._navStack||[];
         var _target=st.length?st.pop():'home';
         window._navStack=st;
+        /* _navBack: go لا يدفع الحالية للمكدّس أثناء الرجوع */
+        window._navBack=true;
         try{go(_target);}catch(e){try{go('home');}catch(e2){}}
-        /* go يدفع الحالية للمكدّس فنُزيلها كي لا تتراكم */
-        if(window._navStack&&window._navStack[window._navStack.length-1]===_cid)window._navStack.pop();
+        finally{window._navBack=false;}
         return;
       }
       if(typeof window._showExitConfirm==='function')window._showExitConfirm();
