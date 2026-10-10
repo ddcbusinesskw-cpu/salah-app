@@ -2276,7 +2276,8 @@ function _hbStop(drain){
   /* تصريف: آخر نافذة تُرسل والقاضي يبقى حياً حتى تصل النتائج المعلّقة (المنفّذ الأصلي
      يسلسلها قبل ردّ stopStream) فتُحكم آخر عبارة قبل الإيقاف؛ يهدمه _hbTeardown في _fin */
   if(drain){
-    if(HB.win&&HB.win.voiceSamp>=HB_MIN_VOICE){try{_hbSendWin('إنهاء');}catch(e){}}
+    /* آخر فرصة لصوت النافذة (النافذة الأصلية {final} لا تُحكم): ذيل أقصر من 0.8ث يُرسل أيضاً */
+    if(HB.win&&HB.win.voiceSamp>0){try{_hbSendWin('إنهاء');}catch(e){}}
     HB.draining=true;if(HB.cur){try{HB.cur.stop();}catch(e){}}
     return;
   }
@@ -2861,8 +2862,9 @@ function lmAdvance(heard,src){
   if(st&&LM.rec)st.textContent=(VK.ready?'🎙 يستمع (فوري)… ':'🎙 يستمع… ')+LM.cursor+'/'+N+' كلمة';
 }
 function lmOnPartial(ev){
-  /* أثناء التصريف (بعد الإيقاف): النافذة الأصلية الأخيرة {final} تصل القاضي */
-  if(!LM.rec&&!(HB.draining&&HB.cur))return;
+  /* بعد الإيقاف تُهمل النافذة الأصلية الأخيرة {final} (ولو أثناء التصريف): صوتها في نافذة
+     «إنهاء» من JS أصلاً، ومرساها الأصلي (≤5ث) يعود إلى كلمات حُكمت فتصنع رسوّات زائفة */
+  if(!LM.rec)return;
   var t=(ev&&ev.text||'').trim();
   if(ev){
     if(ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
