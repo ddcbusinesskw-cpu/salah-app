@@ -963,6 +963,8 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .sv-lbl{font-size:var(--fs-sm);color:var(--muted);margin:0 0 4px;min-height:18px;}
 .sv-done-ico{font-size:38px;margin:0 0 8px;}
 .sv-err-msg{font-size:var(--fs-sm);color:var(--err-soft);margin:0 0 12px;}
+/* المصحف الحي: حروف QCF مخفية حتى يجهز خط الصفحة (lmRender) — لا حروف مفككة بالخط البديل */
+.lm-page.lm-fload .lm-ayah{visibility:hidden;}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
@@ -1981,10 +1983,12 @@ class HybridJudge {
     let g = 0;
     let t = this.tentative;
     while (g < got.length && t < this.expected.length) {
+      /* الجزئية تراكمية: يبدأ الفحص بعد ما استهلكته النداءات السابقة من نفس الجملة */
+      if (g === 0 && (g = this._vkFrom(got))) continue;
       if (this._eq(got[g], this.expected[t])) {
         /* المبدئي لا يمسّ حكماً نهائياً (confirmed/wrong/skipped) — يلوّن المعلّق فقط */
         if (this.state[t] === 'pending') this._set(t, 'tentative');
-        t++; g++; continue;
+        t++; g++; this._vkHit = g; continue;
       }
       // قفزة كلمة واحدة (فوسك بيطرش عن المدود)
       if (t + 1 < this.expected.length && this._eq(got[g], this.expected[t + 1])) { t++; continue; }
@@ -2007,11 +2011,23 @@ class HybridJudge {
       if (!jumped) g++;
     }
     this.tentative = Math.max(this.tentative, t);
+    /* المستهلك = حتى آخر تطابق: يتخطّاه النداء التالي كي لا يرتسي ثنائي مستهلك على تكراره
+       اللاحق («كما ءامن» في 2:13). ما بعده يُعاد فحصه: قد يراجعه Vosk أو يكمل ثنائياً */
+    const vk = this.cb.vk || this;
+    vk.vkUsed = Math.max(this._vkFrom(got), this._vkHit || 0); vk.vkHead = got[0]; this._vkHit = 0;
+  }
+
+  /* أول كلمة غير مستهلكة في الجزئية. العدّاد على مستوى الجلسة (cb.vk من طبقة اللصق) لأن
+     الجزئية تعبر حدود الآيات؛ جملة جديدة بعد final (أقصر أو تبدأ بغير كلمتها) → من أولها */
+  _vkFrom(got) {
+    const vk = this.cb.vk || this, n = vk.vkUsed || 0;
+    return n && n <= got.length && got[0] === vk.vkHead ? n : 0;
   }
 
   /* —— قناة Whisper: قاعدة الساندويتش — الهلوسة لا تحكم ——
      محاذاة ثنائية بنافذة بحث ±3؛ يلزم رسوّان (زوجا تطابق) على الأقل وإلا
-     تُهمل النافذة كاملة. الحكم wrong/skipped فقط بين رسوّين متجاورين. */
+     تُهمل النافذة كاملة. الحكم wrong/skipped فقط بين رسوّين متجاورين (أو قبل أول
+     رسوّ إن انحصر المسموع — انظر قاعدة الفجوة الأولى). */
   onWhisperText(text) {
     const got = normText(text);
     if (!got.length) return;
@@ -2020,25 +2036,37 @@ class HybridJudge {
        الكلمات المثبتة المكررة في رأس النافذة تُتجاوز من جهة المسموع
        (lookahead ±3)، و_set تحمي confirmed من أي نقض أصلاً */
     const start = this.cursor;
-    const pairs = [];
-    let i = start, g = 0;
-    while (i < N && g < got.length) {
-      if (this._eq(got[g], this.expected[i])) { pairs.push([i, g]); i++; g++; }
-      else {
-        let adv = false;
-        for (let k = 1; k <= 3 && !adv; k++) {
-          if (g + k < got.length && this._eq(got[g + k], this.expected[i])) { g += k; adv = true; }
-          else if (i + k < N && this._eq(got[g], this.expected[i + k])) { i += k; adv = true; }
+    const align = (i, g) => {
+      const pairs = [];
+      while (i < N && g < got.length) {
+        if (this._eq(got[g], this.expected[i])) { pairs.push([i, g]); i++; g++; }
+        else {
+          let adv = false;
+          for (let k = 1; k <= 3 && !adv; k++) {
+            if (g + k < got.length && this._eq(got[g + k], this.expected[i])) { g += k; adv = true; }
+            else if (i + k < N && this._eq(got[g], this.expected[i + k])) { i += k; adv = true; }
+          }
+          if (!adv) { i++; g++; }
         }
-        if (!adv) { i++; g++; }
       }
-    }
+      return pairs;
+    };
+    let pairs = align(start, 0);
     /* رسوّان مطلوبان ضد الهلوسة — إلا إن بقيت كلمة واحدة فقط (آية من كلمة
        واحدة كـ«والفجر»، أو آخر كلمة في الآية): مطابقة واحدة دقيقة تكفي */
     const need = Math.min(2, N - start);
+    /* إعادة ارتساء: إزاحة >3 لا تغلقها الخطوة المتزامنة (استعاذة/بسملة وصلاً قبل الآية،
+       أو نافذة تبدأ بعد المؤشر بكثير) — أول ثنائي متطابق ضمن 12 كلمة من الجهتين.
+       ما تخطّاه لا يُحكم هنا (قاعدة الفجوة الأولى أدناه أو finishRest) */
+    if (pairs.length < need) {
+      outer: for (let g0 = 0; g0 + 1 < got.length && g0 < 12; g0++)
+        for (let k = start; k + 1 < N && k < start + 12; k++)
+          if (this._eq(got[g0], this.expected[k]) && this._eq(got[g0 + 1], this.expected[k + 1])) { pairs = align(k, g0); break outer; }
+    }
     this.lastG = -1;
     if (!pairs.length || pairs.length < need) return; // لا رسوّ كافٍ = نافذة مهملة (هلوسة) — لا أحكام إطلاقاً
     this.lastG = pairs[pairs.length - 1][1];
+    const fresh = this.state[pairs[0][0]] !== 'confirmed'; // أول رسوّ جديد (لا إعادة سماع/محاذاة عابرة)
     for (const [ei] of pairs) this._set(ei, 'confirmed');
     for (let p = 0; p + 1 < pairs.length; p++) {
       const [e0, g0] = pairs[p], [e1, g1] = pairs[p + 1];
@@ -2050,6 +2078,16 @@ class HybridJudge {
         else this._set(e0 + 1 + q, 'wrong', q < dG ? got[g0 + 1 + q] : '');    // اختلاف غير متناظر
       }
     }
+    /* فجوة قبل أول رسوّ («قال» بدل «قل» أول الآية): المسموع يُحاذى يميناً إلى الرسوّ،
+       ويُحكم wrong فقط إن انحصر — رأس الآية بعدد مطابق تماماً (لا كلمة من الآية السابقة
+       في التداخل) وليس شظية (ذيل الكلمة المقطوعة عند حدّ نافذة السقف: «س» من «ليس»)،
+       أو بعد الكلمة السابقة للمؤشر مباشرة؛ وبشرط أن الرسوّ لم يكن مثبتاً قبل النافذة (لا
+       محاذاة عابرة لنافذة لاحقة على آية عالقة). غير ذلك يبقى معلّقاً (شظية/نقص) */
+    const [f0, h0] = pairs[0], dL = f0 - start;
+    const frag = (h, e) => h.length < 2 || (e.length > h.length && e.endsWith(h));
+    if (dL > 0 && fresh && (start === 0 ? h0 === dL && !frag(got[0], this.expected[0])
+                               : h0 > dL && this._eq(got[h0 - dL - 1], this.expected[start - 1])))
+      for (let q = 0; q < dL; q++) this._set(start + q, 'wrong', got[h0 - dL + q]);
     let c = this.cursor;
     while (c < N && ['confirmed','wrong','skipped'].includes(this.state[c])) c++;
     this.cursor = c; this.tentative = Math.max(this.tentative, c);
@@ -2085,9 +2123,10 @@ class HybridJudge {
     idx.forEach(i => this._set(i, this.state[i] === 'tentative' ? 'confirmed' : 'skipped'));
   }
 
-  /* —— فواتح السور: نداء من كاشف الصوت (مدة صوت متصل) —— */
+  /* —— فواتح السور: نداء من كاشف الصوت (مدة صوت متصل) ——
+     عتبة 900ms: «طه» مدّان ≈1.0–1.2ث؛ الفواتح لا تُحاسَب خطأً فالتساهل لا يصنع أخطاء */
   onSustainedVoice(ms) {
-    if (this._muq && this.state[0] === 'pending' && ms > 1500) {
+    if (this._muq && this.state[0] === 'pending' && ms > 900) {
       this._set(0, 'confirmed'); this.cursor = Math.max(this.cursor, 1);
     }
   }
@@ -2137,8 +2176,12 @@ function createHybridTasmee(expectedAyahText, ui, whisperAdapter) {
       ring.push(f32);
       const now = performance.now();
       let e = 0; for (let i=0;i<f32.length;i++) e += f32[i]*f32[i];
-      /* نفس العتبة المتكيفة (مقياس float ±1 — التحويل ÷32768 في _vadVoiceThr) */
-      const voiced = Math.sqrt(e/f32.length) > ((typeof _vadVoiceThr==='function')?_vadVoiceThr():0.008);
+      /* مدة الصوت = طول الشريحة (16 عيّنة/ms) لا توقيت وصول الأحداث (المتكدّسة بعد تعليق
+         الخيط تُضيف ~0): السطر التالي يجمع now-lastChunkT فيُضبط بمدة الشريحة */
+      lastChunkT = now - f32.length / 16;
+      /* نفس العتبة المتكيفة (مقياس float ±1 — التحويل ÷32768 في _vadVoiceThr)؛ وطاقة آخر
+         320ms من المخزن: خفوت قصير بين «طا» و«ها» لا يصفّر العدّاد */
+      const voiced = ring.hasVoice(320) || Math.sqrt(e/f32.length) > ((typeof _vadVoiceThr==='function')?_vadVoiceThr():0.008);
       voiceMs = voiced ? voiceMs + (now-(lastChunkT||now)) : 0;
       lastChunkT = now;
       if (voiced) judge.onSustainedVoice(voiceMs);
@@ -2190,11 +2233,15 @@ function _hbBuildAyahs(){
 }
 /* مخرجات القاضي → واجهة المصحف الحي (tentative/confirmed/wrong) */
 function _hbUiFor(ayIdx){
+  /* عدّاد كلمات جزئية Vosk المستهلكة مشترك بين قضاة آيات الجلسة (الجزئية تعبر الآيات)؛ جديد لكل جلسة */
+  if(!HB.vk||HB.vk.t0!==LM._t0)HB.vk={t0:LM._t0};
   return {
+    vk:HB.vk,
     onWord:function(i,st,heard){
       var ay=HB.ayahs[ayIdx];if(!ay)return;
       var g=ay.start+i;
       HB.wordState[g]=st; /* سجل الحالة العالمي — مصدر الحكم النهائي والعدّادات */
+      if(st!=='wrong')delete HB.heardMap[g]; /* خطأ صُحّح لاحقاً: لا «سُمِعت» قديمة */
       if(st==='tentative'){_lmSetClass(g,'tent');_lmActivate(g);}
       else if(st==='confirmed'){
         _lmSetClass(g,'ok');_lmActivate(g);
@@ -2785,7 +2832,7 @@ function _lmPad(p){return('000'+p).slice(-3);}
 function lmInjectFont(p){
   var id='lmf'+p;if(document.getElementById(id))return;
   var pp=_lmPad(p),st=document.createElement('style');st.id=id;
-  st.textContent="@font-face{font-family:'QCF_P"+pp+"';src:url('mushaf/fonts/QCF_P"+pp+".woff2') format('woff2');font-display:swap;}";
+  st.textContent="@font-face{font-family:'QCF_P"+pp+"';src:url('mushaf/fonts/QCF_P"+pp+".woff2') format('woff2');font-display:block;}";
   document.head.appendChild(st);
 }
 function _lmNorm(w){return typeof _normRec==='function'?_normRec(w):(typeof snorm==='function'?snorm(w):w);}
@@ -2794,6 +2841,7 @@ function lmRender(){
   var p=LM.page,data=LM.pages[p-1]||[];
   lmInjectFont(p);var ff="QCF_P"+_lmPad(p);
   LM.words=[];LM.cursor=0;LM.active=null;
+  if(typeof HB!=='undefined'&&!LM.rec)HB.heardMap={}; /* «سُمِعت» الصفحة السابقة لا تُعرض على هذه */
   var html='',gid=0;
   data.forEach(function(ay){
     var arr=(QURAN_EMBED&&QURAN_EMBED.surahs&&QURAN_EMBED.surahs[String(ay.s)])||[];
@@ -2804,14 +2852,36 @@ function lmRender(){
     for(var g=0;g<G;g++){html+='<span class="qw" id="lmg'+(base+g)+'">'+glyphs[g]+'</span>';}
     html+='<span class="lm-anum">'+ar(ay.a)+'</span> ';
     html+='</span> ';
-    /* نموذج الكلمات للمحاذاة: كل كلمة نصية → أول حرف يمثّلها (تناسبي إن اختلف العدد) */
+    /* نموذج الكلمات للمحاذاة: كل كلمة نصية → حرف الخط الذي يمثّلها.
+       QCF: حرف لكل كلمة + حرف لكل علامة وقف (ۖ…ۜ، ۩) بعد كلمتها + ۞ أول الآية + رقم الآية آخرها.
+       إن طابق العدد (≈97% من الآيات) فإزاحة جارية دقيقة، وإلا تناسبي كما كان */
+    var _re=/[ۖ-ۜ۩]/g,_mk=0,_hz=0;
+    twords.forEach(function(w){var m=w.match(_re);_mk+=m?m.length:0;if(w.indexOf('۞')>=0)_hz=1;});
+    var _exact=(G===W+_mk+_hz+1),_off=_hz;
     for(var j=0;j<W;j++){
-      var grep=W?Math.min(G-1,Math.floor(j*G/Math.max(W,1))):0;
+      var grep=_exact?Math.min(G-1,j+_off):(W?Math.min(G-1,Math.floor(j*G/Math.max(W,1))):0);
       LM.words.push({s:ay.s,a:ay.a,norm:_lmNorm(twords[j]),raw:twords[j],spanId:'lmg'+(base+(grep<0?0:grep))});
+      if(_exact){var _m=twords[j].match(_re);_off+=_m?_m.length:0;}
     }
     gid+=G;
   });
   host.innerHTML=html;host.classList.toggle('lm-hidden',LM.hidden);
+  /* لا يُطلى النص قبل جاهزية خط الصفحة (الخط البديل يرسم حروفاً مفككة بلا معنى): يُخفى الطلاء
+     فقط (lm-fload) — LM.words والـDOM مبنيان متزامنين للتسميع. فشل → يبقى مخفياً مع رسالة
+     (ويُعاد الحقن عند فتح الصفحة لاحقاً)؛ تأخّر >6ث → رسالة ثم يظهر متى جهز الخط */
+  var _fmsg='تعذّر تحميل خط الصفحة — تأكّد من الاتصال ثم أعد فتح الصفحة';
+  var _fst=function(on){var st=document.getElementById('lmStatus');if(!st||LM.page!==p)return;
+    if(on){if(st.textContent!==_fmsg)LM._fprev=st.textContent;st.textContent=_fmsg;}else if(st.textContent===_fmsg)st.textContent=LM._fprev||'';};
+  if(document.fonts&&document.fonts.load){
+    host.classList.add('lm-fload');
+    var _fto=setTimeout(function(){_fst(true);},6000);
+    document.fonts.load("1em '"+ff+"'").then(function(){
+      clearTimeout(_fto);if(LM.page===p){host.classList.remove('lm-fload');_fst(false);}
+    },function(){
+      clearTimeout(_fto);_fst(true);
+      var _fe=document.getElementById('lmf'+p);if(_fe&&_fe.parentNode)_fe.parentNode.removeChild(_fe);
+    });
+  }else host.classList.remove('lm-fload');
   var pn=document.getElementById('lmPageNum');if(pn)pn.value=p;
   var sel=document.getElementById('lmSurah');if(sel&&data.length)sel.value=data[0].s;
 }
