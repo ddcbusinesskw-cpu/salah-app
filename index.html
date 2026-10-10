@@ -1806,11 +1806,13 @@ function _mushafAnchorAt(){
   return '';
 }
 /* يُختم mushaf_pos_ts فقط عند تغيّر الموضع فعلاً (تعتمده المزامنة: الأحدث يفوز).
-   أعلى الصفحة (زر المتابعة/قائمة القفز) لا يُسجَّل — كما عتبة mushaf_pos>100 القديمة */
+   أعلى الصفحة (زر المتابعة): لا مرساة — تُمسح القديمة فيُفتح المصحف من أوله
+   كما عتبة mushaf_pos>100 القديمة (وإلا أعادت الفتحةُ التاليةُ موضعاً بعيداً قديماً) */
 function _mushafSaveAnchor(cur){
-  if(_mushafRestoring||window.scrollY<=100)return;
-  var an=_mushafAnchorAt(),sc=!!cur&&String(cur)!==lsGet('mushaf_surah');
-  if(an?(an!==(lsGet('mushaf_anchor')||'')||sc):sc){lsSet('mushaf_anchor',an);lsSet('mushaf_pos_ts',String(Date.now()));}
+  if(_mushafRestoring)return;
+  var top=window.scrollY<=100,old=lsGet('mushaf_anchor')||'';
+  var an=top?'':_mushafAnchorAt(),sc=!!cur&&String(cur)!==lsGet('mushaf_surah');
+  if(an?(an!==old||sc):(sc||(top&&old))){lsSet('mushaf_anchor',an);lsSet('mushaf_pos_ts',String(Date.now()));}
 }
 /* استعادة المرساة: يوضع جزء الآية المارّ بمنتصف الشاشة على خط القراءة نفسه،
    فتعيد _mushafAnchorAt الآيةَ ذاتها (لا انزياح مع الفتح والإغلاق المتكرر) */
@@ -8641,7 +8643,7 @@ window._execDeleteAccount=function(){
   function _wipeLocalSynced(){
     try{
       var _pref=['q_s_','allgoal_','achv_snap_','tasmee_done_','khatmah_today_','tasbih_today','daily_'];
-      var _exact=['mushaf_pos','mushaf_surah','bookmarks','tasbih_total','streak_count','streak_last','p5_streak','p5_last','fajr_streak','fajr_last','morn_streak','morn_streak_last','eve_streak','quran_opens','adiya_opens','names_counts','badges_earned','khatmah_count','khatmah_data','q_list'];
+      var _exact=['mushaf_pos','mushaf_surah','mushaf_anchor','mushaf_pos_ts','bookmarks','bookmarks_ts','tasbih_total','streak_count','streak_last','p5_streak','p5_last','fajr_streak','fajr_last','morn_streak','morn_streak_last','eve_streak','quran_opens','adiya_opens','names_counts','badges_earned','khatmah_count','khatmah_data','q_list'];
       var _del=[];
       for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(!k)continue;
         if(_exact.indexOf(k)>=0){_del.push(k);continue;}
@@ -8963,7 +8965,8 @@ function _fbMerge(r){
       var rq=r.quran;
       // Position: الأحدث يفوز (mushaf_pos_ts) بالوحدة كاملة سورة/موضع/مرساة —
       // «السورة الأبعد» كانت تثبّت الموضع على أبعد ما بُلغ يوماً
-      var lPT=parseInt(localStorage.getItem('mushaf_pos_ts'))||0;
+      // ختم محلي بلا موضع محلي (بقايا مسح/حساب سابق) لا يُعتدّ به
+      var lPT=(localStorage.getItem('mushaf_surah')||localStorage.getItem('mushaf_anchor'))?(parseInt(localStorage.getItem('mushaf_pos_ts'))||0):0;
       var rPT=parseInt(rq.posTs)||0;
       if(lPT||rPT){
         if(rPT>lPT){
@@ -8989,7 +8992,8 @@ function _fbMerge(r){
       // Bookmarks: السحابة مختومة وأحدث ← قائمتها كاملة (الحذف يُحترم)؛ المحلي
       // أحدث ← يبقى؛ سحابة بلا ختم (بيانات قديمة) ← اتحاد بلا تكرار للآية نفسها
       try{
-        var lBT=parseInt(localStorage.getItem('bookmarks_ts'))||0;
+        // ختم بلا قائمة محلية (بقايا مسح) لا يُعتدّ به
+        var lBT=localStorage.getItem('bookmarks')!==null?(parseInt(localStorage.getItem('bookmarks_ts'))||0):0;
         var rBT=parseInt(rq.bkTs)||0;
         var lb=JSON.parse(localStorage.getItem('bookmarks')||'[]');
         var rb=JSON.parse(rq.bookmarks||'[]');
