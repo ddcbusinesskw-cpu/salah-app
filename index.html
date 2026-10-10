@@ -4592,7 +4592,7 @@ function tick(){
   var tnc=document.getElementById('timesNextCount');if(tnc)tnc.textContent=ar(hh)+' س '+ar(mm)+' د';
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
-    if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;playAdhan();showDua();
+    if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;_quranPauseForAdhan();playAdhan();showDua();
       if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
         new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
       }
@@ -4672,7 +4672,7 @@ function renderTimesScreen(){
   var nColor=notifOn&&_np==='granted'?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)';
   var nTextColor=notifOn&&_np==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,185,164,.18)':'rgba(232,197,95,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
-  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
+  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="_quranPauseForAdhan();playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button><button onclick="_quranPauseForAdhan();testAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
   (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
@@ -4711,7 +4711,9 @@ var ADHANS=[
   {n:'نداء داخلي (بدون نت)',u:''}
 ];
 var adhanIdx=0;try{var _ai=lsGet('adhanIdx');if(_ai!==null)adhanIdx=Math.min(ADHANS.length-1,Math.max(0,+_ai));}catch(e){}
-function setAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));renderTimesScreen();playAdhan();}
+function setAdhan(i){adhanIdx=i;lsSet('adhanIdx',String(i));renderTimesScreen();_quranPauseForAdhan();playAdhan();}
+/* الأذان يوقف التلاوة: النداء الداخلي (synthAdhan) لا يمرّ بـ#adhanAudio فلا يلتقطه مستمع 'play' — والمؤجَّل لجلسة نشطة لا يوقفها */
+function _quranPauseForAdhan(){if((typeof LM!=='undefined'&&LM.rec)||(typeof SW!=='undefined'&&SW.active))return;try{var q=document.getElementById('quranAudio');if(q&&!q.paused)q.pause();}catch(e){}}
 var adhanOn=false;try{adhanOn=lsGet('adhanOn')==='1';}catch(e){}
 var notifOn=false;try{notifOn=lsGet('notifOn')==='1';}catch(e){}
 /* إعدادات الإشعار لكل صلاة (افتراضي: مفعّل) */
@@ -7826,12 +7828,12 @@ function _renderAdhanSett(){
     +'<span style="font-size:14px;font-weight:600">أذان الصلاة</span>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<button onclick="_settToggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+( adhanOn?'مفعّل ✓':'متوقف')+'</button>'
-    +'<button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button>'
+    +'<button onclick="_quranPauseForAdhan();playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button>'
     +'<button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button>'
     +'</div></div>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     +'<span style="font-size:13px;color:var(--muted)">اختبار الأذان</span>'
-    +'<button onclick="testAdhan()" style="'+bs+'font-size:13px;background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button>'
+    +'<button onclick="_quranPauseForAdhan();testAdhan()" style="'+bs+'font-size:13px;background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button>'
     +'</div>'
     +(adhanOn?'<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">أذان لكل صلاة:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</div></div>':'')
     +'<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">صوت الأذان:</div>'
