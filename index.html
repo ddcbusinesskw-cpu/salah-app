@@ -6512,14 +6512,22 @@ function _swcRotWatch(on){
     var g=e&&e.accelerationIncludingGravity;if(!SWC.on||!g||g.x==null||g.y==null)return;
     var ax=Math.abs(g.x),ay=Math.abs(g.y);
     if(Math.max(ax,ay)<3){SWC._rotT0=0;return;} /* مستلقٍ تقريباً — غير حاسم */
-    var ot=window.screen&&screen.orientation&&screen.orientation.type;
-    var por=ot?ot.indexOf('portrait')===0:(window.innerHeight>=window.innerWidth);
-    var bad=por?(ax>ay*1.5):(ay>ax*1.5),now=Date.now();
+    /* devicemotion بإطار الوضع الطبيعي للجهاز (لا يُعاد تدويره مع الشاشة) → قارن بزاوية الشاشة
+       لا بطولي/أفقي، وإلا انعكس الحكم على الأجهزة الأفقية بطبيعتها (أغلب اللوحيات) */
+    var so=window.screen&&screen.orientation,ang=(so&&typeof so.angle==='number')?so.angle:window.orientation;
+    if(typeof ang!=='number'){SWC._rotT0=0;return;} /* زاوية مجهولة — غير حاسم */
+    var vertY=(Math.abs(ang)%180)===0; /* 0/180: عمودي الشاشة = محور y للجهاز؛ 90/270: محور x */
+    var bad=vertY?(ax>ay*1.5):(ay>ax*1.5),now=Date.now();
     if(!bad){SWC._rotT0=0;if(SWC.rotWarn){SWC.rotWarn=false;swEvid('اتجاه الكادر صحيح الآن');}return;}
     if(!SWC._rotT0){SWC._rotT0=now;return;}
     if(now-SWC._rotT0<1000)return;
     if(!SWC.rotWarn){SWC.rotWarn=true;swEvid('⚠ الكادر مُدار (اتجاه الهاتف يخالف اتجاه الشاشة) — التصنيف غير موثوق');}
-    if(now-SWC._rotInd>1500){SWC._rotInd=now;swInd('⚠ الكادر مُدار — ثبّت الهاتف طولياً أو فعّل التدوير التلقائي',false);}
+    if(now-SWC._rotInd>1500){
+      SWC._rotInd=now;
+      /* وجّه المستخدم لاتجاه الشاشة المعروض فعلاً (اللوحي المقفول أفقياً يُثبَّت أفقياً) */
+      var ot=so&&so.type,por=ot?ot.indexOf('portrait')===0:(window.innerHeight>=window.innerWidth);
+      swInd('⚠ الكادر مُدار — ثبّت الهاتف '+(por?'طولياً':'أفقياً')+' أو فعّل التدوير التلقائي',false);
+    }
   };
   try{window.addEventListener('devicemotion',SWC._dm);}catch(e){}
 }
