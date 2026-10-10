@@ -1789,8 +1789,21 @@ function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 var _lsQuotaWarned=false;
 function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){if(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED')&&!_lsQuotaWarned){_lsQuotaWarned=true;try{toast('مساحة التخزين ممتلئة — قد لا يُحفظ التقدم','warning');}catch(_te){}}console.error('[storage] lsSet failed for key:',k,e&&e.name);return false;}}
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
-/* حفظ الإحداثيات في localStorage — مُستخدَم في الموقع الرئيسي والمواقيت والقبلة */
-function _saveCoords(lat,lng){lsSet('coords',JSON.stringify({lat:lat,lng:lng}));}
+/* حفظ الإحداثيات في localStorage — مُستخدَم في الموقع الرئيسي والمواقيت والقبلة
+   (+ المنطقة الزمنية ووقت الحفظ لكشف الإحداثيات القديمة بعد السفر؛ m=إدخال يدوي) */
+function _saveCoords(lat,lng,m){var o={lat:lat,lng:lng,tz:_tzId(),ts:Date.now()};if(m)o.m=1;lsSet('coords',JSON.stringify(o));
+  /* طريقة الحساب الإقليمية تتبع الموقع ما دامت تلقائية — calc_method_auto = آخر قيمة
+     تلقائية، ومخالفة calc_method لها = اختيار يدوي (أو مُزامَن) لا يُمسّ. كتابة مباشرة:
+     التغيير التلقائي لا يختم settings_updatedAt فلا يغلب اختيار جهاز آخر */
+  try{var _cm=lsGet('calc_method'),_ca=lsGet('calc_method_auto');
+    if(!_cm||_cm===_ca){var _rm=_regionalDefaultMethod(+lat,+lng);
+      if(_cm!==_rm)localStorage.setItem('calc_method',_rm);
+      if(_ca!==_rm)localStorage.setItem('calc_method_auto',_rm);}}catch(e){}}
+/* معرّف المنطقة الزمنية (لا الإزاحة — كي لا يُعدّ التوقيت الصيفي سفراً) */
+function _tzId(){var f=String(new Date().getTimezoneOffset());try{return Intl.DateTimeFormat().resolvedOptions().timeZone||f;}catch(e){return f;}}
+/* إحداثيات قديمة: تغيّرت المنطقة الزمنية أو مضى عليها ١٢ ساعة — والمحفوظة
+   بلا وقت (إصدار سابق) تُعدّ قديمة لتُحدَّث مرة */
+function _coordsStale(o){return !!o&&(o.tz!=null&&o.tz!==_tzId()||!o.ts||Date.now()-o.ts>12*3600e3);}
 var BNAV_MAP={home:'bnt-home',quran:'bnt-quran',adhkar:'bnt-adhkar',tasbih:'bnt-tasbih'};
 var _mushafScrollT=null;
 function _onMushafScroll(){
@@ -4425,8 +4438,20 @@ function _regionalDefaultMethod(lat,lng){
 }
 function fmtH(h){h=fixhour(h+0.5/60);var hh=Math.floor(h),mm=Math.floor((h-hh)*60);return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;}
 
-var CITY_AR={'Kuwait':'الكويت','Riyadh':'الرياض','Jeddah':'جدة','Mecca':'مكة','Makkah':'مكة','Medina':'المدينة','Dubai':'دبي','Abu Dhabi':'أبوظبي','Doha':'الدوحة','Manama':'المنامة','Muscat':'مسقط','Amman':'عمّان','Jerusalem':'القدس','Baghdad':'بغداد','Beirut':'بيروت','Damascus':'دمشق','Cairo':'القاهرة','Khartoum':'الخرطوم','Sanaa':'صنعاء'};
-function tzCity(){try{var z=Intl.DateTimeFormat().resolvedOptions().timeZone,c=z.split('/').pop().replace(/_/g,' ');return CITY_AR[c]||c;}catch(e){return 'موقعك';}}
+/* اسم الموقع المعروض = المكان الذي تُحسب له المواقيت (لا مدينة المنطقة الزمنية):
+   المدينة المختارة، أو أقرب مدينة معروفة للإحداثيات ضمن ٦٠ كم (تقريب مستوٍ، بلا إنترنت) */
+function _coordsLabel(){
+  var cn=lsGet('cityName');if(cn)return cn;
+  var c=lsGet('coords');if(!c)return 'حدّد موقعك';
+  try{
+    var o=JSON.parse(c),best=null,bd=1e9;
+    CITY_PRESETS.forEach(function(p){var dy=(p.lat-o.lat)*111,dx=(p.lng-o.lng)*111*Math.cos(o.lat*Math.PI/180),d=Math.sqrt(dx*dx+dy*dy);if(d<bd){bd=d;best=p;}});
+    return best&&bd<60?best.n:'موقعك الحالي';
+  }catch(e){return 'موقعك';}
+}
+/* اسم قديم يُبقى لمواضع قائمة: صار يعرض موقع المواقيت لا مدينة المنطقة الزمنية
+   (كانت توحي بموقع محدَّد قبل التحديد، وتُسمّي مدينة السفر مع إحداثيات قديمة) */
+function tzCity(){return _coordsLabel();}
 function hijriStr(){try{var s=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(new Date());/* بعض منسّقات WebView تُلحق «هـ» بنفسها — لا تكرّرها */return s.indexOf('هـ')>=0?s:s+' هـ';}catch(e){return '';}}
 function gregStr(){try{return new Intl.DateTimeFormat('ar',{weekday:'long',day:'numeric',month:'long'}).format(new Date());}catch(e){return '';}}
 
@@ -4503,7 +4528,7 @@ function loadTimesGeo(){
   if(body)body.innerHTML='<div class="loading" style="margin-bottom:12px">جارٍ تحديد موقعك — أو اختر مدينة</div>'+_timesPickerHTML();
   _startTimesGPS();
 }
-function _startTimesGPS(){
+function _startTimesGPS(bg){
   var _geoFail=function(e){
     console.error('[gps] denied or failed:',e&&(e.message||e.code||String(e)));
     var body=document.getElementById('timesBody');
@@ -4512,11 +4537,28 @@ function _startTimesGPS(){
   if(_isNative()){
     var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
     if(!geo){_geoFail(new Error('no geo plugin'));return;}
-    geo.requestPermissions({permissions:['location']}).catch(function(){}).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(e){_geoFail(e);});
+    /* التحديث الخلفي (bg) لا يطلب الإذن — لا حوار مفاجئ عند كل عودة للتطبيق */
+    (bg?geo.checkPermissions().then(function(s){if(!s||(s.location!=='granted'&&s.coarseLocation!=='granted'))throw new Error('no location permission');}):geo.requestPermissions({permissions:['location']}).catch(function(){})).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(e){_geoFail(e);});
     return;
   }
   if(!navigator.geolocation){_geoFail(new Error('geolocation not supported'));return;}
-  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);buildTimes(p.coords.latitude,p.coords.longitude);},function(e){_geoFail(e);},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);},function(e){_geoFail(e);},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+}
+/* عند الإقلاع والعودة للتطبيق: إحداثيات GPS قديمة (سفر) → تحديث صامت بالخلفية
+   (عند الفشل تبقى المحفوظة). المدينة المختارة/الإدخال اليدوي لا يُستبدل — تنبيه فقط */
+var _crT=0,_crWarn='';
+function _refreshCoordsIfStale(){
+  var c=lsGet('coords');if(!c)return;
+  var o;try{o=JSON.parse(c);}catch(e){return;}
+  if(!_coordsStale(o))return;
+  if(lsGet('cityName')||o.m){
+    var z=_tzId();
+    if(o.tz!=null&&o.tz!==z&&_crWarn!==z){_crWarn=z;toast('تغيّرت المنطقة الزمنية — حدّث موقعك','warning');}
+    return;
+  }
+  if(Date.now()-_crT<600000)return; /* مرة كل ١٠ دقائق على الأكثر */
+  _crT=Date.now();
+  _startTimesGPS(true);
 }
 function showCityPicker(){
   document.getElementById('locName').textContent='اختر مدينة';
@@ -4634,7 +4676,7 @@ function _applyManualCoords(){
   if(isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){
     toast('أدخل إحداثيات صحيحة (خط العرض −90 إلى 90، خط الطول −180 إلى 180)','error');return;
   }
-  _saveCoords(lat,lng);
+  _saveCoords(lat,lng,1); /* يدوي: لا يستبدله تحديث GPS الخلفي */
   try{localStorage.removeItem('cityName');}catch(e){}
   buildTimes(lat,lng);
 }
@@ -4696,7 +4738,7 @@ function renderTimesScreen(){
   }
   // تنبيه التقويم الهجري
   var hijriNote='<p class="hijri-note">التاريخ الهجري بحساب أم القرى — قد يختلف يوماً عن رؤية الهلال</p>';
-  var _cn=lsGet('cityName')||tzCity();
+  var _cn=_coordsLabel();
   var _cityBar='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px"><span style="color:var(--muted);font-size:13px">📍 '+_cn+'</span><button onclick="showCityPicker()" style="background:none;border:1px solid rgba(255,255,255,.2);color:var(--muted);font-family:inherit;font-size:12px;padding:4px 12px;border-radius:999px;cursor:pointer">تغيير المدينة</button></div>';
   body.innerHTML=_cityBar+'<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big" id="timesNextCount">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>'+rawatibSec+karSec+hijriNote;
 }
@@ -6758,12 +6800,13 @@ function enterApp(){
     showOv('setup');return;
   }
   showOv(null);
-  document.getElementById('locName').textContent=tzCity();
+  document.getElementById('locName').textContent=_coordsLabel();
   var tn=document.getElementById('trialNote');
   if(tn){var d=trialLeft();tn.textContent=d>0?('تجربتك المجانية: متبقٍ '+ar(d)+' يوم'):'انتهت التجربة المجانية';}
   var c=lsGet('coords');
   if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[enterApp] coords parse failed:',e&&e.message);toast('خطأ في بيانات الموقع — حدّد مدينتك','error');}}
   else{try{renderTimesScreen();}catch(ex){}} /* تحديث شاشة المواقيت لعرض "تحديد الموقع" */
+  try{_refreshCoordsIfStale();}catch(e){} /* إحداثيات قديمة بعد السفر → تحديث خلفي */
   updateStreak();
   updateRamadanBanner();
   checkWeeklyReport();
@@ -7668,7 +7711,7 @@ function loadCalcSettings(){
       +'<p class="note" style="margin:0">'+(reminderOn?'يُجدَّد تلقائياً كلما فُتح التطبيق · '+DAILY_DHIKR.length+' ذِكراً بالتناوب.':'فعّل لتلقّي ذِكر مختلف كل ساعة على شاشة قفل هاتفك.')+'</p>';
   }
 }
-function setCalcMethod(id){lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[times] setCalcMethod buildTimes:',e&&e.message||String(e));toast('خطأ في إعادة حساب المواقيت','error');}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
+function setCalcMethod(id){try{localStorage.removeItem('calc_method_auto');}catch(e){}/* اختيار يدوي: لا يتبع الموقع بعدها */lsSet('calc_method',id);var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[times] setCalcMethod buildTimes:',e&&e.message||String(e));toast('خطأ في إعادة حساب المواقيت','error');}}loadCalcSettings();toast('تم تحديث طريقة الحساب');}
 function setMadhhab(n){lsSet('calc_madhhab',String(n));var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){console.error('[times] setMadhhab buildTimes:',e&&e.message||String(e));toast('خطأ في إعادة حساب المواقيت','error');}}loadCalcSettings();toast('تم تحديث المذهب');}
 
 /* ===== v18: Ayah Image Share ===== */
@@ -8798,7 +8841,8 @@ function _fbReadLocal(){
     },
     names:{counts:ls.getItem('names_counts')||null,updatedAt:now},
     settings:{
-      calc_method:ls.getItem('calc_method')||null,
+      /* الطريقة التلقائية (حسب موقع هذا الجهاز) لا تُرفع — كي لا تصير اختياراً يدوياً على جهاز آخر */
+      calc_method:(ls.getItem('calc_method')!==ls.getItem('calc_method_auto')&&ls.getItem('calc_method'))||null,
       noor_lang:ls.getItem('noor_lang')||null,
       calc_madhhab:ls.getItem('calc_madhhab')||null,
       adhanOn:ls.getItem('adhanOn')||null,

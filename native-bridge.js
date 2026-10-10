@@ -239,8 +239,23 @@
       if (App) {
         App.addListener('appStateChange', function (state) {
           if (!state || !state.isActive) return;
+          /* إحداثيات قديمة (سفر) → تحديث خلفي صامت؛ نجاحه يعيد الحساب والجدولة */
+          try {
+            if (typeof window._refreshCoordsIfStale === 'function') window._refreshCoordsIfStale();
+          } catch (e) {}
           try {
             if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
+          } catch (e) {}
+          /* الذِكر الساعي: ٤٨ إشعاراً ≈ ٣ أيام — جدِّده عند العودة لا عند الإقلاع فقط.
+             مرة يومياً على الأكثر: كل جدولة تبدأ الدورة من أول ذِكر */
+          try {
+            var _dts = 0;
+            try { _dts = +localStorage.getItem('_dhikr_sched_ts') || 0; } catch (e) {}
+            if (Date.now() - _dts > 86400000 && typeof window.scheduleHourlyDhikr === 'function') {
+              window.scheduleHourlyDhikr();
+              /* بلا إذن لم يُجدوَل شيء — أعِد المحاولة في العودة التالية */
+              if (window._nativeNotifGranted) { try { localStorage.setItem('_dhikr_sched_ts', String(Date.now())); } catch (e) {} }
+            }
           } catch (e) {}
         });
         /* نقر الإشعار → افتح شاشة المواقيت */
