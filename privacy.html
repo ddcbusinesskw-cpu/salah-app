@@ -21,6 +21,7 @@
   .note { background:#fff; border:1px solid #e5e7eb; border-right:4px solid var(--gold);
     padding:12px 16px; border-radius:8px; margin:14px 0; }
   a { color:var(--teal); }
+  .back { display:inline-block; margin-bottom:14px; padding:6px 0; font-size:.95rem; text-decoration:none; }
   footer { margin-top:40px; padding-top:18px; border-top:1px solid #e5e7eb;
     color:var(--muted); font-size:.9rem; }
 </style>
@@ -28,6 +29,8 @@
 <body>
 <div class="wrap">
   <header>
+    <!-- رجوع ظاهر: إن فُتحت الصفحة داخل التطبيق نفسه لا يعيد زر الرجوع النظامي إليه -->
+    <a class="back" href="index.html" onclick="if(history.length>1){history.back();return false;}">→ رجوع للتطبيق</a>
     <h1>سياسة الخصوصية</h1>
     <div class="sub">تطبيق «المجدّد — طريق الأتقياء» · DDC Business<br>آخر تحديث: أكتوبر 2026</div>
   </header>
