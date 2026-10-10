@@ -45,7 +45,8 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
         if (!running) {
             sensorManager.registerListener(this, proximitySensor, SensorManager.SENSOR_DELAY_GAME);
             running = true;
-            acquireWakeLock();
+            /* لا wake lock: منذ Android 9 لا تصل أحداث الحسّاس لتطبيق في الخلفية
+               مهما بقي المعالج مستيقظاً — الواجهة تُنهي الجلسة عند الإخفاء وتُبقي الشاشة مضاءة */
         }
         call.resolve();
     }
@@ -58,17 +59,6 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
         }
         releaseWakeLock();
         call.resolve();
-    }
-
-    private void acquireWakeLock() {
-        try {
-            if (wakeLock == null) {
-                PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "noor:salahProx");
-                wakeLock.setReferenceCounted(false);
-            }
-            if (!wakeLock.isHeld()) wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
-        } catch (Exception ignored) {}
     }
 
     private void releaseWakeLock() {
