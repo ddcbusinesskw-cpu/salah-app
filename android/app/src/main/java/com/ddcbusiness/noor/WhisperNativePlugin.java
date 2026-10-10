@@ -650,10 +650,14 @@ public class WhisperNativePlugin extends Plugin {
                 if (rec != null) { try { rec.close(); } catch (Throwable ignored) {} }
                 if (m != null) { try { m.close(); } catch (Throwable ignored) {} }
                 voskReady = false; voskLoading = false;
-                /* Vosk يرفض ملفات تالفة بـIOException: مجلد بلا علامة اكتمال (فكّ قديم مقطوع)
-                   يُحذف ليُعاد تنزيله — لا يُحذف موديل مكتمل لخطأ مكتبة/ذاكرة */
+                /* Vosk يعيد IOException لأي فشل (ملف تالف أو نفاد ذاكرة) فلا يميّز السبب:
+                   يُحذف المجلد بلا علامة اكتمال فقط مع دليل فكّ مقطوع — zip القديم يُحذف بعد
+                   فكّ ناجح فقط، والمؤقّت للجديد. بلا دليل: يبقى (تثبيت قديم سليم) */
                 File d = new File(path);
-                if (t instanceof java.io.IOException && underVoskBase(d) && !new File(d, VOSK_DONE).exists()) deleteRecursive(d);
+                File vb = d.getParentFile();
+                boolean cut = vb != null && (new File(vb, d.getName() + ".zip").exists()
+                        || new File(vb, d.getName() + ".tmp").exists());
+                if (t instanceof java.io.IOException && underVoskBase(d) && !new File(d, VOSK_DONE).exists() && cut) deleteRecursive(d);
                 call.reject("vosk-load-error: " + t.getMessage());
             }
         });
@@ -705,7 +709,8 @@ public class WhisperNativePlugin extends Plugin {
     }
 
     /** تحقّق سلامة موديل Vosk: الملفات الأساسية + علامة اكتمال الفكّ. تثبيت قديم (قبل العلامة)
-     *  يُقبل ما لم يبقَ مجلد فكّ مؤقّت — يُعلَّم بعد أول تحميل ناجح ويُحذف إن رفضه Vosk. */
+     *  يُقبل ما لم يبقَ مجلد فكّ مؤقّت — يُعلَّم بعد أول تحميل ناجح، ويُحذف إن رفضه Vosk
+     *  وبجواره zip/مؤقّت يدلّ على فكّ مقطوع (voskDownload يعيد فكّه من الـzip عبر 416). */
     private boolean voskModelOk(File dir) {
         if (!voskModelFiles(dir)) return false;
         if (new File(dir, VOSK_DONE).exists()) return true;
