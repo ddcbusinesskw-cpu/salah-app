@@ -2082,10 +2082,12 @@ class HybridJudge {
        ويُحكم wrong فقط إن انحصر — رأس الآية بعدد مطابق تماماً (لا كلمة من الآية السابقة
        في التداخل) وليس شظية (ذيل الكلمة المقطوعة عند حدّ نافذة السقف: «س» من «ليس»)،
        أو بعد الكلمة السابقة للمؤشر مباشرة؛ وبشرط أن الرسوّ لم يكن مثبتاً قبل النافذة (لا
-       محاذاة عابرة لنافذة لاحقة على آية عالقة). غير ذلك يبقى معلّقاً (شظية/نقص) */
+       محاذاة عابرة لنافذة لاحقة على آية عالقة). غير ذلك يبقى معلّقاً (شظية/نقص).
+       رأس آية الحروف المقطّعة (_muq) مستثنى: Whisper يكتب اسم الحرف (صاد/قاف/نون/طاسين) بعدد
+       كلمات متفاوت، والفواتح لا تُحاسَب أبداً — تبقى معلّقة حتى الصوت المتصل (onSustainedVoice) أو finishRest */
     const [f0, h0] = pairs[0], dL = f0 - start;
     const frag = (h, e) => h.length < 2 || (e.length > h.length && e.endsWith(h));
-    if (dL > 0 && fresh && (start === 0 ? h0 === dL && !frag(got[0], this.expected[0])
+    if (dL > 0 && fresh && (start === 0 ? !this._muq && h0 === dL && !frag(got[0], this.expected[0])
                                : h0 > dL && this._eq(got[h0 - dL - 1], this.expected[start - 1])))
       for (let q = 0; q < dL; q++) this._set(start + q, 'wrong', got[h0 - dL + q]);
     let c = this.cursor;
