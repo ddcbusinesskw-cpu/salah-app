@@ -1792,10 +1792,55 @@ function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 /* حفظ الإحداثيات في localStorage — مُستخدَم في الموقع الرئيسي والمواقيت والقبلة */
 function _saveCoords(lat,lng){lsSet('coords',JSON.stringify({lat:lat,lng:lng}));}
 var BNAV_MAP={home:'bnt-home',quran:'bnt-quran',adhkar:'bnt-adhkar',tasbih:'bnt-tasbih'};
-var _mushafScrollT=null;
+var _mushafScrollT=null,_mushafRestoring=0;
+/* مرساة موضع القراءة: الآية عند خط القراءة أعلى الشاشة بصيغة 's_a' (لا بكسلات —
+   ارتفاعات الهيكل تقديرية وتختلف بين الأجهزة). تُجرَّب نقاط متتالية لتخطّي
+   الفراغ بين الأسطر/عنوان السورة؛ سطر الترجمة يُنسب لآيته السابقة */
+function _mushafAnchorAt(){
+  var x=window.innerWidth/2,y0=Math.min(120,window.innerHeight/4);
+  for(var k=0;k<8;k++){
+    var e=document.elementFromPoint(x,y0+k*20),m=null;
+    if(e&&e.closest){m=e.closest('.mayah');if(!m){var t=e.closest('.tr');m=t&&t.previousElementSibling;}}
+    if(m&&m.classList.contains('mayah')&&m.id)return m.id.slice(2);
+  }
+  return '';
+}
+/* يُختم mushaf_pos_ts فقط عند تغيّر الموضع فعلاً (تعتمده المزامنة: الأحدث يفوز).
+   أعلى الصفحة (زر المتابعة/قائمة القفز) لا يُسجَّل — كما عتبة mushaf_pos>100 القديمة */
+function _mushafSaveAnchor(cur){
+  if(_mushafRestoring||window.scrollY<=100)return;
+  var an=_mushafAnchorAt(),sc=!!cur&&String(cur)!==lsGet('mushaf_surah');
+  if(an?(an!==(lsGet('mushaf_anchor')||'')||sc):sc){lsSet('mushaf_anchor',an);lsSet('mushaf_pos_ts',String(Date.now()));}
+}
+/* استعادة المرساة: يوضع جزء الآية المارّ بمنتصف الشاشة على خط القراءة نفسه،
+   فتعيد _mushafAnchorAt الآيةَ ذاتها (لا انزياح مع الفتح والإغلاق المتكرر) */
+function _mushafGoAnchor(an,fb){
+  var p=String(an||'').split('_'),s=+p[0],a=+p[1];
+  if(!(s>=1&&s<=114&&a>=1)){if(fb)fb();return;}
+  mushafEnsure(s,function(){
+    var mf=document.getElementById('mushafFull');if(!mf||!mf.classList.contains('on'))return;
+    var el=document.getElementById('fm'+s+'_'+a);if(!el){if(fb)fb();return;}
+    var x=window.innerWidth/2,y0=Math.min(120,window.innerHeight/4),k=0,ly=-1;
+    _mushafRestoring=1;
+    (function al(){
+      /* غادر الشاشة أو مرّر المستخدم بنفسه أثناء الضبط — توقّف */
+      if(!mf.classList.contains('on')||(ly>=0&&Math.abs(window.scrollY-ly)>1)){_mushafRestoring=0;return;}
+      var rs=el.getClientRects(),r=rs[0];
+      for(var i=0;i<rs.length;i++){if(rs[i].left<=x&&rs[i].right>=x){r=rs[i];break;}}
+      var d=r?(r.top+r.bottom)/2-y0:0;
+      if(!r)el.scrollIntoView({block:'start'});else if(Math.abs(d)>2)window.scrollTo(0,window.scrollY+d);
+      /* الموضع الجديد أساس عدّاد الصفحات — كي لا تُحتسب الاستعادة قراءةً */
+      ly=window.scrollY;lsSet('mushaf_pos',String(ly));
+      /* بناء السور المجاورة كسولاً يغيّر الارتفاعات فوق المرساة (التمرير المرتكز
+         لا يعوّضه دائماً) — أعد الضبط حتى الاستقرار */
+      if(r&&(Math.abs(d)>2||k<2)&&++k<8)setTimeout(al,120);else _mushafRestoring=0;
+    })();
+  });
+}
 function _onMushafScroll(){
   clearTimeout(_mushafScrollT);
   _mushafScrollT=setTimeout(function(){
+    _mushafScrollT=null;
     var _mf=document.getElementById('mushafFull');if(!_mf||!_mf.classList.contains('on'))return;
     /* شارة «قارئ القرآن»: تجميع صفحات مقروءة من مسافة التمرير الفعلية
        (الارتفاع الكلي/604 ≈ صفحة) — القفزات الكبيرة (انتقال قائمة) تُهمل */
@@ -1810,6 +1855,7 @@ function _onMushafScroll(){
     lsSet('mushaf_pos',String(window.scrollY));
     var mid=window.scrollY+window.innerHeight*0.4,cur=1;
     document.querySelectorAll('.msura').forEach(function(el){if(el.offsetTop<=mid)cur=+el.id.replace('ms','');});
+    _mushafSaveAnchor(cur);
     lsSet('mushaf_surah',String(cur));
     var ind=document.getElementById('mushafSurahInd');
     if(ind)ind.textContent=nameFor(cur);
@@ -1825,6 +1871,8 @@ function _onMushafScroll(){
             var _b=_khatmahToday(km).base;
             km.pagesRead=pg;km.td=todayKey();km.tp=pg-_b;
             _khatmahCheckComplete(km);lsSet('khatmah_data',JSON.stringify(km));
+            /* قراءة فعلية في المصحف تُنجز «الختمة» اليومية في الإنجازات */
+            lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
           }
         }
       }
@@ -1840,7 +1888,7 @@ function go(id){
   if(prev&&prev.id==='memorize'){try{if(typeof LM!=='undefined'&&LM.rec)lmStop();}catch(ex){}try{rakWakeLock(false);}catch(ex){}try{_engIdleArm();}catch(ex){}}
   if(prev&&prev.id==='salahw'){try{swLeave();}catch(ex){}}
   if(prev&&prev.id==='tasbih'&&typeof _tasbihDirty!=='undefined'&&_tasbihDirty){_tasbihDirty=false;try{_achvSaveSnap();}catch(ex){}}
-  if(prev&&prev.id==='mushafFull'){clearTimeout(_mushafScrollT);lsSet('mushaf_pos',String(window.scrollY));window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
+  if(prev&&prev.id==='mushafFull'){var _mpd=_mushafScrollT;clearTimeout(_mushafScrollT);_mushafScrollT=null;lsSet('mushaf_pos',String(window.scrollY));if(_mpd)_mushafSaveAnchor();window.removeEventListener('scroll',_onMushafScroll);if(mushafObs){mushafObs.disconnect();mushafObs=null;}fullBuilt=false;}
   /* مكدّس التنقّل لزر الرجوع النظامي: سجّل الشاشة المغادَرة (بلا تكرار
      متتالٍ)؛ الانتقال إلى home يمسح المكدّس (الجذر) */
   if(prev&&prev.id&&prev.id!==id){
@@ -1852,8 +1900,10 @@ function go(id){
   document.getElementById(id).classList.add('on');
   if(id==='mushafFull'){
     buildFullMushaf();
-    var sp=+(lsGet('mushaf_pos')||0);
-    if(sp>100){setTimeout(function(){window.scrollTo(0,sp);},80);}
+    var sp=+(lsGet('mushaf_pos')||0),_an=lsGet('mushaf_anchor');
+    /* الاستعادة بمرساة الآية؛ البكسلات احتياط للبيانات القديمة فقط */
+    if(_an){setTimeout(function(){_mushafGoAnchor(_an,function(){if(sp>100)window.scrollTo(0,sp);});},80);}
+    else if(sp>100){setTimeout(function(){window.scrollTo(0,sp);},80);}
     else{window.scrollTo(0,0);}
     window.addEventListener('scroll',_onMushafScroll,{passive:true});
     var si=+(lsGet('mushaf_surah')||1);
@@ -4173,6 +4223,7 @@ function buildFullMushaf(){
   }
 }
 function mushafBuildEl(el,n){
+  n=+n; /* قائمة القفز تمرّر نصاً — ("9"!==9) كان يضع البسملة قبل التوبة */
   var arr=QURAN_EMBED.surahs[String(n)];if(!arr){el.outerHTML='';return;}
   var bas=(QURAN_EMBED.surahs["1"]&&QURAN_EMBED.surahs["1"][0])||'';
   var bismM=(n!==1&&n!==9)?'<div class="mbism">'+bas+'</div>':'';
@@ -4219,13 +4270,14 @@ function resumeMushaf(){
     return;
   }
   /* لا إشارة مرجعية يدوية: اسقط تلقائياً إلى موضع القراءة المحفوظ (الحافظة
-     التلقائية — يُحفظ mushaf_pos/mushaf_surah أثناء التصفّح) */
-  var sp=+(lsGet('mushaf_pos')||0),si=+(lsGet('mushaf_surah')||0);
-  if(sp>100){window.scrollTo(0,sp);toast('تابعتَ من آخر موضع قرأت'+(si?(' — '+nameFor(si)):''));}
+     التلقائية — تُحفظ mushaf_anchor/mushaf_surah أثناء التصفّح) */
+  var sp=+(lsGet('mushaf_pos')||0),si=+(lsGet('mushaf_surah')||0),an=lsGet('mushaf_anchor');
+  if(an){si=+an.split('_')[0]||si;_mushafGoAnchor(an,function(){if(sp>100)window.scrollTo(0,sp);});toast('تابعتَ من آخر موضع قرأت'+(si?(' — '+nameFor(si)):''));}
+  else if(sp>100){window.scrollTo(0,sp);toast('تابعتَ من آخر موضع قرأت'+(si?(' — '+nameFor(si)):''));}
   else if(si){var s=document.getElementById('ms'+si);if(s){s.scrollIntoView();toast('تابعتَ من '+nameFor(si));}}
   else{toast('ابدأ القراءة وسيُحفَظ موضعك تلقائياً لتتابع لاحقاً');}
 }
-function jumpMushaf(n){mushafEnsure(n,function(){var el=document.getElementById('ms'+n);if(el)el.scrollIntoView();});}
+function jumpMushaf(n){n=+n;mushafEnsure(n,function(){var el=document.getElementById('ms'+n);if(el)el.scrollIntoView();});}
 function toggleDrawer(){var dw=document.getElementById('drawer'),db=document.getElementById('drawerBk');var on=dw.classList.toggle('on');db.classList.toggle('on',on);}
 function closeDrawer(){document.getElementById('drawer').classList.remove('on');document.getElementById('drawerBk').classList.remove('on');}
 var VOTD=[[2,255],[2,286],[2,152],[2,186],[2,45],[2,153],[2,201],[3,26],[3,139],[3,159],[3,173],[8,46],[13,28],[14,7],[16,97],[17,80],[18,10],[25,74],[28,24],[29,69],[39,53],[40,60],[42,30],[55,13],[64,11],[65,3],[93,5],[94,5],[94,6]];
@@ -5130,7 +5182,7 @@ function ayPlay(){var ed=ayEdition(),g=globalAyah(SEL_S,SEL_A);var au=document.g
 function isBk(s,a){try{return JSON.parse(lsGet('bookmarks')||'[]').some(function(x){return x.s===s&&x.a===a;});}catch(e){return false;}}
 function ayBookmark(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}var i=-1;l.forEach(function(x,k){if(x.s===SEL_S&&x.a===SEL_A)i=k;});if(i>=0){l.splice(i,1);toast('أُزيلت من المحفوظات');}else{l.push({s:SEL_S,a:SEL_A});toast('✓ حُفظت الآية');}lsSet('bookmarks',JSON.stringify(l));bkSync();}
 function ayShare(){var t=ayText()+'\n\n﴿ '+nameFor(SEL_S)+' : '+ar(SEL_A)+' ﴾';if(navigator.share){navigator.share({text:t}).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(t);toast('نُسخت الآية للحافظة');}else{toast('انسخ يدويًا');}}
-function ayTafsir(){var tb=document.getElementById('tafbox');if(tb.classList.contains('on')){tb.classList.remove('on');return;}tb.classList.add('on');var key='tf_'+SEL_S+'_'+SEL_A,c=lsGet(key);if(c){tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(c);return;}tb.innerHTML='<div class="muted">جارٍ تحميل التفسير…</div>';_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/ayah/'+SEL_S+':'+SEL_A+'/ar.muyassar',{signal:_quranAC.signal}).then(function(r){return r.json();}).then(function(d){var t=d.data.text;lsSet(key,t);tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(t);}).catch(function(e){if(e&&e.name==='AbortError')return;tb.innerHTML='<div class="muted">تعذّر تحميل التفسير — يلزم إنترنت لأول مرة (يُحفظ بعدها).</div>';});}
+function ayTafsir(){var tb=document.getElementById('tafbox');if(tb.classList.contains('on')){tb.classList.remove('on');return;}tb.classList.add('on');var key='tf_'+SEL_S+'_'+SEL_A,c=lsGet(key);if(c){tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(c);return;}tb.innerHTML='<div class="muted">جارٍ تحميل التفسير…</div>';_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/ayah/'+SEL_S+':'+SEL_A+'/ar.muyassar',{signal:_quranAC.signal}).then(function(r){if(!r.ok)throw r.status;return r.json();}).then(function(d){var t=d&&d.data&&d.data.text;if(typeof t!=='string'||!t)throw 0;/* ظرف خطأ JSON لا يُخزَّن «undefined» */lsSet(key,t);tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(t);}).catch(function(e){if(e&&e.name==='AbortError')return;tb.innerHTML='<div class="muted">تعذّر تحميل التفسير — يلزم إنترنت لأول مرة (يُحفظ بعدها).</div>';});}
 function toast(m,type){
   var t=document.getElementById('toast');
   t.textContent=m;
@@ -6967,12 +7019,13 @@ function loadKhatmah(){
     '<button onclick="resetKhatmah()" style="background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer;width:100%;margin-top:8px;font-family:inherit">إعادة البدء</button>';
 }
 function startKhatmah(days){
-  lsSet('khatmah_data',JSON.stringify({days:days,pagesRead:0,startDate:new Date().toDateString()}));
+  /* ts: لحظة البدء — الدمج السحابي يقارنها بوقت إعادة البدء (الأحدث يفوز) */
+  lsSet('khatmah_data',JSON.stringify({days:days,pagesRead:0,startDate:new Date().toDateString(),ts:Date.now()}));
   loadKhatmah();
 }
 function _khatmahCustom(){
   _cmShow('خطة مخصّصة',[{id:'days',label:'عدد الأيام',type:'number',def:'45'}],function(){
-    var d=+(_cmVal('days'))||45;if(d<1||d>3650)return;startKhatmah(d);
+    var d=Math.round(+(_cmVal('days'))||45);if(d<1||d>3650)return;startKhatmah(d);
   });
 }
 function khatmahOpenMushaf(surah){
@@ -6994,15 +7047,19 @@ function khatmahSaveToday(){
   if(!data)return;
   /* هجرة الصيغة القديمة (months بلا days) — كما في loadKhatmah */
   if(data.months&&!data.days){data.days=data.months*30;}
+  if(!data.days)return; /* علامة إعادة البدء {reset} — لا خطة */
   var base=_khatmahToday(data).base;
   data.pagesRead=Math.min(604,base+todayPages);
   data.td=todayKey();data.tp=data.pagesRead-base;
   _khatmahCheckComplete(data);
   lsSet('khatmah_data',JSON.stringify(data));
-  lsSet('khatmah_today_'+todayKey(),'1');_achvSaveSnap();
+  /* إنجاز «الختمة» اليومي فقط إن قُرئ اليوم شيء فعلاً (حفظ ٠ لا يُنجزه) */
+  if(data.tp>0)lsSet('khatmah_today_'+todayKey(),'1');else{try{localStorage.removeItem('khatmah_today_'+todayKey());}catch(e){}}
+  _achvSaveSnap();
   loadKhatmah();
 }
-function resetKhatmah(){lsSet('khatmah_data','');try{localStorage.removeItem('khatmah_today_'+todayKey());}catch(e){}loadKhatmah();}
+/* علامة إعادة بدء مؤرَّخة بدل '' — كي لا يعيد الدمج السحابي الختمة القديمة */
+function resetKhatmah(){lsSet('khatmah_data',JSON.stringify({reset:Date.now()}));try{localStorage.removeItem('khatmah_today_'+todayKey());}catch(e){}loadKhatmah();}
 
 /* ===== v18: Streak System ===== */
 function updateStreak(){
@@ -8773,7 +8830,10 @@ function _fbReadLocal(){
     quran:{
       pos:ls.getItem('mushaf_pos')||null,
       surah:ls.getItem('mushaf_surah')||null,
+      anchor:ls.getItem('mushaf_anchor')||null,
+      posTs:parseInt(ls.getItem('mushaf_pos_ts'))||0,
       bookmarks:ls.getItem('bookmarks')||null,
+      bkTs:parseInt(ls.getItem('bookmarks_ts'))||0,
       reciter:ls.getItem('reciter')||null,
       qfont:ls.getItem('qfont')||null,
       mushafOn:ls.getItem('mushafOn')||null,
@@ -8901,26 +8961,45 @@ function _fbMerge(r){
     // ── Quran ──
     if(r.quran){
       var rq=r.quran;
-      // Position: take higher surah number (further in Quran)
-      var lSurah=parseInt(localStorage.getItem('mushaf_surah'))||0;
-      var rSurah=parseInt(rq.surah)||0;
-      if(rSurah>lSurah){
-        _ls('mushaf_surah',rq.surah);
-        _ls('mushaf_pos',rq.pos);
-      }else if(rSurah===lSurah){
-        // Same surah — take higher ayah position
-        var lPos=parseInt(localStorage.getItem('mushaf_pos'))||0;
-        var rPos=parseInt(rq.pos)||0;
-        if(rPos>lPos) _ls('mushaf_pos',rq.pos);
+      // Position: الأحدث يفوز (mushaf_pos_ts) بالوحدة كاملة سورة/موضع/مرساة —
+      // «السورة الأبعد» كانت تثبّت الموضع على أبعد ما بُلغ يوماً
+      var lPT=parseInt(localStorage.getItem('mushaf_pos_ts'))||0;
+      var rPT=parseInt(rq.posTs)||0;
+      if(lPT||rPT){
+        if(rPT>lPT){
+          _ls('mushaf_surah',rq.surah);
+          _ls('mushaf_pos',rq.pos);
+          if(rq.anchor)_ls('mushaf_anchor',rq.anchor);else localStorage.removeItem('mushaf_anchor');
+          _ls('mushaf_pos_ts',String(rPT));
+        }
+      }else{
+        // بيانات قديمة بلا ختم زمني على الطرفين: السلوك السابق (السورة الأبعد)
+        var lSurah=parseInt(localStorage.getItem('mushaf_surah'))||0;
+        var rSurah=parseInt(rq.surah)||0;
+        if(rSurah>lSurah){
+          _ls('mushaf_surah',rq.surah);
+          _ls('mushaf_pos',rq.pos);
+        }else if(rSurah===lSurah){
+          // Same surah — take higher ayah position
+          var lPos=parseInt(localStorage.getItem('mushaf_pos'))||0;
+          var rPos=parseInt(rq.pos)||0;
+          if(rPos>lPos) _ls('mushaf_pos',rq.pos);
+        }
       }
-      // Bookmarks: union
+      // Bookmarks: السحابة مختومة وأحدث ← قائمتها كاملة (الحذف يُحترم)؛ المحلي
+      // أحدث ← يبقى؛ سحابة بلا ختم (بيانات قديمة) ← اتحاد بلا تكرار للآية نفسها
       try{
+        var lBT=parseInt(localStorage.getItem('bookmarks_ts'))||0;
+        var rBT=parseInt(rq.bkTs)||0;
         var lb=JSON.parse(localStorage.getItem('bookmarks')||'[]');
         var rb=JSON.parse(rq.bookmarks||'[]');
         if(Array.isArray(lb)&&Array.isArray(rb)){
-          var mb=[]; var seen={};
-          lb.concat(rb).forEach(function(x){var k=JSON.stringify(x);if(!seen[k]){seen[k]=1;mb.push(x);}});
-          localStorage.setItem('bookmarks',JSON.stringify(mb));
+          if(rBT>lBT){_ls('bookmarks',JSON.stringify(rb));_ls('bookmarks_ts',String(rBT));}
+          else if(!rBT){
+            var mb=[]; var seen={};
+            lb.concat(rb).forEach(function(x){var k=x&&(x.s+':'+x.a);if(k&&!seen[k]){seen[k]=1;mb.push(x);}});
+            _ls('bookmarks',JSON.stringify(mb));
+          }
         }
       }catch(e){}
       // Settings: remote if local empty
@@ -9026,7 +9105,15 @@ function _fbMerge(r){
           localStorage.setItem('badges_earned',JSON.stringify(Array.from(new Set(lb2.concat(rb2)))));
         }
       }catch(e){}
-      if(rp.khatmah_data&&!localStorage.getItem('khatmah_data')) _ls('khatmah_data',rp.khatmah_data);
+      // الختمة: الأحدث يفوز بين بدء خطة (ts/startDate) وإعادة البدء ({reset}) —
+      // كي لا تُستعاد ختمة قديمة فوق إعادة بدءٍ اختارها المستخدم
+      if(rp.khatmah_data){
+        var _kT=function(k){return k&&typeof k==='object'?(k.reset||k.ts||Date.parse(k.startDate)||0):0;};
+        var _lk=null,_rk=null;
+        try{_lk=JSON.parse(localStorage.getItem('khatmah_data')||'null');}catch(e){}
+        try{_rk=JSON.parse(rp.khatmah_data);}catch(e){}
+        if(_rk&&typeof _rk==='object'&&(!_lk||typeof _lk!=='object'||_kT(_rk)>_kT(_lk))) _ls('khatmah_data',rp.khatmah_data);
+      }
     }
   });
 }
