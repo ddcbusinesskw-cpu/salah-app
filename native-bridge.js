@@ -168,30 +168,25 @@
 
       /**
        * scheduleNoorNotifications(times) — لإشعارات الأذان
-       * times: [{ id, title, body, date }]
-       * إذا لم يُحسم الإذن بعد نعيد طلبه مرة واحدة ثم نجدول.
+       * times: [{ id, title, body, date, channelId? }]
+       * بلا إذن: عودة صامتة — طلب الإذن من فعل المستخدم فقط
+       * (تفعيل الأذان/التجربة)، لا عند كل عودة للتطبيق.
        */
-      window.scheduleNoorNotifications = function (times, _retried) {
+      window.scheduleNoorNotifications = function (times) {
         if (!times || !times.length) return;
-        if (!window._nativeNotifGranted) {
-          if (_retried) return; /* تم الرفض — لا نكرر */
-          LocalNotif.requestPermissions().then(function (r) {
-            window._nativeNotifGranted = r.display === 'granted';
-            if (window._nativeNotifGranted) window.scheduleNoorNotifications(times, true);
-            else if (typeof window.toast === 'function')
-              window.toast('يلزم منح إذن الإشعارات لجدولة الأذان — افتح إعدادات التطبيق', 'warning');
-          }).catch(function () {});
-          return;
-        }
+        if (!window._nativeNotifGranted) return;
         var cancelIds = times.map(function (t) { return { id: t.id }; });
         LocalNotif.cancel({ notifications: cancelIds }).catch(function () {});
         var notifications = times.map(function (t) {
-          return {
+          var n = {
             id: t.id, title: t.title, body: t.body,
             schedule: { at: new Date(t.date), allowWhileIdle: true },
-            channelId: 'adhan', sound: 'adhan_alert.wav',
+            channelId: t.channelId || 'adhan',
             smallIcon: 'ic_stat_noor', iconColor: '#3fae8e'
           };
+          /* نغمة الأذان لقناة الأذان فقط */
+          if (!t.channelId) n.sound = 'adhan_alert.wav';
+          return n;
         });
         LocalNotif.schedule({ notifications: notifications }).catch(function (e) {
           console.warn('[NoorAdhan] schedule failed:', e && (e.message || String(e)));
@@ -225,9 +220,16 @@
         var _renew = new Date(now.getTime() + 6 * 86400000);
         _renew.setHours(9, 0, 0, 0);
         if (_renew > now) {
-          notifs.push({ id: 2035, title: '🕌 المجدّد', body: 'افتح التطبيق لتجديد مواقيت الأذان لهذا الأسبوع', date: _renew.toISOString() });
+          /* قناة هادئة بلا نغمة أذان — ليس وقت صلاة */
+          notifs.push({ id: 2035, title: '🔄 المجدّد', body: 'افتح التطبيق لتجديد مواقيت الأذان لهذا الأسبوع', date: _renew.toISOString(), channelId: 'reminder_silent' });
         }
-        if (notifs.length) {
+        /* إلغاء المعرّفات التي لم تعد مجدولة — صلاة عُطّل أذانها أو مضى وقتها */
+        var _keep = {}, _stale = [];
+        notifs.forEach(function (n) { _keep[n.id] = 1; });
+        for (var si = 2000; si <= 2035; si++) if (!_keep[si]) _stale.push({ id: si });
+        if (_stale.length && window._nativeNotifGranted)
+          LocalNotif.cancel({ notifications: _stale }).catch(function () {});
+        if (notifs.length && window._nativeNotifGranted) {
           try { localStorage.setItem('_adhan_sched_ts', String(Date.now())); } catch (e) {}
           window.scheduleNoorNotifications(notifs);
         }
@@ -260,15 +262,22 @@
         });
         /* نقر الإشعار → افتح شاشة المواقيت */
         if (LocalNotif.addListener) {
-          LocalNotif.addListener('localNotificationActionPerformed', function () {
-            try { if (typeof window.go === 'function') window.go('times'); } catch (e) {}
+          LocalNotif.addListener('localNotificationActionPerformed', function (ev) {
+            try {
+              var id = ev && ev.notification && ev.notification.id;
+              /* جلسة نشطة (تسميع/متابع صلاة): لا تقطعها بالتنقّل */
+              if ((window.LM && window.LM.rec) || (window.SW && window.SW.active)) return;
+              /* تذكير الذكر: افتح التطبيق فقط */
+              if (id >= 3000 && id < 3200) return;
+              if (typeof window.go === 'function') window.go('times');
+            } catch (e) {}
           });
         }
       }
 
       /**
        * _nativeHourlyDhikr(dhikrList)
-       * يُجدِّل 48 إشعاراً ساعياً (IDs 3000‑3199) ضمن ساعات 7 ص–11 م
+       * يُجدِّل 48 إشعاراً ساعياً (24 على iOS) (IDs 3000‑3199) ضمن ساعات 7 ص–11 م
        * يستخدم قناة 'reminder' الهادئة.
        */
       window._cancelNativeHourlyDhikr = function () {
@@ -280,6 +289,8 @@
       window._nativeHourlyDhikr = function (dhikrList) {
         if (!window._nativeNotifGranted || !dhikrList || !dhikrList.length) return;
         var now = new Date(), notifs = [], idx = 0;
+        /* iOS يحتفظ بأقرب 64 إشعاراً معلّقاً فقط: 36 للأذان + 24 للذكر */
+        var _max = (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 24 : 48;
         outerDhikr: for (var d = 0; d < 4; d++) {
           for (var h = 7; h <= 22; h++) {
             var dt = new Date(now);
@@ -295,7 +306,7 @@
               smallIcon: 'ic_stat_noor',
               iconColor: '#3fae8e'
             });
-            if (notifs.length >= 48) break outerDhikr;
+            if (notifs.length >= _max) break outerDhikr;
           }
         }
         if (!notifs.length) return;
