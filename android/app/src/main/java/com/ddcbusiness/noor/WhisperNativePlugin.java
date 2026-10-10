@@ -67,6 +67,12 @@ public class WhisperNativePlugin extends Plugin {
     private volatile boolean listening = false;
     private final ArrayList<short[]> buf = new ArrayList<>(); // شرائح PCM بالترتيب
     private int total = 0;          // إجمالي العيّنات الملتقَطة
+    /* سقف الذاكرة: يُحتفظ بآخر ~10 دقائق فقط (~19MB) — bufBase = الفهرس المطلق لـbuf[0].
+       الجلسات الطويلة/المنسيّة لا تنفد بها الذاكرة؛ «استمع للمسجَّل» يعيد آخر 10 دقائق */
+    private static final int MAX_KEEP = SR * 600;
+    private int bufBase = 0;
+    /* جيل الجلسة: يزيد مع كل بدء — قارئ/مهمة إيقاف جلسة سابقة لا تمسّ الجلسة الجديدة */
+    private volatile int sessGen = 0;
     private int emittedUpTo = 0;    // آخر عيّنة أُرسلت نافذتها
     /* نافذة نامية: من نقطة الارتساء (بداية العبارة) حتى الآن — whisper يرى عبارة
        كاملة لا شريحة مقطوعة. تُعاد نقطة الارتساء عند صمت VAD أو تجاوز السقف. */
@@ -247,9 +253,11 @@ public class WhisperNativePlugin extends Plugin {
             return;
         }
 
+        final int gen;
         synchronized (buf) {
-            buf.clear(); total = 0; emittedUpTo = 0; seq = 0;
+            buf.clear(); total = 0; bufBase = 0; emittedUpTo = 0; seq = 0;
             anchorSample = 0; silenceRun = 0; hadSpeech = false;
+            gen = ++sessGen;
         }
         // اطلب التركيز الصوتي وراقب فقده (مكالمة واردة → إنهاء بملخّص من JS)
         try {
@@ -275,12 +283,27 @@ public class WhisperNativePlugin extends Plugin {
         rmsHistN = 0; rmsHistPos = 0; noiseFloor = 260.0; // أرضية ابتدائية لكل جلسة
         synchronized (winDiag) { winDiag.clear(); }
         listening = true;
-        recorder.startRecording();
+        try { recorder.startRecording(); } catch (Throwable ignored) {}
+        /* المايك محجوز (تطبيق آخر/مكالمة): startRecording يفشل بصمت على أندرويد 5–9 —
+           ارفض صراحةً بدل جلسة «تستمع» لمايك لا يسجّل */
+        if (recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+            listening = false; emitPcm = false;
+            try {
+                AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+                if (am != null && focusListener != null) am.abandonAudioFocus(focusListener);
+            } catch (Throwable ignored) {}
+            try { recorder.release(); } catch (Throwable ignored) {}
+            recorder = null;
+            call.reject("mic-busy: المايك مستخدَم من تطبيق آخر");
+            return;
+        }
 
+        /* القارئ يمسك مسجّله وجيله محلياً — لا يقرأ الحقل (قد يصير null/لجلسة أحدث) */
+        final AudioRecord rec = recorder;
         readThread = new Thread(() -> {
             short[] block = new short[2048];
-            while (listening) {
-                int nr = recorder.read(block, 0, block.length);
+            while (listening && gen == sessGen) {
+                int nr = rec.read(block, 0, block.length);
                 if (nr > 0) {
                     short[] chunk = new short[nr];
                     System.arraycopy(block, 0, chunk, 0, nr);
@@ -348,7 +371,13 @@ public class WhisperNativePlugin extends Plugin {
                     boolean voicedNow = brms > voiceThr;
                     boolean silent    = brms < silThr;
                     int nowTotal;
-                    synchronized (buf) { buf.add(chunk); total += nr; nowTotal = total; }
+                    synchronized (buf) {
+                        if (gen != sessGen) break; // بدأت جلسة أحدث: لا تخلط صوتنا بمخزنها
+                        buf.add(chunk); total += nr;
+                        // سقف الذاكرة: أسقِط أقدم الشرائح بعد MAX_KEEP (النوافذ ≤7ث دائماً ضمنه)
+                        while (total - bufBase > MAX_KEEP && buf.size() > 1) bufBase += buf.remove(0).length;
+                        nowTotal = total;
+                    }
                     // ارتساء جديد: سكوت SILENCE_RESET بعد كلام = نهاية عبارة → ابدأ النافذة من هنا
                     if (voicedNow) {
                         silenceRun = 0; hadSpeech = true;
@@ -381,7 +410,15 @@ public class WhisperNativePlugin extends Plugin {
                         dispatchWindow(anchorSample, nowTotal, ++seq, false);
                     }
                 } else if (nr < 0) {
-                    break; // خطأ قراءة
+                    /* خطأ قراءة (audioserver أُعيد تشغيله/تغيّر المسار): أبلغ JS لينهي الجلسة
+                       بملخّص — listening يبقى true كي يمرّ stopStream بمسار التنظيف المعتاد */
+                    if (listening && gen == sessGen) {
+                        JSObject iev = new JSObject();
+                        iev.put("reason", "read-error");
+                        iev.put("code", nr);
+                        notifyListeners("audio_interrupt", iev);
+                    }
+                    break;
                 }
             }
         }, "whisper-audiorecord");
@@ -432,31 +469,51 @@ public class WhisperNativePlugin extends Plugin {
         try { if (readThread != null) readThread.join(1500); } catch (InterruptedException ignored) {}
         try { if (recorder != null) { recorder.stop(); } } catch (Throwable ignored) {}
 
-        final int from, to, mySeq;
-        synchronized (buf) { from = Math.max(0, anchorSample); to = total; mySeq = ++seq; }
-        // النافذة الأخيرة (العبارة النامية الحالية) ثم النتيجة + PCM الكامل (لـ«استمع للمسجَّل»)
+        /* لقطة متزامنة لحالة هذه الجلسة على خيط الـplugin: المهمة المؤجَّلة قد تعمل
+           بعد بدء جلسة أحدث (buf مُفرَّغ ومسجّل جديد) — فلا تقرأ الحقول ولا تحرّر إلا لقطتها */
+        final AudioRecord r = recorder;
+        recorder = null; readThread = null;
+        final int from, to, mySeq, base, g;
+        final java.util.List<short[]> snap;
+        synchronized (buf) {
+            base = bufBase; from = Math.max(base, anchorSample); to = total; mySeq = ++seq;
+            snap = new ArrayList<>(buf); g = sessGen;
+        }
+        final String pr = prompt;
+        // النافذة الأخيرة (العبارة النامية الحالية) ثم النتيجة + PCM المحفوظ (لـ«استمع للمسجَّل»)
         exec.execute(() -> {
             try {
-                if (to > from) {
-                    short[] w = slice(from, to);
-                    String text = nativeTranscribe(ctx, w, "ar", threadCount(), prompt);
-                    JSObject ev = new JSObject();
-                    ev.put("seq", mySeq);
-                    ev.put("text", text == null ? "" : text);
-                    ev.put("final", true);
-                    notifyListeners("partial", ev);
+                if (to > from && ctx != 0) {
+                    short[] w = slice(snap, base, from, to);
+                    String text = nativeTranscribe(ctx, w, "ar", threadCount(), pr);
+                    // نتيجة قديمة لا تصل جلسة أحدث بدأت أثناء انتظار المهمة
+                    if (g == sessGen && !listening) {
+                        JSObject ev = new JSObject();
+                        ev.put("seq", mySeq);
+                        ev.put("text", text == null ? "" : text);
+                        ev.put("final", true);
+                        notifyListeners("partial", ev);
+                    }
                 }
             } catch (Throwable ignored) {}
-            // بناء PCM الكامل base64 LE
-            short[] all = slice(0, total);
-            byte[] bytes = new byte[all.length * 2];
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(all);
+            try { if (r != null) r.release(); } catch (Throwable ignored) {}
             JSObject res = new JSObject();
-            res.put("pcm", Base64.encodeToString(bytes, Base64.NO_WRAP));
             res.put("sampleRate", SR);
-            res.put("samples", total);
-            releaseRecorder();
-            call.resolve(res);
+            try {
+                // بناء PCM المحفوظ base64 LE (آخر MAX_KEEP كحدّ أقصى)
+                short[] all = slice(snap, base, base, to);
+                byte[] bytes = new byte[all.length * 2];
+                ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(all);
+                res.put("pcm", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                res.put("samples", all.length);
+            } catch (Throwable t) {
+                res.put("samples", 0); // نفاد ذاكرة: النتيجة بلا PCM (JS يتسامح) — لا انهيار ولا وعد معلّق
+            }
+            try { call.resolve(res); }
+            catch (Throwable t) {
+                JSObject e = new JSObject(); e.put("sampleRate", SR); e.put("samples", 0);
+                try { call.resolve(e); } catch (Throwable ignored) {}
+            }
         });
     }
 
@@ -692,20 +749,24 @@ public class WhisperNativePlugin extends Plugin {
 
     /** نسخ العيّنات [from,to) من قائمة الشرائح إلى short[] واحد. */
     private short[] slice(int from, int to) {
-        synchronized (buf) {
-            int len = Math.max(0, to - from);
-            short[] out = new short[len];
-            int pos = 0, w = 0;
-            for (int i = 0; i < buf.size() && w < len; i++) {
-                short[] ch = buf.get(i);
-                int cs = pos, ce = pos + ch.length; pos = ce;
-                if (ce <= from) continue;
-                int a = Math.max(from, cs) - cs;
-                int b = Math.min(to, ce) - cs;
-                for (int j = a; j < b && w < len; j++) out[w++] = ch[j];
-            }
-            return out;
+        synchronized (buf) { return slice(buf, bufBase, from, to); }
+    }
+
+    /** نفس النسخ من قائمة شرائح معطاة (لقطة جلسة) — base = الفهرس المطلق لأول شريحة. */
+    private static short[] slice(java.util.List<short[]> chunks, int base, int from, int to) {
+        from = Math.max(from, base); // ما قبل base أُسقِط بسقف الذاكرة
+        int len = Math.max(0, to - from);
+        short[] out = new short[len];
+        int pos = base, w = 0;
+        for (int i = 0; i < chunks.size() && w < len; i++) {
+            short[] ch = chunks.get(i);
+            int cs = pos, ce = pos + ch.length; pos = ce;
+            if (ce <= from) continue;
+            int a = Math.max(from, cs) - cs;
+            int b = Math.min(to, ce) - cs;
+            for (int j = a; j < b && w < len; j++) out[w++] = ch[j];
         }
+        return out;
     }
 
     private void releaseRecorder() {

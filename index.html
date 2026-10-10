@@ -2232,7 +2232,8 @@ function _hbUiFor(ayIdx){
    - إن لم تكتمل لكن ظهرت بداية الآية التالية بعد آخر رسوّ: القارئ انتقل —
      تُحسم الحالية (finishRest) وتُتابَع التالية بدل تجمّد الصفحة عند كلمة. */
 function _hbJudgeText(t){
-  if(!HB.on||!HB.cur||!t)return;
+  /* HB.page: نتائج الإنهاء المتأخرة لا تُرسم على صفحة أخرى بعد تقليب/اختيار سورة */
+  if(!HB.on||!HB.cur||!t||HB.page!==LM.page)return;
   var got=normText(t);if(!got.length)return;
   for(var guard=0;guard<6&&HB.on&&HB.cur&&got.length;guard++){
     var j=HB.cur.judge,idx0=HB.idx;
@@ -2260,7 +2261,7 @@ function _hbStartAyah(i){
 }
 function _hbStart(){
   _hbBuildAyahs();
-  HB.on=true;HB.idx=0;HB.heardMap={};HB.wordState={};
+  HB.on=true;HB.draining=false;HB.page=LM.page;HB.idx=0;HB.heardMap={};HB.wordState={};
   HB.diag={chunks:0,samples:0,peak:0,min:0,max:0,rms:0,lastAt:0};
   HB.vad={hist:[],floor:260,noisyMs:0,warned:false}; /* أرضية ابتدائية لكل جلسة */
   HB.sendLog=[];HB.sent=0;
@@ -2269,7 +2270,17 @@ function _hbStart(){
   _hbWireHeardClicks();
   if(HB.ayahs.length)_hbStartAyah(0);
 }
-function _hbStop(){
+/* هدم القاضي الهجين نهائياً: بعد تصريف نتائج الإيقاف (_fin/صمّام الأمان/تغيير الصفحة) */
+function _hbTeardown(){HB.draining=false;HB.on=false;if(HB.cur){try{HB.cur.stop();}catch(e){}HB.cur=null;}}
+function _hbStop(drain){
+  /* تصريف: آخر نافذة تُرسل والقاضي يبقى حياً حتى تصل النتائج المعلّقة (المنفّذ الأصلي
+     يسلسلها قبل ردّ stopStream) فتُحكم آخر عبارة قبل الإيقاف؛ يهدمه _hbTeardown في _fin */
+  if(drain){
+    if(HB.win&&HB.win.voiceSamp>=HB_MIN_VOICE){try{_hbSendWin('إنهاء');}catch(e){}}
+    HB.draining=true;if(HB.cur){try{HB.cur.stop();}catch(e){}}
+    return;
+  }
+  HB.draining=false;
   /* تدفيق أخير: نافذة فيها صوت كافٍ لا تُهدر عند الإنهاء — تُرسل وتُسجَّل */
   if(HB.win&&HB.win.voiceSamp>=HB_MIN_VOICE){try{_hbSendWin('إنهاء');}catch(e){}}
   HB.on=false;
@@ -2850,7 +2861,8 @@ function lmAdvance(heard,src){
   if(st&&LM.rec)st.textContent=(VK.ready?'🎙 يستمع (فوري)… ':'🎙 يستمع… ')+LM.cursor+'/'+N+' كلمة';
 }
 function lmOnPartial(ev){
-  if(!LM.rec)return;
+  /* أثناء التصريف (بعد الإيقاف): النافذة الأصلية الأخيرة {final} تصل القاضي */
+  if(!LM.rec&&!(HB.draining&&HB.cur))return;
   var t=(ev&&ev.text||'').trim();
   if(ev){
     if(ev.ms&&LM._winMs)LM._winMs.push(ev.ms);
@@ -2878,12 +2890,14 @@ function lmStart(){
      المتأخر كان يهدم الجلسة الجديدة: يزيل مستمعيها ويحرّر مايكها) ولا بدء مزدوج */
   if(LM.stopping){if(st)st.textContent='⏳ إنهاء الجلسة السابقة… لحظة ثم اضغط مجدداً';return;}
   if(LM.starting)return;
+  LM._bgStop=false; /* علَم «أُوقف بالخلفية» لا يتسرّب إلى جلسة جديدة */
   /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
   if(!WN.ready){
     var d=WN.diag||{};
     var sz=(typeof d.savedBytes==='number'&&d.savedBytes>0)?' · '+(typeof _svFmt==='function'?_svFmt(d.savedBytes):d.savedBytes+'B'):'';
     if(WN.fatal){if(st)st.textContent='المحرّك غير متاح: '+String(d.err||'بيئة غير مدعومة').slice(0,70);}
-    else if(WN.exhausted){if(st)st.textContent='تعذّر تحميل المحرّك: '+String(d.err||'فشل متكرر').slice(0,60)+' — اضغط «إعادة المحاولة» في تفاصيل تقنية';}
+    /* نقرة المايك طلب صريح: أعد المحاولة فوراً (زرّ «تفاصيل تقنية» لا يظهر قبل جلسة) */
+    else if(WN.exhausted){_wnRetry();}
     else{if(st)st.textContent='⏳ يُحمّل المحرّك الأصلي… '+(d.stage||'تجهيز')+sz+(WN.attempts>0?' (إعادة محاولة)':'');try{_wnEnsure();}catch(e){}}
     return;
   }
@@ -2899,7 +2913,8 @@ function lmStart(){
       document.querySelectorAll('audio').forEach(function(a){if(!a.paused)try{a.pause();}catch(x){}});
       if(typeof qpClose==='function'){var _qp=document.getElementById('qplayer');if(_qp&&_qp.classList.contains('on'))qpClose();}
     }catch(e){}
-    LM.rec=true;LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
+    LM.rec=true;LM._sess=(LM._sess||0)+1; /* رمز الجلسة: إنهاء أصلي متأخر لجلسة سابقة لا يمسّ هذه */
+    LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
     LM._nV=0;LM._nW=0;LM._vkFirstMs=0;LM._vkHeard='';
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
     _micLblSet(true);
@@ -2911,9 +2926,10 @@ function lmStart(){
     /* المحرّك الهجين: شرائح PCM من المايك الأصلي الواحد → PcmRing */
     try{P.addListener('pcm_chunk',_hbOnPcm);}catch(e){}
     /* فقد التركيز الصوتي (مكالمة واردة): أنهِ بملخّص بدل الاستمرار الصامت */
-    try{P.addListener('audio_interrupt',function(){
+    try{P.addListener('audio_interrupt',function(ev){
       if(!LM.rec)return;
-      toast('انقطع الصوت (مكالمة واردة؟) — أُنهيت الجلسة بملخّص ما سُمع','info');
+      /* read-error: المايك نفسه انقطع (خطأ قراءة أصلي) — لا مكالمة */
+      toast((ev&&ev.reason==='read-error')?'انقطع المايك — أُنهيت الجلسة بملخّص ما سُمع':'انقطع الصوت (مكالمة واردة؟) — أُنهيت الجلسة بملخّص ما سُمع','info');
       try{lmStop();}catch(e){}
     });}catch(e){}
     /* إصلاح: removeAllListeners أعلاه يزيل مستمعات Vosk — أعد ربطها دائماً
@@ -2928,6 +2944,12 @@ function lmStart(){
     P.startStream({slide_sec:99999,max_sec:5,prompt:'',emit_pcm:true}).catch(function(e){
       LM.rec=false;
       _hbStop();
+      /* lmStop لن يُستدعى (LM.rec=false): أوقف استطلاع Vosk ومستمعي الجلسة هنا
+         وأعد ربط تقدّم/جزئيات Vosk (قد يكون تنزيله بدأ للتوّ أعلاه) */
+      VK.listening=false;
+      try{if(VK._statIv){clearInterval(VK._statIv);VK._statIv=null;}}catch(x){}
+      try{var _rl2=P.removeAllListeners();if(_rl2&&_rl2.catch)_rl2.catch(function(){});}catch(x){}
+      VK._wired=false;try{_vkWire(P);}catch(x){}
       var msg=String(e&&e.message||e);LM._captureErr=msg;
       var perm=/permission|إذن|مرفوض/i.test(msg);
       if(st)st.textContent=perm?'الرجاء السماح باستخدام المايكروفون ثم أعد المحاولة':('تعذّر بدء الالتقاط: '+msg.slice(0,70));
@@ -2951,10 +2973,10 @@ function lmStart(){
 function lmStop(){
   if(!LM.rec)return;LM.rec=false;VK.listening=false;
   LM.stopping=true;
-  var _stopPage=LM.page;
-  /* صمّام أمان: إن لم يعُد وعد الإيقاف أبداً لا يبقى المايك مقفلاً */
-  var _stopSafety=setTimeout(function(){LM.stopping=false;},8000);
-  _hbStop(); /* أوقف حلقة whisper الهجينة فوراً — لا تعمل خارج الجلسة */
+  var _stopPage=LM.page,_sid=LM._sess,_bg=!!LM._bgStop;LM._bgStop=false;
+  /* صمّام أمان: إن لم يعُد وعد الإيقاف أبداً لا يبقى المايك مقفلاً ولا القاضي في التصريف */
+  var _stopSafety=setTimeout(function(){LM.stopping=false;if(!LM.rec&&_sid===LM._sess)_hbTeardown();},8000);
+  _hbStop(true); /* آخر نافذة تُرسل والقاضي يصرّف النتائج المعلّقة حتى _fin */
   try{if(VK._statIv){clearInterval(VK._statIv);VK._statIv=null;}}catch(e){}
   try{_vkPollStats();}catch(e){}
   try{var _vp=_vkPlug();if(_vp&&_vp.voskReset)_vp.voskReset();}catch(e){}
@@ -2965,25 +2987,32 @@ function lmStop(){
   try{rakWakeLock(false);}catch(e){}
   var _fin=function(res){
     clearTimeout(_stopSafety);
-    try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     if(res&&res.pcm){var f=_wnPcmB64ToF32(res.pcm);if(f){W2._lastAudio16k=f;W2._lastAudioRaw={pcm:f,rate:res.sampleRate||16000};}}
+    /* إنهاء أصلي متأخر بعد صمّام الأمان وقد بدأت جلسة أحدث: لا تهدم مستمعيها
+       ولا قاضيها ولا ترسم ملخّصاً فوقها (ولا تمسّ LM.stopping الخاص بها) */
+    if(_sid!==LM._sess||LM.rec||LM.starting)return;
+    _hbTeardown(); /* وصلت النتائج المعلّقة كلها (سُلسلت أصلياً قبل ردّ الإيقاف) */
+    try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
+    /* removeAllListeners أزال vosk_progress/vosk_partial أيضاً — أعد ربطها كي لا يتجمّد تقدّم التنزيل */
+    VK._wired=false;try{_vkWire(P);}catch(e){}
     LM.stopping=false;
     /* قلّب المستخدم الصفحة أثناء الإنهاء: لا تُرسم نتائج الجلسة على صفحة أخرى ولا تُمنح شارات */
     if(LM.page!==_stopPage){var s2=document.getElementById('lmStatus');if(s2)s2.textContent='اختر سورة أو صفحة ثم اضغط «🎙 استمع» وابدأ التلاوة';return;}
-    setTimeout(lmFinish,150);
+    setTimeout(function(){if(_sid===LM._sess&&!LM.rec)lmFinish(_bg);},150);
   };
-  if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else{clearTimeout(_stopSafety);LM.stopping=false;lmFinish();}
+  if(P)P.stopStream().then(_fin).catch(function(){_fin(null);});else{clearTimeout(_stopSafety);_hbTeardown();LM.stopping=false;lmFinish(_bg);}
 }
 /* الحكم النهائي: ✅ مثبت · ❌ خطأ مسموع · ⬜ ما لم يُسمع/متخطّى (لا يُحسب خطأً)
    مع الهجين: الحالات من سجل القاضي حصراً (لا يُلوَّن متخطّى صحيحاً) */
-function lmFinish(){
-  var N=LM.words.length,ok=0,miss=0;
+function lmFinish(bg){
+  var _bg=!!bg; /* أُوقفت الجلسة بمغادرة التطبيق: ملاحظة واضحة ولا شارات/سلسلة */
+  var N=LM.words.length,ok=0,miss=0,err=0;
   var hbActive=typeof HB!=='undefined'&&HB.wordState&&Object.keys(HB.wordState).length>0;
   for(var i=0;i<N;i++){
     if(hbActive){
       var ws=HB.wordState[i];
       if(ws==='confirmed'){_lmSetClass(i,'ok');ok++;}
-      else if(ws==='wrong'){_lmSetClass(i,'err');}
+      else if(ws==='wrong'){_lmSetClass(i,'err');err++;}
       else if(ws==='tentative'){_lmSetClass(i,'tent');ok++;} /* سمعه Vosk ولم يلحقه whisper قبل الإيقاف */
       else{_lmSetClass(i,'miss');miss++;}
       continue;
@@ -2992,10 +3021,10 @@ function lmFinish(){
     else{_lmSetClass(i,'miss');miss++;}
   }
   if(LM.active!=null){var ae=_lmSpan(LM.active);if(ae)ae.classList.remove('active');}
-  /* شارات التسميع: «حافظ» = كل الكلمات محسومة · «مُسمِّع» = كلها مؤكّدة ·
+  /* شارات التسميع: «حافظ» = كل الكلمات محسومة بلا خطأ · «مُسمِّع» = كلها مؤكّدة ·
      «متقن الجزء» = ٢٠ صفحة بتثبيت ≥٩٠٪ · «ورد التسميع» = ٧ أيام متتالية */
-  try{
-    if(N>0&&miss===0)checkBadge('memorize_done');
+  if(!_bg)try{
+    if(N>0&&miss===0&&err===0)checkBadge('memorize_done');
     if(hbActive&&N>0){
       var _conf=0;for(var _ci=0;_ci<N;_ci++)if(HB.wordState[_ci]==='confirmed')_conf++;
       if(_conf===N)checkBadge('tasmee_page_full');
@@ -3005,6 +3034,8 @@ function lmFinish(){
       }
     }
     if(ok>0){
+      /* إنجاز «التسميع» اليومي (يقرؤه _achvTodayVals) */
+      lsSet('tasmee_done_'+todayKey(),'1');try{_achvSaveSnap();}catch(e){}
       var _tl=lsGet('tasmee_streak_last'),_td=new Date().toDateString();
       if(_tl!==_td){
         var _ts=+(lsGet('tasmee_streak')||0);
@@ -3016,7 +3047,8 @@ function lmFinish(){
   }catch(e){}
   var pct=N?Math.round(ok/N*100):0;
   var st=document.getElementById('lmStatus');
-  if(st)st.innerHTML=miss===0?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(miss?' · '+ar(miss)+' لم تُسمع':'');
+  if(st)st.innerHTML=(miss===0&&err===0)?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(err?' · '+ar(err)+' خطأ':'')+(miss?' · '+ar(miss)+' لم تُسمع':'');
+  if(_bg&&st)st.innerHTML+=' — <span style="color:var(--gold)">أُوقف عند مغادرة التطبيق (لا يُحتسب)</span>';
   var res=document.getElementById('lmResult');
   if(res)res.innerHTML=_lmDiagHtml();
 }
@@ -3025,15 +3057,17 @@ function lmToggleHide(){
   var host=document.getElementById('lmPage');if(host)host.classList.toggle('lm-hidden',LM.hidden);
   var b=document.getElementById('lmHideBtn');if(b)b.innerHTML=LM.hidden?'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>':'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/><line x1="4" y1="20" x2="20" y2="4"/></svg>';
 }
+/* تغيير الصفحة أثناء الجلسة: أوقفها أولاً (كالتقليب) واهدم التصريف — حالة القاضي
+   مفهرسة بكلمات الصفحة القديمة فلا تُرسم على الجديدة؛ _fin يتجاهل الجلسة لتغيّر الصفحة */
 function lmPickSurah(s){
-  var m=_lmSurahFirstPages(),p=m[+s]||1;LM.page=p;lmRender();
+  var m=_lmSurahFirstPages(),p=m[+s]||1;if(LM.rec){lmStop();_hbTeardown();}LM.page=p;lmRender();
 }
 function lmGoPage(){
   var v=parseInt((document.getElementById('lmPageNum')||{}).value,10);
   if(!(v>=1&&v<=604)){var st=document.getElementById('lmStatus');if(st)st.textContent='رقم صفحة غير صحيح (1–604)';return;}
-  LM.page=v;lmRender();
+  if(LM.rec){lmStop();_hbTeardown();}LM.page=v;lmRender();
 }
-function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec)lmStop();LM.page=np;lmRender();}
+function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec){lmStop();_hbTeardown();}LM.page=np;lmRender();}
 /* «تفاصيل تقنية» للمصحف الحي */
 function _lmDiagText(){
   var target=LM.words.map(function(w){return w.raw;}).join(' ');
@@ -3191,6 +3225,7 @@ function initMemorize(){
       var names=[];for(var s=1;s<=114;s++)names.push('<option value="'+s+'">'+ar(s)+' · '+(typeof nameFor==='function'?nameFor(s):('سورة '+s))+'</option>');
       sel.innerHTML=names.join('');
     }
+    if(LM.rec)lmStop(); /* لا إعادة رسم تحت جلسة حيّة (تفصل حالة القاضي عن LM.words) */
     lmRender();
   });
 }
@@ -6443,6 +6478,7 @@ document.addEventListener('visibilitychange',function(){
   if(document.visibilityState!=='hidden')return;
   try{
     if(typeof LM!=='undefined'&&LM.rec){
+      LM._bgStop=true; /* lmFinish يُلحق ملاحظة الإيقاف ولا يحتسب الشارات/السلسلة */
       lmStop();
       var _ls=document.getElementById('lmStatus');if(_ls)_ls.textContent='أُوقف الاستماع عند مغادرة التطبيق — أعِد المحاولة';
       if(typeof toast==='function')toast('أُوقف الاستماع — التطبيق في الخلفية','warning');
