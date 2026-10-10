@@ -4354,12 +4354,20 @@ function checkAllDailyGoal(s,doneCount,mDone,eDone){
   lsSet('allgoal_'+today,'1');
   setTimeout(function(){toast('🌟 يوم مكتمل — الصلوات الخمس + الأذكار. بارك الله فيك','success');},500);
 }
+/* يوم الصلاة: العشاء بعد منتصف الليل وقبل الفجر تُنسب إلى اليوم السابق */
+function _prayerDayOffset(p){
+  if(p!=='Isha'||!PT.data||!PT.data.timings||!PT.data.timings.Fajr)return 0;
+  var hm=PT.data.timings.Fajr.split(':'),n=new Date();
+  return (n.getHours()*60+n.getMinutes())<(+hm[0]*60+ +hm[1])?-1:0;
+}
+function _prayerDayKey(p){var d=new Date();d.setDate(d.getDate()+_prayerDayOffset(p));return 'daily_'+d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function togglePrayer(p){
-  var _dayK='daily_'+todayKey();
+  var _dayK=_prayerDayKey(p);
   var s=getDailyState(_dayK);s['prayer_'+p]=!s['prayer_'+p];saveDailyState(s,_dayK);renderDailyCards();
   // update times screen button live
   var btn=document.getElementById('pd_'+p);var done=!!s['prayer_'+p];
   if(btn){btn.classList.toggle('done',done);btn.textContent=done?'✓':'○';}
+  if(_dayK!=='daily_'+todayKey())toast(done?'سُجّلت عشاء الليلة الماضية ✓':'أُلغي تسجيل عشاء الليلة الماضية');
 }
 
 
@@ -4590,9 +4598,17 @@ function tick(){
   document.getElementById('nextLabel').textContent=P_NAMES[np.key]+' بعد';
   document.getElementById('nextName').textContent='موعد '+P_NAMES[np.key]+' '+ar(t[np.key]);
   var tnc=document.getElementById('timesNextCount');if(tnc)tnc.textContent=ar(hh)+' س '+ar(mm)+' د';
+  /* تغيّرت الصلاة القادمة: أعِد رسم شاشة المواقيت (العنوان والصف المميّز) مرة واحدة */
+  if(PT._nk&&np.key!==PT._nk&&document.querySelector('#timesBody .nextbox')){try{renderTimesScreen();}catch(e){}}
+  /* عدّاد الإفطار في رمضان: تحديث كل دقيقة */
+  if(PT._rbm!==now.getMinutes()){PT._rbm=now.getMinutes();try{updateRamadanBanner();}catch(e){}}
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
-    if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;playAdhan();showDua();
+    if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;
+      /* على native والإشعار مجدول: نغمته تصدح أولاً — أخّر الأذان المختار حتى تنتهي فلا يتداخلان */
+      if(_isNative()&&window._nativeNotifGranted&&lsGet('_adhan_sched_ts'))setTimeout(function(){if(adhanOn)playAdhan();},4000);
+      else playAdhan();
+      showDua();
       if(notifOn&&'Notification' in window&&Notification.permission==='granted'){
         new Notification('حان وقت صلاة '+P_NAMES[k],{body:'موعد '+P_NAMES[k]+': '+t[k],icon:'./icon-192.png',dir:'rtl',lang:'ar'});
       }
@@ -4674,7 +4690,9 @@ function renderTimesScreen(){
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,185,164,.18)':'rgba(232,197,95,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
   var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
   (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
-  '<div class="muted" style="margin:10px 2px 6px">صوت الأذان:</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
+  '<div class="muted" style="margin:10px 2px 6px">صوت الأذان (داخل التطبيق):</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>'+
+  (_isNative()?'<div class="muted" style="font-size:11px;margin-top:4px">عند إغلاق التطبيق يصل إشعار الأذان بنغمة تنبيه قصيرة.</div>':'');
+  PT._nk=nk; /* يقارنه tick لإعادة الرسم عند تغيّر الصلاة القادمة */
   var diff=np?np.diff:0;if(diff<0)diff+=86400;var hh=Math.floor(diff/3600),mm=Math.floor((diff%3600)/60);
   // السنن الرواتب المؤكدة (حديث ابن عمر — رواه مسلم ٧٢٨)
   var RAW_DEF=[{p:'الفجر',b:2,a:0},{p:'الظهر',b:4,a:2},{p:'المغرب',b:0,a:2},{p:'العشاء',b:0,a:2}];
@@ -4699,6 +4717,8 @@ function renderTimesScreen(){
   var _cn=lsGet('cityName')||tzCity();
   var _cityBar='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px"><span style="color:var(--muted);font-size:13px">📍 '+_cn+'</span><button onclick="showCityPicker()" style="background:none;border:1px solid rgba(255,255,255,.2);color:var(--muted);font-family:inherit;font-size:12px;padding:4px 12px;border-radius:999px;cursor:pointer">تغيير المدينة</button></div>';
   body.innerHTML=_cityBar+'<div class="nextbox"><div class="muted">الصلاة القادمة: '+P_NAMES[nk]+'</div><div class="big" id="timesNextCount">'+ar(hh)+' س '+ar(mm)+' د</div><div class="muted">باقٍ على الأذان</div></div>'+ctrl+'<div class="ptlist">'+rows+'</div>'+rawatibSec+karSec+hijriNote;
+  /* العشاء قبل الفجر تتبع يوم الصلاة السابق (كما يسجّلها togglePrayer) */
+  if(_prayerDayOffset('Isha')){var _ib=document.getElementById('pd_Isha'),_iD=!!getDailyState(_prayerDayKey('Isha')).prayer_Isha;if(_ib){_ib.classList.toggle('done',_iD);_ib.textContent=_iD?'✓':'○';}}
 }
 
 /* ===== الأذان ===== */
@@ -4730,6 +4750,13 @@ function scheduleNoorPrayerAlerts(){
       if(window._nativeNotifGranted)scheduleNoorPrayerAlerts();
       else console.warn('[adhan] notification permission denied — no scheduling');
     }).catch(function(e){console.error('[adhan] requestPermissions:',e);});
+    return;
+  }
+  /* رُفض الإذن: تحقّق صامت دون حوار (قد يمنحه المستخدم من الإعدادات) */
+  if(_LN&&window._nativeNotifGranted===false){
+    _LN.checkPermissions().then(function(r){
+      if(r&&r.display==='granted'){window._nativeNotifGranted=true;scheduleNoorPrayerAlerts();}
+    }).catch(function(){});
     return;
   }
   var t=PT.data.timings,now=new Date();
@@ -7824,8 +7851,9 @@ function _renderAdhanSett(){
     +'<button onclick="testAdhan()" style="'+bs+'font-size:13px;background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button>'
     +'</div>'
     +(adhanOn?'<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">أذان لكل صلاة:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</div></div>':'')
-    +'<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">صوت الأذان:</div>'
-    +'<div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="_settSetAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>';
+    +'<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">صوت الأذان (داخل التطبيق):</div>'
+    +'<div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="_settSetAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>'
+    +(_isNative()?'<div class="muted" style="font-size:11px;margin-top:4px">عند إغلاق التطبيق يصل إشعار الأذان بنغمة تنبيه قصيرة.</div>':'');
 }
 function _settToggleAdhan(){toggleAdhan();_renderAdhanSett();}
 function _settToggleNotifPrayer(k){toggleNotifPrayer(k);_renderAdhanSett();}
@@ -8060,9 +8088,11 @@ else _injectHelpButtons();
 var _origTogglePrayer=togglePrayer;
 togglePrayer=function(p){
   _origTogglePrayer(p);
-  var ds=getDailyState();
+  /* يوم الصلاة لا اليوم المدني (عشاء بعد منتصف الليل → الأمس) */
+  var ds=getDailyState(_prayerDayKey(p));
   var nowOn=!!ds['prayer_'+p];
-  var today=new Date().toDateString();
+  var _pd=new Date();_pd.setDate(_pd.getDate()+_prayerDayOffset(p));
+  var today=_pd.toDateString();
   if(nowOn){
     var all=[];try{var e=lsGet('badges_earned');if(e)all=JSON.parse(e);}catch(ex){}
     if(all.indexOf('first_prayer')<0)checkBadge('first_prayer');
