@@ -4338,8 +4338,10 @@ function renderDailyCards(){
   var dots=document.getElementById('ptDots');if(!dots)return;
   var prayers=['Fajr','Dhuhr','Asr','Maghrib','Isha'];
   var doneCount=prayers.filter(function(p){return !!s['prayer_'+p];}).length;
+  /* نقطة العشاء قبل الفجر تتبع يوم الصلاة السابق (كما يسجّلها togglePrayer)؛ العدّ يبقى لليوم المدني */
+  var _ishaPrev=_prayerDayOffset('Isha')?!!getDailyState(_prayerDayKey('Isha')).prayer_Isha:null;
   dots.innerHTML=prayers.map(function(p){
-    var done=!!s['prayer_'+p];
+    var done=(p==='Isha'&&_ishaPrev!==null)?_ishaPrev:!!s['prayer_'+p];
     return '<button class="pt-dot'+(done?' done':'')+'" onclick="togglePrayer(\''+p+'\')" title="'+PRAYER_AR[p]+'">'+'<div class="pd-icon">'+PRAYER_ICONS[p]+'</div>'+'<div class="pd-name">'+PRAYER_AR[p]+'</div>'+'</button>';
   }).join('');
   var ptTitle=document.querySelector('#prayersTrack .pt-title');
@@ -4602,6 +4604,8 @@ function tick(){
   if(PT._nk&&np.key!==PT._nk&&document.querySelector('#timesBody .nextbox')){try{renderTimesScreen();}catch(e){}}
   /* عدّاد الإفطار في رمضان: تحديث كل دقيقة */
   if(PT._rbm!==now.getMinutes()){PT._rbm=now.getMinutes();try{updateRamadanBanner();}catch(e){}}
+  /* تنبيه «الإذن غير ممنوح» معروض ثم مُنح (تفعيل/تجربة/إعدادات النظام): أزِله */
+  if(window._adhanWarnShown)_adhanPermRefresh();
   [].forEach.call(document.querySelectorAll('#strip .pcell'),function(c){c.classList.toggle('next',c.getAttribute('data-k')===np.key);});
   ADHAN_PRAYERS.forEach(function(k){var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
     if(nowS>=s&&nowS<s+60){var id=k+now.toDateString();if(adhanOn&&notifPrefs[k]&&firedAdhan!==id){firedAdhan=id;
@@ -4688,7 +4692,7 @@ function renderTimesScreen(){
   var nColor=notifOn&&_np==='granted'?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)';
   var nTextColor=notifOn&&_np==='granted'?'var(--green)':'var(--gold)';
   var perPrayerBtns=ADHAN_NOTIF_KEYS.map(function(k){var on=notifPrefs[k];return '<button onclick="toggleNotifPrayer(\''+k+'\')" style="'+bs+'font-size:12px;padding:5px 10px;background:'+(on?'rgba(63,185,164,.18)':'rgba(232,197,95,.1)')+';color:'+(on?'var(--green)':'var(--muted)')+'">'+P_NAMES[k]+(on?' ✓':' ✕')+'</button>';}).join('');
-  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+
+  var ctrl='<div class="pt-row" style="cursor:default"><span class="nm">تنبيه الأذان</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="adhanToggle" onclick="toggleAdhan()" style="'+bs+'background:'+(adhanOn?'rgba(63,185,164,.2)':'rgba(232,197,95,.15)')+';color:'+(adhanOn?'var(--green)':'var(--gold)')+'">'+(adhanOn?'مفعّل':'متوقف')+'</button><button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button><button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button><button onclick="testAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button></span></div>'+_adhanPermWarn()+
   (adhanOn?'<div class="pt-row" style="cursor:default"><span class="nm" style="font-size:12px;color:var(--muted)">أذان لكل صلاة</span><span style="display:flex;gap:6px;flex-wrap:wrap">'+perPrayerBtns+'</span></div>':'')+
   '<div class="muted" style="margin:10px 2px 6px">صوت الأذان (داخل التطبيق):</div><div class="cats">'+ADHANS.map(function(x,i){return '<button class="'+(i===adhanIdx?'on':'')+'" onclick="setAdhan('+i+')">'+x.n+'</button>';}).join('')+'</div>'+
   (_isNative()?'<div class="muted" style="font-size:11px;margin-top:4px">عند إغلاق التطبيق يصل إشعار الأذان بنغمة تنبيه قصيرة.</div>':'');
@@ -4752,10 +4756,18 @@ function scheduleNoorPrayerAlerts(){
     }).catch(function(e){console.error('[adhan] requestPermissions:',e);});
     return;
   }
-  /* رُفض الإذن: تحقّق صامت دون حوار (قد يمنحه المستخدم من الإعدادات) */
+  /* الإذن غير ممنوح: تحقّق صامت دون حوار (قد يمنحه المستخدم من الإعدادات) */
   if(_LN&&window._nativeNotifGranted===false){
     _LN.checkPermissions().then(function(r){
-      if(r&&r.display==='granted'){window._nativeNotifGranted=true;scheduleNoorPrayerAlerts();}
+      if(r&&r.display==='granted'){window._nativeNotifGranted=true;scheduleNoorPrayerAlerts();return;}
+      /* لم يُسأل قط على هذا الجهاز (الأذان مفعّل بالمزامنة/النسخ الاحتياطي): اطلب مرة واحدة.
+         'prompt' لا تعود بعد أي جواب، والعلَم يمنع تكرار الحوار في الجلسة نفسها */
+      if(r&&r.display==='prompt'&&!window._adhanPermAsked){
+        window._adhanPermAsked=true;
+        _LN.requestPermissions().then(function(r2){
+          if(r2&&r2.display==='granted'){window._nativeNotifGranted=true;scheduleNoorPrayerAlerts();try{_reqBatteryExemption();}catch(e){}}
+        }).catch(function(){});
+      }
     }).catch(function(){});
     return;
   }
@@ -4797,6 +4809,19 @@ function scheduleNoorPrayerAlerts(){
   }else{
     console.warn('[adhan] no scheduleAdhanAlerts — native-bridge not ready?');
   }
+}
+/* الأذان مفعّل بلا إذن إشعارات (native): نبّه بدل «مفعّل» الصامت */
+function _adhanPermWarn(){
+  if(!(_isNative()&&adhanOn&&window._nativeNotifGranted===false))return '';
+  window._adhanWarnShown=true; /* يزيله tick حين يُمنح الإذن */
+  return '<div style="font-size:12px;color:var(--gold);margin:6px 2px">⚠️ إذن الإشعارات غير ممنوح — لن يصل الأذان والتطبيق مغلق. فعّله من إعدادات التطبيق.</div>';
+}
+/* مُنح الإذن بعد عرض التنبيه: أعِد رسم عناصر الأذان (شاشة المواقيت/الإعدادات) */
+function _adhanPermRefresh(){
+  if(!window._adhanWarnShown||window._nativeNotifGranted===false)return;
+  window._adhanWarnShown=false;
+  try{if(document.querySelector('#timesBody .nextbox'))renderTimesScreen();}catch(e){}
+  try{_renderAdhanSett();}catch(e){}
 }
 function toggleNotifPrayer(k){
   notifPrefs[k]=!notifPrefs[k];lsSet('notif_'+k.toLowerCase(),notifPrefs[k]?'1':'0');
@@ -7846,6 +7871,7 @@ function _renderAdhanSett(){
     +'<button onclick="playAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">استمع</button>'
     +'<button onclick="stopAdhan()" style="'+bs+'background:rgba(232,197,95,.15);color:var(--gold)">إيقاف</button>'
     +'</div></div>'
+    +_adhanPermWarn()
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     +'<span style="font-size:13px;color:var(--muted)">اختبار الأذان</span>'
     +'<button onclick="testAdhan()" style="'+bs+'font-size:13px;background:rgba(232,197,95,.15);color:var(--gold)">🔔 تجربة</button>'
