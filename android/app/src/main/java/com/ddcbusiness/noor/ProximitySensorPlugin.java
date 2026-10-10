@@ -100,4 +100,26 @@ public class ProximitySensorPlugin extends Plugin implements SensorEventListener
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    /* الانحراف المغناطيسي المحلي (درجات، الشرق موجب) لتصحيح بوصلة القبلة:
+       مستشعر الدوران على أندرويد يقيس من الشمال المغناطيسي لا الجغرافي.
+       نموذج WMM مدمج في النظام — بلا إنترنت. */
+    @PluginMethod
+    public void getDeclination(PluginCall call) {
+        Double lat = call.getDouble("lat");
+        Double lng = call.getDouble("lng");
+        if (lat == null || lng == null) {
+            call.reject("missing-coords");
+            return;
+        }
+        try {
+            android.hardware.GeomagneticField f = new android.hardware.GeomagneticField(
+                    lat.floatValue(), lng.floatValue(), 0f, System.currentTimeMillis());
+            JSObject ret = new JSObject();
+            ret.put("decl", (double) f.getDeclination());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("declination-failed");
+        }
+    }
 }
