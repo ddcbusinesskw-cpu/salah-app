@@ -2518,11 +2518,14 @@ var WN_GGUF_FILE=HYBRID_WHISPER_MODEL_NAME;
 var WN_MAX_ATTEMPTS=5,WN_BACKOFF_MS=4000; /* حدّ محاولات التعافي + مهلة بين المحاولات */
 function _wnPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
 function _wnDiag(s){console.log('[wn] '+s);if(WN.diag)WN.diag.last=s;} /* تسجيل مباشر في WN.diag (لا اعتماد على W2._diag) */
+/* اكتمل تحميل محرّك والمستخدم خارج التسميع (غادر أثناء التحميل/من الإعدادات) → سلّح تحرير الذاكرة الكسول */
+function _engIdleArmIfAway(){var c=document.querySelector('.screen.on');if(!c||c.id!=='memorize')_engIdleArm();}
 /* تهيئة مع تعافٍ: تحقّق من المكتبة → الملف (تنزيل إن لزم) → تحميل.
    فشل قابل للتعافي (شبكة/تنزيل/تحميل) لا يُقفل المحرّك — يُعاد عند فتح التسميع
    أو ضغط التسجيل، بحدّ محاولات + backoff. فشل قاتل (بيئة/مكتبة) وحده يُقفل. */
 function _wnFail(msg,fatal){
   WN.tried=true;WN.loading=false;WN.ready=false;
+  WN._dl=null; /* الفشل ينهي المحاولة الجارية: أحداثها المتأخرة تُهمَل (_wnDownload) */
   if(WN.diag)WN.diag.err=msg;
   console.warn('[wn] '+(fatal?'[قاتل] ':'[قابل للتعافي] ')+msg);
   if(fatal){WN.fatal=true;}
@@ -2569,7 +2572,8 @@ function _wnEnsure(force){
   if(!WN.diag)WN.diag={url:WN_GGUF_URL,httpStatus:'—',headBytes:'—',savedBytes:'—',modelPath:'—',err:'',stage:'بدء'};
   var P=_wnPlug(),FS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
   if(!_isAndroidNative()||!P||!FS){_wnFail('بيئة غير أصلية (لا WhisperNative/Filesystem)',true);return;}
-  WN.loading=true;WN.diag.stage=WN.attempts>0?('فحص المكتبة · إعادة محاولة '+(WN.attempts+1)):'فحص المكتبة';
+  /* محاولة جديدة: صفّر tried والخطأ السابق (backoff أعلاه قرأ tried) — لا يُعرض خطأ قديم أثناء تحميل جارٍ */
+  WN.loading=true;WN.tried=false;WN.diag.err='';WN.diag.stage=WN.attempts>0?('فحص المكتبة · إعادة محاولة '+(WN.attempts+1)):'فحص المكتبة';
   P.isAvailable().then(function(av){
     if(!(av&&av.value)){_wnFail('مكتبة whisper_jni غير مبنية في هذا الـAPK',true);return;}
     WN.threads=av.threads||2;
@@ -2586,12 +2590,14 @@ function _wnEnsure(force){
         try{if(P.modelInfo)P.modelInfo().then(function(mi){WN.diag.modelInfo=mi&&mi.info;WN.diag.config=mi&&mi.config;console.log('[wn] model: '+(mi&&mi.info)+' | '+(mi&&mi.config));}).catch(function(){});}catch(e){}
         var _mb=document.getElementById('mem2Build');
         if(_mb&&_mb.textContent.indexOf('أصلي')<0)_mb.textContent+=' · محرّك أصلي ✓';
+        try{_engIdleArmIfAway();}catch(e){}
       }).catch(function(e){
         /* الملف المحفوظ قد يكون تالفاً — احذفه ليعيد التنزيل في المحاولة القادمة */
         try{FS.deleteFile({path:WN_GGUF_FILE,directory:'DATA'}).catch(function(){});}catch(x){}
         _wnFail('فشل تحميل الموديل في whisper.cpp ('+String(e&&e.message||e).slice(0,50)+') — قد يكون الملف تالفاً/ليس GGUF',false);
       });
     }
+    WN._dl=_load; /* هوية المحاولة الجارية: _wnDownload يهمل أحداث محاولة متجاوَزة */
     /* الملف محفوظ مسبقاً وحجمه معقول (>10MB)؟ حمّله. وإلا نزّله بتشخيص HTTP كامل. */
     FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(st){
       if(st&&st.size>10000000){WN.diag.savedBytes=st.size;WN.diag.stage='ملف محفوظ';_load();return;}
@@ -2618,29 +2624,49 @@ function _wnDownload(P,FS,_load){
     var bytes=ab.byteLength;WN.diag.savedBytes=bytes;
     /* أقل من 10MB = ليس موديلاً (غالباً صفحة خطأ) — لا تحفظه ولا تحمّله */
     if(bytes<10000000){_wnFail('الحجم المُنزَّل '+bytes+' بايت — ليس موديل GGUF (متوقّع ~43MB). تحقّق من الرفع.');return;}
+    /* محاولة متجاوَزة (انتهت مهلتها أو بدأت أحدث): لا تكتب ولا تحمّل — لا كاتبَين على ملف واحد */
+    if(WN._dl!==_load)return;
+    var u8=new Uint8Array(ab),SEG=3*1024*1024,pos=0,PART=WN_GGUF_FILE+'.part';
+    /* ترويسة ggml: البايتات 6c 6d 67 67 (0x67676d6c LE كما يقرؤها whisper.cpp) — غيرها لا يُحفظ */
+    if(!(u8[0]===0x6c&&u8[1]===0x6d&&u8[2]===0x67&&u8[3]===0x67)){_wnFail('الملف المُنزَّل ليس موديل ggml (ترويسة خاطئة)');return;}
     /* كتابة مجزأة (3MB/قطعة): base64 لكل قطعة ثم append — بلا سلسلة 43MB
-       واحدة ولا btoa عملاق → ذروة الرام تنخفض من >100MB إلى بضعة MB */
+       واحدة ولا btoa عملاق → ذروة الرام تنخفض من >100MB إلى بضعة MB.
+       الكتابة إلى .part ثم إعادة تسمية بعد التحقّق — لا ملف موديل نصف مكتوب */
     WN.diag.stage='حفظ الملف';
-    var u8=new Uint8Array(ab),SEG=3*1024*1024,pos=0;
     function _b64Of(sub){
       var bin='',CH=32768;
       for(var o=0;o<sub.length;o+=CH)bin+=String.fromCharCode.apply(null,sub.subarray(o,Math.min(o+CH,sub.length)));
       return btoa(bin);
     }
+    function _rmPart(){try{FS.deleteFile({path:PART,directory:'DATA'}).catch(function(){});}catch(x){}}
     function _writeNext(){
+      if(WN._dl!==_load)return;
       if(pos>=u8.length){
-        if(_mb)_mb.textContent='build '+_buildStamp();
-        _load();return;
+        /* اكتملت الكتابة: الحجم مطابق ثم .part → الملف النهائي ثم التحميل */
+        FS.stat({path:PART,directory:'DATA'}).then(function(st){
+          if(WN._dl!==_load)return;
+          if(!st||st.size!==u8.length)throw new Error('حجم '+(st&&st.size)+'≠'+u8.length);
+          return FS.rename({from:PART,to:WN_GGUF_FILE,directory:'DATA',toDirectory:'DATA'}).then(function(){
+            if(WN._dl!==_load)return;
+            if(_mb)_mb.textContent='build '+_buildStamp();
+            _load();
+          });
+        }).catch(function(e){
+          if(WN._dl!==_load)return;
+          _rmPart();_wnFail('فشل اعتماد الملف: '+String(e&&e.message||e).slice(0,40));
+        });
+        return;
       }
       /* حدود القطع من مضاعفات 3 بايت → base64 بلا حشو وسطي، الإلحاق سليم */
       var end=Math.min(u8.length,pos+SEG);
       var seg=u8.subarray(pos,end),first=(pos===0);pos=end;
-      var op=first?FS.writeFile({path:WN_GGUF_FILE,directory:'DATA',data:_b64Of(seg),recursive:true})
-                  :FS.appendFile({path:WN_GGUF_FILE,directory:'DATA',data:_b64Of(seg)});
-      op.then(_writeNext).catch(function(e){_wnFail('فشل حفظ الملف: '+String(e&&e.message||e).slice(0,40));});
+      var op=first?FS.writeFile({path:PART,directory:'DATA',data:_b64Of(seg),recursive:true})
+                  :FS.appendFile({path:PART,directory:'DATA',data:_b64Of(seg)});
+      op.then(_writeNext).catch(function(e){if(WN._dl!==_load)return;_rmPart();_wnFail('فشل حفظ الملف: '+String(e&&e.message||e).slice(0,40));});
     }
     _writeNext();
   }).catch(function(e){
+    if(WN._dl!==_load)return;
     clearTimeout(to);
     _wnFail('فشل الطلب: '+String(e&&e.message||e).slice(0,50)+' (شبكة/CORS)');
   });
@@ -2686,6 +2712,27 @@ function _vkWire(P){
   if(VK._wired)return;VK._wired=true;
   try{P.addListener('vosk_progress',_vkOnProgress);}catch(e){}
   try{P.addListener('vosk_partial',_vkOnPartial);}catch(e){}
+}
+/* طلب صريح من المستخدم (تفاصيل تقنية/الإعدادات) = موافقة على تنزيل Vosk */
+function _vkConsentEnsure(cb){lsSet('vkConsent','1');_vkAutoEnsure(cb);}
+/* بدء جلسة: الموديل على القرص أو موافقة سابقة → تحميل صامت؛ وإلا سؤال واحد لكل تشغيل
+   قبل أول تنزيل (~318MB) — whisper وحده يكفي للتسميع ريثما يقرّر المستخدم.
+   اكتمال التحميل خارج التسميع يسلّح تحرير الذاكرة الكسول */
+function _vkAutoEnsure(cb){
+  var P=_vkPlug();
+  function run(){_vkEnsure(function(ok){if(ok)try{_engIdleArmIfAway();}catch(e){}if(cb)cb(ok);});}
+  if(!P||lsGet('vkConsent')==='1'){run();return;}
+  function ask(){
+    if(VK._asked||VK.ready||VK.loading)return;VK._asked=true;
+    _cmShow('تنزيل المحرّك الفوري (~318MB) — يُفضَّل Wi-Fi',[],function(){lsSet('vkConsent','1');run();});
+    var f=document.getElementById('cmFields');
+    if(f)f.innerHTML='<p style="font-size:13px;color:var(--muted);line-height:1.8;margin:0 0 10px">التسميع يعمل الآن بمحرّك التدقيق. المحرّك الفوري يضيف تتبّعاً لحظياً للكلمات، ويُنزَّل مرّة واحدة.</p>';
+    /* زرّ التأكيد «تنزيل» مؤقّتاً — يُعاد نصّه الأصلي عند إغلاق النافذة بأي طريق */
+    var b=document.querySelector('#customModal .cm-btns .btn'),m=document.getElementById('customModal'),lb=b&&b.textContent;
+    if(b&&m){b.textContent='تنزيل';var iv=setInterval(function(){if(m.style.display!=='flex'){clearInterval(iv);b.textContent=lb;}},400);}
+  }
+  if(!P.voskDiskUsage){ask();return;}
+  P.voskDiskUsage().then(function(r){if(r&&r.ok===true)run();else ask();}).catch(ask);
 }
 function _vkOnProgress(ev){
   if(!ev)return;
@@ -3011,7 +3058,7 @@ function lmStart(){
     VK._wired=false;_vkWire(P);
     VK.listening=true;
     try{if(VK._statIv)clearInterval(VK._statIv);VK._statIv=setInterval(_vkPollStats,1000);}catch(e){}
-    if(!VK.ready&&!VK.tried){try{_vkEnsure(function(ok){var s2=document.getElementById('lmStatus');if(ok&&s2&&LM.rec)s2.textContent='🎙 يستمع (فوري)…';});}catch(e){}}
+    if(!VK.ready&&!VK.tried){try{_vkAutoEnsure(function(ok){var s2=document.getElementById('lmStatus');if(ok&&s2&&LM.rec)s2.textContent='🎙 يستمع (فوري)…';});}catch(e){}}
     /* الهجين يتولّى نوافذ whisper من JS (WhisperLoop) — عطّل النوافذ الأصلية
        بمزلاق ضخم كي لا يعمل المحرّك مرّتين؛ Vosk وpcm_chunk يستمران كالمعتاد */
     _hbStart();
@@ -3284,7 +3331,7 @@ function _lmDiagHtml(){
     +'<button onclick="_hbForceWhisper()" style="background:rgba(232,197,95,.14);color:var(--gold);border:1px solid rgba(232,197,95,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🔬 أرسل آخر ٥ ثوانٍ لwhisper الآن</button>'
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
     +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,185,164,.15);color:var(--green);border:1px solid rgba(63,185,164,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
-    +((!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
+    +((!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkConsentEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
     +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,185,164,.15);color:var(--green);border:1px solid rgba(63,185,164,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
@@ -6744,7 +6791,7 @@ function _setupRunNative(){
       var done=document.getElementById('sv_done');if(done)done.style.display='';
       var _dt=document.getElementById('sv_done_title');if(_dt)_dt.textContent='المحرّك الأصلي جاهز ✓';
       var _dd=document.getElementById('sv_diag');if(_dd)_dd.textContent=_svDiagText;
-    }else if(WN.tried&&!WN.ready){
+    }else if(WN.tried&&!WN.loading&&!WN.ready){ /* لا خطأ أثناء محاولة جارية (إعادة المحاولة) */
       clearInterval(_svNativeIv);_svNativeIv=null;
       _svShowErr((d.err||'تعذّر تحميل المحرّك الأصلي')+' — يمكنك المتابعة وسيُعاد التحميل عند فتح التسميع');
     }else if(Date.now()-t0>200000){
@@ -7965,6 +8012,14 @@ function _settSetSpeed(i){
 
 /* ═══ قسم «التخزين والنماذج»: حجم فعلي + حذف (بعد تحرير الذاكرة) + إعادة تنزيل ═══ */
 function _fmtBytes(b){if(b==null||b<0)return '—';return b>=1048576?(b/1048576).toFixed(1)+'MB':(b>=1024?Math.round(b/1024)+'KB':b+'B');}
+/* زرّ التنزيل: «إعادة تنزيل» لملف موجود = حذفه أولاً (قد يكون تالفاً) ثم تنزيل فعلي —
+   الرسم التالي للحذف يبدأ التنزيل إن لم يعد الملف موجوداً. طلب Vosk الصريح = موافقة */
+var _settRefetchId=null;
+function _settModelDl(id,has){
+  if(id==='vosk')lsSet('vkConsent','1');
+  if(!has){_settRedownloadModel(id);return;}
+  _settRefetchId=id;_settDeleteModel(id);
+}
 function _renderStorageSett(){
   var host=document.getElementById('storageSett');if(!host)return;
   if(!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){
@@ -7979,13 +8034,16 @@ function _renderStorageSett(){
   var left=3;
   function done(){
     left--;if(left>0)return;
+    if(_settRefetchId){var rf=_settRefetchId;_settRefetchId=null;
+      for(var i=0;i<models.length;i++)if(models[i].id===rf&&!(models[i].size>0))_settRedownloadModel(rf);}
+    if(WN.ready||VK.ready){try{_engIdleArmIfAway();}catch(e){}} /* محمّل من الإعدادات → لا يبقى مقيماً بلا استخدام */
     host.innerHTML=models.map(function(m){
       var has=m.size!=null&&m.size>0;
       return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
         +'<div style="flex:1"><div style="font-size:14px;color:var(--text)">'+m.name+'</div>'
         +'<div style="font-size:12px;color:var(--muted)">'+(has?('✓ منزَّل · '+_fmtBytes(m.size)+(m.loaded()?' · محمَّل بالذاكرة':'')):'غير منزَّل')+'</div></div>'
         +(has?'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px;border-color:rgba(224,112,95,.5);color:var(--red)" onclick="_settDeleteModel(\''+m.id+'\')">حذف</button>':'')
-        +'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settRedownloadModel(\''+m.id+'\')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>'
+        +'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settModelDl(\''+m.id+'\','+(has?1:0)+')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>'
         +'</div>';
     }).join('')+'<p class="note" style="margin:8px 0 0">النماذج تعمل على جهازك — حذفها يحرّر المساحة ويُعاد تنزيلها عند الحاجة.</p>';
   }
