@@ -4454,9 +4454,10 @@ function openVotd(){if(votdCur)goAyah(votdCur[0],votdCur[1]);}
 
 /* ===== الشاشة الرئيسية الديناميكية ===== */
 function todayKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
-function _lsDailyCleanup(){
+function _lsDailyCleanup(force){
   var _t=todayKey();
-  if(lsGet('ls_cleanup_day')===_t)return;
+  /* force: بعد دمج المزامنة (قد يعيد مفاتيح قديمة من السحابة) */
+  if(!force&&lsGet('ls_cleanup_day')===_t)return;
   try{
     var _pfx=['quran_opens_','adiya_opens_','daily_','adhkar_left_','tasmee_done_','khatmah_today_','achv_snap_','tasbih_today_'];
     /* لاحقة toDateString ("Sat Jul 05 2026") — regex الـYYYY-M-D لا يلتقطها */
@@ -7130,8 +7131,9 @@ function login(provider){
         try{
           var _ap=new firebase.auth.OAuthProvider('apple.com');
           _ap.addScope('email');_ap.addScope('name');
+          /* _fb داخل IIFE المزامنة (خارج النطاق هنا) — مستمع onAuthStateChanged هناك يتولّى الدمج */
           firebase.auth().signInWithPopup(_ap)
-            .then(function(){_fb._loginHandled=false;})
+            .then(function(){})
             .catch(function(e){if(ovErr){ovErr.textContent='['+(e.code||'error')+'] '+(e.message||String(e));ovErr.style.display='';}});
         }catch(e){enterApp();}
       }else{enterApp();}
@@ -7143,11 +7145,12 @@ function login(provider){
         if(!cred||!cred.idToken) throw {code:'auth/no-credential',message:'لم يُعاد idToken من Apple Sign-In'};
         var apCred=new firebase.auth.OAuthProvider('apple.com').credential({
           idToken:cred.idToken,
-          rawNonce:cred.rawNonce||undefined
+          /* الإضافة تعيد الـnonce الخام في credential.nonce */
+          rawNonce:cred.nonce||cred.rawNonce||undefined
         });
         return firebase.auth().signInWithCredential(apCred);
       })
-      .then(function(){_fb._loginHandled=false;enterApp();})
+      .then(function(){enterApp();})
       .catch(function(e){
         try{lsSet('session','');}catch(ex){}
         if(ovErr){ovErr.textContent='['+(e.code||'error')+'] '+(e.message||String(e));ovErr.style.display='';}
@@ -7213,7 +7216,9 @@ var ALLAH_NAMES=[
 ];
 var _namesCounts={};
 function loadNamesScreen(){
-  var saved=lsGet('names_counts');if(saved)try{_namesCounts=JSON.parse(saved);}catch(e){}
+  var saved=lsGet('names_counts');_namesCounts={};if(saved)try{_namesCounts=JSON.parse(saved);}catch(e){}
+  /* ورد يومي: العدّادات تبدأ من الصفر كل يوم (_d = يوم العدّ) */
+  if(!_namesCounts||typeof _namesCounts!=='object'||_namesCounts._d!==todayKey())_namesCounts={_d:todayKey()};
   window.scrollTo(0,0);var scr=document.getElementById('names');if(scr)scr.scrollTop=0;
   var g=document.getElementById('namesGrid');if(!g)return;
   g.innerHTML=ALLAH_NAMES.map(function(n,i){
@@ -7245,6 +7250,7 @@ function _nmRender(){
   btn.className='nm-tap'+(done?' nm-done':'');
 }
 function nmTap(){
+  if(_namesCounts._d!==todayKey())_namesCounts={_d:todayKey()};
   var n=ALLAH_NAMES[_nmIdx],cnt=_namesCounts[_nmIdx]||0;
   if(cnt>=n.dc)return;
   _namesCounts[_nmIdx]=cnt+1;
@@ -8498,6 +8504,36 @@ function _injectHelpButtons(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_injectHelpButtons);
 else _injectHelpButtons();
+/* بعد دمج المزامنة (أو مسح بيانات حساب سابق): أعد قراءة الإعدادات المحمّلة
+   مرة عند الإقلاع، وأعد الجدولة والرسم — وإلا تبقى قيم ما قبل الدمج حتى إعادة التشغيل */
+window._noorAfterSync=function(){
+  try{
+    var _wasAdhan=adhanOn;
+    var _ai=lsGet('adhanIdx');if(_ai!==null)adhanIdx=Math.min(ADHANS.length-1,Math.max(0,+_ai));
+    adhanOn=lsGet('adhanOn')==='1';
+    notifOn=lsGet('notifOn')==='1';
+    ADHAN_NOTIF_KEYS.forEach(function(k){notifPrefs[k]=lsGet('notif_'+k.toLowerCase())!=='0';});
+    timeOffset=+(lsGet('time_offset')||0);
+    reminderOn=lsGet('reminder_on')==='1';
+    if(_wasAdhan&&!adhanOn)_cancelAdhanNotifications();
+    /* buildTimes تعيد الحساب والرسم وتستدعي scheduleNoorPrayerAlerts */
+    var c=lsGet('coords');if(c){try{var o=JSON.parse(c);buildTimes(o.lat,o.lng);}catch(e){}}
+    try{scheduleHourlyDhikr();}catch(e){}
+    try{loadCalcSettings();}catch(e){}
+  }catch(e){console.warn('[sync] refresh settings:',e&&e.message||String(e));}
+  /* اللغة: طبّقها دون ختم settings_updatedAt — ليست تغييراً من المستخدم */
+  try{
+    var _l=localStorage.getItem('noor_lang');
+    if(_l&&_l!==window.noorLang&&typeof window.setNoorLang==='function'){
+      var _st=localStorage.getItem('settings_updatedAt');
+      try{window.setNoorLang(_l);}finally{
+        if(_st!=null)localStorage.setItem('settings_updatedAt',_st);else localStorage.removeItem('settings_updatedAt');}
+    }
+  }catch(e){}
+  try{renderDailyCards();}catch(e){}
+  try{updateStreak();}catch(e){}
+  try{buildDhikr();renderTasbih();}catch(e){}
+};
 
 /* ===== Hook togglePrayer: badges + fajr streak + all-5 celebration ===== */
 var _origTogglePrayer=togglePrayer;
@@ -8916,16 +8952,21 @@ try{
   var _origLsSet=window.lsSet;
   if(typeof _origLsSet==='function'){
     var _SET_KEYS={calc_method:1,calc_madhhab:1,adhanOn:1,adhanIdx:1,notifOn:1,notif_fajr:1,notif_dhuhr:1,notif_asr:1,notif_maghrib:1,notif_isha:1,reminder_on:1,reminder_time:1,time_offset:1};
+    /* مفاتيح كثيرة الكتابة (موضع التمرير…): رفع مؤجّل ٦٠ث بدل ٤ث — يُفرَّغ عند إخفاء التطبيق */
+    var _NOISY={mushaf_pos:1,mushaf_surah:1,mushaf_pages_read:1,mushaf_anchor:1,mushaf_pos_ts:1,lang_fab_pos:1};
     window.lsSet=function(k,v){
       /* تغيير فعلي لإعداد متزامن (لا قيمة افتراضية أولى) يختم الإعدادات —
          ليفوز الأحدث بين الأجهزة عند الدمج */
       if(_SET_KEYS[k]){var _pv=null;try{_pv=localStorage.getItem(k);}catch(e){}
         if(_pv!=null&&_pv!==''&&_pv!==String(v)){try{localStorage.setItem('settings_updatedAt',String(Date.now()));}catch(e){}}}
       var _r=_origLsSet(k,v);
-      _fbDebounce();
+      _fbDebounce(_NOISY[k]?60000:4000);
       return _r;
     };
   }
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'&&_fb._timer){clearTimeout(_fb._timer);_fb._timer=null;if(_fb.user)_fbWriteAll();}
+  });
 }catch(e){
   window._fbDiag.lastError=e;
   _fbRefreshDiag();
@@ -8989,6 +9030,8 @@ window.fbSignOut=function(){
 window._execSignOut=function(){
   var m=document.getElementById('signoutConfirm');if(m)m.style.display='none';
   if(!_fb.auth)return;
+  /* ارفع أي كتابة معلّقة قبل الخروج (المهلة قد تبلغ ٦٠ث) */
+  if(_fb._timer){clearTimeout(_fb._timer);_fb._timer=null;_fbWriteAll();}
   _fb.auth.signOut().then(function(){
     if(typeof toast==='function')toast('تم تسجيل الخروج','info');
     try{
@@ -9010,6 +9053,22 @@ window.fbDeleteAccount=function(){
 window._cancelDeleteAccount=function(){
   var m=document.getElementById('deleteAccountConfirm');if(m)m.style.display='none';
 };
+/* امسح مفاتيح المزامنة محلياً (بعد حذف الحساب، أو عند دخول حساب مختلف) — كي
+   لا يرفع حسابٌ لاحق على نفس الجهاز بيانات الشخص السابق */
+function _wipeLocalSynced(){
+  try{
+    var _pref=['q_s_','allgoal_','achv_snap_','tasmee_done_','khatmah_today_','tasbih_today','daily_','custom_adhkar_','custom_adiya_','custom_fadail_'];
+    var _exact=['mushaf_pos','mushaf_surah','mushaf_anchor','mushaf_pos_ts','bookmarks','bookmarks_ts','tasbih_total','streak_count','streak_last','p5_streak','p5_last','fajr_streak','fajr_last','morn_streak','morn_streak_last','eve_streak','eve_streak_last','tasmee_streak','tasmee_streak_last','tasmee_pages_90','wird_done_count','mushaf_pages_read','custom_dhikr','quran_opens','adiya_opens','names_counts','badges_earned','khatmah_count','khatmah_data','q_list','fb_owner_uid'];
+    var _del=[];
+    for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(!k)continue;
+      if(_exact.indexOf(k)>=0){_del.push(k);continue;}
+      for(var p=0;p<_pref.length;p++){if(k.indexOf(_pref[p])===0){_del.push(k);break;}}
+      if(k.indexOf('adhkar_left_')===0)_del.push(k);
+    }
+    _del.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+  }catch(e){}
+}
+
 window._execDeleteAccount=function(){
   var m=document.getElementById('deleteAccountConfirm');if(m)m.style.display='none';
   var user=_fb.auth&&_fb.auth.currentUser;
@@ -9022,25 +9081,9 @@ window._execDeleteAccount=function(){
     return dbP.then(function(){return u.delete();});
   }
 
-  /* امسح مفاتيح المزامنة محلياً بعد الحذف — كي لا يرفع حسابٌ لاحق على نفس
-     الجهاز بيانات الشخص السابق */
-  function _wipeLocalSynced(){
-    try{
-      var _pref=['q_s_','allgoal_','achv_snap_','tasmee_done_','khatmah_today_','tasbih_today','daily_'];
-      var _exact=['mushaf_pos','mushaf_surah','mushaf_anchor','mushaf_pos_ts','bookmarks','bookmarks_ts','tasbih_total','streak_count','streak_last','p5_streak','p5_last','fajr_streak','fajr_last','morn_streak','morn_streak_last','eve_streak','quran_opens','adiya_opens','names_counts','badges_earned','khatmah_count','khatmah_data','q_list'];
-      var _del=[];
-      for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(!k)continue;
-        if(_exact.indexOf(k)>=0){_del.push(k);continue;}
-        for(var p=0;p<_pref.length;p++){if(k.indexOf(_pref[p])===0){_del.push(k);break;}}
-        if(k.indexOf('adhkar_left_')===0)_del.push(k);
-      }
-      _del.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
-      localStorage.removeItem('session');
-    }catch(e){}
-  }
-
   function _afterSuccess(){
-    _wipeLocalSynced();
+    _wipeLocalSynced(); /* يشمل fb_owner_uid */
+    try{localStorage.removeItem('session');}catch(e){}
     try{
       if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
         var FA=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
@@ -9051,26 +9094,35 @@ window._execDeleteAccount=function(){
     setTimeout(function(){_fb.user=null;if(typeof _fbUpdateUI==='function')_fbUpdateUI(null);if(typeof showOv==='function')showOv('login');},1500);
   }
 
+  /* إعادة تحقق للحساب نفسه (reauthenticate) لا تسجيل دخول جديد — وإلا قد
+     يُختار حساب آخر فيُحذف هو بدل المطلوب؛ المزوّد من providerData */
   function _reauthAndRetry(){
+    var pid=(user.providerData&&user.providerData[0]&&user.providerData[0].providerId)||'google.com';
+    var _apple=pid==='apple.com';
+    function _fail(e){
+      if(typeof toast!=='function')return;
+      if(e&&e.code==='auth/user-mismatch')toast('اخترت حساباً مختلفاً — أعد المحاولة بالحساب نفسه','error');
+      else toast('تعذّر إعادة التحقق: '+(e&&e.message||''),'error');
+    }
     try{
+      var p=null;
       if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){
         var _FA=window.Capacitor.Plugins&&window.Capacitor.Plugins.FirebaseAuthentication;
         if(_FA){
-          _FA.signInWithGoogle()
-            .then(function(cred){
-              var gc=firebase.auth.GoogleAuthProvider.credential(cred.credential.idToken,cred.credential.accessToken||null);
-              return _fb.auth.signInWithCredential(gc);
-            })
-            .then(function(){return _performDelete(_fb.auth.currentUser);})
-            .then(_afterSuccess)
-            .catch(function(e){if(typeof toast==='function')toast('تعذّر إعادة التحقق: '+(e.message||''),'error');});
-          return;
+          p=(_apple?_FA.signInWithApple({skipNativeAuth:true}):_FA.signInWithGoogle({skipNativeAuth:true}))
+            .then(function(r){
+              var cr=r&&r.credential;
+              if(!cr||!cr.idToken)throw {code:'auth/no-credential',message:'لم يُعاد idToken'};
+              var c=_apple?new firebase.auth.OAuthProvider('apple.com').credential({idToken:cr.idToken,rawNonce:cr.nonce||undefined})
+                          :firebase.auth.GoogleAuthProvider.credential(cr.idToken,cr.accessToken||null);
+              return user.reauthenticateWithCredential(c);
+            });
         }
       }
-      _fb.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
-        .then(function(){return _performDelete(_fb.auth.currentUser);})
+      if(!p)p=user.reauthenticateWithPopup(_apple?new firebase.auth.OAuthProvider('apple.com'):new firebase.auth.GoogleAuthProvider());
+      p.then(function(){return _performDelete(user);})
         .then(_afterSuccess)
-        .catch(function(e){if(typeof toast==='function')toast('تعذّر إعادة التحقق: '+(e.message||''),'error');});
+        .catch(_fail);
     }catch(ex){if(typeof toast==='function')toast('تعذّر إعادة التحقق','error');}
   }
 
@@ -9205,7 +9257,8 @@ function _fbReadLocal(){
   var hifzKeys={};
   for(var i=0;i<ls.length;i++){
     var k=ls.key(i);
-    if(k&&(k.slice(0,8)==='allgoal_'||k.slice(0,10)==='achv_snap_'||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today'||k.slice(0,6)==='daily_')){
+    /* achv_snap_ بتاريخ فقط — علامة الترحيل achv_snap_fix1 محلية لا تُرفع */
+    if(k&&(k.slice(0,8)==='allgoal_'||(k.slice(0,10)==='achv_snap_'&&/^achv_snap_\d/.test(k))||k.slice(0,12)==='tasmee_done_'||k.slice(0,14)==='khatmah_today_'||k.slice(0,12)==='tasbih_today'||k.slice(0,6)==='daily_')){
       var fk=k.replace(/[.#$/[\]]/g,'_');
       hifzKeys[fk]=ls.getItem(k);
     }
@@ -9237,9 +9290,18 @@ function _fbReadLocal(){
       fajr_last:ls.getItem('fajr_last')||null,
       morn_streak:ls.getItem('morn_streak')||null,
       morn_streak_last:ls.getItem('morn_streak_last')||null,
+      eve_streak:ls.getItem('eve_streak')||null,
+      eve_streak_last:ls.getItem('eve_streak_last')||null,
+      tasmee_streak:ls.getItem('tasmee_streak')||null,
+      tasmee_streak_last:ls.getItem('tasmee_streak_last')||null,
+      tasmee_pages_90:ls.getItem('tasmee_pages_90')||null,
+      wird_done_count:ls.getItem('wird_done_count')||null,
+      mushaf_pages_read:ls.getItem('mushaf_pages_read')||null,
       quran_opens:ls.getItem('quran_opens')||null,
       adiya_opens:ls.getItem('adiya_opens')||null,
       adhkarProg:(function(){var o={};try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(k&&k.indexOf('adhkar_left_')===0)o[k]=ls.getItem(k);}}catch(e){}return o;})(),
+      /* محتوى كتبه المستخدم (أذكار/أدعية/فضائل/تسابيح مضافة) — يُنسخ كما هو */
+      custom:(function(){var o={};try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(k&&(k==='custom_dhikr'||k.indexOf('custom_adhkar_')===0||k.indexOf('custom_adiya_')===0||k.indexOf('custom_fadail_')===0))o[k.replace(/[.#$/[\]]/g,'_')]=ls.getItem(k);}}catch(e){}return o;})(),
       updatedAt:now
     },
     names:{counts:ls.getItem('names_counts')||null,updatedAt:now},
@@ -9289,9 +9351,13 @@ function _fbWriteAll(force){
     });
 }
 
-function _fbDebounce(){
+function _fbDebounce(ms){
+  ms=ms||4000;
+  /* كتابة كثيرة التكرار (مهلة أطول): لا تؤجّل رفعاً معلّقاً ولا تُمدّد نفسها
+     (رفع واحد كل ٦٠ث على الأكثر)؛ العادية: ٤ث بعد آخر كتابة كما كانت */
+  if(_fb._timer&&ms>4000) return;
   if(_fb._timer) clearTimeout(_fb._timer);
-  _fb._timer=setTimeout(function(){if(_fb.user)_fbWriteAll();},4000);
+  _fb._timer=setTimeout(function(){_fb._timer=null;if(_fb.user)_fbWriteAll();},ms);
 }
 
 /* ════════════════════════════════════════════════
@@ -9305,14 +9371,32 @@ function _fbOnLogin(user){
     .then(function(snap){
       if(!_fb.user||_fb.user.uid!==user.uid)return;
       var remote=snap.val();
+      /* حساب مختلف عن آخر مالك على هذا الجهاز → امسح بيانات السابق قبل الدمج
+         كي لا تتسرّب لحسابه (بيانات السابق محفوظة في سحابته أصلاً) */
+      var _prevU=null;try{_prevU=localStorage.getItem('fb_owner_uid');}catch(e){}
+      var _switched=!!(_prevU&&_prevU!==user.uid);
+      if(_switched)_wipeLocalSynced();
+      try{localStorage.setItem('fb_owner_uid',user.uid);}catch(e){}
       _fb.merged=true;
+      _fb._mergeFail=false;
       if(remote){
         _fbMerge(remote);
+        /* أعد الكنس بعد الدمج كي لا تعود المفاتيح القديمة من السحابة */
+        try{if(typeof _lsDailyCleanup==='function')_lsDailyCleanup(true);}catch(e){}
+        if(typeof window._noorAfterSync==='function')window._noorAfterSync();
+        /* امتلاء التخزين أثناء الدمج: النسخة المحلية ناقصة — لا ترفعها فوق السحابة */
+        if(_fb._mergeFail){
+          _fb.merged=false;
+          if(typeof toast==='function') toast('مساحة التخزين ممتلئة — لم تكتمل المزامنة','warning');
+          _fbSetSync('لم تكتمل المزامنة — المساحة ممتلئة','err');
+          return;
+        }
         /* اكتب النتيجة المدموجة فوراً — لا تنتظر أول lsSet الذي قد يكتب
            نسخة محلية ناقصة فوق السحابة (فقدان بيانات) */
         _fbWriteAll();
         if(typeof toast==='function') toast('مرحباً — تمّت مزامنة بياناتك ✓','ok');
       }else{
+        if(_switched&&typeof window._noorAfterSync==='function')window._noorAfterSync();
         // First login — push local data up
         _fbWriteAll();
       }
@@ -9338,7 +9422,9 @@ function _numMax(local,remote){
   if(!local||local==='null') return remote;
   return (parseFloat(remote)||0)>(parseFloat(local)||0)?remote:local;
 }
-function _ls(k,v){if(v&&v!=='null')localStorage.setItem(k,v);}
+function _isQuota(e){return !!(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'));}
+/* امتلاء التخزين لا يرمي (يُسقط بقية القسم) — يُعلَّم فيُمنع الرفع بعد الدمج */
+function _ls(k,v){if(v&&v!=='null'){try{localStorage.setItem(k,v);}catch(e){_fb._mergeFail=true;}}}
 
 function _fbMerge(r){
   /* كل قسم في try مستقل: استثناء قسم لا يُسقط بقية الأقسام (منع فقدان بيانات) */
@@ -9402,6 +9488,8 @@ function _fbMerge(r){
       Object.keys(r.hifz.keys).forEach(function(fk){
         var rv=r.hifz.keys[fk];
         if(!rv||rv==='null') return;
+        /* علامة ترحيل (achv_snap_fix1) رُفعت سابقاً — ليست لقطة؛ تُهمل */
+        if(fk.indexOf('achv_snap_')===0&&!/^achv_snap_\d/.test(fk)) return;
         var lv=localStorage.getItem(fk);
         if(fk.indexOf('daily_')===0){
           /* فلاغات اليوم: دمج OR حقلاً بحقل — لا يفقد جهازٌ ما علّمه الآخر */
@@ -9409,7 +9497,7 @@ function _fbMerge(r){
             var lo=lv?JSON.parse(lv):{};var ro=JSON.parse(rv);
             Object.keys(ro).forEach(function(k2){if(ro[k2])lo[k2]=true;});
             localStorage.setItem(fk,JSON.stringify(lo));
-          }catch(e){if(!lv)_ls(fk,rv);}
+          }catch(e){if(_isQuota(e))_fb._mergeFail=true;if(!lv)_ls(fk,rv);}
           return;
         }
         if(fk.indexOf('achv_snap_')===0){
@@ -9420,7 +9508,7 @@ function _fbMerge(r){
             var lo2=JSON.parse(lv),out={};
             ['prayers','morning','evening','khatmah','tasmee','tasbih'].forEach(function(f){out[f]=Math.max(+lo2[f]||0,+ro2[f]||0);});
             localStorage.setItem(fk,JSON.stringify(out));
-          }catch(e){if(!lv)_ls(fk,rv);}
+          }catch(e){if(_isQuota(e))_fb._mergeFail=true;if(!lv)_ls(fk,rv);}
           return;
         }
         _ls(fk,_numMax(lv,rv));
@@ -9431,13 +9519,13 @@ function _fbMerge(r){
     // ── Dhikr ──
     if(r.dhikr){
       var rd=r.dhikr;
-      ['tasbih_total','quran_opens','adiya_opens'].forEach(function(k){
+      ['tasbih_total','quran_opens','adiya_opens','wird_done_count','tasmee_pages_90','mushaf_pages_read'].forEach(function(k){
         _ls(k,_numMax(localStorage.getItem(k),rd[k]));
       });
       // أزواج {عدّاد، تاريخ آخر يوم}: المقارنة زمنية (toDateString نصياً يقارن
       // أسماء الأيام أبجدياً!) — صاحب التاريخ الأحدث يفوز بالزوج كاملاً كي لا
       // تُخلط عدّادات طرف بتواريخ طرف آخر؛ وعند تساوي اليوم يؤخذ العدّاد الأكبر
-      [['streak_count','streak_last'],['p5_streak','p5_last'],['fajr_streak','fajr_last'],['morn_streak','morn_streak_last']].forEach(function(pair){
+      [['streak_count','streak_last'],['p5_streak','p5_last'],['fajr_streak','fajr_last'],['morn_streak','morn_streak_last'],['eve_streak','eve_streak_last'],['tasmee_streak','tasmee_streak_last']].forEach(function(pair){
         var ck=pair[0],lk=pair[1];
         var lT=Date.parse(localStorage.getItem(lk)||'')||0;
         var rT=Date.parse(rd[lk]||'')||0;
@@ -9450,20 +9538,35 @@ function _fbMerge(r){
           if(!localStorage.getItem(k)&&rd.adhkarProg[k]) _ls(k,rd.adhkarProg[k]);
         });
       }
+      // المحتوى المضاف من المستخدم: يُستعاد فقط إن غاب محلياً أو كان فارغاً (بلا دمج)
+      if(rd.custom&&typeof rd.custom==='object'){
+        Object.keys(rd.custom).forEach(function(k){
+          if(k!=='custom_dhikr'&&k.indexOf('custom_adhkar_')!==0&&k.indexOf('custom_adiya_')!==0&&k.indexOf('custom_fadail_')!==0)return;
+          var lc=localStorage.getItem(k);
+          if((!lc||lc==='[]')&&typeof rd.custom[k]==='string') _ls(k,rd.custom[k]);
+        });
+      }
     }
   });
   _sec('names',function(){
     // ── Names of Allah ──
     if(r.names&&r.names.counts){
       try{
-        var ln=JSON.parse(localStorage.getItem('names_counts')||'{}');
-        var rn=JSON.parse(r.names.counts||'{}');
+        var ln=JSON.parse(localStorage.getItem('names_counts')||'{}')||{};
+        var rn=JSON.parse(r.names.counts||'{}')||{};
+        /* عدّادات يومية (_d = يوم العدّ): اليوم الأحدث يفوز كاملاً؛ وفي اليوم نفسه max لكل اسم */
+        var _dT=function(d){var m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(d||'');return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():0;};
+        var lT=_dT(ln._d),rT=_dT(rn._d);
+        if(lT>rT)return;
+        if(rT>lT){localStorage.setItem('names_counts',JSON.stringify(rn));return;}
         var mn={};
         Object.keys(Object.assign({},ln,rn)).forEach(function(k){
+          if(k==='_d')return;
           mn[k]=Math.max(parseInt(ln[k])||0,parseInt(rn[k])||0);
         });
+        if(ln._d||rn._d)mn._d=ln._d||rn._d;
         localStorage.setItem('names_counts',JSON.stringify(mn));
-      }catch(e){}
+      }catch(e){if(_isQuota(e))_fb._mergeFail=true;}
     }
   });
   _sec('settings',function(){
