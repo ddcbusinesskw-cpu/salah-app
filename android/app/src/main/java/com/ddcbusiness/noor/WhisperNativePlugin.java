@@ -33,7 +33,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -59,7 +61,17 @@ public class WhisperNativePlugin extends Plugin {
 
     private long ctx = 0;
     /* منفّذ أحادي: يسلسل النوافذ — whisper_full ليس آمناً للتوازي على سياق واحد */
-    private final ExecutorService exec = Executors.newSingleThreadExecutor();
+    private final ExecutorService exec = single();
+    /* تنزيل/فكّ/تحميل Vosk خارج منفّذ whisper — نوافذ التسميع والإيقاف لا تنتظر دقائق التنزيل */
+    private final ExecutorService ioExec = single();
+    private static final String VOSK_DONE = ".complete"; // علامة اكتمال فكّ موديل Vosk
+
+    /* كـnewSingleThreadExecutor، لكن مهمة تصل بعد الإغلاق (handleOnDestroy) تُسقط بصمت
+       بدل RejectedExecutionException على خيط الـplugins */
+    private static ExecutorService single() {
+        return new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(), new ThreadPoolExecutor.DiscardPolicy());
+    }
 
     // ── حالة الالتقاط الحي ──
     private AudioRecord recorder = null;
@@ -518,63 +530,87 @@ public class WhisperNativePlugin extends Plugin {
         final String url = call.getString("url");
         final String name = call.getString("name", "vosk-model");
         if (url == null || url.isEmpty()) { call.reject("no-url"); return; }
-        exec.execute(() -> {
+        ioExec.execute(() -> {
             try {
                 File base = new File(getContext().getFilesDir(), "vosk");
                 if (!base.exists()) base.mkdirs();
                 File modelDir = new File(base, name);
+                // فكّ في مجلد مؤقّت ثم نقل ذرّي: المجلد النهائي لا يكون ناقصاً أبداً
+                File tmpBase = new File(base, name + ".tmp");
                 if (voskModelOk(modelDir)) {
+                    deleteRecursive(tmpBase); // بقايا نقل سابق اكتمل
                     JSObject r0 = new JSObject(); r0.put("path", modelDir.getAbsolutePath()); r0.put("cached", true);
                     call.resolve(r0); return;
                 }
-                // فحص المساحة قبل البدء: zip 318MB + المفكوك ≈ ذروة ~1GB مؤقتة
-                long free = base.getUsableSpace();
-                if (free > 0 && free < 1_000_000_000L) {
-                    call.reject("vosk-disk: المساحة المتاحة " + (free / 1_000_000) + "MB — يلزم ~1GB مؤقتاً لتنزيل وفكّ محرّك الستريمنغ. حرّر مساحة ثم أعد المحاولة");
-                    return;
-                }
+                // فكّ سابق مقطوع/مجلد ناقص: احذفه أولاً (يحرّر المساحة قبل فحصها)
+                deleteRecursive(tmpBase);
+                deleteRecursive(modelDir);
                 File zip = new File(base, name + ".zip");
                 // استئناف: جزئي سابق موجود → اطلب Range من حيث توقّف
                 long existing = zip.exists() ? zip.length() : 0;
+                // فحص المساحة: zip 318MB + المفكوك ≈ ذروة ~1GB مؤقتة، ناقص ما نُزّل سابقاً
+                long free = base.getUsableSpace();
+                if (free > 0 && free < 1_000_000_000L - existing) {
+                    call.reject("vosk-disk: المساحة المتاحة " + (free / 1_000_000) + "MB — يلزم ~1GB مؤقتاً لتنزيل وفكّ محرّك الستريمنغ. حرّر مساحة ثم أعد المحاولة");
+                    return;
+                }
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setConnectTimeout(30000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
                 if (existing > 0) c.setRequestProperty("Range", "bytes=" + existing + "-");
                 int status = c.getResponseCode();
                 boolean resuming = (status == 206 && existing > 0);
-                if (!resuming && existing > 0) {
+                // 416 مع ملف جزئي = اكتمل التنزيل سابقاً ولم يُفكّ — انتقل للفكّ مباشرة
+                boolean complete = (status == 416 && existing > 0);
+                if (!resuming && !complete && existing > 0) {
                     // الخادم لا يدعم Range (أعاد 200 أو رفض): ابدأ من الصفر
                     try { zip.delete(); } catch (Throwable ignored) {}
                     existing = 0;
                 }
-                if (status < 200 || status >= 300) { call.reject("vosk-http-" + status); return; }
-                long total = c.getContentLengthLong();
-                if (total > 0) total += existing; // Range: الطول المعلن = المتبقي فقط
-                byte[] b = new byte[131072]; long done = existing, lastEmit = 0; int rd;
-                try (InputStream in = new BufferedInputStream(c.getInputStream());
-                     OutputStream out = new FileOutputStream(zip, resuming)) {
-                    while ((rd = in.read(b)) > 0) {
-                        out.write(b, 0, rd); done += rd;
-                        if (done - lastEmit > 3_000_000) {
-                            lastEmit = done;
-                            JSObject ev = new JSObject();
-                            ev.put("phase", "download"); ev.put("done", done); ev.put("total", total);
-                            notifyListeners("vosk_progress", ev);
+                if (!complete) {
+                    if (status < 200 || status >= 300) { call.reject("vosk-http-" + status); return; }
+                    // Content-Length يدوياً: getContentLengthLong يتطلّب API 24 (minSdk 22)
+                    long total = -1;
+                    try { total = Long.parseLong(c.getHeaderField("Content-Length")); } catch (Throwable ignored) {}
+                    if (total > 0) total += existing; // Range: الطول المعلن = المتبقي فقط
+                    byte[] b = new byte[131072]; long done = existing, lastEmit = 0; int rd;
+                    try (InputStream in = new BufferedInputStream(c.getInputStream());
+                         OutputStream out = new FileOutputStream(zip, resuming)) {
+                        while ((rd = in.read(b)) > 0) {
+                            // إغلاق المنفّذ (handleOnDestroy): توقّف ويبقى الجزئي للاستئناف
+                            if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("cancelled");
+                            out.write(b, 0, rd); done += rd;
+                            if (done - lastEmit > 3_000_000) {
+                                lastEmit = done;
+                                JSObject ev = new JSObject();
+                                ev.put("phase", "download"); ev.put("done", done); ev.put("total", total);
+                                notifyListeners("vosk_progress", ev);
+                            }
                         }
                     }
                 }
+                try { c.disconnect(); } catch (Throwable ignored) {}
                 JSObject uz = new JSObject(); uz.put("phase", "unzip"); notifyListeners("vosk_progress", uz);
                 try {
-                    unzip(zip, base);
+                    unzip(zip, tmpBase);
                 } catch (Throwable unzipErr) {
                     // zip تالف (تنزيل/استئناف فاسد): احذفه كي لا يُستأنف فوق ملف معطوب
                     try { zip.delete(); } catch (Throwable ignored) {}
+                    deleteRecursive(tmpBase);
                     call.reject("vosk-unzip-error: " + unzipErr.getMessage() + " — حُذف الملف الجزئي، أعد المحاولة");
                     return;
                 }
-                zip.delete();
-                if (!voskModelOk(modelDir)) {
+                File unz = new File(tmpBase, name); // الـzip يحوي مجلد الموديل في جذره
+                if (!voskModelFiles(unz)) {
+                    deleteRecursive(tmpBase);
                     call.reject("vosk-unzip-bad: ملفات الموديل ناقصة (am/final.mdl أو conf/model.conf أو graph مفقود — قد تكون المساحة نفدت)"); return;
                 }
+                // العلامة داخل المؤقّت ثم النقل: تصل مع المجلد في خطوة واحدة
+                new File(unz, VOSK_DONE).createNewFile();
+                if (!unz.renameTo(modelDir)) {
+                    call.reject("vosk-install-error: تعذّر نقل الموديل المفكوك — أعد المحاولة"); return;
+                }
+                deleteRecursive(tmpBase);
+                zip.delete();
                 JSObject r = new JSObject(); r.put("path", modelDir.getAbsolutePath());
                 call.resolve(r);
             } catch (Throwable t) {
@@ -590,20 +626,34 @@ public class WhisperNativePlugin extends Plugin {
         if (path == null || path.isEmpty()) { call.reject("no-path"); return; }
         if (voskLoading) { call.reject("busy"); return; }
         voskLoading = true;
-        exec.execute(() -> {
+        ioExec.execute(() -> {
+            Model m = null; Recognizer rec = null;
             try {
+                closeVosk(); // القديم يُغلق تحت القفل (سريع)
+                /* البناء (مئات MB) خارج voskLock: voskReset/الإغلاق لا ينتظران التحميل */
+                m = new Model(path);
+                rec = new Recognizer(m, (float) SR);
+                rec.setWords(true);
                 synchronized (voskLock) {
-                    if (voskRec != null) { voskRec.close(); voskRec = null; }
-                    if (voskModel != null) { voskModel.close(); voskModel = null; }
-                    voskModel = new Model(path);
-                    voskRec = new Recognizer(voskModel, (float) SR);
-                    voskRec.setWords(true);
+                    // أُغلق المنفّذ (تدمير النشاط) أثناء البناء → لا تثبّت موديلاً لن يُحرَّر
+                    if (ioExec.isShutdown()) throw new IllegalStateException("destroyed");
+                    voskModel = m; voskRec = rec; m = null; rec = null;
+                    voskModelPath = path; voskReady = true;
                 }
-                voskModelPath = path; voskReady = true; voskLoading = false;
+                voskLoading = false;
+                // تثبيت قديم بلا علامة اكتمال: تحميل ناجح يثبت سلامته
+                File d = new File(path);
+                if (underVoskBase(d)) { try { new File(d, VOSK_DONE).createNewFile(); } catch (Throwable ignored) {} }
                 JSObject r = new JSObject(); r.put("ok", true);
                 call.resolve(r);
             } catch (Throwable t) {
+                if (rec != null) { try { rec.close(); } catch (Throwable ignored) {} }
+                if (m != null) { try { m.close(); } catch (Throwable ignored) {} }
                 voskReady = false; voskLoading = false;
+                /* Vosk يرفض ملفات تالفة بـIOException: مجلد بلا علامة اكتمال (فكّ قديم مقطوع)
+                   يُحذف ليُعاد تنزيله — لا يُحذف موديل مكتمل لخطأ مكتبة/ذاكرة */
+                File d = new File(path);
+                if (t instanceof java.io.IOException && underVoskBase(d) && !new File(d, VOSK_DONE).exists()) deleteRecursive(d);
                 call.reject("vosk-load-error: " + t.getMessage());
             }
         });
@@ -654,8 +704,25 @@ public class WhisperNativePlugin extends Plugin {
         call.resolve(r);
     }
 
-    /** تحقّق سلامة موديل Vosk: الملفات الأساسية موجودة (لا مجرّد وجود المجلد). */
+    /** تحقّق سلامة موديل Vosk: الملفات الأساسية + علامة اكتمال الفكّ. تثبيت قديم (قبل العلامة)
+     *  يُقبل ما لم يبقَ مجلد فكّ مؤقّت — يُعلَّم بعد أول تحميل ناجح ويُحذف إن رفضه Vosk. */
     private boolean voskModelOk(File dir) {
+        if (!voskModelFiles(dir)) return false;
+        if (new File(dir, VOSK_DONE).exists()) return true;
+        File p = dir.getParentFile();
+        return p != null && !new File(p, dir.getName() + ".tmp").exists();
+    }
+
+    /** مسار داخل files/vosk؟ (حذف/تعليم آمن لمسار وارد من JS) */
+    private boolean underVoskBase(File f) {
+        try {
+            String b = new File(getContext().getFilesDir(), "vosk").getCanonicalPath() + File.separator;
+            return f.getCanonicalPath().startsWith(b);
+        } catch (Throwable t) { return false; }
+    }
+
+    /** الملفات الأساسية موجودة (لا مجرّد وجود المجلد). */
+    private boolean voskModelFiles(File dir) {
         if (dir == null || !dir.isDirectory()) return false;
         if (!new File(dir, "am/final.mdl").exists()) return false;
         if (!new File(dir, "conf/model.conf").exists()) return false;
@@ -724,10 +791,15 @@ public class WhisperNativePlugin extends Plugin {
     /** حجم موديل Vosk الفعلي على القرص (قسم «التخزين والنماذج») */
     @PluginMethod
     public void voskDiskUsage(PluginCall call) {
-        exec.execute(() -> {
+        ioExec.execute(() -> {
             File base = new File(getContext().getFilesDir(), "vosk");
+            // ok: موديل مكتمل صالح للتحميل — zip/فكّ جزئي ليس «منزَّلاً» (exists يتبعه في قسم التخزين)
+            boolean ok = false;
+            File[] ch = base.listFiles();
+            if (ch != null) for (File f : ch) if (f.isDirectory() && voskModelOk(f)) ok = true;
             JSObject r = new JSObject();
-            r.put("exists", base.exists());
+            r.put("exists", ok);
+            r.put("ok", ok);
             r.put("bytes", dirSize(base));
             call.resolve(r);
         });
@@ -736,7 +808,7 @@ public class WhisperNativePlugin extends Plugin {
     /** حذف موديل Vosk من القرص (يُغلق من الذاكرة أولاً) */
     @PluginMethod
     public void voskDeleteModel(PluginCall call) {
-        exec.execute(() -> {
+        ioExec.execute(() -> {
             closeVosk();
             deleteRecursive(new File(getContext().getFilesDir(), "vosk"));
             call.resolve();
@@ -758,9 +830,18 @@ public class WhisperNativePlugin extends Plugin {
         try { f.delete(); } catch (Throwable ignored) {}
     }
 
+    /* تحرير التركيز الصوتي (آمن إن لم يكن محجوزاً) — لا يبقى تطبيق الوسائط الآخر موقوفاً */
+    private void abandonFocus() {
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am != null && focusListener != null) am.abandonAudioFocus(focusListener);
+        } catch (Throwable ignored) {}
+    }
+
     @PluginMethod
     public void unload(PluginCall call) {
         listening = false;
+        abandonFocus();
         exec.execute(() -> {
             releaseRecorder();
             closeVosk();
@@ -769,14 +850,25 @@ public class WhisperNativePlugin extends Plugin {
         });
     }
 
-    /* تحرير كل الموارد عند تدمير النشاط — لا تسريب مايك/ذاكرة موديل */
+    /* تحرير كل الموارد عند تدمير النشاط — لا تسريب مايك/ذاكرة موديل.
+       على خيط الواجهة: التحرير يُرسَل لمنفّذ whisper فيقع بعد أي whisper_full جارٍ
+       (لا تحرير للسياق تحت استدلال قائم) ولا تُحجب الواجهة على voskLock أو join. */
     @Override
     protected void handleOnDestroy() {
         listening = false;
-        try { if (readThread != null) readThread.join(500); } catch (InterruptedException ignored) {}
-        releaseRecorder();
-        closeVosk();
-        if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
+        abandonFocus();
+        // أوقف منفّذ Vosk أولاً: تحميل جارٍ يرى الإغلاق فيحرّر موديله بدل تثبيته (voskLoad)
+        try { ioExec.shutdownNow(); } catch (Throwable ignored) {}
+        final Thread rt = readThread;
+        try {
+            exec.execute(() -> {
+                try { if (rt != null) rt.join(500); } catch (InterruptedException ignored) {}
+                releaseRecorder();
+                closeVosk();
+                if (ctx != 0) { try { nativeFree(ctx); } catch (Throwable ignored) {} ctx = 0; }
+            });
+            exec.shutdown();
+        } catch (Throwable ignored) {}
         super.handleOnDestroy();
     }
 }
