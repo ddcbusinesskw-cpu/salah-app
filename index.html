@@ -1149,7 +1149,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
     <div class="top">
       <button class="back" aria-label="رجوع" onclick="go('home')">→</button>
       <h2>المصحف الحي</h2>
-      <button id="lmHideBtn" onclick="lmToggleHide()" style="background:none;border:1px solid rgba(255,255,255,.18);color:var(--muted);font-size:13px;border-radius:20px;padding:5px 12px;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/><line x1="4" y1="20" x2="20" y2="4"/></svg></button>
+      <button id="lmHideBtn" aria-label="إخفاء/إظهار النص" onclick="lmToggleHide()" style="background:none;border:1px solid rgba(255,255,255,.18);color:var(--muted);font-size:13px;border-radius:20px;padding:5px 12px;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/><line x1="4" y1="20" x2="20" y2="4"/></svg></button>
     </div>
     <div class="pad" style="padding-bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom) + 96px)">
       <div class="lm-controls">
@@ -1164,11 +1164,11 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div id="lmBuild" class="lm-build"></div>
     </div>
     <div class="lm-bar" id="lmBar">
-      <button class="mem2-nav-btn" onclick="lmFlipPage(1)" title="الصفحة السابقة">‹</button>
+      <button class="mem2-nav-btn" onclick="lmFlipPage(1)" title="الصفحة التالية" aria-label="الصفحة التالية">‹</button>
       <button class="mem2-mic-btn" id="lmMic" onclick="lmToggleRec()">
         <span id="lmMicLbl"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> استمع</span>
       </button>
-      <button class="mem2-nav-btn" onclick="lmFlipPage(-1)" title="الصفحة التالية">›</button>
+      <button class="mem2-nav-btn" onclick="lmFlipPage(-1)" title="الصفحة السابقة" aria-label="الصفحة السابقة">›</button>
     </div>
   </div>
 
@@ -1423,7 +1423,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
       <div class="auth-card" style="padding:16px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div style="font-size:13px;color:var(--muted)" id="themeLbl">الوضع الداكن</div>
-          <button id="themeToggleBtn" onclick="_toggleTheme()" style="width:48px;height:48px;border-radius:14px;background:var(--card2);border:1px solid var(--line);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;color:var(--text)"><span id="themeToggleIc">🌙</span></button>
+          <button id="themeToggleBtn" aria-label="تبديل المظهر" onclick="_toggleTheme()" style="width:48px;height:48px;border-radius:14px;background:var(--card2);border:1px solid var(--line);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;color:var(--text)"><span id="themeToggleIc">🌙</span></button>
         </div>
       </div>
     </div>
@@ -1613,7 +1613,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
   </div>
   <div id="tafbox" class="tafbox"></div>
 </div>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="offlineBadge">لا يوجد اتصال بالإنترنت</div>
 
 <audio id="quranAudio" preload="none"></audio>
@@ -5107,7 +5107,8 @@ var RECITERS=[
 ];
 var recIdx=0;try{var _ri=lsGet('reciter');if(_ri!==null)recIdx=Math.min(RECITERS.length-1,Math.max(0,+_ri));}catch(e){}
 function reciterBase(){return RECITERS[recIdx].b;}
-function setReciter(i){recIdx=i;lsSet('reciter',String(i));if(surahMeta)renderSurahList(surahMeta);if(qpN){playSurah(qpN,nameFor(qpN));}}
+/* تغيير القارئ: لا يستبدل سورة مفتوحة بالقائمة، ولا يُعيد تشغيل مشغّل موقوف/مغلق */
+function setReciter(i){recIdx=i;lsSet('reciter',String(i));if(surahMeta&&document.querySelector('#quranBody .slist'))renderSurahList(surahMeta);var a=document.getElementById('quranAudio');if(qpN&&_qpMode==='surah'&&a&&!a.paused){playSurah(qpN,nameFor(qpN));}}
 var qpN=null;
 var PLAY_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 var PAUSE_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
@@ -5126,7 +5127,7 @@ function clearHl(){var e=document.querySelectorAll('.sel');[].forEach.call(e,fun
 function bkSync(){var bk=isBk(SEL_S,SEL_A);var b=document.getElementById('bkBtn');b.classList.toggle('act-on',bk);b.querySelector('span').textContent=bk?'محفوظة':'حفظ';}
 function ayahMenu(s,a){SEL_S=s;SEL_A=a;document.getElementById('sheetTitle').textContent=nameFor(s)+' · آية '+ar(a);var tb=document.getElementById('tafbox');tb.classList.remove('on');tb.innerHTML='';bkSync();document.getElementById('sheetbk').classList.add('on');document.getElementById('ayahSheet').classList.add('on');hl(a);}
 function closeSheet(){document.getElementById('sheetbk').classList.remove('on');document.getElementById('ayahSheet').classList.remove('on');clearHl();}
-function ayPlay(){var ed=ayEdition(),g=globalAyah(SEL_S,SEL_A);var au=document.getElementById('quranAudio');au.src='https://cdn.islamic.network/quran/audio/'+ed[1]+'/'+ed[0]+'/'+g+'.mp3';var p=au.play();if(p&&p.catch)p.catch(function(){toast('تعذّر التشغيل — تأكد من الإنترنت');});toast('▶ '+nameFor(SEL_S)+' · آية '+ar(SEL_A));}
+function ayPlay(){var ed=ayEdition(),g=globalAyah(SEL_S,SEL_A);var au=document.getElementById('quranAudio');_qpMode='ayah';/* آية مفردة: لا تكرار ولا انتقال للسورة التالية */stopAdhan();au.src='https://cdn.islamic.network/quran/audio/'+ed[1]+'/'+ed[0]+'/'+g+'.mp3';_qpApplySpeed();var p=au.play();if(p&&p.catch)p.catch(function(){toast('تعذّر التشغيل — تأكد من الإنترنت');});toast('▶ '+nameFor(SEL_S)+' · آية '+ar(SEL_A));}
 function isBk(s,a){try{return JSON.parse(lsGet('bookmarks')||'[]').some(function(x){return x.s===s&&x.a===a;});}catch(e){return false;}}
 function ayBookmark(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}var i=-1;l.forEach(function(x,k){if(x.s===SEL_S&&x.a===SEL_A)i=k;});if(i>=0){l.splice(i,1);toast('أُزيلت من المحفوظات');}else{l.push({s:SEL_S,a:SEL_A});toast('✓ حُفظت الآية');}lsSet('bookmarks',JSON.stringify(l));bkSync();}
 function ayShare(){var t=ayText()+'\n\n﴿ '+nameFor(SEL_S)+' : '+ar(SEL_A)+' ﴾';if(navigator.share){navigator.share({text:t}).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(t);toast('نُسخت الآية للحافظة');}else{toast('انسخ يدويًا');}}
@@ -5268,29 +5269,38 @@ function searchHadith(q){
     .then(function(data){_renderHadith(data);})
     .catch(function(){clearTimeout(_fTO);_nativeFallback();});
 }
-function qpIcon(p){document.getElementById('qpPlay').innerHTML=p?PAUSE_SVG:PLAY_SVG;}
-function playSurah(n,name){qpN=n;var a=document.getElementById('quranAudio');a.playbackRate=QP_SPEEDS[qpSpeedIdx];
+function qpIcon(p){var b=document.getElementById('qpPlay');b.innerHTML=p?PAUSE_SVG:PLAY_SVG;b.setAttribute('aria-label',p?'إيقاف مؤقت':'تشغيل');}
+function playSurah(n,name){qpN=n;_qpMode='surah';var a=document.getElementById('quranAudio');
   /* بثّ mp3quran يحتاج اتصالاً: فشل التحميل/الشبكة → رسالة واضحة بدل صمت */
   if(!a._errWired){a._errWired=true;a.addEventListener('error',function(){
     toast('تعذّر تشغيل التلاوة — تحقّق من اتصال الإنترنت','error');
-  });}a.src=reciterBase()+pad3(n)+'.mp3';document.getElementById('qpName').textContent=name||('سورة '+ar(n));var rn=document.getElementById('qpReciter');if(rn)rn.textContent=RECITERS[recIdx].n;document.getElementById('qplayer').classList.add('on');qpBuildRecList();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}
-function qpToggle(){var a=document.getElementById('quranAudio');if(a.paused){var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}else{a.pause();qpIcon(false);}}
+  });}a.src=reciterBase()+pad3(n)+'.mp3';a._qpRec=recIdx;_qpApplySpeed();document.getElementById('qpName').textContent=name||('سورة '+ar(n));var rn=document.getElementById('qpReciter');if(rn)rn.textContent=RECITERS[recIdx].n;document.getElementById('qplayer').classList.add('on');qpBuildRecList();stopAdhan();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}
+function qpToggle(){var a=document.getElementById('quranAudio');if(a.paused){/* تغيّر القارئ والمشغّل موقوف: ابدأ السورة بالقارئ الجديد */if(qpN&&_qpMode==='surah'&&a._qpRec!==recIdx){playSurah(qpN,nameFor(qpN));return;}stopAdhan();var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});qpIcon(true);}else{a.pause();qpIcon(false);}}
 function qpPrev(){if(qpN>1)playSurah(qpN-1,nameFor(qpN-1));}
 function qpNext(){if(qpN&&qpN<114)playSurah(qpN+1,nameFor(qpN+1));}
-function qpClose(){var a=document.getElementById('quranAudio');a.pause();document.getElementById('qplayer').classList.remove('on');}
+function qpClose(){var a=document.getElementById('quranAudio');a.pause();qpN=null;document.getElementById('qplayer').classList.remove('on');}
 function qpSeekTo(v){var a=document.getElementById('quranAudio');if(a.duration)a.currentTime=a.duration*(v/1000);}
 var qpLooping=false;
+var _qpMode='surah';/* 'ayah' عند سماع آية مفردة (ayPlay) */
 function qpLoopToggle(){qpLooping=!qpLooping;var btn=document.getElementById('qpLoopBtn');if(btn)btn.classList.toggle('on',qpLooping);}
 var QP_SPEEDS=[1,1.25,1.5,0.75],qpSpeedIdx=0;
 /* السرعة الافتراضية محفوظة — مصدر حقيقة واحد يقرأه المشغّل وقسم «التلاوة» */
 try{var _qs0=lsGet('qp_speed');if(_qs0!==null)qpSpeedIdx=Math.min(QP_SPEEDS.length-1,Math.max(0,+_qs0||0));}catch(e){}
-function qpSpeedNext(){qpSpeedIdx=(qpSpeedIdx+1)%QP_SPEEDS.length;lsSet('qp_speed',String(qpSpeedIdx));var s=QP_SPEEDS[qpSpeedIdx];var a=document.getElementById('quranAudio');a.playbackRate=s;var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=s+'×';btn.classList.toggle('on',s!==1);}}
+/* defaultPlaybackRate يبقى بعد تغيير src (وإلا تعود 1×) + زرّ السرعة يعكس المحفوظ */
+function _qpApplySpeed(){var s=QP_SPEEDS[qpSpeedIdx];var a=document.getElementById('quranAudio');if(a)a.defaultPlaybackRate=a.playbackRate=s;var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=s+'×';btn.classList.toggle('on',s!==1);}}
+try{_qpApplySpeed();}catch(e){}
+function qpSpeedNext(){qpSpeedIdx=(qpSpeedIdx+1)%QP_SPEEDS.length;lsSet('qp_speed',String(qpSpeedIdx));_qpApplySpeed();}
 function qpBuildRecList(){var list=document.getElementById('qpRecList');if(!list)return;list.innerHTML=RECITERS.map(function(r,i){return '<button class="qp-extra-btn'+(i===recIdx?' on':'')+'" onclick="qpSetRec('+i+')">'+r.n+'</button>';}).join('');}
 function qpSetRec(i){setReciter(i);qpBuildRecList();}
 (function(){var a=document.getElementById('quranAudio');if(!a)return;
+  /* أبقِ الشاشة مضاءة أثناء التلاوة فقط — وعند التوقف أعِدها لما طلبه rakWakeLock */
+  function _awake(on){try{if(typeof window._nativeKeepAwake==='function')window._nativeKeepAwake(on||!!_wlWant);}catch(e){}}
   a.addEventListener('timeupdate',function(){var d=a.duration||0;document.getElementById('qpCur').textContent=qpFmt(a.currentTime);document.getElementById('qpDur').textContent=qpFmt(d);if(d)document.getElementById('qpSeek').value=Math.round(1000*a.currentTime/d);});
-  a.addEventListener('play',function(){qpIcon(true);});a.addEventListener('pause',function(){qpIcon(false);});
-  a.addEventListener('ended',function(){if(qpLooping){a.currentTime=0;a.play();}else{qpNext();}});
+  a.addEventListener('play',function(){qpIcon(true);_awake(true);});a.addEventListener('pause',function(){qpIcon(false);_awake(false);});
+  a.addEventListener('error',function(){_awake(false);});
+  a.addEventListener('ended',function(){_awake(false);if(_qpMode!=='surah')return;/* آية مفردة: لا تكرار ولا انتقال */if(qpLooping){a.currentTime=0;var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});}else{qpNext();}});
+  /* الأذان لا يُخلط بالتلاوة: تشغيله يوقف صوت القرآن (بلا استئناف تلقائي) */
+  var ad=document.getElementById('adhanAudio');if(ad)ad.addEventListener('play',function(){if(!a.paused)a.pause();});
 })();
 
 /* ===== الرقية الشرعية (مضمّنة) ===== */
@@ -7848,8 +7858,7 @@ function _renderRecitationSett(){
 }
 function _settSetSpeed(i){
   qpSpeedIdx=i;lsSet('qp_speed',String(i));
-  var a=document.getElementById('quranAudio');if(a)a.playbackRate=QP_SPEEDS[i];
-  var btn=document.getElementById('qpSpeedBtn');if(btn){btn.textContent=QP_SPEEDS[i]+'×';btn.classList.toggle('on',QP_SPEEDS[i]!==1);}
+  _qpApplySpeed();/* playbackRate + defaultPlaybackRate + زرّ المشغّل */
   _renderRecitationSett();
 }
 
@@ -8380,7 +8389,7 @@ function dismissPWA(){
   <div style="width:40px;height:4px;background:rgba(255,255,255,.25);border-radius:2px;margin:0 auto 18px;"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <h3 style="color:var(--gold);margin:0;font-size:18px">تقرير الأسبوع</h3>
-    <button onclick="closeWeeklySheet()" style="background:var(--card);border:1px solid var(--line2);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    <button onclick="closeWeeklySheet()" aria-label="إغلاق" style="background:var(--card);border:1px solid var(--line2);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
   </div>
   <div id="weeklyBody"></div>
   <button class="btn" onclick="shareWeekly()" style="margin-top:16px">مشاركة التقرير</button>
