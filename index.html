@@ -4534,15 +4534,19 @@ function _startTimesGPS(bg){
     var body=document.getElementById('timesBody');
     if(body&&!PT.data)body.innerHTML='<div class="loading" style="color:var(--gold);margin-bottom:12px">تعذّر تحديد موقعك — اختر مدينة</div>'+_timesPickerHTML();
   };
+  /* التحديث الخلفي: إن اختار المستخدم مدينة أو أدخل إحداثيات أثناء انتظار GPS (حتى ١٠ث)
+     فاختياره يغلب — لا تستبدله النتيجة المتأخرة */
+  var _snap=bg?lsGet('coords'):null;
+  var _superseded=function(){return !!bg&&(lsGet('coords')!==_snap||!!lsGet('cityName'));};
   if(_isNative()){
     var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
     if(!geo){_geoFail(new Error('no geo plugin'));return;}
     /* التحديث الخلفي (bg) لا يطلب الإذن — لا حوار مفاجئ عند كل عودة للتطبيق */
-    (bg?geo.checkPermissions().then(function(s){if(!s||(s.location!=='granted'&&s.coarseLocation!=='granted'))throw new Error('no location permission');}):geo.requestPermissions({permissions:['location']}).catch(function(){})).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(e){_geoFail(e);});
+    (bg?geo.checkPermissions().then(function(s){if(!s||(s.location!=='granted'&&s.coarseLocation!=='granted'))throw new Error('no location permission');}):geo.requestPermissions({permissions:['location']}).catch(function(){})).then(function(){return geo.getCurrentPosition({enableHighAccuracy:false,timeout:10000,maximumAge:600000});}).then(function(p){if(_superseded())return;_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);}).catch(function(e){_geoFail(e);});
     return;
   }
   if(!navigator.geolocation){_geoFail(new Error('geolocation not supported'));return;}
-  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);},function(e){_geoFail(e);},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+  navigator.geolocation.getCurrentPosition(function(p){if(_superseded())return;_saveCoords(p.coords.latitude,p.coords.longitude);try{localStorage.removeItem('cityName');}catch(e){}buildTimes(p.coords.latitude,p.coords.longitude);},function(e){_geoFail(e);},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
 }
 /* عند الإقلاع والعودة للتطبيق: إحداثيات GPS قديمة (سفر) → تحديث صامت بالخلفية
    (عند الفشل تبقى المحفوظة). المدينة المختارة/الإدخال اليدوي لا يُستبدل — تنبيه فقط */
