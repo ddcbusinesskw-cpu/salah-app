@@ -772,7 +772,7 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .btn-nur,.cta{background:linear-gradient(180deg,#F0D077,var(--nur));color:var(--on-gold);border:0;box-shadow:0 6px 18px var(--nur-glow),inset 0 1px 0 rgba(255,255,255,.25);}
 .btn-nur{border-radius:var(--r-md);font:inherit;font-weight:700;padding:14px 18px;cursor:pointer;}
 .btn-nur:active,.cta:active{transform:translateY(1px);box-shadow:0 3px 10px var(--nur-glow);}
-[data-theme="light"] .btn-nur,[data-theme="light"] .cta{background:linear-gradient(180deg,#A5842E,var(--nur));color:var(--white);}
+[data-theme="light"] .btn-nur,[data-theme="light"] .cta{background:linear-gradient(180deg,var(--nur),var(--gold2));color:var(--on-gold);}
 /* الثانوي: زجاجي بحدّ نوراني */
 .btn-nur-sec{background:var(--glass);border:1px solid var(--nur-glow);color:var(--nur);border-radius:var(--r-md);font:inherit;padding:12px 16px;cursor:pointer;}
 /* أيقونات duotone: تعبئة 12% للأجزاء غير المصمتة + الخط كما هو —
@@ -1669,7 +1669,7 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
     <b>استخدام التطبيق</b>
     «المجدّد» تطبيق للمساعدة على أداء الصلاة (مواقيت، قبلة، أذكار، مصحف). المحتوى الديني للاسترشاد، ويُرجى التحقق من المصادر المعتمدة عند الحاجة.
     <b>الخصوصية والبيانات</b>
-    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّكَي تعرّف على الكلام يعملان على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
+    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّكَي تعرّف على الكلام يعملان على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. تُنزَّل نماذج التعرّف مرة واحدة (HuggingFace وalphacephei وGoogle Storage). بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
     قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
     <span id="termsSub"><b>الاشتراك</b>
@@ -1769,19 +1769,20 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
 
 <script>
 (function(){
+  /* رسالة الخطأ: مرة واحدة في الجلسة عبر toast() (مؤقّتها وأصنافها) — بلا لمس className */
   function _showCrashToast(msg){
-    try{
-      var t=document.getElementById('toast');
-      if(t){t.textContent='حدث خطأ غير متوقع — أعِد تشغيل التطبيق';t.className='toast show';setTimeout(function(){t.className='toast';},5000);}
-    }catch(e){}
     console.error('[App Error]',msg);
+    try{if(!window._crashShown&&typeof toast==='function'){window._crashShown=true;toast('حدث خطأ غير متوقع — أعِد تشغيل التطبيق','error');}}catch(e){}
   }
   window.onerror=function(msg,src,line,col,err){
+    /* خطأ سكربت خارجي مبهم — ليس عطلاً في التطبيق: سجّل فقط */
+    if(msg==='Script error.'&&!err){console.error('[App Error]',msg);return false;}
     _showCrashToast(err?err.message:msg);
     return false;
   };
+  /* وعد مرفوض (إضافات أصلية، play() للوسائط…): سجّل فقط — لا تُزعج المستخدم */
   window.addEventListener('unhandledrejection',function(e){
-    _showCrashToast(e.reason&&e.reason.message?e.reason.message:String(e.reason));
+    var r=e&&e.reason;console.error('[App Error] (promise)',r&&r.message?r.message:String(r));
   });
 })();
 
@@ -1798,8 +1799,16 @@ var QURAN_EMBED={"meta":[{"number":1,"name":"الفاتحة","englishName":"Al-F
 var AR=['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
 function ar(n){return String(n).replace(/\d/g,function(d){return AR[+d];});}
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
-var _lsQuotaWarned=false;
-function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){if(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED')&&!_lsQuotaWarned){_lsQuotaWarned=true;try{toast('مساحة التخزين ممتلئة — قد لا يُحفظ التقدم','warning');}catch(_te){}}console.error('[storage] lsSet failed for key:',k,e&&e.name);return false;}}
+var _lsQuotaWarnT=0;
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){if(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED')){
+  /* امتلاء: حرّر كاشات قابلة للإعادة (q_s_ سور قديمة — النص من QURAN_EMBED، tr_ ترجمات تُجلب ثانية) ثم أعد المحاولة مرة */
+  if(k.indexOf('q_s_')!==0&&k.indexOf('tr_')!==0){
+    try{for(var _qi=localStorage.length-1;_qi>=0;_qi--){var _qk=localStorage.key(_qi);if(_qk&&_qk!==k&&(_qk.indexOf('q_s_')===0||_qk.indexOf('tr_')===0))localStorage.removeItem(_qk);}}catch(_qe){}
+    try{localStorage.setItem(k,v);return true;}catch(e2){}
+  }
+  /* تنبيه كل ٣٠ث على الأكثر (لا مرة واحدة طوال الجلسة) — كي لا يضيع فشل حفظ صلاة بصمت */
+  if(Date.now()-_lsQuotaWarnT>30000){_lsQuotaWarnT=Date.now();try{toast('مساحة التخزين ممتلئة — قد لا يُحفظ التقدم','warning');}catch(_te){}}}
+  console.error('[storage] lsSet failed for key:',k,e&&e.name);return false;}}
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
 /* حفظ الإحداثيات في localStorage — مُستخدَم في الموقع الرئيسي والمواقيت والقبلة
    (+ المنطقة الزمنية ووقت الحفظ لكشف الإحداثيات القديمة بعد السفر؛ m=إدخال يدوي) */
@@ -2618,7 +2627,7 @@ function _engIdleArm(){
     var cur=document.querySelector('.screen.on');
     if((typeof LM!=='undefined'&&LM.rec)||(typeof HB!=='undefined'&&HB.on))return;
     if(cur&&cur.id==='memorize')return; /* عاد إلى الشاشة */
-    if(WN.loading||VK.loading)return;   /* تحميل جارٍ — لا تقاطعه */
+    if(WN.loading||VK.loading){_engIdleArm();return;}   /* تحميل جارٍ — لا تقاطعه، أعد التسليح لفحص لاحق */
     var P=_wnPlug();if(!P||!P.unload)return;
     P.unload().then(function(){
       WN.ready=false;WN.tried=false;WN.loading=false;WN.attempts=0;WN.exhausted=false;
@@ -2686,15 +2695,18 @@ function _wnEnsure(force){
 function _wnDownload(P,FS,_load){
   WN.diag.stage='تنزيل GGUF';
   var _mb=document.getElementById('mem2Build');
-  var to=setTimeout(function(){_wnFail('مهلة التنزيل (180ث)');},180000);
-  fetch(WN_GGUF_URL).then(function(res){
+  /* المهلة تُلغي الطلب فعلاً (لا يستمر تنزيل 43MB في الخلفية)؛ الإلغاء يصل .catch فيُهمَل (_wnFail صفّر WN._dl) */
+  var ac=(typeof AbortController!=='undefined')?new AbortController():null;
+  var to=setTimeout(function(){if(WN._dl!==_load)return;if(ac)try{ac.abort();}catch(e){}_wnFail('مهلة التنزيل (180ث)');},180000);
+  fetch(WN_GGUF_URL,ac?{signal:ac.signal}:{}).then(function(res){
+    if(WN._dl!==_load)return null;
     WN.diag.httpStatus=res.status;
     var cl=res.headers.get('content-length')||res.headers.get('x-linked-size');
     WN.diag.headBytes=cl?parseInt(cl,10):'غير معلن';
     if(!res.ok){clearTimeout(to);_wnFail('HTTP '+res.status+(res.status===403?' (المستودع خاص — اجعله عاماً أو أضف صلاحية)':res.status===404?' (اسم/مسار الملف خطأ)':''));return null;}
     return res.arrayBuffer();
   }).then(function(ab){
-    if(!ab){return;}
+    if(!ab||WN._dl!==_load){return;}
     clearTimeout(to);
     var bytes=ab.byteLength;WN.diag.savedBytes=bytes;
     /* أقل من 10MB = ليس موديلاً (غالباً صفحة خطأ) — لا تحفظه ولا تحمّله */
@@ -4441,8 +4453,9 @@ function mushafEnsure(n,cb){
 }
 function resumeMushaf(){
   var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}
-  if(l.length){
-    var last=l[l.length-1];
+  /* الأحدث يفوز: آخر إشارة مرجعية يدوية (t) أو موضع القراءة التلقائي (mushaf_pos_ts) */
+  var last=l.length?l[l.length-1]:null;
+  if(last&&(last.t||0)>=(+lsGet('mushaf_pos_ts')||0)){
     mushafEnsure(last.s,function(){
       var el=document.getElementById('fm'+last.s+'_'+last.a);
       if(el){el.scrollIntoView({block:'center'});el.classList.add('mayah-hl');setTimeout(function(){el.classList.remove('mayah-hl');},2200);toast('آخر موضع محفوظ: '+nameFor(last.s)+' · آية '+ar(last.a));}
@@ -4450,7 +4463,7 @@ function resumeMushaf(){
     });
     return;
   }
-  /* لا إشارة مرجعية يدوية: اسقط تلقائياً إلى موضع القراءة المحفوظ (الحافظة
+  /* لا إشارة مرجعية أحدث: اسقط تلقائياً إلى موضع القراءة المحفوظ (الحافظة
      التلقائية — تُحفظ mushaf_anchor/mushaf_surah أثناء التصفّح) */
   var sp=+(lsGet('mushaf_pos')||0),si=+(lsGet('mushaf_surah')||0),an=lsGet('mushaf_anchor');
   if(an){si=+an.split('_')[0]||si;_mushafGoAnchor(an,function(){if(sp>100)window.scrollTo(0,sp);});toast('تابعتَ من آخر موضع قرأت'+(si?(' — '+nameFor(si)):''));}
@@ -5181,7 +5194,13 @@ function _reqAdhanPermAndSchedule(){
     _LN.requestPermissions().then(function(r){
       window._nativeNotifGranted=r.display==='granted';
       if(window._nativeNotifGranted){scheduleNoorPrayerAlerts();try{_reqBatteryExemption();}catch(e){}}
-      else{toast('يلزم منح إذن الإشعارات لتشغيل الأذان في الخلفية — افتح إعدادات التطبيق','warning');}
+      else{
+        /* رُفض: أعِد المفتاح إلى «متوقف» (كالتذكير الساعي) — لا يبقى «مفعّلاً» بلا جدولة */
+        adhanOn=false;lsSet('adhanOn','0');
+        if(PT.data){try{renderTimesScreen();}catch(e){}}
+        try{_renderAdhanSett();}catch(e){}
+        toast('يلزم منح إذن الإشعارات لتشغيل الأذان في الخلفية — افتح إعدادات التطبيق','warning');
+      }
     }).catch(function(){scheduleNoorPrayerAlerts();});
     return;
   }
@@ -5205,6 +5224,12 @@ function playAdhan(){
      تشغيل الأذان في السماعة يدخل المايك ويلوّث الأحكام/الرصد. */
   if((typeof LM!=='undefined'&&LM.rec)||(typeof SW!=='undefined'&&SW.active)){
     toast('حان وقت الصلاة 🕌 (أُجّل صوت الأذان — جلسة نشطة)');
+    /* تأجيل فعلي: فحص قصير حتى تنتهي الجلسة ثم يُشغَّل — خلال ٥ دقائق فقط والتطبيق ظاهر */
+    if(!window._adhanPendT){var _t0=Date.now();window._adhanPendT=setInterval(function(){
+      if(Date.now()-_t0>5*60000){clearInterval(window._adhanPendT);window._adhanPendT=0;return;}
+      if((typeof LM!=='undefined'&&LM.rec)||(typeof SW!=='undefined'&&SW.active)||document.visibilityState!=='visible')return;
+      clearInterval(window._adhanPendT);window._adhanPendT=0;playAdhan();
+    },3000);}
     return;
   }
   toast('جارٍ تشغيل صوت الأذان…');
@@ -5221,7 +5246,9 @@ function playAdhan(){
     });
   }catch(e){synthAdhan();}
 }
-function stopAdhan(){try{var a=document.getElementById('adhanAudio');a.pause();}catch(e){}}
+function stopAdhan(){try{var a=document.getElementById('adhanAudio');a.pause();}catch(e){}
+  /* النداء الداخلي (WebAudio) لا يمرّ بـ#adhanAudio: أغلق سياقه ليتوقف فوراً */
+  try{if(window._synthAdhanCtx){window._synthAdhanCtx.close();window._synthAdhanCtx=null;}}catch(e){}}
 
 /* تجربة الأذان: صوت + إشعار فوري للتأكد من عمل كل شيء */
 function testAdhan(){
@@ -5255,7 +5282,7 @@ function testAdhan(){
       smallIcon:'ic_stat_noor',
       iconColor:'#3FB9A4'
     }]}).then(function(){
-      toast('[إشعار ٣/٣] إشعار تجريبي مجدوَل بعد ٥ ثوانٍ ✓','success');
+      toast('[إشعار ٣/٣] إشعار تجريبي بعد ٥ ثوانٍ ✓ — بنغمة التنبيه القصيرة التي تصل والتطبيق مغلق','success');
     }).catch(function(e){
       toast('[إشعار ٣/٣] فشل الجدولة: '+(e&&e.message||String(e)),'error');
     });
@@ -5266,7 +5293,9 @@ function testAdhan(){
 
 function synthAdhan(){
   try{
-    var Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;var ctx=new Ctx();
+    var Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+    try{if(window._synthAdhanCtx)window._synthAdhanCtx.close();}catch(e){}
+    var ctx=new Ctx();window._synthAdhanCtx=ctx;/* يُغلق من stopAdhan (إيقاف/تشغيل التلاوة) */
     var seq=[392,440,392,349,392,440,523,440,392,349,330,392],t=0;
     seq.forEach(function(f,i){
       var o=ctx.createOscillator(),g=ctx.createGain(),dur=i%6===5?0.9:0.45;
@@ -5279,38 +5308,45 @@ function synthAdhan(){
 }
 
 /* ===== القبلة ===== */
-var KAABA={lat:21.4225,lng:39.8262},qiblaBearing=null;
+var KAABA={lat:21.4225,lng:39.8262},qiblaBearing=null,_qDecl=0;
 function toRad(d){return d*Math.PI/180;}
 function bearingTo(lat,lng){var dL=toRad(KAABA.lng-lng),l1=toRad(lat),l2=toRad(KAABA.lat);var y=Math.sin(dL)*Math.cos(l2),x=Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL);return (Math.atan2(y,x)*180/Math.PI+360)%360;}
-function setQibla(lat,lng){qiblaBearing=bearingTo(lat,lng);document.getElementById('qdeg').textContent=ar(Math.round(qiblaBearing))+'°';document.getElementById('qlbl').textContent='اتجاه القبلة من الشمال — حرّك الهاتف';enableCompass();}
+function setQibla(lat,lng){qiblaBearing=bearingTo(lat,lng);document.getElementById('qdeg').textContent=ar(Math.round(qiblaBearing))+'°';document.getElementById('qlbl').textContent='اتجاه القبلة من الشمال — حرّك الهاتف';enableCompass();
+  /* الانحراف المغناطيسي المحلي (أندرويد): البوصلة تقيس من الشمال المغناطيسي والاتجاه محسوب من الجغرافي */
+  _qDecl=0;try{var PX=_isNative()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.ProximitySensor;
+    if(PX&&typeof PX.getDeclination==='function')PX.getDeclination({lat:+lat,lng:+lng}).then(function(r){var d=r?+r.decl:NaN;if(isFinite(d)&&Math.abs(d)<=180)_qDecl=d;}).catch(function(){});}catch(e){}}
 function startQibla(){
-  var c=lsGet('coords');if(c){try{var o=JSON.parse(c);setQibla(o.lat,o.lng);return;}catch(e){}}
+  var c=lsGet('coords'),o=null;if(c){try{o=JSON.parse(c);}catch(e){o=null;}}
+  /* المحفوظة صالحة ما لم تقدُم (سفر) — والمدينة المختارة/اليدوية تُعتمد دائماً */
+  if(o&&(lsGet('cityName')||o.m||!_coordsStale(o))){setQibla(o.lat,o.lng);return;}
+  /* GPS ناجح: حدّث المواقيت أيضاً؛ فاشل: ارجع للإحداثيات المحفوظة إن وُجدت */
+  var _ok=function(p){_saveCoords(p.coords.latitude,p.coords.longitude);setQibla(p.coords.latitude,p.coords.longitude);try{buildTimes(p.coords.latitude,p.coords.longitude);}catch(e){}};
+  var _fail=function(){if(o)setQibla(o.lat,o.lng);else document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';};
   console.log('[location] startQibla — native:',_isNative());
   if(_isNative()){
     var geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
-    if(!geo){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
+    if(!geo){if(o){setQibla(o.lat,o.lng);return;}document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
     document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';
     geo.requestPermissions({permissions:['location']})
       .catch(function(e){console.warn('[location] qibla requestPermissions (non-fatal):',e&&(e.message||String(e)));})
       .then(function(){return geo.getCurrentPosition({enableHighAccuracy:true,timeout:10000,maximumAge:600000});})
       .then(function(p){
         console.log('[location] qibla native coords:',p&&p.coords&&p.coords.latitude,p&&p.coords&&p.coords.longitude);
-        _saveCoords(p.coords.latitude,p.coords.longitude);
-        setQibla(p.coords.latitude,p.coords.longitude);
+        _ok(p);
       })
       .catch(function(e){
         console.warn('[location] qibla native failed:',e&&(e.message||String(e)));
-        document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';
+        _fail();
       });
     return;
   }
-  if(!navigator.geolocation){document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
+  if(!navigator.geolocation){if(o){setQibla(o.lat,o.lng);return;}document.getElementById('qlbl').textContent='حدّد موقعك من الشاشة الرئيسية أولاً';return;}
   document.getElementById('qlbl').textContent='جارٍ تحديد موقعك…';
-  navigator.geolocation.getCurrentPosition(function(p){_saveCoords(p.coords.latitude,p.coords.longitude);setQibla(p.coords.latitude,p.coords.longitude);},function(err){console.warn('[location] qibla web failed:',err&&err.message);document.getElementById('qlbl').textContent='تعذّر — حدّد موقعك من الرئيسية أولاً';},{enableHighAccuracy:true,timeout:8000,maximumAge:600000});
+  navigator.geolocation.getCurrentPosition(_ok,function(err){console.warn('[location] qibla web failed:',err&&err.message);_fail();},{enableHighAccuracy:true,timeout:8000,maximumAge:600000});
 }
 function enableCompass(){function add(){window.addEventListener('deviceorientationabsolute',onHeading);window.addEventListener('deviceorientation',onHeading);}if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(function(s){if(s==='granted')add();}).catch(function(){});}else add();}
 function disableCompass(){window.removeEventListener('deviceorientationabsolute',onHeading);window.removeEventListener('deviceorientation',onHeading);}
-function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;/* تعويض دوران الشاشة: بالوضع الأفقي alpha مُزاح بزاوية العرض */var _so=0;try{_so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;}catch(_e){}if(e.webkitCompassHeading==null)heading=(heading+_so)%360;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
+function onHeading(e){var heading=null;if(e.webkitCompassHeading!=null)heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)heading=360-e.alpha;if(heading==null||qiblaBearing==null)return;/* تعويض دوران الشاشة: بالوضع الأفقي alpha مُزاح بزاوية العرض */var _so=0;try{_so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;}catch(_e){}/* + الانحراف المغناطيسي (شمال مغناطيسي → جغرافي) */if(e.webkitCompassHeading==null)heading=(heading+_so+_qDecl+360)%360;document.getElementById('needle').style.transform='rotate('+(qiblaBearing-heading)+'deg)';}
 
 /* ===== المصحف (تصفّح ثم حفظ للأوفلاين) ===== */
 var quranLoaded=false,surahMeta=null;
@@ -5464,9 +5500,10 @@ function ayahMenu(s,a){SEL_S=s;SEL_A=a;document.getElementById('sheetTitle').tex
 function closeSheet(){document.getElementById('sheetbk').classList.remove('on');document.getElementById('ayahSheet').classList.remove('on');clearHl();}
 function ayPlay(){var ed=ayEdition(),g=globalAyah(SEL_S,SEL_A);var au=document.getElementById('quranAudio');_qpMode='ayah';/* آية مفردة: لا تكرار ولا انتقال للسورة التالية */stopAdhan();au.src='https://cdn.islamic.network/quran/audio/'+ed[1]+'/'+ed[0]+'/'+g+'.mp3';_qpApplySpeed();var p=au.play();if(p&&p.catch)p.catch(function(){toast('تعذّر التشغيل — تأكد من الإنترنت');});toast('▶ '+nameFor(SEL_S)+' · آية '+ar(SEL_A));}
 function isBk(s,a){try{return JSON.parse(lsGet('bookmarks')||'[]').some(function(x){return x.s===s&&x.a===a;});}catch(e){return false;}}
-function ayBookmark(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}var i=-1;l.forEach(function(x,k){if(x.s===SEL_S&&x.a===SEL_A)i=k;});if(i>=0){l.splice(i,1);toast('أُزيلت من المحفوظات');}else{l.push({s:SEL_S,a:SEL_A});toast('✓ حُفظت الآية');}lsSet('bookmarks',JSON.stringify(l));bkSync();}
-function ayShare(){var t=ayText()+'\n\n﴿ '+nameFor(SEL_S)+' : '+ar(SEL_A)+' ﴾';if(navigator.share){navigator.share({text:t}).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(t);toast('نُسخت الآية للحافظة');}else{toast('انسخ يدويًا');}}
-function ayTafsir(){var tb=document.getElementById('tafbox');if(tb.classList.contains('on')){tb.classList.remove('on');return;}tb.classList.add('on');var key='tf_'+SEL_S+'_'+SEL_A,c=lsGet(key);if(c){tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(c);return;}tb.innerHTML='<div class="muted">جارٍ تحميل التفسير…</div>';_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/ayah/'+SEL_S+':'+SEL_A+'/ar.muyassar',{signal:_quranAC.signal}).then(function(r){if(!r.ok)throw r.status;return r.json();}).then(function(d){var t=d&&d.data&&d.data.text;if(typeof t!=='string'||!t)throw 0;/* ظرف خطأ JSON لا يُخزَّن «undefined» */lsSet(key,t);tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(t);}).catch(function(e){if(e&&e.name==='AbortError')return;tb.innerHTML='<div class="muted">تعذّر تحميل التفسير — يلزم إنترنت لأول مرة (يُحفظ بعدها).</div>';});}
+function ayBookmark(){var l=[];try{l=JSON.parse(lsGet('bookmarks')||'[]');}catch(e){}var i=-1;l.forEach(function(x,k){if(x.s===SEL_S&&x.a===SEL_A)i=k;});if(i>=0){l.splice(i,1);toast('أُزيلت من المحفوظات');}else{l.push({s:SEL_S,a:SEL_A,t:Date.now()});toast('✓ حُفظت الآية');}lsSet('bookmarks',JSON.stringify(l));lsSet('bookmarks_ts',String(Date.now()));bkSync();}
+/* أندرويد: WebView بلا navigator.share — نافذة المشاركة النظامية عبر Capacitor Share */
+function ayShare(){var t=ayText()+'\n\n﴿ '+nameFor(SEL_S)+' : '+ar(SEL_A)+' ﴾';var _CS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;var _cp=function(){if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){toast('نُسخت الآية للحافظة');}).catch(function(){toast('انسخ يدويًا');});}else{toast('انسخ يدويًا');}};if(_isNative()&&_CS){_CS.share({text:t}).catch(function(e){if(!/cancel/i.test(e&&e.message||''))_cp();});}else if(navigator.share){navigator.share({text:t}).catch(function(){});}else{_cp();}}
+function ayTafsir(){var tb=document.getElementById('tafbox');if(tb.classList.contains('on')){tb.classList.remove('on');return;}tb.classList.add('on');var key='tf_'+SEL_S+'_'+SEL_A,c=lsGet(key);if(c&&c!=='undefined'){tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(c);return;}tb.innerHTML='<div class="muted">جارٍ تحميل التفسير…</div>';_qAbort();_quranAC=new AbortController();fetch('https://api.alquran.cloud/v1/ayah/'+SEL_S+':'+SEL_A+'/ar.muyassar',{signal:_quranAC.signal}).then(function(r){if(!r.ok)throw r.status;return r.json();}).then(function(d){var t=d&&d.data&&d.data.text;if(typeof t!=='string'||!t)throw 0;/* ظرف خطأ JSON لا يُخزَّن «undefined» */lsSet(key,t);tb.innerHTML='<b style="color:var(--gold)">التفسير الميسّر</b><br>'+_esc(t);}).catch(function(e){if(e&&e.name==='AbortError')return;tb.innerHTML='<div class="muted">تعذّر تحميل التفسير — يلزم إنترنت لأول مرة (يُحفظ بعدها).</div>';});}
 function toast(m,type){
   var t=document.getElementById('toast');
   t.textContent=m;
@@ -6514,7 +6551,7 @@ function swEndSession(src){
   _swShield(false);
   var scr=document.getElementById('salahw');if(scr)scr.classList.remove('sw-dimmed');
   swEvid('انتهت الجلسة ('+(src==='auto'?'سكون':src==='user'?'زر الإنهاء':src==='hidden'?'مغادرة التطبيق':
-    src==='fail'?(SW.mode==='sensor'?'تعذّر تشغيل الحسّاس':'تعذّر تشغيل محرّك الكاميرا'):'رجوع')+')');
+    src==='fail'?(SW.mode==='sensor'?'تعذّر تشغيل الحسّاس':'تعذّر تشغيل محرّك الكاميرا'):src==='camlost'?'انقطاع الكاميرا':'رجوع')+')');
   if(src!=='fail')swSaveStats(); /* جلسة لم تبدأ فعلاً — لا إحصاءات زائفة */
   swRenderSummary();
   swShowPane('summary');
@@ -6771,14 +6808,21 @@ function _swcModelBuffer(){
 /* تهيئة MediaPipe مرة واحدة: مكتبة ESM → WASM → موديل → PoseLandmarker */
 function _swcEnsure(cb){
   if(SWC.ready){cb&&cb(true);return;}
-  if(SWC.loading){cb&&cb(false);return;}
-  SWC.loading=true;SWC.err='';
+  /* تحميل جارٍ: انتظر نتيجته بدل إعلان فشل بلا سبب */
+  if(SWC.loading){if(cb)(SWC._cbs=SWC._cbs||[]).push(cb);return;}
+  SWC.loading=true;SWC.err='';SWC.errStage='lib';
+  function done(ok){
+    cb&&cb(ok);
+    var q=SWC._cbs||[];SWC._cbs=[];
+    q.forEach(function(f){try{f(ok);}catch(e){}});
+  }
   import(SWC_MJS).then(function(mod){
     SWC._lib=mod;swInd('تحميل محرّك الوضعيات…',false);
     return mod.FilesetResolver.forVisionTasks(SWC_WASM);
   }).then(function(fs){
-    SWC._fileset=fs;return _swcModelBuffer();
+    SWC._fileset=fs;SWC.errStage='model';return _swcModelBuffer();
   }).then(function(buf){
+    SWC.errStage='create';
     function create(dl){
       return SWC._lib.PoseLandmarker.createFromOptions(SWC._fileset,{
         baseOptions:{modelAssetBuffer:buf,delegate:dl},
@@ -6786,51 +6830,87 @@ function _swcEnsure(cb){
         minPoseDetectionConfidence:0.5,minPosePresenceConfidence:0.5,minTrackingConfidence:0.5
       });
     }
-    return create('GPU').catch(function(){return create('CPU');});
+    return create('GPU').catch(function(){return create('CPU');}).then(function(lm){
+      /* تحميل ناجح من كاش قديم بلا طول مختوم: اختمه الآن */
+      if(!lsGet('swc_model_len')&&buf&&buf.length)lsSet('swc_model_len',String(buf.length));
+      return lm;
+    });
   }).then(function(lm){
-    SWC.lm=lm;SWC.ready=true;SWC.loading=false;
-    cb&&cb(true);
+    SWC.lm=lm;SWC.ready=true;SWC.loading=false;SWC.errStage='';
+    done(true);
   }).catch(function(e){
     SWC.loading=false;SWC.err=String(e&&e.message||e).slice(0,120);
     console.error('[swc] فشل التهيئة:',e);
-    cb&&cb(false);
+    /* فشل بعد قراءة الموديل = ملف تالف غالباً → احذفه ليُنزَّل من جديد */
+    if(SWC.errStage==='create'){
+      var P=window.Capacitor&&window.Capacitor.Plugins,FS=P&&P.Filesystem;
+      if(FS)try{FS.deleteFile({path:SWC_MODEL_FILE,directory:'DATA'}).catch(function(){});}catch(x){}
+    }
+    done(false);
   });
 }
 function swcStart(){
-  SWC.on=true;SWC.pose='';SWC.poseT0=0;SWC.stable='';SWC.cyc=[];SWC.ref=null;SWC.arkan=[];SWC.lastTs=0;
+  SWC.on=true;SWC.pose='';SWC.poseT0=0;SWC.stable='';SWC.cyc=[];SWC.ref=null;SWC.arkan=[];SWC.lastTs=0;SWC.camMuted=false;
+  var sid=SWC.sid=(SWC.sid||0)+1; /* ردود _swcEnsure المتأخرة لجلسة سابقة تُهمل */
   SWC.video=document.getElementById('swVideo');
   swInd('تهيئة محرّك الوضعيات…',false);
   _swcEnsure(function(ok){
-    if(!SWC.on)return;
+    if(!SWC.on||sid!==SWC.sid)return;
     if(!ok){
-      swInd('✗ فشل تهيئة المحرّك: '+SWC.err,false);
-      swEvid('✗ فشل MediaPipe: '+SWC.err);
+      /* السبب الخام للسجل فقط؛ للمستخدم رسالة عربية ثم إنهاء نظيف بلا إحصاءات */
+      var msg=SWC.errStage==='lib'?'وضع الكاميرا يحتاج اتصالاً بالإنترنت لتحميل المحرّك — جرّب وضع الحسّاس أو اتصل ثم أعد المحاولة'
+        :SWC.errStage==='model'?'تعذّر تنزيل نموذج الوضعيات — تحقّق من الاتصال ثم أعد المحاولة'
+        :'تعذّر تهيئة محرّك الوضعيات — أعد المحاولة';
+      swInd('✗ '+msg,false);
+      swEvid('✗ فشل MediaPipe ('+(SWC.errStage||'?')+'): '+SWC.err);
+      setTimeout(function(){
+        if(!SW.active||SW.mode!=='camera'||!SWC.on||sid!==SWC.sid)return;
+        try{toast(msg,'warning');}catch(e){}
+        swEndSession('fail');
+      },2500);
       return;
     }
     swEvid('محرّك الوضعيات جاهز');
-    _swcOpenCam();
+    if(!SWC.stream)_swcOpenCam();
   });
 }
 function _swcOpenCam(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     swInd('الكاميرا غير متاحة في هذه البيئة',false);swEvid('✗ لا getUserMedia');return;
   }
+  var g=SWC.camGen=(SWC.camGen||0)+1; /* أحدث طلب فقط يفوز (تبديل مزدوج/إيقاف أثناء الطلب) */
   navigator.mediaDevices.getUserMedia({video:{facingMode:SWC.facing,width:{ideal:640},height:{ideal:480}},audio:false})
   .then(function(st){
-    if(!SWC.on){st.getTracks().forEach(function(t){t.stop();});return;}
-    SWC.stream=st;
+    if(!SWC.on||g!==SWC.camGen){st.getTracks().forEach(function(t){t.stop();});return;}
+    if(SWC.stream&&SWC.stream!==st)SWC.stream.getTracks().forEach(function(t){t.stop();});
+    if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
+    SWC.stream=st;SWC.camMuted=false;
+    /* انقطاع المسار (تطبيق آخر أخذ الكاميرا/أُوقف الإذن): أنهِ بملخّص صادق */
+    var vt=st.getVideoTracks&&st.getVideoTracks()[0];
+    if(vt){
+      vt.onended=function(){
+        if(!SWC.on||SWC.stream!==st||!SW.active)return;
+        swEvid('✗ انقطعت الكاميرا (استُخدمت من تطبيق آخر أو أُوقف إذنها)');
+        swEndSession('camlost');
+      };
+      vt.onmute=function(){if(SWC.stream!==st)return;SWC.camMuted=true;swInd('الكاميرا موقوفة مؤقتاً — تحقّق من إذن الكاميرا',false);};
+      vt.onunmute=function(){if(SWC.stream===st)SWC.camMuted=false;};
+    }
     if(SWC.video){SWC.video.srcObject=st;var pr=SWC.video.play();if(pr&&pr.catch)pr.catch(function(){});}
     swInd('الكاميرا تعمل — قف في الكادر',false);
     swEvid('الكاميرا فُتحت ('+(SWC.facing==='user'?'أمامية':'خلفية')+' · 640×480)');
     _swcLoop();
   }).catch(function(e){
+    if(g!==SWC.camGen)return;
     swInd('تعذّر فتح الكاميرا: '+String(e&&e.name||e),false);
     swEvid('✗ رفض/فشل الكاميرا: '+String(e&&e.name||e));
   });
 }
 function swcFlip(){
-  if(!SWC.on)return;
+  if(!SWC.on||!SWC.ready)return; /* قبل جاهزية المحرّك لا كاميرا تُبدَّل */
   SWC.facing=(SWC.facing==='user')?'environment':'user';
+  SWC.ref=null;SWC.pose='';SWC.poseT0=0; /* كادر جديد → مرجع قيام جديد */
+  swEvid('تبديل الكاميرا — إعادة مرجع القيام');
   if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
   if(SWC.stream){SWC.stream.getTracks().forEach(function(t){t.stop();});SWC.stream=null;}
   _swcOpenCam();
@@ -6885,8 +6965,8 @@ function _swcTick(res){
     SWC.stable=p;
     _swcOnStable(p,now);
   }
-  /* تحذير الكادر المُدار أولى من تلميح «الجذع غير مرئي» */
-  if(!p&&!SWC.rotWarn)swInd(SWC.stable?('آخر وضعية: '+_swcAr(SWC.stable)+' — الجذع غير مكتمل الرؤية'):'الجذع غير مرئي — عدّل وضع الهاتف',false);
+  /* رسالة الكاميرا الموقوفة/الكادر المُدار أولى من تلميح «الجذع غير مرئي» */
+  if(!p&&!SWC.camMuted&&!SWC.rotWarn)swInd(SWC.stable?('آخر وضعية: '+_swcAr(SWC.stable)+' — الجذع غير مكتمل الرؤية'):'الجذع غير مرئي — عدّل وضع الهاتف',false);
 }
 function _swcAr(k){return k==='qiyam'?'قيام':k==='ruku'?'ركوع':k==='sujud'?'سجود':k==='julus'?'جلوس':k;}
 function _swcOnStable(p,now){
@@ -6917,6 +6997,8 @@ function _swcCloseCycle(){
 }
 function swcStop(){
   SWC.on=false;
+  SWC.camGen=(SWC.camGen||0)+1; /* getUserMedia معلّق يُغلق فور وصوله */
+  SWC.camMuted=false;
   _swcRotWatch(false);
   if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
   if(SWC.stream){SWC.stream.getTracks().forEach(function(t){t.stop();});SWC.stream=null;}
@@ -8511,6 +8593,10 @@ var _origGo=go;
 go=function(id){
   var actualId=(id==='calcSettings')?'account':id;
   _origGo(actualId);
+  /* المشغّل يغطّي شريط المايك في التسميع (نفس الموضع والطبقة) → أغلقه */
+  if(actualId==='memorize'){var _qp=document.getElementById('qplayer');if(_qp&&_qp.classList.contains('on')&&typeof qpClose==='function'){try{qpClose();}catch(e){}}}
+  /* البوصلة تُعطَّل عند مغادرة القبلة → أعِد تفعيلها عند العودة إن كان الاتجاه محسوباً */
+  if(actualId==='qibla'&&typeof qiblaBearing!=='undefined'&&qiblaBearing!=null){try{enableCompass();}catch(e){}}
   if(actualId==='names')loadNamesScreen();
   if(actualId==='khatmah')loadKhatmah();
   if(actualId==='badges')loadBadges();
@@ -8716,7 +8802,7 @@ togglePrayer=function(p){
       if(lsGet('p5_last')===today){
         var p5c2=Math.max(0,(+lsGet('p5_streak')||0)-1);
         lsSet('p5_streak',String(p5c2));
-        if(p5c2>0){var _y2=new Date();_y2.setDate(_y2.getDate()-1);lsSet('p5_last',_y2.toDateString());}
+        if(p5c2>0){var _y2=new Date(today);_y2.setDate(_y2.getDate()-1);lsSet('p5_last',_y2.toDateString());}
         else{try{localStorage.removeItem('p5_last');}catch(ex){}}
       }
     }
@@ -8757,11 +8843,18 @@ function _supportAction(type){
     _open(PLAY);
   }else if(type==='share'){
     var shareText='تطبيق المجدّد — طريق الأتقياء\nمصحف كامل، مواقيت الصلاة، القبلة، أذكار وأدعية — يعمل بدون إنترنت.\n'+PLAY;
-    if(navigator.share){
+    var _copy=function(){
+      try{navigator.clipboard.writeText(shareText).then(function(){toast('تم نسخ رابط التطبيق','ok');}).catch(function(){toast('الرابط: '+PLAY);});}
+      catch(e){toast('الرابط: '+PLAY);}
+    };
+    /* أندرويد: WebView بلا navigator.share — نافذة المشاركة النظامية عبر Capacitor Share */
+    var _CS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
+    if(_isNative()&&_CS){
+      _CS.share({title:'المجدّد — طريق الأتقياء',text:'مصحف كامل، مواقيت الصلاة، القبلة، أذكار وأدعية — يعمل بدون إنترنت.',url:PLAY,dialogTitle:'شارك التطبيق'}).catch(function(e){if(!/cancel/i.test(e&&e.message||''))_copy();});
+    }else if(navigator.share){
       navigator.share({title:'المجدّد — طريق الأتقياء',text:'مصحف كامل، مواقيت الصلاة، القبلة، أذكار وأدعية — يعمل بدون إنترنت.',url:PLAY}).catch(function(){});
     }else{
-      try{navigator.clipboard.writeText(shareText).then(function(){toast('تم نسخ رابط التطبيق','ok');});}
-      catch(e){toast('الرابط: '+PLAY);}
+      _copy();
     }
   }else if(type==='about'){
     var panel=document.getElementById('aboutAppPanel');
