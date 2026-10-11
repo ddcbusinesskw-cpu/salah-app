@@ -976,7 +976,7 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="theme-color" content="#070f0d">
+<meta name="theme-color" content="#070A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -7074,7 +7074,23 @@ function _toggleTheme(){
   document.documentElement.setAttribute('data-theme',next);
   try{lsSet('app_theme',next);}catch(e){}
   _renderThemeBtn();
+  _syncSystemBars();
 }
+/* لون ما خلف شريطي الحالة والتنقّل + theme-color يتبعان --bg للسِمة الحالية
+   (أندرويد: إضافة SystemBars الأصلية؛ PWA: meta theme-color) */
+function _syncSystemBars(){
+  try{
+    var light=(document.documentElement.getAttribute('data-theme')==='light');
+    var raw=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||(light?'#F5F2EC':'#070A1A');
+    var el=document.createElement('span');el.style.color=raw;document.body.appendChild(el);
+    var m=getComputedStyle(el).color.match(/\d+/g);el.parentNode.removeChild(el);
+    var hex=m?'#'+m.slice(0,3).map(function(n){return ('0'+(+n).toString(16)).slice(-2);}).join(''):raw;
+    var mt=document.querySelector('meta[name="theme-color"]');if(mt)mt.setAttribute('content',hex);
+    var SB=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SystemBars;
+    if(SB&&SB.setColors)SB.setColors({bg:hex,light:light}).catch(function(){});
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded',function(){setTimeout(_syncSystemBars,0);});
 function _renderThemeBtn(){
   var ic=document.getElementById('themeToggleIc');
   var lbl=document.getElementById('themeLbl');

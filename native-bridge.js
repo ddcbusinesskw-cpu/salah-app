@@ -34,8 +34,14 @@
        1. StatusBar + SplashScreen
     ════════════════════════════════════════════ */
     if (StatusBar) {
-      StatusBar.setStyle({ style: 'DARK' });
-      StatusBar.setBackgroundColor({ color: '#051a16' });
+      /* لون الأشرطة يتبع السِمة عبر إضافة SystemBars (_syncSystemBars في index.html)؛
+         StatusBar احتياط فقط إن لم تتوفر الإضافة */
+      if (Plugins.SystemBars && typeof window._syncSystemBars === 'function') {
+        window._syncSystemBars();
+      } else {
+        StatusBar.setStyle({ style: 'DARK' });
+        StatusBar.setBackgroundColor({ color: '#070A1A' });
+      }
     }
     if (SplashScreen) {
       SplashScreen.hide({ fadeOutDuration: 400 });

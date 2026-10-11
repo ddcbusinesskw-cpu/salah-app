@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AudioRecorderPlugin.class);
         registerPlugin(KeepAwakePlugin.class);
         registerPlugin(WhisperNativePlugin.class);
+        registerPlugin(SystemBarsPlugin.class);
         super.onCreate(savedInstanceState);
         // API 36 / أندرويد 16: edge-to-edge إجباري (windowOptOutEdgeToEdgeEnforcement
         // يُتجاهَل) — نُبقي الـWebView بين شريط الحالة وشريط التنقّل.
