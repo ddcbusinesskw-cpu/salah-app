@@ -2779,7 +2779,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.9">
           • بياناتك تُخزَّن محلياً على جهازك. عند تسجيل الدخول بـ Google، تُرسَل نسخة احتياطية لخوادم Firebase (Google) محمية ومُرسَلة بأمان عبر HTTPS ومرتبطة بحسابك فقط.<br>
           • الموقع الجغرافي يُحسَب داخل التطبيق بالكامل ولا يُرسَل إلى أي خادم خارجي.<br>
-          • تسميع الحفظ يعمل بمحرّكي تعرّف على جهازك بالكامل (طبقة فورية + طبقة تدقيق) — يُنزَّل النموذجان مرة واحدة ثم يعمل دون إنترنت، وصوتك يُعالَج على الجهاز فقط ولا يغادر جهازك ولا يُرفَع لأي خادم.<br>
+          • تسميع الحفظ يعمل بمحرّك تعرّف على الكلام على جهازك بالكامل — يُنزَّل نموذجه مرة واحدة ثم يعمل دون إنترنت، وصوتك يُعالَج على الجهاز فقط ولا يغادر جهازك ولا يُرفَع لأي خادم.<br>
           • متابع الصلاة: وضع الكاميرا يحلّل الوضعيات على جهازك حصراً (لا حفظ ولا إرسال لأي صورة)، ووضع الحسّاس يقرأ حسّاس القرب محلياً فقط — تُطلب صلاحية الكاميرا عند اختيار وضعها فقط.<br>
           • بحث الحديث يُرسِل نصَّ البحث إلى موسوعة الدرر السنية (dorar.net) للحصول على النتائج.<br>
           • يمكنك حذف حسابك وبياناتك من Firebase في أي وقت من شاشة الإعدادات.<br>
@@ -2905,7 +2905,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
     <b>استخدام التطبيق</b>
     «المجدّد» تطبيق للمساعدة على أداء الصلاة (مواقيت، قبلة، أذكار، مصحف). المحتوى الديني للاسترشاد، ويُرجى التحقق من المصادر المعتمدة عند الحاجة.
     <b>الخصوصية والبيانات</b>
-    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّكَي تعرّف على الكلام يعملان على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. تُنزَّل نماذج التعرّف مرة واحدة (HuggingFace وalphacephei وGoogle Storage). بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
+    يُستخدم موقعك على جهازك فقط لحساب المواقيت والقبلة ولا يُرسَل لأي خادم. تُحفظ إعداداتك وتقدّمك على جهازك؛ وعند تسجيل الدخول بـ Google تُزامَن بأمان عبر Firebase. تسميع الحفظ يستخدم محرّك تعرّف على الكلام يعمل على جهازك بالكامل — صوتك لا يغادر جهازك ولا يُخزَّن لدينا. تُنزَّل نماذج التعرّف مرة واحدة (HuggingFace وGoogle Storage). بحث الحديث يُرسِل نصَّ بحثك لـ dorar.net.
     <b>الأذونات</b>
     قد يطلب التطبيق الوصول إلى الموقع والكاميرا والميكروفون وحسّاسات الحركة. يمكنك رفضها مع تعطّل الميزة المرتبطة بها.
     <span id="termsSub"><b>الاشتراك</b>
@@ -4032,6 +4032,9 @@ var VK={ready:false,loading:false,tried:false,fatal:false,listening:false,
         dl:{phase:'',done:0,total:0,files:0,err:''},lastPartial:'',_wired:false};
 var VK_MODEL_URL='https://alphacephei.com/vosk/models/vosk-model-ar-mgb2-0.4.zip';
 var VK_MODEL_NAME='vosk-model-ar-mgb2-0.4';
+/* معطّل (قرار المالك ٢٠٢٦-١٠): نموذج أخبار عام لم يُدرَّب على القرآن (WER≈79% على التلاوة)
+   و~333MB تنزيلاً وذاكرة كبيرة. التسميع يعمل بـwhisper وحده إلى أن يحلّ المحرّك المتدفّق الجديد. */
+var VK_ENABLED=false;
 function _vkPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.WhisperNative;}
 function _vkWire(P){
   if(VK._wired)return;VK._wired=true;
@@ -4044,6 +4047,7 @@ function _vkConsentEnsure(cb){lsSet('vkConsent','1');_vkAutoEnsure(cb);}
    قبل أول تنزيل (~318MB) — whisper وحده يكفي للتسميع ريثما يقرّر المستخدم.
    اكتمال التحميل خارج التسميع يسلّح تحرير الذاكرة الكسول */
 function _vkAutoEnsure(cb){
+  if(!VK_ENABLED){if(cb)cb(false);return;}
   var P=_vkPlug();
   function run(){_vkEnsure(function(ok){if(ok)try{_engIdleArmIfAway();}catch(e){}if(cb)cb(ok);});}
   if(!P||lsGet('vkConsent')==='1'){run();return;}
@@ -4084,6 +4088,16 @@ function _vkOnPartial(ev){
   }
   if(typeof _vkAlign==='function')_vkAlign(VK.lastPartial,!!ev.final);
 }
+/* Vosk معطّل: احذف نموذجه المنزَّل سابقاً مرة واحدة لتحرير ~333MB */
+function _vkCleanupOnce(){
+  if(VK_ENABLED||lsGet('vk_cleaned')==='1')return;
+  var P=_vkPlug();if(!P||!P.voskDiskUsage||!P.voskDeleteModel||!_isAndroidNative())return;
+  P.voskDiskUsage().then(function(r){
+    if(!(r&&r.exists)){lsSet('vk_cleaned','1');return;}
+    return P.voskDeleteModel().then(function(){lsSet('vk_cleaned','1');console.log('[vk] حُذف نموذج Vosk القديم');});
+  }).catch(function(){});
+}
+document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){try{_vkCleanupOnce();}catch(e){}},8000);});
 /* تشخيص: اسحب إحصاء Vosk (عيّنات مُغذّاة/استدعاءات/آخر نتيجة خام/ملفات الموديل) */
 function _vkPollStats(){
   var P=_vkPlug();if(!P||!P.voskStats)return;
@@ -4091,6 +4105,7 @@ function _vkPollStats(){
 }
 /* تهيئة Vosk: تحقّق التوفّر → تنزيل الموديل → تحميله. مرّة واحدة. */
 function _vkEnsure(cb){
+  if(!VK_ENABLED){VK.tried=true;VK.fatal=true;VK.dl.err='معطّل';if(cb)cb(false);return;}
   var P=_vkPlug();
   if(!P||!_isAndroidNative()){VK.tried=true;VK.fatal=true;VK.dl.err='بيئة غير أصلية';if(cb)cb(false);return;}
   if(VK.ready){if(cb)cb(true);return;}
@@ -4656,7 +4671,7 @@ function _lmDiagHtml(){
     +'<button onclick="_hbForceWhisper()" style="background:rgba(232,197,95,.14);color:var(--gold);border:1px solid rgba(232,197,95,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🔬 أرسل آخر ٥ ثوانٍ لwhisper الآن</button>'
     +'<button onclick="_lmEngineTest()" style="background:rgba(120,140,255,.15);color:#9db0ff;border:1px solid rgba(120,140,255,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">🧪 اختبار المحرّك</button>'
     +((!WN.ready&&!WN.fatal)?'<button onclick="_wnRetry()" style="margin-inline-start:6px;background:rgba(63,185,164,.15);color:var(--green);border:1px solid rgba(63,185,164,.4);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">↻ إعادة تحميل المحرّك</button>':'')
-    +((!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkConsentEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
+    +((VK_ENABLED&&!VK.ready&&!VK.fatal&&!VK.loading)?'<button onclick="_vkConsentEnsure()" style="margin-inline-start:6px;background:rgba(120,140,255,.12);color:#9db0ff;border:1px solid rgba(120,140,255,.35);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">⬇ محرّك الستريمنغ Vosk (318MB)</button>':'')
     +'<button onclick="_lmCopyDiag()" style="margin-inline-start:6px;background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">نسخ</button>'
     +(hasA?'<button onclick="_mem2PlayLast&&_mem2PlayLast()" style="margin-inline-start:6px;background:rgba(63,185,164,.15);color:var(--green);border:1px solid rgba(63,185,164,.4);border-radius:6px;padding:4px 16px;font-size:11px;cursor:pointer">🔊 استمع للمسجَّل</button>':'')
     +'</details>';
@@ -9780,7 +9795,7 @@ function _renderStorageSett(){
   var P=window.Capacitor.Plugins,FS=P.Filesystem,WNP=P.WhisperNative;
   var models=[
     {id:'gguf',name:'محرّك التدقيق (whisper)',size:null,loaded:function(){return WN.ready;}},
-    {id:'vosk',name:'المحرّك الفوري (Vosk)',size:null,loaded:function(){return VK.ready;}},
+    {id:'vosk',name:'المحرّك الفوري (Vosk)',size:null,loaded:function(){return VK.ready;},off:!VK_ENABLED},
     {id:'pose',name:'نموذج الكاميرا (الوضعيات)',size:null,loaded:function(){return typeof SWC!=='undefined'&&SWC.ready;}}
   ];
   var left=3;
@@ -9789,13 +9804,13 @@ function _renderStorageSett(){
     if(_settRefetchId){var rf=_settRefetchId;_settRefetchId=null;
       for(var i=0;i<models.length;i++)if(models[i].id===rf&&!(models[i].size>0))_settRedownloadModel(rf);}
     if(WN.ready||VK.ready){try{_engIdleArmIfAway();}catch(e){}} /* محمّل من الإعدادات → لا يبقى مقيماً بلا استخدام */
-    host.innerHTML=models.map(function(m){
+    host.innerHTML=models.filter(function(m){return !(m.off&&!(m.size>0));}).map(function(m){
       var has=m.size!=null&&m.size>0;
       return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
         +'<div style="flex:1"><div style="font-size:14px;color:var(--text)">'+m.name+'</div>'
         +'<div style="font-size:12px;color:var(--muted)">'+(has?('✓ منزَّل · '+_fmtBytes(m.size)+(m.loaded()?' · محمَّل بالذاكرة':'')):'غير منزَّل')+'</div></div>'
         +(has?'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px;border-color:rgba(224,112,95,.5);color:var(--red)" onclick="_settDeleteModel(\''+m.id+'\')">حذف</button>':'')
-        +'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settModelDl(\''+m.id+'\','+(has?1:0)+')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>'
+        +(m.off?'':'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settModelDl(\''+m.id+'\','+(has?1:0)+')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>')
         +'</div>';
     }).join('')+'<p class="note" style="margin:8px 0 0">النماذج تعمل على جهازك — حذفها يحرّر المساحة ويُعاد تنزيلها عند الحاجة.</p>';
   }
@@ -9871,7 +9886,7 @@ var HELP_GUIDES={
       'فواتح السور (الم، طه، يس…) تُحتسب تلقائياً عند قراءتها ولا تُعدّ خطأً أبداً.',
       'اضغط «⏹ إيقاف» عند الانتهاء ليظهر الحكم النهائي: الأخضر مثبت، والرمادي لم يُسمع (لا يُحسب خطأً).'
     ],tips:[
-      'التنزيل الأول مرة واحدة: نموذجا التدقيق (~43MB) والفوري (~318MB) — بعدها يعمل التسميع دون إنترنت بالكامل، وصوتك لا يغادر جهازك.',
+      'التنزيل الأول مرة واحدة: نموذج التدقيق (~43MB) — بعدها يعمل التسميع دون إنترنت بالكامل، وصوتك لا يغادر جهازك.',
       'لأفضل نتيجة: مكان هادئ، والجوال قريب منك، واقرأ بوتيرة طبيعية — لا داعي للإبطاء.',
       'زر 🙈 يخفي النص لاختبار الحفظ: لا يظهر إلا ما قرأتَه فعلاً.'
     ]},
