@@ -931,7 +931,7 @@ body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:non
 [data-theme="light"] .qw.miss{color:rgba(0,0,0,.28);}
 @media(prefers-reduced-motion:reduce){.qw.ok{animation:none;}}
 .lm-anum{font-size:.62em;color:var(--gold);opacity:.85;margin:0 3px;font-family:system-ui,sans-serif;vertical-align:middle;}
-.lm-page.lm-hidden .qw:not(.ok):not(.tent):not(.err):not(.active){color:transparent;}
+.lm-page.lm-hidden .qw:not(.ok):not(.tent):not(.err):not(.unc):not(.active){color:transparent;}
 .lm-bar{position:fixed;left:0;right:0;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px;background:linear-gradient(0deg,var(--bg) 60%,transparent);z-index:60;}
 .lm-build{text-align:center;font-size:var(--fs-xs);color:var(--muted);opacity:.55;font-family:monospace;direction:ltr;margin-top:8px;}
 .mw2{display:inline;padding:0 1px;transition:color .28s;}
@@ -1720,6 +1720,22 @@ input[type="range"]{accent-color:var(--gold);}
 #lmPage .qw.err{color:#F48FB1;text-shadow:0 0 9px rgba(244,143,177,.30);text-decoration:underline wavy #F48FB1 1.5px;text-underline-offset:.5em;text-decoration-skip-ink:none;}
 :root[data-theme="light"] #lmPage .qw.err{color:#A8325E;text-shadow:0 0 8px rgba(168,50,94,.22);text-decoration-color:#A8325E;}
 #lmPage .qw.miss{text-decoration:underline dotted currentColor 2px;text-underline-offset:.5em;text-decoration-skip-ink:none;}
+/* المحرّك الصوتي: «للمراجعة» = مقروءة بفرق طفيف أو بحرف مختلف (ليست خطأً بالضرورة) — خط منقّط ذهبي تحت لون المؤكَّدة */
+#lmPage .qw.ok.dbt{text-decoration:underline dotted var(--gold) 2px;text-underline-offset:.5em;text-decoration-skip-ink:none;}
+:root[data-theme="light"] #lmPage .qw.ok.dbt{text-decoration-color:#9A7A2E;}
+/* «للتحقّق» = سُمع ما يخالف المكتوب ولم يُحسم خطأً: بنفسجي بخط متقطّع (لا يشبه المقروءة ولا الخطأ) — اضغطها لترى ما سُمع */
+#lmPage .qw.unc{color:#C9B6F2;cursor:pointer;text-decoration:underline dashed #C9B6F2 2px;text-underline-offset:.5em;text-decoration-skip-ink:none;}
+:root[data-theme="light"] #lmPage .qw.unc{color:#5B3FA0;text-decoration-color:#5B3FA0;}
+.lm-engine{text-align:center;color:var(--muted);font-size:12px;line-height:1.7;margin:0 6px 8px;}
+.lm-engine .lm-eng-txt{margin-bottom:4px;}
+.lm-engine .lm-eng-track{margin:6px auto;max-width:280px;}
+.lm-eng-btn{background:var(--chip-bg,rgba(255,255,255,.08));color:var(--gold);border:1px solid var(--line2,rgba(255,255,255,.18));border-radius:16px;padding:6px 16px;margin:2px 4px 4px;font:inherit;font-size:12.5px;cursor:pointer;min-height:36px;}
+.lm-disc{color:var(--muted);font-size:11.5px;line-height:1.7;margin:4px 6px 6px;text-align:center;}
+.lm-disc a{color:var(--gold);cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
+.qa-consent p{font-size:13px;color:var(--muted);line-height:1.8;margin:0 0 8px;}
+.qa-consent .qa-cell{color:var(--gold);}
+.qa-lic-sum{font-size:12.5px;color:var(--muted);line-height:1.8;margin:0 0 8px;}
+.toast.t-quran{font-family:'Nur Sans',"Uthmani","Noto Naskh Arabic",serif;}
 :root .qw.miss{color:rgba(238,240,250,.5);}
 :root[data-theme="light"] .qw.ok{color:#8C6A22;}
 :root[data-theme="light"] .qw.tent{color:#157A6E;}
@@ -2403,6 +2419,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
         <button class="btn lm-go" onclick="lmGoPage()">اذهب</button>
       </div>
       <div id="lmStatus" class="lm-status">اختر سورة أو صفحة ثم اضغط «🎙 استمع» وابدأ التلاوة</div>
+      <div id="lmEngine" class="lm-engine" style="display:none"></div>
       <div id="lmPage" class="lm-page"></div>
       <div id="lmResult"></div>
       <div id="lmBuild" class="lm-build"></div>
@@ -2779,7 +2796,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.9">
           • بياناتك تُخزَّن محلياً على جهازك. عند تسجيل الدخول بـ Google، تُرسَل نسخة احتياطية لخوادم Firebase (Google) محمية ومُرسَلة بأمان عبر HTTPS ومرتبطة بحسابك فقط.<br>
           • الموقع الجغرافي يُحسَب داخل التطبيق بالكامل ولا يُرسَل إلى أي خادم خارجي.<br>
-          • تسميع الحفظ يعمل بمحرّك تعرّف على الكلام على جهازك بالكامل — يُنزَّل نموذجه مرة واحدة ثم يعمل دون إنترنت، وصوتك يُعالَج على الجهاز فقط ولا يغادر جهازك ولا يُرفَع لأي خادم.<br>
+          • تسميع الحفظ يعمل بمحرّك تعرّف على الكلام على جهازك بالكامل — يُنزَّل نموذجه مرة واحدة (من GitHub: raw.githubusercontent.com) ثم يعمل دون إنترنت، وصوتك يُعالَج على الجهاز فقط ولا يغادر جهازك ولا يُرفَع لأي خادم.<br>
           • متابع الصلاة: وضع الكاميرا يحلّل الوضعيات على جهازك حصراً (لا حفظ ولا إرسال لأي صورة)، ووضع الحسّاس يقرأ حسّاس القرب محلياً فقط — تُطلب صلاحية الكاميرا عند اختيار وضعها فقط.<br>
           • بحث الحديث يُرسِل نصَّ البحث إلى موسوعة الدرر السنية (dorar.net) للحصول على النتائج.<br>
           • يمكنك حذف حسابك وبياناتك من Firebase في أي وقت من شاشة الإعدادات.<br>
@@ -2805,6 +2822,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
 
       <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">التسميع الذكي — احفظ القرآن بصوتك</h2>
       <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">ميزة فريدة: اقرأ الآيات بصوتك، والتطبيق يستمع ويصحّح لك كلمة بكلمة لمراجعة حفظك وإتقانه. المعالجة على جهازك بالكامل حفاظاً على خصوصيتك.</p>
+      <p id="aboutQaDisc" style="color:var(--muted);font-size:13px;line-height:1.9;margin:-12px 0 20px">تنبيه: التقييم الآلي للتلاوة والتجويد قد يخطئ، ولا يغني عن معلّم متقن؛ نتائجه للمراجعة الذاتية وليست حكماً شرعياً على تلاوة أحد. محرّك التسميع مجاني دائماً. · <a onclick="_qaShowLicense()" style="color:var(--gold);cursor:pointer;text-decoration:underline">رخصة نموذج التسميع</a></p>
 
       <h2 style="font-size:16px;color:var(--text);font-weight:700;margin:0 0 8px">الأذكار والأدعية والرقية</h2>
       <p style="color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 20px">أذكار الصباح والمساء، أدعية مأثورة، الرقية الشرعية، وأسماء الله الحسنى، مع تتبّع وردك اليومي.</p>
@@ -2965,7 +2983,7 @@ html[dir="ltr"] .acat-count{text-align:left;}
   </div>
   <button class="cta" onclick="subscribe()">ابدأ التجربة المجانية</button>
   <button onclick="skipPremium()" style="width:100%;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:4px;font-family:inherit;padding:8px">تابع بدون اشتراك / لاحقاً ←</button>
-  <p class="fineprint">Apple Pay / Google Pay أو بطاقة. <a onclick="subscribe()">استعادة الشراء</a><br>عرض تجريبي للواجهة — لا يتم خصم أي مبلغ فعليًا.</p>
+  <p class="fineprint">Apple Pay / Google Pay أو بطاقة. <a onclick="subscribe()">استعادة الشراء</a><br>عرض تجريبي للواجهة — لا يتم خصم أي مبلغ فعليًا.<br>تسميع الحفظ ومحرّكه مجانيان دائماً ولا يتطلّبان اشتراكاً.</p>
 </div>
 
 <!-- التهيئة الأولى: تحميل النموذج والمرجع -->
@@ -2975,9 +2993,10 @@ html[dir="ltr"] .acat-count{text-align:left;}
     <p class="sv-title">تهيئة أولى</p>
     <p class="sv-desc">سيتم تحميل محرّك التعرّف على صوت القرآن مرة واحدة وتخزينه على جهازك:</p>
     <ul class="sv-list">
-      <li>محرّك whisper الأصلي (GGUF)<span class="sv-size">~43 MB</span></li>
-      <li>مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span></li>
+      <li id="sv_li_eng">محرّك whisper الأصلي (GGUF)<span class="sv-size">~43 MB</span></li>
+      <li id="sv_li_ref">مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span></li>
     </ul>
+    <div id="sv_qa_disc" style="display:none;margin:-4px 0 10px"></div>
     <button onclick="_setupRun()" class="btn" style="width:100%">تحميل وبدء</button>
     <button onclick="_svEnterApp()" style="width:100%;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:8px;font-family:inherit;padding:6px">تخطّ — سأحمّل لاحقاً</button>
   </div>
@@ -3822,6 +3841,18 @@ function _hbWireHeardClicks(){
   host.addEventListener('click',function(e){
     var t=e.target;if(!t||!t.id||t.id.indexOf('lmg')!==0)return;
     for(var g=0;g<LM.words.length;g++){
+      /* المحرّك الصوتي: ما سُمع تقريباً (بالرسم العثماني إن طابق كلمة قرآنية) أو تنبيه «للمراجعة» */
+      if(LM.engine==='qa'&&QA.page===LM.page&&LM.words[g].spanId===t.id){
+        var _tq=function(){var _te=document.getElementById('toast');if(_te)_te.classList.add('t-quran');}; /* علامات الضبط القرآنية بخط عثماني بديل */
+        if(QA.heard[g]&&t.classList.contains('err')){toast('سُمِع تقريباً: «'+_qaHeardText(QA.heard[g])+'» — المكتوب: «'+LM.words[g].raw+'»');_tq();return;}
+        /* «للتحقّق»: ما سُمع يخالف المكتوب ولم يُحسم — لا يُقال «فرق طفيف» ولا «خطأ» */
+        if(t.classList.contains('unc')){var _hu=QA.heard[g]&&QA.heard[g].heard?_qaHeardText(QA.heard[g]):'';
+          toast(_hu?('للتحقّق: سُمِع تقريباً «'+_hu+'» — المكتوب: «'+LM.words[g].raw+'» (لم يُحسم: راجِعها بنفسك)'):('للتحقّق: لم تُسمع «'+LM.words[g].raw+'» بوضوح — راجِعها بنفسك'));_tq();return;}
+        if(QA.ws[g]==='doubt'&&t.classList.contains('dbt')){
+          /* فرق حرف (المتشابه): يُعرض ما سُمع تقريباً — للمراجعة الذاتية لا حكماً */
+          if(QA.heard[g]&&QA.heard[g].heard){toast('للمراجعة: سُمِع تقريباً «'+_qaHeardText(QA.heard[g])+'» — المكتوب: «'+LM.words[g].raw+'» (فرق حرف؛ قد يكون من التعرّف — راجِعها)');_tq();return;}
+          toast('للمراجعة: سُمعت «'+LM.words[g].raw+'» بفرق طفيف — ليست خطأً بالضرورة');_tq();return;}
+      }
       if(LM.words[g].spanId===t.id&&HB.heardMap[g]!=null){
         toast('سُمِعت: «'+(HB.heardMap[g]||'—')+'» — المكتوب: «'+LM.words[g].raw+'»');
         return;
@@ -3859,13 +3890,16 @@ function _wnFail(msg,fatal){
 var _engIdleT=null,ENG_IDLE_MS=5*60*1000;
 function _engIdleArm(){
   if(_engIdleT)clearTimeout(_engIdleT);
-  if(!WN.ready&&!VK.ready)return; /* لا شيء محمّلاً — لا داعي للمؤقّت */
+  if(!WN.ready&&!VK.ready&&!QA.ready)return; /* لا شيء محمّلاً — لا داعي للمؤقّت */
   _engIdleT=setTimeout(function(){
     _engIdleT=null;
     var cur=document.querySelector('.screen.on');
     if((typeof LM!=='undefined'&&LM.rec)||(typeof HB!=='undefined'&&HB.on))return;
     if(cur&&cur.id==='memorize')return; /* عاد إلى الشاشة */
-    if(WN.loading||VK.loading){_engIdleArm();return;}   /* تحميل جارٍ — لا تقاطعه، أعد التسليح لفحص لاحق */
+    if(WN.loading||VK.loading||QA.loading){_engIdleArm();return;}   /* تحميل جارٍ — لا تقاطعه، أعد التسليح لفحص لاحق */
+    /* محرّك التسميع الصوتي: حرّر المُعرِّف وبيانات الأصوات (~200MB) — يُعاد عبر initMemorize */
+    var Q=_qaPlug();
+    if(QA.ready&&Q&&Q.unload){Q.unload().then(function(){QA.ready=false;QA.view=null;QA.phon=null;QA.lex=null;QA.bg=null;console.log('[eng] حُرّر محرّك التسميع (خمول ٥ دقائق)');}).catch(function(){});}
     var P=_wnPlug();if(!P||!P.unload)return;
     P.unload().then(function(){
       WN.ready=false;WN.tried=false;WN.loading=false;WN.attempts=0;WN.exhausted=false;
@@ -4144,6 +4178,1010 @@ function _vkAlign(text,isFinal){
   if(LM.cursor!==before){LM._vkAdvMs=Date.now();LM._vkFirstMs=LM._vkFirstMs||(Date.now()-(LM._t0||Date.now()));}
 }
 
+/* ═══ محاذي التسميع الصوتي (QuranAsr) ═══
+   يحاذي فرضية الأصوات المتنامية (من المحرّك على الجهاز) مع أصوات الصفحة المتوقّعة تدريجياً.
+   createAsrAligner(pageWords, phonData, opts) → {feed, finish, state, onWord, words, diag, started, hypLen, units}
+   pageWords: [{s,a,w,raw}] بترتيب الصفحة (w = فهرس الكلمة داخل الآية في QURAN_EMBED)
+   phonData : {ayat:{"s:a":{p:"ph|ph|..",x:{"j":[alt,..]}}}, pre:{istiadha:[[forms]..], basmala:[[forms]..]}, lex:{norm:"s:a:j"}|null}
+   حالات الكلمة: pending → tentative → confirmed | doubt | unclear | wrong | skipped
+   مبدأ الدقة أولاً: الأحمر لا يظهر إلا بمرساتين (يسار ويمين) ودليل قوي.
+   doubt («للمراجعة») = قُرئت بفرق طفيف (R_OK<r<R_TENT وفرق الصوامت <WRONG_CDIFF) أو بحرف واحد مختلف (١٨) — تُحسب مقروءة.
+   unclear («للتحقّق») = سُمع ما يخالف المكتوب (r≥R_TENT أو فرق صامتين فأكثر، أو إبدال أول الكلمة بكلمة قرآنية أخرى، أو لم تُسمع وسط قطع مريب)
+   ولم يُحسم خطأً أو تخطّياً — لا تُحسب مقروءة ولا تُرسم كالمقروءة
+   تنقيحات بعد مصفوفة الصوت الحقيقي (5 قرّاء، 11 صفحة، متغيّرات هاتفية، عبور صفحات، أخطاء مقصوصة) عن المرجع:
+   ١) إدغام المتماثلين عبر حدّ الكلمة (انتقال صفري) · ٢) اللين/المدّ و↔ۥ ي↔ۦ رخيص · ٣) غنّة الإخفاء/الإقلاب حذفها رخيص
+   ٤) القطع «المريب» (آخر رمز أحدث من SUS_AGE عند القطع = قطع وسط الكلام) لا يُبنى عليه أحمر ولا رمادي
+   ٥) المسموع الممتدّ يمتدّ لآخر التزام إن لم توجد زيارة سابقة · ٦) الإدراج على طرفي الكلمة لا يُحسب عليها
+   ٧) البدء: START_RUN كلمات/START_CHARS حرفاً وموضع وحيد في الصفحة (عبارات مكرّرة، أو تلاوة من صفحة أخرى)
+   ٨) الكلمة السيئة لا تُحسم بلا جار أيمن جيد (إلا قريبة الشبه عند نهاية مقطع، أو عند الإيقاف)
+   ٩) قفز أمامي فوق كلمة واحدة (تخطّي كلمة طويلة لا يجرّ جارتها) · فجوة > SKIP_MAX لا تُعلَّم تخطّياً
+   ١٠) تخطٍّ عند نهاية مقطع يُحسم بالكلمة التالية · ١١) الخطأ يتطلّب اختلاف صامتين على الأقل (WRONG_CDIFF) وألّا يطابق أغلب حروف الكلمة (WRONG_MT)
+   ١٢) الفواتح بالهيكل دون توحيد الألف («أَلَمۡ» ليست فاتحة) · ١٣) جدول تكاليف الإبدال مسبقاً (أسرع بمرّتين)
+   ١٤) الكلمة القصيرة (≤صامتين) لم يُسمع منها إلا صامت شارد لا يقرّبها: متخطّاة · ١٥) «للتحقّق» منفصلة عن «للمراجعة»
+   ١٧) المسموع الذي يحوي صيغة الكلمة كاملةً (تلعثم ثم إعادة) لا يُحكم خطأً
+   ١٦) لا انسداد في الالتزام: محاولة سيئة تليها إعادة جيدة قريبة تُتجاوز، والجزيرة السيئة المحصورة بمرساة يمنى قريبة تُحسم فوراً
+       (كان الضجيج/الكلام الخلفي يوقف التثبيت عشرات الثواني حتى نهاية المقطع أو الجلسة)
+   ١٨) المتشابه بحرف (وَمَا/فَمَا، يَعلَمُون/تَعلَمُون، لَهُم/لَكُم، وَلَهُم/لَهُم): إبدال صامت واحد بعيد النطق كان يكلّف أقلّ من R_OK
+       فتُثبَّت الكلمة. يُفحص هيكل الصوامت قبل التثبيت (cdiff1): إبدال صامت واحد، أو سقوط حرف العطف أول الكلمة ⇒ «للمراجعة» على الأقل
+       (مع ما سُمع). وإبدال أول الكلمة بين حروف العطف/الجرّ (و ف ب ل ك) أو المضارعة (ي ت ن ء) والمسموعُ كلمةٌ قرآنية ⇒ «للتحقّق»؛
+       وخطأ إن كوّن المسموع مع جارته زوجاً موجوداً في المصحف (التباس آية بآية) بمرساتين. (إبدال غير معجمي — غالباً ب↔ف في الضجيج — «للمراجعة») */
+(function(G){
+'use strict';
+var NMAP={'ں':'ن','۾':'م','ـ':'ا','۪':'َ','ٲ':'ء','ؙ':'ُ'};
+var NDROP={'ڇ':1,'ۜ':1};
+var SV={'َ':1,'ُ':1,'ِ':1};            /* حركات قصيرة */
+var LV={'ا':1,'ۥ':1,'ۦ':1};             /* حروف مدّ */
+var FAM={'َ':'ا','ُ':'ۥ','ِ':'ۦ'};
+var CLOSE={};
+(function(){var L=['سص','تط','دض','ذظ','ذز','ثس','هح','ءع','قك','زظ','سش'];
+  for(var i=0;i<L.length;i++){var a=L[i].charAt(0),b=L[i].charAt(1);CLOSE[a+b]=1;CLOSE[b+a]=1;}})();
+/* تطبيع المقارنة (norm:1): حذف القلقلة والسكت، توحيد بعض الرموز، ثم دمج المتكرّر المتجاور.
+   يطابق asr_norm في سكربت البيانات حرفاً بحرف. map (اختياري): فهرس الأصل لكل حرف ناتج */
+/* أزواج الحرف الأول الأكثر التباساً في الحفظ: حروف العطف/الجرّ، وحروف المضارعة (فَمَا↔وَمَا، تَعلَمُون↔يَعلَمُون، نَعبُدُ↔تَعبُدُ) */
+var PFX={},CONJ={'و':1,'ف':1};
+(function(){var G=['وفبلك','يتنء'];for(var g=0;g<G.length;g++)for(var a=0;a<G[g].length;a++)for(var b=0;b<G[g].length;b++)if(a!==b)PFX[G[g].charAt(a)+G[g].charAt(b)]=1;})();
+/* بصمة زوج كلمتين متتاليتين (FNV-1a 32 بت) لفهرس السياق phonData.bg (مصفوفة مرتّبة: يبنيها _qaLex) */
+function bgHash(a,b){var s=a+' '+b,h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=(h+(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))>>>0;}return h>>>0;}
+function asrNorm(p,map){
+  var o='',last='';p=p||'';
+  for(var i=0;i<p.length;i++){
+    var ch=p.charAt(i);if(NDROP[ch])continue;ch=NMAP[ch]||ch;
+    if(ch===last)continue;o+=ch;last=ch;if(map)map.push(i);
+  }
+  return o;
+}
+function cls(c){return SV[c]?1:(LV[c]?2:3);}
+function nCons(s){var n=0;for(var i=0;i<s.length;i++)if(cls(s.charAt(i))===3)n++;return n;}
+function consOf(s){var o='';for(var i=0;i<s.length;i++)if(cls(s.charAt(i))===3)o+=s.charAt(i);return o;}
+/* مسافة تحرير بين هيكلي الصوامت (للتمييز بين خطأ التعرّف بحرف واحد واستبدال الكلمة) */
+function edit(a,b){if(!a.length)return b.length;if(!b.length)return a.length;var p=[],c2=[],i,j;for(j=0;j<=b.length;j++)p[j]=j;
+  for(i=1;i<=a.length;i++){c2=[i];for(j=1;j<=b.length;j++)c2[j]=Math.min(p[j]+1,c2[j-1]+1,p[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));p=c2;}return p[b.length];}
+var INS=[0,0.4,0.5,0.8],DEL=[0,0.4,0.5,0.8];
+var LEEN={'وۥ':1,'ۥو':1,'يۦ':1,'ۦي':1};   /* حرف اللين/المدّ: «نَوۡم» وقفاً تُسمع «نَۥم» */
+function subCost(h,e){
+  if(h===e)return 0;
+  if(LEEN[h+e])return 0.4;
+  var a=cls(h),b=cls(e);
+  if(a===1&&b===1)return 0.5;
+  if(a===2&&b===2)return 0.6;
+  if((a===1&&b===2&&FAM[h]===e)||(a===2&&b===1&&FAM[e]===h))return 0.3;
+  if(a===3&&b===3)return CLOSE[h+e]?0.6:1.0;
+  return 1.0;
+}
+/* جدول تكاليف الإبدال بفهارس الحروف (تسريع الحلقة الداخلية): حتى 256 رمزاً */
+var CIDX={},CCH=[],SUBM=new Float32Array(256*256);
+function cid(c){
+  var k=CIDX[c];if(k!==undefined)return k;
+  k=CCH.length;if(k>=256)return 255;
+  CIDX[c]=k;CCH.push(c);
+  for(var j=0;j<=k;j++){SUBM[k*256+j]=subCost(c,CCH[j]);SUBM[j*256+k]=subCost(CCH[j],c);}
+  return k;
+}
+var DEF={R_OK:0.35,R_TENT:0.45,R_WRONG:0.55,R_LEXW:0.25,COV_OK:0.6,J_BACK:2.0,BACK_MAX:12,J_FWD0:2.5,J_FWD1:0.3,
+  J_START:1.5,INS_PRE:0.5,LAG_CHARS:6,WIN_BACK:8,WIN_FWD:60,MAX_S:320,CORR_DIST:3,START_WIN:120,START_RUN:3,START_CHARS:18,SUS_AGE:600,WRONG_CDIFF:2,START_MARGIN:1.0,START_SEP:4,SKIP_MAX:6,J_FWD_MIN:1,BAD_FIN:1,EDGE_INS:0,WRONG_MT:0.75,CSUB:1};
+/* فواتح السور (مقطّعة): لا تُحكم بخطأ ولا تخطٍّ — تُعرف بهيكلها (بلا تشكيل ولا علامات) */
+var MUQ={'الم':1,'المص':1,'الر':1,'المر':1,'كهيعص':1,'طه':1,'طسم':1,'طس':1,'يس':1,'ص':1,'حم':1,'عسق':1,'ق':1,'ن':1};
+function skel(w){return (w||'').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g,'');}
+
+function createAsrAligner(pageWords,phonData,opts){
+  var O={},k;for(k in DEF)O[k]=DEF[k];if(opts)for(k in opts)O[k]=opts[k];
+  phonData=phonData||{};
+  var ayat=phonData.ayat||{},pre=phonData.pre||{};
+  /* ── 1) الوحدات: كلمات حقيقية + كتل اختيارية (استعاذة/بسملة) + كلمات بلا بيانات (تُتخطّى مجاناً) ── */
+  var U=[];   /* {real:bool, wi:index|-1, forms:[norm..]} */
+  var W=pageWords.length,wUnit=new Array(W),words=[],i,q;
+  var diag={feeds:0,dpCells:0,lastMs:0,maxMs:0,commits:0,resets:0,dropped:0,nojudge:0};
+  function normForms(arr){var seen={},out=[];for(var j=0;j<arr.length;j++){var n=asrNorm(arr[j]);if(n&&!seen[n]){seen[n]=1;out.push(n);}}return out;}
+  /* حروف «خفيفة» في الصيغة: غنّة الإخفاء/الإقلاب (ں ۾) كثيراً ما لا يُخرجها المحرّك — حذفها رخيص (ليس خطأ حفظ) */
+  var SOFT={'ں':1,'۾':1},softOf={};
+  function markSoft(arr){for(var j=0;j<arr.length;j++){var m=[],n=asrNorm(arr[j],m);if(!n||softOf[n])continue;var sf=[],any=0;for(var z=0;z<m.length;z++){var sv=SOFT[arr[j].charAt(m[z])]?1:0;sf.push(sv);any|=sv;}if(any)softOf[n]=sf;}}
+  function addGhost(arr){for(var g=0;g<arr.length;g++){markSoft(arr[g]||[]);U.push({real:false,wi:-1,forms:normForms(arr[g]||[])});}}
+  /* عدد كلمات كل آية في الصفحة (لكشف عدم تطابق عدد المقاطع) */
+  function delAt(f,p){var sf=softOf[f];return (sf&&sf[p])?0.3:DEL[cls(f.charAt(p))];}
+  function formWl(f){var w=0;for(var p=0;p<f.length;p++)w+=delAt(f,p);return w;}
+  var cnt={};for(i=0;i<W;i++){k=pageWords[i].s+':'+pageWords[i].a;cnt[k]=(cnt[k]||0)+1;}
+  for(i=0;i<W;i++){
+    var pw=pageWords[i],key=pw.s+':'+pw.a,ay=ayat[key];
+    if(pw.w===0){
+      /* قبل أول كلمة في الصفحة: استعاذة ثم بسملة (البدء من وسط السورة يجيز البسملة)؛ وقبل أول كل سورة كذلك */
+      if(i===0||pw.a===1){
+        if(pre.istiadha)addGhost(pre.istiadha);
+        if(pre.basmala&&pw.s!==1&&(i===0||pw.s!==9))addGhost(pre.basmala);
+      }
+    }
+    var segs=ay&&typeof ay.p==='string'?ay.p.split('|'):null;
+    var bad=!segs||(O.COUNT_CHECK!==false&&segs.length!==cnt[key])||pw.w>=segs.length;
+    var base=bad?'':segs[pw.w],alts=(!bad&&ay.x&&ay.x[String(pw.w)])||[];
+    var forms=bad?[]:normForms([base].concat(alts));if(!bad)markSoft([base].concat(alts));
+    var nj=bad||!forms.length;
+    var wl=forms.length?formWl(forms[0]):0;
+    var sk=skel(pw.raw);
+    words.push({i:i,s:pw.s,a:pw.a,w:pw.w,raw:pw.raw,forms:forms,cons:forms.length?nCons(forms[0]):0,wlen:wl,
+      muq:pw.w===0&&(pw.a===1||(pw.s===42&&pw.a===2))&&!!MUQ[sk],nojudge:nj,
+      st:'pending',r:null,heard:'',lexRef:null,t0:null,t1:null,corrected:false});
+    wUnit[i]=U.length;
+    if(nj){
+      diag.nojudge++;
+      /* آية بلا تقطيع صالح: الصوت كله وحدة اختيارية على أول كلماتها كي لا يُربك المحاذاة */
+      var whole=(bad&&segs&&pw.w===0)?normForms([ay.p.replace(/\|/g,'')]):[];
+      U.push({real:false,wi:i,forms:whole});
+    }else U.push({real:true,wi:i,forms:forms});
+  }
+  /* ── 2) الشبكة: عقدة حدّ B_u قبل كل وحدة + سلسلة حروف لكل صيغة + B_NU في النهاية ── */
+  var NU=U.length,bnode=new Int32Array(NU+1),nCh=[],nPrev=[],nUnit=[],nLast=[],nForm=[],nPos=[],u,f,c;
+  function push(ch,prev,uu,last,ff,p){nCh.push(ch);nPrev.push(prev);nUnit.push(uu);nLast.push(last);nForm.push(ff);nPos.push(p);return nCh.length-1;}
+  var START=push('',-1,-1,0,-1,-1);   /* عقدة «لم يبدأ بعد» */
+  for(u=0;u<NU;u++){
+    bnode[u]=push('',-1,u,0,-1,-1);
+    for(f=0;f<U[u].forms.length;f++){
+      var s=U[u].forms[f],prev=bnode[u];
+      for(c=0;c<s.length;c++)prev=push(s.charAt(c),prev,u,c===s.length-1?1:0,f,c);
+    }
+  }
+  bnode[NU]=push('',-1,NU,0,-1,-1);
+  var NN=nCh.length,isB=new Uint8Array(NN),bIdx=new Int32Array(NN),n;
+  for(n=0;n<NN;n++)bIdx[n]=-1;
+  for(u=0;u<=NU;u++){isB[bnode[u]]=1;bIdx[bnode[u]]=u;}
+  /* أصناف الحروف وتكلفة الحذف مسبقاً (تسريع) */
+  var nDel=new Float32Array(NN);for(n=0;n<NN;n++)nDel[n]=(isB[n]||nPos[n]<0)?0:delAt(U[nUnit[n]].forms[nForm[n]],nPos[n]);
+  var nCid=new Int32Array(NN);for(n=0;n<NN;n++)nCid[n]=(isB[n]||nPos[n]<0)?255:cid(nCh[n]);
+  /* عدد الكلمات الحقيقية قبل كل حدّ (لتكلفة القفز) */
+  var realBefore=new Int32Array(NU+1);for(u=0;u<NU;u++)realBefore[u+1]=realBefore[u]+(U[u].real?1:0);
+  var lastOf=[];for(u=0;u<NU;u++)lastOf.push([]);
+  for(n=0;n<NN;n++)if(nLast[n])lastOf[nUnit[n]].push(n);
+  /* إدغام المتماثلين عبر حدّ الكلمة: «مِن+نُور» تُسمع «مِنُور» بعد دمج المتكرّر، فالحرف الأول للكلمة
+     يُعدّ مسموعاً إن طابق آخر حرف سابقتها على المسار نفسه (انتقال صفري، لا يُحسب حذفاً) */
+  var shareSrc=new Array(NN);
+  for(n=0;n<NN;n++){
+    if(isB[n]||nPos[n]!==0||nUnit[n]<1)continue;
+    var uu0=nUnit[n],fl0=U[uu0].forms[nForm[n]].length;if(fl0<2)continue;
+    var LL=lastOf[uu0-1];for(q=0;q<LL.length;q++)if(nCh[LL[q]]===nCh[n]){(shareSrc[n]||(shareSrc[n]=[])).push(LL[q]);}
+  }
+
+  /* ── 3) حالة الجلسة ── */
+  var H='',Htime=[],hc=0,cur=0,started=false,cbs=[],utt={id:-1,text:'',base:0,startMs:0,toks:[],ts:[],finMs:null};
+  /* حدود المقاطع في H: قطعٌ «مريب» (آخر رمز قبل القطع أحدث من SUS_AGE) يعني غالباً قطعاً وسط الكلام —
+     يفسد تعرّف ما حوله، فلا يُبنى عليه أحمر ولا رمادي: يُعرض «للمراجعة» بدلاً منهما */
+  var ub=[];
+  /* تخطٍّ معلّق: كلمات بين مرساة يسرى وكلمة جيدة التُزمت عند نهاية مقطع بلا جار أيمن بعد —
+     يُحسم «متخطّى» إن جاءت الكلمة التالية لها جيدة، وإلا تبقى معلّقة */
+  var pendSkip=null;
+  function susIn(a,b){for(var j=ub.length-1;j>=0;j--){var h=ub[j].h;if(h<a)break;if(h<=b&&ub[j].sus)return true;}return false;}
+  /* مخازن البرمجة الديناميكية: تُحجز مرة وتكبر هندسياً (لا حجز لكل تغذية) */
+  var cap=0,cost=null,bp=null,bsrc=null,startCost=new Float32Array(64);
+  function ensure(cells,T){
+    if(cells>cap){cap=Math.max(cells,cap*2,4096);cost=new Float32Array(cap);bp=new Uint8Array(cap);bsrc=new Int32Array(cap);}
+    if(T+1>startCost.length)startCost=new Float32Array(Math.max(T+1,startCost.length*2));
+  }
+  function emit(i,prev){for(var j=0;j<cbs.length;j++){try{cbs[j](i,words[i].st,words[i],prev);}catch(e){}}}
+  /* انتقالات الحالة: المثبت/الشكّ لا يُنقض؛ الخطأ/التخطّي/التحقّق لا يتحوّل إلا إلى مثبت (تصحيح ذاتي)؛ المبدئي ↔ المعلّق حرّ */
+  function setSt(i,st,extra,force){
+    var wd=words[i],prev=wd.st;
+    if(prev!==st){
+      if((prev==='confirmed'||prev==='doubt')&&st!=='confirmed'&&st!=='doubt')return;
+      if((prev==='wrong'||prev==='skipped'||prev==='unclear')&&st!=='confirmed'&&!force)return;
+      if(prev==='confirmed'&&st==='doubt')return;
+    }
+    if(extra)for(var x in extra)wd[x]=extra[x];
+    if(prev===st)return;
+    wd.st=st;emit(i,prev);
+  }
+  function timeOf(absIdx){return (absIdx>=0&&absIdx<Htime.length)?Htime[absIdx]:null;}
+  function isGood(V){return V.r<=O.R_OK&&V.complete;}
+  /* مرساة يسرى: الجارة التُزمت في موضعها (مثبتة أو بفرق طفيف أو «للتحقّق») — الموضع معروف وإن لم تُحسم صحّتها */
+  function anchored(i){var s=i>0?words[i-1].st:'';return s==='confirmed'||s==='doubt'||s==='unclear';}
+  /* سابقتها تنتهي بالحرف نفسه (إدغام: «خُلَّةٞ وَلَا» ← «خُلَتُو|وَلَا»، أو مدّ «قَالُوا۟ وَ…»): سقوطه من المسموع ليس سقوطاً */
+  function idgPrev(i,c){
+    var p=words[i-1],c2=c==='و'?'ۥ':c,x=p.ext||'',z=x.charAt(x.length-1);if(z===c||z===c2)return true;
+    for(var f=0;f<p.forms.length;f++){z=p.forms[f].charAt(p.forms[f].length-1);if(z===c||z===c2)return true;}
+    return false;
+  }
+  /* حرف واحد مختلف: هيكل صوامت المسموع يخالف كل صيغ الكلمة بإبدال صامت واحد لا يقارب نطقه (CLOSE)، أو بسقوط حرف العطف
+     أول الكلمة (و/ف مع حركته)؛ ولا تبعد عنه صيغةٌ بحذف/زيادة صامت آخر (تعثّر تعرّف أو وقف — لا يُبنى عليه).
+     يعيد {p:موضعه في الهيكل, h:المسموع ('' = سقط), e:المكتوب, pfx:زوج أول الكلمة} أو null */
+  function cdiff1(V,wd,hx,i){
+    if(!O.CSUB||wd.muq||V.shared||!hx)return null;
+    var ce=consOf(hx),sub=null,del=null,amb=false;
+    for(var f=0;f<wd.forms.length;f++){
+      var fm=wd.forms[f],cf=consOf(fm),L=cf.length;
+      if(cf===ce)return null;
+      if(L===ce.length&&L>=2){
+        var n=0,d=-1;for(var j=0;j<L&&n<2;j++)if(cf.charAt(j)!==ce.charAt(j)){n++;d=j;}
+        if(n===1){var h=ce.charAt(d),e=cf.charAt(d);if(CLOSE[h+e])return null;if(!sub)sub={p:d,h:h,e:e,pfx:d===0&&!!PFX[h+e]};}
+      }else if(L===ce.length+1&&edit(ce,cf)===1){
+        if(cf.slice(1)===ce&&CONJ[cf.charAt(0)]&&SV[fm.charAt(1)]&&i>0&&anchored(i)&&!idgPrev(i,cf.charAt(0))){if(!del)del={p:0,h:'',e:cf.charAt(0),pfx:false};}
+        else amb=true;
+      }else if(L+1===ce.length&&edit(ce,cf)===1)amb=true;
+    }
+    return amb?null:(sub||del);
+  }
+  /* السياق: المسموع مع الكلمة السابقة أو التالية زوجٌ موجود في المصحف (التباس آية بآية) — بحث ثنائي في phonData.bg */
+  function ctxHit(i,hx){
+    var B=phonData.bg;if(!B||!B.length||!hx)return false;
+    function has(a,b){if(!a||!b)return false;var hh=bgHash(a,b),lo=0,hi=B.length-1;while(lo<=hi){var m=(lo+hi)>>1;if(B[m]===hh)return true;if(B[m]<hh)lo=m+1;else hi=m-1;}return false;}
+    return (i>0&&has(words[i-1].forms[0],hx))||(i+1<W&&has(hx,words[i+1].forms[0]));
+  }
+
+  /* ── 4) البرمجة الديناميكية على S=H[hc..] ── */
+  function run(isFinal,finishing){
+    var tA=Date.now(),S=H.slice(hc),T=S.length,r,t,gn,q2;
+    if(T>O.MAX_S){var drop=T-O.MAX_S;hc+=drop;diag.dropped+=drop;S=H.slice(hc);T=S.length;}
+    /* قبل البدء: كلام خارج الصفحة لا يتراكم — نافذة البحث آخر START_WIN حرفاً فقط */
+    if(!started&&T>O.START_WIN){var d2=T-O.START_WIN;hc+=d2;diag.dropped+=d2;S=H.slice(hc);T=S.length;}
+    var abs0=H.length-T;
+    var wLoU=started?wUnit[Math.max(0,Math.min(W-1,cur-O.WIN_BACK))]:0;
+    while(wLoU>0&&!U[wLoU-1].real)wLoU--;   /* ابدأ النافذة من أول كتلة اختيارية قبل الكلمة */
+    var wHiU=started?((cur+O.WIN_FWD<W)?wUnit[cur+O.WIN_FWD]:NU):NU;
+    var curU=cur<W?wUnit[cur]:NU;
+    var nLo=bnode[wLoU],nHi=bnode[wHiU];   /* شامل */
+    var R=nHi-nLo+1,INF=1e9;
+    ensure((T+1)*R,T);
+    /* ops: 1=INS 2=SUB 3=DEL 4=EPS(آخر حرف→حدّ) 5=FJMP 6=BJMP 7=GHOST 8=STARTJ 9=START 10=SHARE(إدغام متماثلين) */
+    for(t=0;t<=T;t++){
+      var off=t*R,po=(t-1)*R,h=t?S.charAt(t-1):'',hrow=t?cid(h)*256:0;
+      if(t===0){
+        for(r=0;r<R;r++){cost[r]=INF;bp[r]=0;}
+        startCost[0]=started?INF:0;
+        var s0=bnode[started?curU:0]-nLo;cost[s0]=0;bp[s0]=9;
+      }else{
+        startCost[t]=started?INF:startCost[t-1]+O.INS_PRE;
+        var hc3=INS[cls(h)];
+        for(r=0;r<R;r++){
+          gn=nLo+r;var v=cost[po+r]+hc3,op=1;
+          if(!isB[gn]){var pr=nPrev[gn]-nLo;if(pr>=0){var v2=cost[po+pr]+SUBM[hrow+nCid[gn]];if(v2<v){v=v2;op=2;}}}
+          cost[off+r]=v;bp[off+r]=op;
+        }
+      }
+      /* إبسلون: مسحتان أماميتان + قفز للخلف بينهما */
+      for(var pass=0;pass<2;pass++){
+        if(pass===1&&started){ /* قفز للخلف (تكرار/رجوع): B_k ← min_{k<j≤k+BACK_MAX} B_j + J_BACK */
+          for(var ku=wLoU;ku<wHiU;ku++){
+            if(!U[ku].real)continue;
+            var kb=off+bnode[ku]-nLo,best=cost[kb],src=-1,jmax=Math.min(wHiU,ku+O.BACK_MAX);
+            for(var ju=ku+1;ju<=jmax;ju++){var jv=cost[off+bnode[ju]-nLo]+O.J_BACK;if(jv<best){best=jv;src=ju;}}
+            if(src>=0){cost[kb]=best;bp[kb]=6;bsrc[kb]=src;}
+          }
+        }
+        var runMin=INF,runSrc=-1;
+        for(r=0;r<R;r++){
+          gn=nLo+r;var cell=off+r;
+          if(isB[gn]){
+            var bu=bIdx[gn];
+            if(bu>wLoU){
+              var lu=bu-1,L=lastOf[lu];
+              if(O.J_FWD_MIN<=1){var pb1=bu-1,pv1=cost[off+bnode[pb1]-nLo]-O.J_FWD1*realBefore[pb1+1];if(pv1<runMin){runMin=pv1;runSrc=pb1;}}
+              for(q2=0;q2<L.length;q2++){var lv=cost[off+L[q2]-nLo];if(lv<cost[cell]){cost[cell]=lv;bp[cell]=4;bsrc[cell]=L[q2];}}
+              if(!U[lu].real){var gv=cost[off+bnode[lu]-nLo];if(gv<cost[cell]){cost[cell]=gv;bp[cell]=7;bsrc[cell]=lu;}}
+              /* قفز أمامي فوق ≥J_FWD_MIN كلمات حقيقية */
+              if(runSrc>=0&&realBefore[bu]-realBefore[runSrc]>=O.J_FWD_MIN){var fv=runMin+O.J_FWD0+O.J_FWD1*realBefore[bu];if(fv<cost[cell]){cost[cell]=fv;bp[cell]=5;bsrc[cell]=runSrc;}}
+              if(!started&&startCost[t]+O.J_START<cost[cell]&&U[bu<NU?bu:NU-1].real){cost[cell]=startCost[t]+O.J_START;bp[cell]=8;bsrc[cell]=t;}
+            }else if(!started&&t>0&&startCost[t]<cost[cell]){cost[cell]=startCost[t];bp[cell]=8;bsrc[cell]=t;}
+            /* مرشّح القفز الأمامي يصير متاحاً من الحدّ السابق: نحدّثه متأخراً بحدّ */
+            if(bu>wLoU&&O.J_FWD_MIN>1){var pb=bu-1,pv=cost[off+bnode[pb]-nLo]-O.J_FWD1*realBefore[pb+1];if(pv<runMin){runMin=pv;runSrc=pb;}}
+          }else{
+            var pr2=nPrev[gn]-nLo;
+            if(pr2>=0){var dv=cost[off+pr2]+nDel[gn];if(dv<cost[cell]){cost[cell]=dv;bp[cell]=3;}}
+            var sh=shareSrc[gn];
+            if(sh){for(q2=0;q2<sh.length;q2++){if(sh[q2]<nLo)continue;var shv=cost[off+sh[q2]-nLo];if(shv<cost[cell]){cost[cell]=shv;bp[cell]=10;bsrc[cell]=sh[q2];}}}
+          }
+        }
+      }
+    }
+    diag.dpCells+=(T+1)*R;
+    /* ── 5) أفضل نهاية (نهاية حرّة) ثم التتبّع ── */
+    var eo=T*R,bestN=-1,bestV=INF;
+    for(r=0;r<R;r++){if(cost[eo+r]<bestV){bestV=cost[eo+r];bestN=r;}}
+    var steps=[];t=T;r=bestN;var guard=0;
+    while(bestN>=0&&guard++<(T+2)*R*2){
+      var ci=t*R+r,o2=bp[ci];gn=nLo+r;
+      if(o2===9||o2===0)break;
+      steps.push({op:o2,t:t,n:gn,src:bsrc[ci]});
+      if(o2===8)break;
+      if(o2===1){t--;}
+      else if(o2===2){t--;r=nPrev[gn]-nLo;}
+      else if(o2===3){r=nPrev[gn]-nLo;}
+      else if(o2===4||o2===10){r=bsrc[ci]-nLo;}
+      else{r=bnode[bsrc[ci]]-nLo;}
+    }
+    steps.reverse();
+    /* ── 6) زيارات الكلمات (زيارة لكل عبور لوحدة بصيغة) ── */
+    var visits=[],vcur=null,gapIns=0,events=[],si,st;
+    function closeV(){if(vcur){visits.push(vcur);vcur=null;}}
+    for(si=0;si<steps.length;si++){
+      st=steps[si];gn=st.n;
+      if(st.op===8){events.push({type:'start',t:st.src});continue;}
+      if(st.op===5){closeV();events.push({type:'fjmp',from:st.src,to:bIdx[gn],t:st.t,vi:visits.length});continue;}
+      if(st.op===6){closeV();events.push({type:'bjmp',from:st.src,to:bIdx[gn],t:st.t,vi:visits.length});continue;}
+      if(st.op===7||st.op===4){if(st.op===4)closeV();continue;}
+      if(isB[gn]||gn===START){if(st.op===1)gapIns++;continue;}
+      var uu=nUnit[gn];
+      if(!vcur||vcur.u!==uu||vcur.f!==nForm[gn]){closeV();vcur={u:uu,f:nForm[gn],t0:null,t1:null,sub:0,ins:0,del:0,mt:0,maxPos:-1,gapBefore:gapIns,insLead:0,insRun:0,core:false};gapIns=0;}
+      if(st.op===2){var e=subCost(S.charAt(st.t-1),nCh[gn]);vcur.sub+=e;if(e===0)vcur.mt++;if(vcur.t0===null)vcur.t0=st.t-1;vcur.t1=st.t;}
+      else if(st.op===3){vcur.del+=nDel[gn];}
+      else if(st.op===1){var ic=INS[cls(S.charAt(st.t-1))];vcur.ins+=ic;vcur.t1=st.t;if(vcur.t0===null)vcur.t0=st.t-1;if(vcur.core)vcur.insRun+=ic;else vcur.insLead+=ic;}
+      /* الإدراج على طرفي الكلمة (قبل أول حرف مطابق/بعد آخره) ليس من الكلمة: ضجيج/كلام آخر لا يجعلها خطأ */
+      if(st.op===2||st.op===3||st.op===10){vcur.core=true;vcur.insRun=0;}
+      if(st.op===10)vcur.shared=1;
+      if(st.op!==1&&nPos[gn]>vcur.maxPos)vcur.maxPos=nPos[gn];
+    }
+    closeV();
+    var trailIns=gapIns;
+    /* تقييم الزيارات الحقيقية */
+    var rv=[],vi,V;
+    for(vi=0;vi<visits.length;vi++){
+      V=visits[vi];var Uu=U[V.u];if(!Uu.real){V.ghost=true;continue;}
+      var fs=Uu.forms[V.f],fl=fs.length,wl=formWl(fs);
+      V.wi=Uu.wi;V.complete=(V.maxPos===fl-1);V.cov=(V.maxPos+1)/Math.max(1,fl);
+      var insCore=O.EDGE_INS?V.ins:Math.max(0,V.ins-V.insLead-V.insRun);
+      V.rAll=(V.sub+V.ins+V.del)/Math.max(1,wl);V.r=(V.sub+insCore+V.del)/Math.max(1,wl);
+      if(!V.complete&&!isFinal&&!finishing)V.rPartial=(V.sub+insCore)/Math.max(1,V.maxPos+1);
+      V.span=(V.t0!==null)?S.slice(V.t0,V.t1):'';
+      rv.push(V);
+    }
+    /* المسموع الممتدّ ext: كل ما سُمع بين نهاية الزيارة السابقة وبداية التالية */
+    for(vi=0;vi<rv.length;vi++){
+      V=rv[vi];var pa=vi>0?rv[vi-1].t1:null,nb=vi+1<rv.length?rv[vi+1].t0:null;
+      /* بلا زيارة سابقة: من آخر التزام (بداية S)؛ بلا لاحقة: حتى آخر المسموع */
+      var a0=(pa!==null)?pa:(V.t0!==null?V.t0-V.gapBefore:0),b0=(nb!==null)?nb:(V.t1!==null?V.t1+(vi===rv.length-1?trailIns:0):T);
+      V.ext=(a0!==null&&b0!==null&&b0>a0)?S.slice(Math.max(0,a0),b0):V.span;
+      V.extA=(a0!==null)?Math.max(0,a0):V.t0;V.extB=(b0!==null)?Math.max(b0,V.extA===null?b0:V.extA):V.t1;
+    }
+    /* قبل البدء: الموضع يجب أن يكون وحيداً — أفضل مسار ينتهي في مكان بعيد (>START_SEP كلمات) لا يقلّ عنه
+       بأقلّ من START_MARGIN (عبارات مكرّرة في الصفحة: «ٱلَّذِينَ عَٰهَدتُّم مِّنَ ٱلۡمُشۡرِكِينَ» في ٩:١ و٩:٤) */
+    var ambig=null;
+    function isAmbig(){
+      if(ambig!==null)return ambig;
+      var gb=nLo+bestN,ub0=isB[gb]?bIdx[gb]:nUnit[gb],rb0=realBefore[Math.max(0,Math.min(NU,ub0))],alt=INF;
+      for(var rr=0;rr<R;rr++){var gx=nLo+rr,ux=isB[gx]?bIdx[gx]:nUnit[gx];if(ux<0)continue;var dd=realBefore[ux]-rb0;if((dd>O.START_SEP||dd<-O.START_SEP)&&cost[eo+rr]<alt)alt=cost[eo+rr];}
+      diag.lastMargin=alt-bestV;ambig=(alt-bestV)<O.START_MARGIN;return ambig;
+    }
+    /* ── 7) الالتزام (commit) والعرض المبدئي ── */
+    var ri,committedUpTo=-1,fin=isFinal||finishing;
+    /* محاولة سيئة تليها قريباً (≤CORR_DIST) إعادة جيدة للكلمة نفسها: ضجيج/تعثّر ثم رجوع — المحاولة الأولى وما بعدها
+       حتى الإعادة تُتجاوز (لا تُحكم ولا تحجب)، ويُلتزم بالإعادة. يعيد فهرس الإعادة أو -1 */
+    function superseded(ri){var X0=rv[ri],mx=X0.wi;for(var k=ri+1;k<rv.length;k++){var X=rv[k];if(X.wi===X0.wi&&isGood(X))return k;if(X.wi>mx)mx=X.wi;if(mx>X0.wi+O.CORR_DIST)return -1;}return -1;}
+    /* رسوّ أيمن قريب: كلمتان أماميتان جيدتان متتاليتان خلال الزيارات الخمس التالية (جزيرة سيئة محصورة بين مرساتين) */
+    function goodRunAhead(ri){var X0=rv[ri],n=0;for(var k=ri+1;k<rv.length&&k<=ri+5;k++){var X=rv[k];if(X.wi<=X0.wi)continue;if(isGood(X)){if(++n>=2)return true;}else n=0;}return false;}
+    for(ri=0;ri<rv.length;ri++){
+      V=rv[ri];
+      var bad=!(V.r<=O.R_OK&&V.cov>=O.COV_OK);
+      if(bad&&started&&V.wi>=cur){var sj=superseded(ri);if(sj>ri){diag.superseded=(diag.superseded||0)+1;ri=sj-1;continue;}}
+      var good=0;
+      for(var k2=ri+1;k2<rv.length&&k2<=ri+2;k2++){if(isGood(rv[k2]))good++;else break;}
+      var after=(V.t1!==null)?(T-V.t1):0;
+      var can=(good>=2)||(good>=1&&after>=O.LAG_CHARS)||(fin&&(V.complete||finishing));
+      /* كلمة سيئة: لا تُحسم قبل رسوّين يمينيين (أو رسوّ واحد عند نهاية مقطع، أو جزيرة محصورة بمرساة يمنى قريبة) — بلا جار أيمن جيد تبقى معلّقة
+         (كلام خارج الصفحة بعد بدء خاطئ لا يُنتج سلسلة «للمراجعة») */
+      if(bad&&started&&goodRunAhead(ri))can=true;
+      if(bad&&!(good>=2||(fin&&(good>=1||(V.r<O.R_WRONG&&V.cov>=O.COV_OK)))||(finishing&&O.BAD_FIN)||(started&&goodRunAhead(ri))))can=false;
+      /* زيارة لكلمة سابقة (تكرار/رجوع) لا تغيّر حالة إلا تصحيحاً: لا تحجب ما بعدها */
+      if(V.wi<cur&&ri+1<rv.length&&started&&isFinal)can=true;
+      /* أول التزام في الجلسة (تحديد موضع البدء): سلسلة كلمات متتالية جيدة مكتملة ≥START_RUN
+         وطول صيغها ≥START_CHARS — أو كلمة طويلة واحدة عند نهاية مقطع (فواتح «الٓمٓ») */
+      if(can&&!started){
+        if(!finishing&&isAmbig())can=false;
+        var runN=0,rch=0;
+        for(var k3=ri;k3<rv.length;k3++){var V3=rv[k3];if(!isGood(V3)||(k3>ri&&V3.wi!==rv[k3-1].wi+1))break;runN++;rch+=U[wUnit[V3.wi]].forms[V3.f].length;}
+        if(!((runN>=O.START_RUN&&rch>=O.START_CHARS)||(fin&&runN>=1&&rch>=O.START_CHARS)))can=false;
+      }
+      if(!can)break;
+      commitVisit(V,rv,ri,fin,abs0);
+      committedUpTo=ri;
+      if(V.t1!==null)hc=Math.max(hc,abs0+V.t1);
+    }
+    /* المبدئي: ما بعد آخر التزام على المسار الأفضل الحالي */
+    var onPath={};
+    for(ri=committedUpTo+1;ri<rv.length;ri++){
+      V=rv[ri];var rr=V.complete?V.r:(V.rPartial!=null?V.rPartial:V.r);
+      if(V.wi>=cur&&rr<=O.R_TENT&&V.cov>=0.5){onPath[V.wi]=1;if(words[V.wi].st==='pending')setSt(V.wi,'tentative');}
+    }
+    for(var wi=cur;wi<W;wi++)if(words[wi].st==='tentative'&&!onPath[wi])setSt(wi,'pending',null,true);
+    diag.feeds++;diag.lastMs=Date.now()-tA;if(diag.lastMs>diag.maxMs)diag.maxMs=diag.lastMs;
+    diag.lastCost=bestV;diag.lastT=T;diag.lastR=R;
+    return {visits:rv,events:events,trailIns:trailIns};
+  }
+  function commitVisit(V,rv,ri,fin,abs0){
+    var i=V.wi,wd=words[i],k;diag.commits++;started=true;
+    var nx=rv[ri+1]||null,nx2=rv[ri+2]||null;
+    if(i<cur){ /* تكرار/رجوع: تصحيح ذاتي فقط، لا تخفيض أبداً */
+      if((wd.st==='wrong'||wd.st==='skipped'||wd.st==='unclear')&&isGood(V)&&(cur-1-i)<=O.CORR_DIST){
+        /* الإعادة بحرف مختلف ليست تصحيحاً: إبدال أول الكلمة المعجمي لا يغيّر شيئاً، وغيره «للمراجعة» بما سُمع (كما لو قُرئت أول مرة) */
+        var c2=cdiff1(V,wd,V.ext||'',i),lx2=phonData.lex||{};
+        if(!c2)setSt(i,'confirmed',{corrected:true,r:V.r});
+        else if(!(c2.pfx&&lx2[V.ext]))setSt(i,'doubt',{corrected:true,r:V.r,ext:V.ext,heard:V.ext,lexRef:lx2[V.ext]||null,cs:c2.e+'>'+(c2.h||'-')+'@'+c2.p},true);
+      }
+      return;
+    }
+    if(V.t0!==null){wd.t0=timeOf(abs0+V.t0);wd.t1=timeOf(abs0+V.t1-1);wd.h0=abs0+V.t0;}
+    if(pendSkip){
+      var ps=pendSkip;pendSkip=null;
+      if(i===ps.at+1&&V.r<=O.R_OK){for(k=0;k<ps.ks.length;k++){var kw=ps.ks[k];if(words[kw].st==='pending'||words[kw].st==='tentative')setSt(kw,ps.sus?'unclear':'skipped');}}
+    }
+    /* كلمات بين cur و i لم تُزر: متخطّاة بمرساتين (وسط قطع مريب: «للتحقّق» — لم تُسمع، فلا تُرسم مقروءة)، وإلا تبقى معلّقة */
+    var leftOk=cur>0&&(words[cur-1].st==='confirmed'||words[cur-1].st==='doubt'||words[cur-1].st==='unclear');
+    /* المنطقة المفحوصة تبدأ من أول الجار الأيسر: قطعٌ وسطه يُفسد ما بعده أيضاً */
+    var lh=(cur>0&&words[cur-1].h0!=null)?Math.min(hc,words[cur-1].h0+1):hc;
+    var gapSus=V.t0!==null&&susIn(lh,abs0+V.t0);
+    var rightOk=isGood(V)&&nx&&nx.r<=O.R_OK;
+    /* فجوة أطول من SKIP_MAX كلمات: غالباً إعادة تموضع (أو بدء خاطئ) لا تخطٍّ — تبقى معلّقة */
+    var gapN=0;for(k=cur;k<i;k++)if(!words[k].nojudge)gapN++;
+    if(gapN>O.SKIP_MAX)rightOk=false;
+    var defer=leftOk&&!rightOk&&!nx&&isGood(V)&&gapN<=O.SKIP_MAX&&gapN>0,dk=[];
+    for(k=cur;k<i;k++){
+      if(words[k].nojudge)continue;
+      if(words[k].st==='pending'||words[k].st==='tentative'){
+        if(leftOk&&rightOk&&!words[k].muq)setSt(k,gapSus?'unclear':'skipped');
+        else{setSt(k,'pending',null,true);if(defer&&!words[k].muq)dk.push(k);}
+      }
+    }
+    if(dk.length)pendSkip={ks:dk,at:i,sus:gapSus};
+    var ok=V.r<=O.R_OK&&V.cov>=O.COV_OK;
+    /* كلمة ناقصة بلا جار أيمن (توقّف وسطها): تبقى معلّقة ولا يتقدّم المؤشر */
+    if(V.cov<O.COV_OK&&!nx)return;
+    var st=ok?'confirmed':'doubt',lex=phonData.lex||{},hx=V.ext||'';
+    var cs=cdiff1(V,wd,hx,i);
+    /* مرساة يمنى: الكلمتان التاليتان جيدتان (أو آخر الصفحة/المقطع) · قطع مريب حول المسموع */
+    var rightA=nx&&nx.wi===i+1&&isGood(nx)&&((nx2&&nx2.wi===i+2&&nx2.r<=O.R_OK)||i+1===W-1||fin);
+    var lh2=(i>0&&words[i-1].h0!=null)?Math.min(abs0+V.extA,words[i-1].h0+1):abs0+V.extA;
+    var sus=V.extA!=null&&V.extB!=null&&susIn(lh2,abs0+V.extB);
+    if(!ok&&!wd.muq){
+      var lexHit=!!(hx&&lex[hx]&&V.r>=O.R_LEXW),hc2=nCons(hx);
+      /* فرق هيكل الصوامت بين المسموع وأقرب صيغة للكلمة */
+      var cd=99,ce=consOf(hx);for(var fi=0;fi<wd.forms.length;fi++)cd=Math.min(cd,edit(ce,consOf(wd.forms[fi])));
+      if(anchored(i)&&rightA&&!sus){
+        /* تخطٍّ: لا صامت مسموع، أو شظايا (≤صامت) من كلمة طويلة، أو صامت شارد لا يقرّب كلمة قصيرة («في/ما/لا/من/بل») */
+        if(hc2===0||(wd.cons>=3&&hc2<=1)||(wd.cons<=2&&hc2<=1&&cd>=wd.cons))st='skipped';
+        else if(hc2>=2&&(V.r>=O.R_WRONG||lexHit)){
+          /* أغلب حروف الصيغة طابقت تماماً ⇒ الكلمة قيلت ومعها زيادة (ضجيج/كلام آخر): ليست خطأً مؤكّداً */
+          var mtr=V.mt/Math.max(1,U[wUnit[i]].forms[V.f].length);
+          /* المسموع يحوي إحدى صيغ الكلمة كاملةً (تلعثم/إعادة جزئية مع زيادة): قيلت — ليست خطأً مؤكّداً */
+          var said=false;for(fi=0;fi<wd.forms.length;fi++)if(wd.forms[fi].length>=2&&hx.indexOf(wd.forms[fi])>=0)said=true;
+          if(cd>=O.WRONG_CDIFF&&mtr<O.WRONG_MT&&!said)st='wrong';
+        }
+      }
+      /* لم يُحسم خطأً ولا تخطّياً والمسموع بعيد عن المكتوب: «للتحقّق» لا «للمراجعة» (ولا تُحسب مقروءة) */
+      if(st==='doubt'&&(V.r>=O.R_TENT||cd>=O.WRONG_CDIFF))st='unclear';
+    }
+    /* المتشابه بحرف: لا يُثبَّت أبداً؛ وإبدال أول الكلمة (عطف/جرّ/مضارعة) والمسموع كلمة قرآنية: «للتحقّق»،
+       وخطأ إن كان زوجاً موجوداً مع جارته في المصحف بمرساتين */
+    if(cs){
+      if(st==='confirmed')st='doubt';
+      if(cs.pfx&&(st==='doubt'||st==='unclear')&&lex[hx])st=(anchored(i)&&rightA&&!sus&&ctxHit(i,hx))?'wrong':'unclear';
+    }
+    var shown=st==='wrong'||st==='unclear'||!!cs;
+    setSt(i,st,{r:V.r,cov:V.cov,ext:hx,heard:shown?hx:'',lexRef:(shown&&hx&&lex[hx])||null,cs:cs?(cs.e+'>'+(cs.h||'-')+'@'+cs.p):null});
+    cur=Math.max(cur,i+1);
+  }
+  return {
+    words:words,diag:diag,units:U,cfg:O,
+    onWord:function(cb){cbs.push(cb);},
+    state:function(i){return words[i]?words[i].st:null;},
+    started:function(){return started;},
+    hypLen:function(){return H.length;},
+    /* hypText: نص المقطع الحالي التراكمي؛ ev (اختياري): حدث المحرّك {utt,from,tok,ts,uttStartMs} لتوقيت الكلمات */
+    feed:function(hypText,tMs,isFinal,ev){
+      hypText=hypText||'';
+      var uid=(ev&&ev.utt!=null)?ev.utt:(utt.id<0?0:utt.id),j;
+      if(uid!==utt.id){
+        if(utt.id>=0){
+          /* عمر آخر رمز عند القطع: القطع الحقيقي يسبقه صمت ≥0.9ث فيكون الرمز أقدم من SUS_AGE */
+          var lt=null;for(j=utt.ts.length-1;j>=0;j--){if(utt.ts[j]!=null){lt=utt.startMs+utt.ts[j]*1000;break;}}
+          var age=(utt.finMs!=null&&lt!=null)?utt.finMs-lt:null;
+          ub.push({h:H.length,sus:age!==null&&age<O.SUS_AGE,age:age});diag.cuts=(diag.cuts||0)+1;if(age!==null&&age<O.SUS_AGE)diag.susCuts=(diag.susCuts||0)+1;
+        }
+        utt={id:uid,text:'',base:H.length,startMs:(ev&&ev.uttStartMs!=null)?ev.uttStartMs:(tMs||0),toks:[],ts:[],finMs:null};
+      }
+      /* رموز/أزمنة دلتا: from = عدد الرموز المرسلة سابقاً في هذا المقطع */
+      if(ev&&ev.tok){var fr=ev.from||0;utt.toks.length=fr;utt.ts.length=fr;for(j=0;j<ev.tok.length;j++){utt.toks.push(ev.tok[j]);utt.ts.push(ev.ts?ev.ts[j]:null);}}
+      if(hypText.slice(0,utt.text.length)!==utt.text)diag.resets++;   /* مراجعة غير بادئة (نادرة) */
+      /* زمن كل حرف خام: من الرمز الذي يحتويه */
+      var rawT=[],pos=0;
+      for(j=0;j<utt.toks.length&&pos<hypText.length;j++){var Lt=(utt.toks[j]||'').length,tt=(utt.ts[j]!=null)?Math.round(utt.startMs+utt.ts[j]*1000):tMs;for(var z=0;z<Lt;z++)rawT.push(tt);pos+=Lt;}
+      var m=[],nn=asrNorm(hypText,m),keep=utt.base;
+      H=H.slice(0,keep)+nn;Htime.length=keep;
+      for(j=0;j<m.length;j++)Htime.push(rawT[m[j]]!=null?rawT[m[j]]:tMs);
+      if(hc>H.length)hc=H.length;   /* لا يُنقض ما التُزم به: المؤشر يتراجع فقط إن قصُر النص */
+      utt.text=hypText;if(isFinal)utt.finMs=(ev&&ev.tMs!=null)?ev.tMs:tMs;
+      return run(!!isFinal,false);
+    },
+    finish:function(){
+      var res=run(true,true);
+      for(var j=0;j<W;j++){if(words[j].st==='tentative')setSt(j,'pending',null,true);}
+      return res;
+    },
+    _H:function(){return H;},_hc:function(){return hc;},_cur:function(){return cur;}
+  };
+}
+G.createAsrAligner=createAsrAligner;G._qaNorm=asrNorm;G._qaBgHash=bgHash;
+})(typeof window!=='undefined'?window:(typeof global!=='undefined'?global:this));
+/* ═══ محرّك التسميع الصوتي على الجهاز (QuranAsr): الثوابت والحالة والدورة ═══
+   يتعرّف على أصوات التلاوة على الجهاز (بلا إنترنت بعد التنزيل) ويحاذيها مع أصوات الصفحة المتوقّعة.
+   الملفات تُنزَّل مرة واحدة من فرع asr-assets على GitHub، ويتحقّق المكوّن الأصلي من sha256 لكل ملف
+   ويكتبه مؤقتاً ثم يعيد تسميته ذرّياً؛ المرآة الأولى هي الفرع الخام، ويمكن إلحاق مرايا بعدها.
+   المحرّك البديل (whisper) يبقى كما هو ويُستخدم تلقائياً حين يتعذّر هذا المحرّك (ويب/APK قديم/خطأ).
+   الميزة ومحرّكها مجانيان دائماً (رخصة NPL-1.2): لا يقرأ هذا القسم أي اشتراك أو تجربة أو إعلان. */
+var QA_DIR='v1';
+var QA_MIRRORS=['https://raw.githubusercontent.com/ddcbusinesskw-cpu/salah-app/asr-assets/'];
+var QA_PHON_SHA256='7e3bdecd102fe2bde8aacb96c9452ad1b27abf689245bbe44ac9c818b145d84d',QA_PHON_SIZE=574741;
+var QA_FILES=[
+ {name:'zipformer_p_arabic_v3.1.int8.onnx',sha256:'31755836528da336a6192121cd7bc82cb41752dddb65566fd000b89c8686da6b',size:72705392},
+ {name:'tokens.txt',sha256:'252c10687e442aa9291973065fae19fa39bcd681c4f5612ec496a647e20b43a1',size:2346},
+ {name:'LICENSE-NPL-1.2.txt',sha256:'77526bdbfac94132e5114c3a34492c33f915e4b7f310f00b9995500d3610cab5',size:7041},
+ {name:'hafs_phon_v1.json.gz',sha256:QA_PHON_SHA256,size:QA_PHON_SIZE}];
+var QA_PHON_FILE='hafs_phon_v1.json.gz';
+var QA_DISCLAIMER='تنبيه: التقييم الآلي للتلاوة والتجويد قد يخطئ، ولا يغني عن معلّم متقن؛ نتائجه للمراجعة الذاتية وليست حكماً شرعياً على تلاوة أحد.';
+var QA={avail:null,fatal:false,err:'',ready:false,loading:false,verified:false,checking:false,dl:{phase:'',file:'',done:0,total:0},
+        phon:null,view:null,lex:null,al:null,jsSess:0,ws:{},heard:{},page:0,q:[],busy:false,draining:false,lastPre:0,
+        startFails:0,runFails:0,dlFails:0,loadFails:0,hint:false,lh:[],stats:null,
+        diag:{events:0,utts:0,lastText:'',feeds:0,lastMs:0,maxMs:0,loadMs:0,threads:0,rtf:0,maxLag:0,coalesced:0,startErr:'',lastErr:''}};
+function _qaPlug(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.QuranAsr;}
+function _qaUsable(){return QA.ready&&!!QA.view&&!QA.fatal;}
+/* نسبة التقدّم الكلية (كل الملفات) */
+function _qaPct(){var t=QA.dl.total||0;return t>0?Math.max(0,Math.min(100,Math.round(QA.dl.done/t*100))):0;}
+function _qaMB(b){return Math.round((b||0)/1048576);}
+/* رموز الرفض الأصلية → رسائل عربية */
+function _qaErrMsg(e){
+  var m=String(e&&e.message||e||'');
+  if(/^disk/.test(m))return 'المساحة غير كافية — يلزم نحو ‎160MB‎ متاحة';
+  if(/^(http-|net)/.test(m))return 'تعذّر التنزيل — تحقّق من الاتصال ثم أعد المحاولة';
+  if(/^(sha-|size-)/.test(m))return 'الملف المنزَّل تالف — أعد المحاولة';
+  if(/^cancelled/.test(m))return 'أُلغي التنزيل';
+  if(/^low-mem/.test(m))return 'الذاكرة غير كافية لمحرّك التسميع — يُستخدم المحرّك البديل';
+  if(/^busy/.test(m))return 'المحرّك مشغول — أعد المحاولة بعد لحظة';
+  return 'تعذّر تجهيز محرّك التسميع — أعد المحاولة';
+}
+/* مستمعو المكوّن الأصلي بمقابض (addListener قد يعيد وعداً أو مقبضاً) — لا removeAllListeners أبداً */
+function _qaOn(P,ev,fn,list){
+  var rec={h:null,dead:false};list.push(rec);
+  try{
+    var r=P.addListener(ev,fn);
+    var set=function(x){rec.h=x;if(rec.dead&&x&&x.remove){try{var p=x.remove();if(p&&p.catch)p.catch(function(){});}catch(e){}}};
+    if(r&&typeof r.then==='function')r.then(set,function(){});else set(r);
+  }catch(e){}
+}
+function _qaDetach(){
+  var L=QA.lh;QA.lh=[];
+  for(var i=0;i<L.length;i++){
+    L[i].dead=true;var h=L[i].h;
+    if(h&&h.remove){try{var p=h.remove();if(p&&p.catch)p.catch(function(){});}catch(e){}}
+  }
+}
+/* تقدّم التنزيل: مستمع دائم واحد (لا يُفصل مع الجلسة كي لا يتجمّد شريط تنزيل جارٍ) */
+var _qaProgL=[];
+function _qaWireProgress(P){
+  if(QA._pw)return;QA._pw=true;
+  _qaOn(P,'asr_progress',function(ev){
+    if(!ev)return;
+    if(ev.phase)QA.dl.phase=ev.phase==='done'?'load':ev.phase;
+    if(ev.file)QA.dl.file=ev.file;
+    if(ev.all){if(ev.all.done!=null)QA.dl.done=ev.all.done;if(ev.all.total!=null)QA.dl.total=ev.all.total;}   /* all.done يشمل الملف الجاري */
+    _qaRenderBox(true);
+  },_qaProgL);
+}
+/* GGUF البديل محفوظ مسبقاً؟ حمّله ليكون جاهزاً — ولا يُنزَّل تلقائياً ما دام المحرّك الصوتي متاحاً */
+function _qaWnIfOnDisk(){
+  var FS=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Filesystem;
+  if(!FS||!FS.stat||WN.ready||WN.loading||WN.fatal)return;
+  FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(s){if(s&&s.size>10000000){try{_wnEnsure();}catch(e){}}}).catch(function(){});
+}
+/* تهيئة عند فتح التسميع: الحالة → تحميل (منزَّل) أو تنزيل صامت (بموافقة سابقة) أو بطاقة الموافقة.
+   explicit: طلب صريح من المستخدم (زرّ/إعداد أولي) — وإلا فالاستئناف الصامت لا يقع بعد إلغاء المستخدم
+   (qaConsent='0') ولا بعد فشلين متتاليين في التنزيل (لا يُعاد 74MB تلقائياً على شبكة تحجبه) */
+function _qaInit(explicit){
+  var P=_qaPlug();
+  if(!_isAndroidNative()||!P||!P.status){QA.avail=false;QA.fatal=true;try{_wnEnsure();}catch(e){}_qaRenderBox();return;}
+  QA.avail=true;
+  if(QA.fatal){try{_wnEnsure();}catch(e){}_qaRenderBox();return;}
+  _qaWireProgress(P);
+  if(QA.ready||QA.loading||QA.checking){_qaRenderBox();return;}
+  QA.checking=true;
+  P.status({files:QA_FILES}).then(function(r){
+    QA.checking=false;r=r||{};QA.st=r;
+    if(!r.lib){QA.fatal=true;QA.err='lib';try{_wnEnsure();}catch(e){}_qaRenderBox();return;}
+    QA.verified=!!r.verified;
+    if(QA.ready||QA.loading){_qaRenderBox();return;}
+    if(r.verified){_qaLoad();return;}
+    if(lsGet('qaConsent')==='1'&&(explicit||QA.dlFails<2)){_qaEnsure();return;}
+    _qaRenderBox();_qaWnIfOnDisk();_qaStatusIfPreparing();
+  }).catch(function(e){
+    QA.checking=false;QA.fatal=true;QA.err='status: '+String(e&&e.message||e).slice(0,60);
+    try{_wnEnsure();}catch(x){}_qaRenderBox();_qaStatusIfPreparing('⏳ يُجهَّز المحرّك البديل… ثم اضغط «🎙 استمع»');
+  });
+}
+/* سطر الحالة ما زال يقول «يُجهَّز محرّك التسميع…» بعد فشل/إلغاء: استبدله بالرسالة الفعلية */
+function _qaStatusIfPreparing(txt){
+  var st=document.getElementById('lmStatus');
+  if(!st||LM.rec||LM.stopping||!/يُجهَّز محرّك التسميع/.test(st.textContent))return;
+  st.textContent=txt||(QA.err?_qaErrHint():'اضغط «🎙 استمع» وابدأ التلاوة');
+}
+function _qaErrHint(){return QA.cancelled?'أُلغي التنزيل — للمتابعة اضغط «⬇ متابعة التنزيل» أدناه':QA.err+' («↻ إعادة المحاولة» أدناه)';}
+/* فشل التنزيل مرتين لسبب شبكي/تلف (مضيف محجوب، بوّابة تعيد صفحة بدل الملف…) */
+function _qaDlBlocked(){return QA.dlFails>=2&&!QA.loading&&!QA.ready&&/^(http-|net|sha-|size-)/.test(QA.dl.err||'');}
+/* عرض صريح للمحرّك البديل (whisper ~43MB من Hugging Face) — لا يُنزَّل دون موافقة ما دام المحرّك الصوتي متاحاً */
+function _qaOfferWN(){
+  _cmShow('تعذّر تنزيل محرّك التسميع',[],function(){
+    QA.wnChosen=true;
+    var st=document.getElementById('lmStatus');if(st&&!LM.rec)st.textContent='⏳ يُجهَّز المحرّك البديل… ثم اضغط «🎙 استمع»';
+    try{_wnEnsure(true);}catch(e){}
+    if(WN.fatal&&st&&!LM.rec)st.textContent='المحرّك البديل غير متاح على هذا الجهاز — أعد محاولة تنزيل محرّك التسميع لاحقاً';
+    _qaRenderBox();
+  },'استخدم المحرّك البديل');
+  var f=document.getElementById('cmFields');if(!f)return;
+  f.innerHTML='<div class="qa-consent">'
+    +'<p>تعذّر تنزيل محرّك التسميع الصوتي من GitHub مرتين (قد يكون الاتصال ضعيفاً أو المضيف محجوباً على شبكتك).</p>'
+    +'<p>يمكنك استخدام المحرّك البديل الآن — يُنزَّل مرة واحدة (نحو ‎43MB‎ من Hugging Face) ويعمل على جهازك مجاناً — وإعادة محاولة المحرّك الصوتي لاحقاً بزرّ «↻ إعادة المحاولة».</p>'
+    +_qaDisclaimerHtml(true)+'</div>';
+}
+/* تنزيل/تحقّق (قابل للاستئناف أصلياً) ثم تحميل — لا حلقة إعادة تلقائية: يُعاد عند فتح التسميع أو بالزرّ */
+function _qaEnsure(){
+  var P=_qaPlug();if(!P||!P.ensureModel||QA.fatal)return;
+  if(QA.loading||QA.ready)return;
+  _qaWireProgress(P);
+  QA.loading=true;QA.err='';QA.cancelled=false;QA.dl={phase:'download',file:'',done:0,total:0};
+  _qaRenderBox();_qaWnIfOnDisk();
+  P.ensureModel({mirrors:QA_MIRRORS,files:QA_FILES}).then(function(){
+    QA.verified=true;QA.loading=false;QA.dlFails=0;
+    _qaLoad();
+  }).catch(function(e){
+    var m=String(e&&e.message||e);
+    QA.loading=false;QA.dl.phase='';QA.err=_qaErrMsg(m);QA.dl.err=m.slice(0,80);
+    /* الإلغاء يُحترم: لا استئناف صامت بعده (ولا من نقرة المايك) — يُستأنف بزرّ «⬇ متابعة التنزيل» أو الموافقة */
+    QA.cancelled=/^cancelled/.test(m);
+    if(QA.cancelled)lsSet('qaConsent','0');else QA.dlFails++;
+    console.warn('[qa] ensure: '+m.slice(0,80));
+    _qaRenderBox();_qaWnIfOnDisk();_qaStatusIfPreparing();
+  });
+}
+function _qaCancel(){
+  lsSet('qaConsent','0');QA.cancelled=true;   /* قبل الردّ الأصلي: لا يُعاد التنزيل بفتح التسميع مجدداً */
+  var P=_qaPlug();if(P&&P.cancelDownload)P.cancelDownload().catch(function(){});
+}
+/* إعادة المحاولة/متابعة التنزيل بطلب صريح (تتجاوز حدّ الفشلين؛ التنزيل يُستأنف أصلياً من حيث توقّف) */
+function _qaRetry(){
+  QA.err='';QA.cancelled=false;
+  if(QA.verified)_qaLoad();else{lsSet('qaConsent','1');_qaInit(true);}
+  _qaRenderBox();
+}
+/* تحميل: بيانات الأصوات (مرة لكل تشغيل) ثم المُعرِّف — ويُحرَّر whisper من الذاكرة إن كان محمّلاً */
+function _qaLoad(){
+  var P=_qaPlug();if(!P||!P.load||QA.fatal)return;
+  if(QA.ready||QA.loading)return;
+  QA.loading=true;QA.err='';QA.dl.phase='load';_qaRenderBox();
+  var pPhon=QA.phon?Promise.resolve(QA.phon):P.readPhon({name:QA_PHON_FILE}).then(function(r){
+    var j=JSON.parse((r&&r.json)||'');
+    if(!(j&&j.v===1&&j.norm===1&&j.ayat))throw new Error('init: phon-format');
+    return j;
+  });
+  pPhon.then(function(j){
+    QA.phon=j;QA.dl.phase='load';_qaRenderBox();
+    return P.load({threads:2});
+  }).then(function(r){
+    QA.view={ayat:QA.phon.ayat,pre:QA.phon.pre||{},lex:QA.lex||null,bg:QA.bg||null};
+    QA.ready=true;QA.loading=false;QA.verified=true;QA.loadFails=0;QA.err='';QA.dl.phase='';
+    QA.diag.loadMs=(r&&r.ms)||0;QA.diag.threads=(r&&r.threads)||0;
+    console.log('[qa] محرّك التسميع جاهز — '+QA.diag.threads+' خيوط · '+QA.diag.loadMs+'ms');
+    /* حرّر ذاكرة whisper (لا أثناء جلسته) — يُعاد تلقائياً إن احتيج البديل */
+    if(WN.ready&&!(LM.rec&&LM.engine==='wn')&&!LM.stopping){var W=_wnPlug();if(W&&W.unload)W.unload().then(function(){WN.ready=false;WN.tried=false;}).catch(function(){});}
+    _qaRenderBox();
+    var st=document.getElementById('lmStatus');
+    if(st&&!LM.rec&&/يُجهَّز محرّك التسميع/.test(st.textContent))st.textContent='محرّك التسميع جاهز — اضغط «🎙 استمع» وابدأ التلاوة';
+    try{_engIdleArmIfAway();}catch(e){}
+  }).catch(function(e){
+    var m=String(e&&e.message||e);
+    QA.loading=false;QA.ready=false;QA.dl.phase='';QA.loadFails++;
+    console.warn('[qa] load: '+m.slice(0,80));
+    if(/^low-mem/.test(m)){QA.fatal=true;QA.err='low-mem';try{toast(_qaErrMsg(m),'warning');}catch(x){}try{_wnEnsure();}catch(x){}}
+    else if(/^lib/.test(m)){QA.fatal=true;QA.err='lib';try{_wnEnsure();}catch(x){}}
+    else{
+      if(!/^busy/.test(m)){QA.verified=false;QA.phon=null;}   /* التالي يعيد التحقّق (هاش) قبل التحميل */
+      QA.err=_qaErrMsg(m);
+      if(QA.loadFails>=2){QA.fatal=true;QA.err='load: '+m.slice(0,60);try{_wnEnsure();}catch(x){}}
+    }
+    _qaRenderBox();
+    _qaStatusIfPreparing(QA.fatal?'⏳ يُجهَّز المحرّك البديل… ثم اضغط «🎙 استمع»':null);
+  });
+}
+/* معجم الكلمات (أصوات الكلمة → موضعها) لعرض «سُمِع» بالرسم العثماني، وفهرس أزواج الكلمات المتتالية في المصحف
+   (بصمات مرتّبة ~٣٠٠KB) ليحكم المحاذي على «المتشابه بحرف» بالسياق — يُبنيان مرة على دفعات بلا تجميد */
+function _qaLex(){
+  if(QA.lex||QA._lexB||!QA.phon||!QA.phon.ayat)return;
+  var ph=QA.phon,A=ph.ayat,keys=Object.keys(A),L={},B=[],i=0,pS=-1,pA=-1,pN='';QA._lexB=true;
+  (function step(){
+    if(QA.phon!==ph){QA._lexB=false;return;}
+    var end=Math.min(keys.length,i+600),k,segs,j,n,sa;
+    for(;i<end;i++){
+      k=keys[i];segs=String(A[k].p||'').split('|');sa=k.split(':');
+      if(!(+sa[0]===pS&&+sa[1]===pA+1))pN='';
+      for(j=0;j<segs.length;j++){n=_qaNorm(segs[j]);if(n&&L[n]===undefined)L[n]=k+':'+j;if(n&&pN)B.push(_qaBgHash(pN,n));pN=n||'';}
+      pS=+sa[0];pA=+sa[1];
+    }
+    if(i<keys.length){setTimeout(step,0);return;}
+    var U=null;try{U=new Uint32Array(B);U.sort();}catch(e){U=null;}
+    QA.lex=L;QA.bg=U;QA._lexB=false;if(QA.view){QA.view.lex=L;QA.view.bg=U;}
+  })();
+}
+function _qaPageWords(){return LM.words.map(function(x){return {s:x.s,a:x.a,w:x.w,raw:x.raw};});}
+
+/* ── جلسة المحرّك الصوتي ── */
+function _lmStartQA(){
+  var st=document.getElementById('lmStatus'),P=_qaPlug();
+  if(!P||!P.start){QA.fatal=true;_lmStartWN();return;}
+  LM._bgStop=false;LM._captureErr='';
+  LM.starting=true;
+  var _begin=function(){
+    LM.starting=false;
+    if(LM.rec||LM.stopping)return;
+    if(!_qaUsable()){lmStart();return;}   /* حُرِّر أثناء طلب الإذن: أعد الاختيار */
+    /* نظافة الجلسة: أوقف كل صوت قيد التشغيل قبل فتح المايك */
+    try{
+      document.querySelectorAll('audio').forEach(function(a){if(!a.paused)try{a.pause();}catch(x){}});
+      if(typeof qpClose==='function'){var _qp=document.getElementById('qplayer');if(_qp&&_qp.classList.contains('on'))qpClose();}
+    }catch(e){}
+    LM.rec=true;LM._sess=(LM._sess||0)+1;LM.engine='qa';
+    LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
+    LM._nV=0;LM._nW=0;LM._vkFirstMs=0;LM._vkHeard='';
+    for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
+    _micLblSet(true);
+    var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
+    if(st)st.textContent='🎙 يستمع…';
+    try{rakWakeLock(true);}catch(e){}
+    QA.jsSess=LM._sess;QA.ws={};QA.heard={};QA.page=LM.page;QA.q=[];QA.hint=false;QA.busy=false;QA.draining=false;QA.lastPre=0;QA._blw=false;QA.stats=null;
+    var d=QA.diag;d.events=0;d.utts=0;d.lastText='';d.feeds=0;d.lastMs=0;d.maxMs=0;d.maxLag=0;d.coalesced=0;d.lastErr='';d.rtf=0;
+    if(!QA.lex)setTimeout(_qaLex,0);
+    try{QA.al=createAsrAligner(_qaPageWords(),QA.view,{});QA.al.onWord(_qaOnWord);}
+    catch(e){QA.al=null;_qaStartFail(P,'align: '+String(e&&e.message||e),LM._sess);return;}
+    _hbWireHeardClicks();
+    _qaDetach();
+    _qaOn(P,'asr_partial',_qaOnPartial,QA.lh);
+    _qaOn(P,'asr_interrupt',_qaOnInterrupt,QA.lh);
+    _qaOn(P,'asr_error',_qaOnError,QA.lh);
+    var sid=LM._sess;
+    P.start({sess:QA.jsSess}).then(function(){
+      if(sid!==LM._sess||!LM.rec)return;
+      QA.startFails=0;
+    }).catch(function(e){_qaStartFail(P,String(e&&e.message||e),sid);});
+  };
+  /* إذن المايك runtime قبل AudioRecord (المكوّن الأصلي يطلبه أيضاً كخطّ دفاع ثانٍ) */
+  if(P.checkPermissions){
+    P.checkPermissions().then(function(p){
+      if(p&&p.microphone==='granted'){_begin();return;}
+      if(st)st.textContent='طلب إذن المايكروفون…';
+      P.requestPermissions().then(function(r){
+        if(r&&r.microphone==='granted')_begin();
+        else{LM.starting=false;LM._captureErr='إذن المايكروفون مرفوض';if(st)st.textContent='إذن المايكروفون مرفوض — فعّله من إعدادات التطبيق';}
+      }).catch(function(){_begin();});
+    }).catch(function(){_begin();});
+  }else{_begin();}
+}
+/* فشل بدء الجلسة: إذن → نفس رسالة البديل؛ مايك مشغول → رسالة؛ غير ذلك → المحرّك البديل بشفافية */
+function _qaStartFail(P,msg,sid){
+  if(sid!==LM._sess)return;
+  _qaDetach();
+  LM.rec=false;LM._captureErr=msg;
+  _micLblSet(false);
+  var mc=document.getElementById('lmMic');if(mc)mc.classList.remove('rec');
+  try{rakWakeLock(false);}catch(x){}
+  var st=document.getElementById('lmStatus');
+  var perm=/^mic-permission-denied/.test(msg)||(!/^audiorecord-init-failed/.test(msg)&&/permission|إذن|مرفوض/i.test(msg));
+  if(perm){if(st)st.textContent='الرجاء السماح باستخدام المايكروفون ثم أعد المحاولة';return;}
+  if(/^mic-busy/.test(msg)){if(st)st.textContent='المايك مستخدَم من تطبيق آخر — أغلقه ثم أعد المحاولة';return;}
+  if(/^busy/.test(msg)){if(st)st.textContent='⏳ إنهاء الجلسة السابقة… لحظة ثم اضغط مجدداً';return;}
+  QA.startFails++;QA.diag.startErr=msg.slice(0,120);
+  console.warn('[qa] start: '+msg.slice(0,80));
+  if(/^not-loaded/.test(msg)&&QA.startFails<2){
+    /* المُعرِّف حُرِّر (خمول/ذاكرة): يُعاد تحميله خلال ثوانٍ — لا تنزيل للبديل من أجله */
+    QA.ready=false;try{_qaLoad();}catch(x){}
+    if(WN.ready){try{toast('تعذّر تشغيل محرّك التسميع — استُخدم المحرّك البديل','info');}catch(x){}_lmStartWN();}
+    else if(st)st.textContent='⏳ يُجهَّز محرّك التسميع… ثم اضغط «🎙 استمع»';
+    return;
+  }
+  if(QA.startFails>=2){QA.fatal=true;_qaRenderBox();}
+  if(WN.ready){try{toast('تعذّر تشغيل محرّك التسميع — استُخدم المحرّك البديل','info');}catch(x){}_lmStartWN();}
+  else{try{_wnEnsure(true);}catch(x){}if(st)st.textContent='⏳ يُجهَّز المحرّك البديل…';}
+}
+/* أحداث المحرّك: تُجمَّع وتُغذّى للمحاذي خارج نداء الحدث (الخيط الرئيسي خفيف) */
+function _qaOnPartial(ev){
+  if(!ev||ev.sess!==QA.jsSess||LM.engine!=='qa'||!(LM.rec||QA.draining))return;
+  var d=QA.diag;d.events++;if(ev.text)d.lastText=ev.text;
+  if(ev.lagMs>d.maxLag)d.maxLag=ev.lagMs;
+  if(ev.utt!=null&&ev.utt+1>d.utts)d.utts=ev.utt+1;
+  QA.q.push(ev);
+  if(!QA.busy&&!QA._pt)QA._pt=setTimeout(function(){QA._pt=null;_qaPump(false);},0);
+}
+/* دمج حدثين متتاليين لنفس المقطع بلا فقد: النص تراكمي، والرموز/الأزمنة دلتا من from */
+function _qaMerge(a,b){
+  if(b.utt!==a.utt)return b;
+  var fa=a.from||0,fb=b.from||0;
+  if(fb<fa)return b;
+  var ta=a.tok||[],sa=a.ts||[],k=fb-fa,o={},x;
+  for(x in b)if(b.hasOwnProperty(x))o[x]=b[x];
+  o.from=fa;o.tok=ta.slice(0,k).concat(b.tok||[]);o.ts=sa.slice(0,k).concat(b.ts||[]);
+  return o;
+}
+function _qaPump(sync){
+  if(QA.busy||!QA.al)return;
+  QA.busy=true;
+  var t0=Date.now(),d=QA.diag,st=document.getElementById('lmStatus');
+  try{
+    while(QA.q.length){
+      /* حدث غير نهائي يليه حدث للمقطع نفسه في الطابور: يُدمج فيه (لا تغذيات مكرّرة) */
+      while(QA.q.length>1&&!QA.q[0].final&&QA.q[1].utt===QA.q[0].utt){QA.q[1]=_qaMerge(QA.q[0],QA.q[1]);QA.q.shift();d.coalesced++;}
+      var ev=QA.q[0];
+      /* قبل التعرّف على الموضع: المحاذاة على الصفحة كلها أثقل — تغذية كل 700ms على الأكثر */
+      if(!sync&&!QA.al.started()&&!ev.final&&Date.now()-QA.lastPre<700){
+        if(!QA._pt)QA._pt=setTimeout(function(){QA._pt=null;_qaPump(false);},250);
+        break;
+      }
+      QA.q.shift();
+      var pre=!QA.al.started(),f0=Date.now();
+      try{QA.al.feed(ev.text||'',ev.tMs||0,!!ev.final,ev);}catch(e){d.lastErr='align: '+String(e&&e.message||e).slice(0,80);}
+      var ms=Date.now()-f0;d.feeds++;d.lastMs=ms;if(ms>d.maxMs)d.maxMs=ms;
+      if(pre&&!QA.al.started())QA.lastPre=Date.now();
+      if(LM.rec&&!QA.hint&&!QA.al.started()&&QA.al.hypLen()>=40){
+        QA.hint=true;if(st)st.textContent='لم أتعرّف على موضعك بعد — ابدأ من أول الصفحة أو من بداية آية';
+      }
+      /* لا تحتكر الخيط الرئيسي: أكمل الباقي في دورة لاحقة */
+      if(!sync&&QA.q.length&&Date.now()-t0>30){if(!QA._pt)QA._pt=setTimeout(function(){QA._pt=null;_qaPump(false);},0);break;}
+    }
+  }finally{QA.busy=false;}
+}
+/* حالة كلمة من المحاذي → لون الكلمة على الصفحة الحية */
+function _qaOnWord(i,s,w){
+  if(QA.page!==LM.page||!LM.words[i])return;   /* نتائج متأخرة لا تُرسم على صفحة أخرى */
+  QA.ws[i]=s;
+  var act=LM.active==null||i>=LM.active||QA.ws[LM.active]==='pending'||QA.ws[LM.active]==null;
+  if(s==='tentative'){_lmSetClass(i,'tent');if(act)_lmActivate(i);}
+  else if(s==='confirmed'){_lmSetClass(i,'ok');delete QA.heard[i];if(act)_lmActivate(i);_qaCur(i);}
+  else if(s==='doubt'){_lmSetClass(i,'ok');var el=_lmSpan(i);if(el)el.classList.add('dbt');if(w&&w.heard)QA.heard[i]={heard:w.heard,lexRef:w.lexRef||null};if(act)_lmActivate(i);_qaCur(i);}
+  else if(s==='wrong'){_lmSetClass(i,'err');QA.heard[i]={heard:w&&w.heard||'',lexRef:w&&w.lexRef||null};_qaCur(i);}
+  else if(s==='unclear'){_lmSetClass(i,'unc');QA.heard[i]={heard:w&&w.heard||'',lexRef:w&&w.lexRef||null};_qaCur(i);}
+  else if(s==='skipped'){_lmSetClass(i,'miss');}
+  else if(s==='pending'){_lmSetClass(i,null);}
+  var st=document.getElementById('lmStatus');
+  if(st&&LM.rec&&QA.al&&QA.al.started())st.textContent='🎙 يستمع… '+LM.cursor+'/'+LM.words.length+' كلمة';
+}
+function _qaCur(i){if(i>=LM.cursor)LM.cursor=i+1;}
+function _qaOnInterrupt(ev){
+  if(!ev||ev.sess!==QA.jsSess||!LM.rec||LM.engine!=='qa')return;
+  var sid=LM._sess;
+  if(ev.reason==='pause'){
+    /* أُوقف أصلياً (onPause): معالج الإخفاء يُنهي عادةً؛ إن لم يحدث خلال لحظة أنهِها هنا */
+    setTimeout(function(){if(LM.rec&&LM.engine==='qa'&&sid===LM._sess){LM._bgStop=true;try{lmStop();}catch(e){}try{toast('أُوقف الاستماع — التطبيق في الخلفية','warning');}catch(e){}}},400);
+    return;
+  }
+  /* read-error: المايك نفسه انقطع — لا مكالمة */
+  try{toast(ev.reason==='read-error'?'انقطع المايك — أُنهيت الجلسة بملخّص ما سُمع':'انقطع الصوت (مكالمة واردة؟) — أُنهيت الجلسة بملخّص ما سُمع','info');}catch(e){}
+  try{lmStop();}catch(e){}
+}
+function _qaOnError(ev){
+  if(!ev||ev.sess!==QA.jsSess)return;
+  QA.diag.lastErr=(ev.code||'')+': '+String(ev.msg||'').slice(0,100);
+  if(ev.code==='backlog'){if(!QA._blw){QA._blw=true;try{toast('الجهاز بطيء على المحرّك — قد تتأخر النتائج','warning');}catch(e){}}return;}
+  QA.runFails++;
+  if(QA.runFails>=2){QA.fatal=true;_qaRenderBox();}   /* الجلسة التالية بالمحرّك البديل */
+  if(LM.rec&&LM.engine==='qa'){try{toast('تعطّل محرّك التسميع — أُنهيت الجلسة بملخّص ما سُمع','error');}catch(e){}try{lmStop();}catch(e){}}
+}
+function _lmStopQA(){
+  if(!LM.rec)return;LM.rec=false;
+  LM.stopping=true;QA.draining=true;
+  var _stopPage=LM.page,_sid=LM._sess,_bg=!!LM._bgStop;LM._bgStop=false;
+  var P=_qaPlug(),st=document.getElementById('lmStatus'),done=false;
+  _micLblSet(false);
+  var mic=document.getElementById('lmMic');if(mic)mic.classList.remove('rec');
+  if(st)st.textContent='⏳ إنهاء…';
+  try{rakWakeLock(false);}catch(e){}
+  var _fin=function(res){
+    if(done)return;done=true;clearTimeout(_safety);
+    if(res&&res.ok){QA.stats=res;if(res.rtf!=null)QA.diag.rtf=res.rtf;if(res.utts!=null)QA.diag.utts=res.utts;}
+    /* جلسة أحدث بدأت (بعد صمّام الأمان): لا تمسّ مستمعيها ولا حالتها */
+    if(_sid!==LM._sess||LM.rec||LM.starting)return;
+    if(LM.page!==_stopPage){
+      QA.draining=false;QA.q=[];_qaDetach();LM.stopping=false;
+      var s2=document.getElementById('lmStatus');if(s2)s2.textContent='اختر سورة أو صفحة ثم اضغط «🎙 استمع» وابدأ التلاوة';return;
+    }
+    try{_qaPump(true);}catch(e){}
+    try{if(QA.al)QA.al.finish();}catch(e){}
+    QA.draining=false;_qaDetach();LM.stopping=false;
+    setTimeout(function(){if(_sid===LM._sess&&!LM.rec)lmFinish(_bg);},150);
+  };
+  /* صمّام أمان: الإيقاف الأصلي يحلّ دائماً (≤4ث) — وإن لم يعُد فلا يبقى المايك مقفلاً */
+  var _safety=setTimeout(function(){_fin(null);},6000);
+  if(P&&P.stop)P.stop().then(_fin,function(){_fin(null);});else _fin(null);
+}
+/* «سُمِع تقريباً»: كلمة المعجم بالرسم العثماني إن طابقت، وإلا الأصوات المسموعة مقرَّبة إلى حروف */
+function _qaHeardText(w){
+  if(!w)return '—';
+  if(w.lexRef){
+    var p=String(w.lexRef).split(':'),arr=QURAN_EMBED&&QURAN_EMBED.surahs&&QURAN_EMBED.surahs[String(+p[0])],t=arr&&arr[(+p[1])-1];
+    if(t){var ww=t.split(' ')[+p[2]];if(ww)return ww;}
+  }
+  var h=String(w.heard||''),o='',last='';
+  for(var i=0;i<h.length;i++){
+    var c=h.charAt(i);if(c==='ڇ'||c==='ۜ')continue;
+    if(c==='ۥ')c='و';else if(c==='ۦ')c='ي';
+    if(c===last)continue;o+=c;last=c;
+  }
+  if(o.length>40)o=o.slice(0,40)+'…';   /* «للتحقّق» قد يمتدّ مسموعها لأكثر من كلمة */
+  return o||'—';
+}
+/* «تفاصيل تقنية»: قسم المحرّك الصوتي (يُدرج بعد عنوان التقرير) */
+function _qaDiagLines(){
+  var d=QA.diag,ad=(QA.al&&QA.al.diag)||{},s=QA.stats||{},c=0,dd=0,uc=0,w=0,sk=0,p=0;
+  for(var i=0;i<LM.words.length;i++){var x=QA.ws[i];if(x==='confirmed')c++;else if(x==='doubt')dd++;else if(x==='unclear')uc++;else if(x==='wrong')w++;else if(x==='skipped')sk++;else p++;}
+  var ph=QA.dl.phase==='download'?'تنزيل':(QA.dl.phase==='verify'?'تحقّق':'تحميل');
+  return ['── محرّك التسميع الصوتي (QuranAsr) ──',
+    'الحالة: '+(QA.ready?'جاهز':QA.loading?('يُجهَّز '+ph+' '+_qaPct()+'٪'):QA.fatal?('غير متاح: '+(QA.err||'—')):(QA.verified?'منزَّل':'غير منزَّل'))+(QA.err&&!QA.fatal?' · آخر خطأ: '+QA.err:''),
+    'محرّك الجلسة: '+(LM.engine==='qa'?'الصوتي (على الجهاز)':LM.engine==='wn'?'البديل (whisper)':'—'),
+    'تحميل: '+(d.loadMs||0)+'ms · خيوط='+(d.threads||0)+' · RTF='+(s.rtf!=null?s.rtf:(d.rtf||0))+' · أقصى تأخّر طابور='+(s.maxBacklogMs!=null?s.maxBacklogMs:0)+'ms · أقصى تأخّر حدث='+(d.maxLag||0)+'ms',
+    'أحداث='+d.events+' · مقاطع='+(s.utts!=null?s.utts:d.utts)+' · تغذيات المحاذي='+d.feeds+' (مدموجة '+d.coalesced+') · آخر/أقصى زمن='+d.lastMs+'/'+d.maxMs+'ms'+(s.dropped?' · كتل مُسقَطة='+s.dropped:''),
+    'المحاذي: H='+(QA.al?QA.al.hypLen():0)+' · مراجعات='+(ad.resets||0)+' · مُسقَط='+(ad.dropped||0)+' · بلا حكم='+(ad.nojudge||0)+' · قطع='+(ad.cuts||0)+' (مريب '+(ad.susCuts||0)+')',
+    'حالات الكلمات: ✓'+c+' ·؟'+dd+' ⁇'+uc+' ✗'+w+' ⬜'+sk+' …'+p,
+    'آخر ما سُمع (صوتياً): '+String(d.lastText||'—').slice(-60),
+    d.startErr?('⚠ فشل بدء: '+d.startErr):'',
+    d.lastErr?('⚠ آخر خطأ: '+d.lastErr):'',
+    QA.dl.err?('⚠ تنزيل: '+QA.dl.err):'',
+    QA_DISCLAIMER,
+    '── المحرّك البديل (whisper) ──'];
+}
+
+/* ── الواجهة: صندوق المحرّك، الموافقة، التنبيه، الرخصة ── */
+function _qaDisclaimerHtml(noLic,back){
+  return '<p class="lm-disc">'+QA_DISCLAIMER+(noLic?'':' · <a onclick="_qaShowLicense('+(back?1:0)+')">رخصة النموذج</a>')+'</p>';
+}
+function _qaRenderBox(prog){
+  var b=document.getElementById('lmEngine');if(!b)return;
+  if(!QA.avail||QA.fatal){b.innerHTML='';b.style.display='none';b._m='';return;}
+  b.style.display='';
+  /* تحديث التقدّم في مكانه (لا يُعاد بناء الأزرار أثناء اللمس) */
+  if(QA.loading&&QA.dl.phase==='download'){
+    var pct=_qaPct(),txt='⏳ تنزيل محرّك التسميع… '+ar(pct)+'٪ ('+ar(_qaMB(QA.dl.done))+' / 74MB)';
+    if(b._m==='dl'){var t=document.getElementById('lmEngTxt'),f=document.getElementById('lmEngFill');if(t)t.textContent=txt;if(f)f.style.width=pct+'%';return;}
+    b._m='dl';
+    b.innerHTML='<div id="lmEngTxt" class="lm-eng-txt">'+txt+'</div><div class="sv-track lm-eng-track"><div id="lmEngFill" class="sv-fill" style="width:'+pct+'%"></div></div>'
+      +'<button class="lm-eng-btn" onclick="_qaCancel()">إلغاء</button>'+_qaDisclaimerHtml();
+    return;
+  }
+  var h='',m='';
+  if(QA.checking&&!QA.loading&&!QA.ready){if(!b._m)b.innerHTML='';return;}   /* فحص الحالة لحظي: لا وميض */
+  if(QA.ready){m='ready';h=_qaDisclaimerHtml();}
+  else if(QA.loading){m='ld'+QA.dl.phase;h='<div class="lm-eng-txt">'+(QA.dl.phase==='verify'?'⏳ التحقّق من الملفات…':'⏳ تحميل محرّك التسميع…')+'</div>'+_qaDisclaimerHtml();}
+  else if(QA.err){
+    var off=_qaDlBlocked()&&!WN.ready&&!WN.fatal;
+    m='err'+(QA.cancelled?'c':'')+(off?'o':'')+(WN.loading?'l':'');
+    h='<div class="lm-eng-txt">'+_esc(QA.err)+'</div><button class="lm-eng-btn" onclick="_qaRetry()">'+(QA.cancelled?'⬇ متابعة التنزيل':'↻ إعادة المحاولة')+'</button>'
+      +(off?(WN.loading?'<div class="lm-eng-txt">⏳ يُجهَّز المحرّك البديل…</div>':'<button class="lm-eng-btn" onclick="_qaOfferWN()">استخدم المحرّك البديل</button>'):'')+_qaDisclaimerHtml();
+  }
+  else if(!QA.verified){m='ask';h='<div class="lm-eng-txt">محرّك التسميع الصوتي غير منزَّل (~74MB) — يعمل على جهازك ومجاني دائماً.</div><button class="lm-eng-btn" onclick="_qaConsentAsk()">⬇ تنزيل</button>'+_qaDisclaimerHtml();}
+  else{m='idle';h=_qaDisclaimerHtml();}
+  if(prog&&b._m===m)return;
+  b._m=m;b.innerHTML=h;
+}
+function _qaConsentAsk(){
+  _cmShow('تنزيل محرّك التسميع (~74MB)',[],function(){lsSet('qaConsent','1');QA.err='';_qaEnsure();},'تنزيل');
+  var f=document.getElementById('cmFields');if(!f)return;
+  var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection,cell=false;
+  try{cell=!!c&&(c.type==='cellular'||/^(slow-2g|2g|3g)$/.test(c.effectiveType||''));}catch(e){}
+  f.innerHTML='<div class="qa-consent">'
+    +'<p>يُنزَّل مرة واحدة من GitHub ويعمل بعدها على جهازك دون إنترنت؛ صوتك لا يغادر جهازك.</p>'
+    +'<p>الميزة مجانية دائماً — لا اشتراك ولا إعلانات.</p>'
+    +(cell?'<p class="qa-cell">أنت على بيانات الجوال — يُفضَّل Wi-Fi</p>':'')
+    +_qaDisclaimerHtml(false,true)+'</div>';
+}
+/* عارض الرخصة (نصّها مضمَّن في الصفحة — يعمل دون إنترنت) */
+function _qaShowLicense(back){
+  _cmShow('رخصة نموذج التسميع (NPL-1.2)',[],back?function(){setTimeout(_qaConsentAsk,0);}:null,back?'رجوع':'إغلاق');
+  var f=document.getElementById('cmFields');if(!f)return;
+  var tp=document.getElementById('qaLicTpl'),txt=tp?(tp.content?tp.content.textContent:tp.textContent):'';
+  f.innerHTML='<p class="qa-lic-sum">النموذج وملفاته مرخّصة بـNPL-1.2: مجانية دائماً، لا تُباع ولا توضع خلف دفع أو اشتراك أو إعلانات.</p>'
+    +'<p class="qa-lic-sum">'+QA_DISCLAIMER+'</p>';
+  /* للعرض فقط: أسطر كل فقرة تُضمّ (النص الأصلي كما هو في القالب وفي الملف المنزَّل) */
+  var paras=String(txt).replace(/\r/g,'').split(/\n\s*\n/),shown=[];
+  for(var i=0;i<paras.length;i++){var pl=paras[i].split('\n'),o=[];for(var j=0;j<pl.length;j++){var ln=pl[j].replace(/^\s+|\s+$/g,'');if(ln)o.push(ln);}if(o.length)shown.push(o.join(' '));}
+  var pre=document.createElement('pre');pre.setAttribute('dir','ltr');pre.setAttribute('data-noi18n','');
+  pre.style.cssText='white-space:pre-wrap;font-family:inherit;font-size:11.5px;max-height:55vh;overflow:auto;text-align:left;margin:0 0 12px;line-height:1.55;color:var(--muted)';
+  pre.textContent=shown.join('\n\n');f.appendChild(pre);
+}
+
 /* ══════════ Salah-Vision: مزوّد الوضعيات MediaPipe Pose Landmarker ══════════
    المرحلة ٠ — خلف «🧪 اختبار الرؤية» فقط، بالتوازي مع MoveNet للمقارنة (بوّابة إثبات).
    يعطي 33 نقطة + world landmarks ثلاثية الأبعاد بالمتر (أصلها منتصف الوركين) +
@@ -4261,7 +5299,7 @@ function lmRender(){
     var _exact=(G===W+_mk+_hz+1),_off=_hz;
     for(var j=0;j<W;j++){
       var grep=_exact?Math.min(G-1,j+_off):(W?Math.min(G-1,Math.floor(j*G/Math.max(W,1))):0);
-      LM.words.push({s:ay.s,a:ay.a,norm:_lmNorm(twords[j]),raw:twords[j],spanId:'lmg'+(base+(grep<0?0:grep))});
+      LM.words.push({s:ay.s,a:ay.a,w:j,norm:_lmNorm(twords[j]),raw:twords[j],spanId:'lmg'+(base+(grep<0?0:grep))});
       if(_exact){var _m=twords[j].match(_re);_off+=_m?_m.length:0;}
     }
     gid+=G;
@@ -4287,7 +5325,7 @@ function lmRender(){
   var sel=document.getElementById('lmSurah');if(sel&&data.length)sel.value=data[0].s;
 }
 function _lmSpan(i){var w=LM.words[i];return w?document.getElementById(w.spanId):null;}
-function _lmSetClass(i,cls){var el=_lmSpan(i);if(!el)return;el.classList.remove('active','ok','tent','err','miss');if(cls)el.classList.add(cls);}
+function _lmSetClass(i,cls){var el=_lmSpan(i);if(!el)return;el.classList.remove('active','ok','tent','err','miss','dbt','unc');if(cls)el.classList.add(cls);}
 function _lmActivate(i){
   if(LM.active!=null&&LM.active!==i){var pe=_lmSpan(LM.active);if(pe)pe.classList.remove('active');}
   var el=_lmSpan(i);if(el){el.classList.add('active');
@@ -4351,6 +5389,33 @@ function lmStart(){
      المتأخر كان يهدم الجلسة الجديدة: يزيل مستمعيها ويحرّر مايكها) ولا بدء مزدوج */
   if(LM.stopping){if(st)st.textContent='⏳ إنهاء الجلسة السابقة… لحظة ثم اضغط مجدداً';return;}
   if(LM.starting)return;
+  /* اختيار المحرّك: الصوتي على الجهاز إن جهز، وإلا البديل (whisper) بشفافية — بلا أي شرط اشتراك */
+  if(_qaUsable()){_lmStartQA();return;}
+  if(QA.loading){
+    if(WN.ready){_lmStartWN();return;}   /* البديل جاهز: لا انتظار — الجديد يُجهَّز في الخلفية */
+    if(st)st.textContent='⏳ يُجهَّز محرّك التسميع… '+(QA.dl.phase==='download'?ar(_qaPct())+'٪':'');
+    return;
+  }
+  if(QA.avail&&!QA.fatal){
+    if(lsGet('qaConsent')!=='1'){if(WN.ready){_lmStartWN();return;}_qaConsentAsk();return;}
+    /* بموافقة لكنه غير جاهز (فشل تنزيل/تحميل سابق أو فحص جارٍ): البديل إن جهز (ويُحدَّث الصندوق: لا «يُجهَّز البديل» قديم) */
+    if(WN.ready){_qaRenderBox();_lmStartWN();return;}
+    if(QA.err&&!QA.checking){
+      /* الملفات سليمة وتعثّر التحميل فقط: إعادته رخيصة (لا تنزيل) */
+      if(QA.verified){if(st)st.textContent='⏳ يُجهَّز محرّك التسميع…';QA.err='';_qaLoad();return;}
+      /* فشل التنزيل: لا يُعاد 74MB بنقرة المايك — الرسالة الفعلية وزرّ «↻»؛ وبعد فشلين شبكيين: البديل صراحةً */
+      if(_qaDlBlocked()&&!WN.fatal){if(QA.wnChosen||WN.loading){_lmStartWN();return;}_qaOfferWN();return;}
+      if(st)st.textContent=_qaErrHint();
+      _qaRenderBox();return;
+    }
+    if(st)st.textContent='⏳ يُجهَّز محرّك التسميع…';
+    _qaInit(true);return;
+  }
+  _lmStartWN();
+}
+/* جلسة المحرّك البديل (whisper.cpp الأصلي + القاضي الهجين) — كما كانت */
+function _lmStartWN(){
+  var st=document.getElementById('lmStatus');
   LM._bgStop=false; /* علَم «أُوقف بالخلفية» لا يتسرّب إلى جلسة جديدة */
   /* المحرّك أصلي حصراً (whisper.cpp/GGUF) — لا يبدأ قبل جاهزية الموديل */
   if(!WN.ready){
@@ -4375,12 +5440,15 @@ function lmStart(){
       if(typeof qpClose==='function'){var _qp=document.getElementById('qplayer');if(_qp&&_qp.classList.contains('on'))qpClose();}
     }catch(e){}
     LM.rec=true;LM._sess=(LM._sess||0)+1; /* رمز الجلسة: إنهاء أصلي متأخر لجلسة سابقة لا يمسّ هذه */
+    LM.engine='wn';
     LM.cursor=0;LM.active=null;LM._winMs=[];LM._heard='';LM._wins=[];LM._t0=Date.now();
     LM._nV=0;LM._nW=0;LM._vkFirstMs=0;LM._vkHeard='';
     for(var i=0;i<LM.words.length;i++)_lmSetClass(i,null);
     _micLblSet(true);
     var mic=document.getElementById('lmMic');if(mic)mic.classList.add('rec');
     if(st)st.textContent=VK.ready?'🎙 يستمع (فوري)…':'🎙 يستمع…';
+    /* جلسة بديلة والمحرّك الصوتي متاح على هذا الجهاز (يُجهَّز أو بلا موافقة بعد) */
+    if(st&&QA.avail&&!QA.fatal)st.textContent=QA.loading?'🎙 يستمع… (المحرّك البديل — الجديد يُجهَّز)':'🎙 يستمع (المحرّك البديل)…';
     try{rakWakeLock(true);}catch(e){}
     try{var _rl=P.removeAllListeners();if(_rl&&_rl.catch)_rl.catch(function(){});}catch(e){}
     try{P.addListener('partial',lmOnPartial);}catch(e){}
@@ -4432,6 +5500,7 @@ function lmStart(){
   }else{_begin();}
 }
 function lmStop(){
+  if(LM.engine==='qa'){_lmStopQA();return;}   /* جلسة المحرّك الصوتي */
   if(!LM.rec)return;LM.rec=false;VK.listening=false;
   LM.stopping=true;
   var _stopPage=LM.page,_sid=LM._sess,_bg=!!LM._bgStop;LM._bgStop=false;
@@ -4467,9 +5536,21 @@ function lmStop(){
    مع الهجين: الحالات من سجل القاضي حصراً (لا يُلوَّن متخطّى صحيحاً) */
 function lmFinish(bg){
   var _bg=!!bg; /* أُوقفت الجلسة بمغادرة التطبيق: ملاحظة واضحة ولا شارات/سلسلة */
-  var N=LM.words.length,ok=0,miss=0,err=0;
-  var hbActive=typeof HB!=='undefined'&&HB.wordState&&Object.keys(HB.wordState).length>0;
+  var N=LM.words.length,ok=0,miss=0,err=0,dbt=0,unc=0;
+  /* المحرّك الصوتي: الحالات من المحاذي حصراً — «للمراجعة» (فرق طفيف) تُحسب مقروءة وتبقى بخطّ منقّط ذهبي؛
+     «للتحقّق» (سُمع ما يخالف ولم يُحسم) لا تُحسب مقروءة ولا تُمنح معها شارة «حافظ» */
+  var qaActive=LM.engine==='qa'&&QA.ws&&Object.keys(QA.ws).length>0;
+  var hbActive=LM.engine!=='qa'&&typeof HB!=='undefined'&&HB.wordState&&Object.keys(HB.wordState).length>0;
   for(var i=0;i<N;i++){
+    if(qaActive){
+      var qs=QA.ws[i];
+      if(qs==='confirmed'){_lmSetClass(i,'ok');ok++;}
+      else if(qs==='doubt'){_lmSetClass(i,'ok');var _de=_lmSpan(i);if(_de)_de.classList.add('dbt');ok++;dbt++;}
+      else if(qs==='wrong'){_lmSetClass(i,'err');err++;}
+      else if(qs==='unclear'){_lmSetClass(i,'unc');unc++;}
+      else{_lmSetClass(i,'miss');miss++;}
+      continue;
+    }
     if(hbActive){
       var ws=HB.wordState[i];
       if(ws==='confirmed'){_lmSetClass(i,'ok');ok++;}
@@ -4485,9 +5566,9 @@ function lmFinish(bg){
   /* شارات التسميع: «حافظ» = كل الكلمات محسومة بلا خطأ · «مُسمِّع» = كلها مؤكّدة ·
      «متقن الجزء» = ٢٠ صفحة بتثبيت ≥٩٠٪ · «ورد التسميع» = ٧ أيام متتالية */
   if(!_bg)try{
-    if(N>0&&miss===0&&err===0)checkBadge('memorize_done');
-    if(hbActive&&N>0){
-      var _conf=0;for(var _ci=0;_ci<N;_ci++)if(HB.wordState[_ci]==='confirmed')_conf++;
+    if(N>0&&miss===0&&err===0&&unc===0)checkBadge('memorize_done');
+    if((hbActive||qaActive)&&N>0){
+      var _conf=0;for(var _ci=0;_ci<N;_ci++)if((qaActive?QA.ws[_ci]:HB.wordState[_ci])==='confirmed')_conf++;
       if(_conf===N)checkBadge('tasmee_page_full');
       if(_conf/N>=0.9){
         var _tp=(+lsGet('tasmee_pages_90')||0)+1;lsSet('tasmee_pages_90',String(_tp));
@@ -4508,10 +5589,13 @@ function lmFinish(bg){
   }catch(e){}
   var pct=N?Math.round(ok/N*100):0;
   var st=document.getElementById('lmStatus');
-  if(st)st.innerHTML=(miss===0&&err===0)?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(err?' · '+ar(err)+' خطأ':'')+(miss?' · '+ar(miss)+' لم تُسمع':'');
+  if(st)st.innerHTML=(miss===0&&err===0&&unc===0)?'<span style="color:var(--green)">✓ أتممت الصفحة — ما شاء الله ('+ar(pct)+'٪)</span>':'أُكمل '+ar(ok)+'/'+ar(N)+' كلمة'+(err?' · '+ar(err)+' خطأ':'')+(miss?' · '+ar(miss)+' لم تُسمع':'');
+  if(unc>0&&st)st.innerHTML+=' · '+ar(unc)+' للتحقّق';
+  if(dbt>0&&st)st.innerHTML+=' · '+ar(dbt)+' للمراجعة';
   if(_bg&&st)st.innerHTML+=' — <span style="color:var(--gold)">أُوقف عند مغادرة التطبيق (لا يُحتسب)</span>';
   var res=document.getElementById('lmResult');
-  if(res)res.innerHTML=_lmDiagHtml();
+  /* التنبيه بعد كل جلسة: التقييم الآلي للمراجعة الذاتية لا حكماً (ورابط الرخصة مع المحرّك الصوتي) */
+  if(res)res.innerHTML=_qaDisclaimerHtml(LM.engine!=='qa')+_lmDiagHtml();
 }
 function lmToggleHide(){
   LM.hidden=!LM.hidden;
@@ -4521,14 +5605,14 @@ function lmToggleHide(){
 /* تغيير الصفحة أثناء الجلسة: أوقفها أولاً (كالتقليب) واهدم التصريف — حالة القاضي
    مفهرسة بكلمات الصفحة القديمة فلا تُرسم على الجديدة؛ _fin يتجاهل الجلسة لتغيّر الصفحة */
 function lmPickSurah(s){
-  var m=_lmSurahFirstPages(),p=m[+s]||1;if(LM.rec){lmStop();_hbTeardown();}LM.page=p;lmRender();
+  var m=_lmSurahFirstPages(),p=m[+s]||1;if(LM.rec){lmStop();_hbTeardown();_qaDetach();}LM.page=p;lmRender();
 }
 function lmGoPage(){
   var v=parseInt((document.getElementById('lmPageNum')||{}).value,10);
   if(!(v>=1&&v<=604)){var st=document.getElementById('lmStatus');if(st)st.textContent='رقم صفحة غير صحيح (1–604)';return;}
-  if(LM.rec){lmStop();_hbTeardown();}LM.page=v;lmRender();
+  if(LM.rec){lmStop();_hbTeardown();_qaDetach();}LM.page=v;lmRender();
 }
-function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec){lmStop();_hbTeardown();}LM.page=np;lmRender();}
+function lmFlipPage(d){var np=LM.page+d;if(np<1||np>604)return;if(LM.rec){lmStop();_hbTeardown();_qaDetach();}LM.page=np;lmRender();}
 /* «تفاصيل تقنية» للمصحف الحي */
 function _lmDiagText(){
   var target=LM.words.map(function(w){return w.raw;}).join(' ');
@@ -4552,6 +5636,8 @@ function _lmDiagText(){
     'whisper سمع (آخر نافذة راجعة، بعد التطبيع): '+(LM._heard||'—'),
     'الطريقة: نافذة نامية JS — إرسال عند الارتساء (صمت 0.35ث بعد صوت ≥0.8ث) أو السقف 5ث (بتداخل 0.5ث، نطاق ثقة tiny) · مخزن دائري 12ث · تعرّف حرّ بلا prompt',
     LM._captureErr?('⚠ سبب فشل الالتقاط: '+LM._captureErr):''];
+  /* قسم المحرّك الصوتي أولاً (بعد العنوان)، ثم أقسام البديل whisper كما كانت */
+  try{L.splice.apply(L,[1,0].concat(_qaDiagLines()));}catch(e){}
   /* ٠ — تتبّع مقياس العينات عبر السلسلة كاملة (٣ نقاط) + اتساق العتبات */
   (function(){
     var _vs=VK.stats||{},hd=HB.diag||{};
@@ -4679,7 +5765,8 @@ function _lmDiagHtml(){
 function initMemorize(){
   try{_engIdleCancel();}catch(e){} /* عاد للتسميع — ألغِ مؤقّت تحرير الذاكرة */
   var _mb=document.getElementById('lmBuild');if(_mb)_mb.textContent='build '+_buildStamp();
-  try{_wnEnsure();}catch(e){} /* المحرّك الأصلي: تنزيل/تحميل مرة (شفاف بعد أي تحرير) */
+  /* المحرّك الصوتي على الجهاز أولاً (يقرّر هو متى يُجهَّز البديل whisper: غير متاح/فشل/ملفه محفوظ) */
+  try{_qaInit();}catch(e){try{_wnEnsure();}catch(x){}} /* المحرّك الأصلي: تنزيل/تحميل مرة (شفاف بعد أي تحرير) */
   lmLoadPages(function(){
     var sel=document.getElementById('lmSurah');
     if(sel&&!sel.options.length){
@@ -8484,8 +9571,48 @@ function _setupRun(){
   });
   if(_svModelDone){_svMaybeSelfTest();_svCheckDone();}
 }
-/* تهيئة أولى أصلية: تنزيل/تحميل GGUF عبر WhisperNative + مرجع العفاسي — لا WASM */
+/* تهيئة أولى أصلية: المحرّك الصوتي على الجهاز إن توفّر مكوّنه، وإلا GGUF (whisper) كما كان */
 function _setupRunNative(){
+  if(_qaPlug()&&!QA.fatal){_setupRunQA();return;}
+  _setupRunWN();
+}
+/* المحرّك الصوتي: الضغط على «تحميل وبدء» = موافقة صريحة على التنزيل (~74MB، يُستأنف) */
+function _setupRunQA(){
+  var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='تحميل محرّك التسميع (~74MB)…';
+  W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];try{_loadW2Ref(function(){});}catch(e){}
+  lsSet('qaConsent','1');QA.err='';QA.cancelled=false;
+  try{_qaInit(true);}catch(e){}
+  var t0=Date.now(),lastDone=-1,lastMove=Date.now();
+  if(_svNativeIv)clearInterval(_svNativeIv);
+  _svNativeIv=setInterval(function(){
+    var l=document.getElementById('sv_lbl'),fl=document.getElementById('sv_fill'),ss=document.getElementById('sv_stats');
+    if(QA.fatal){clearInterval(_svNativeIv);_svNativeIv=null;_setupRunWN();return;}   /* غير مدعوم هنا: GGUF كما كان */
+    if(QA.ready){
+      clearInterval(_svNativeIv);_svNativeIv=null;
+      _svModelDone=_svRefDone=_svTestDone=true;
+      _svDiagText='المحرّك: على الجهاز · خيوط '+(QA.diag.threads||0)+' · تحميل '+(QA.diag.loadMs||0)+'ms';
+      var prog=document.getElementById('sv_progress');if(prog)prog.style.display='none';
+      var done=document.getElementById('sv_done');if(done)done.style.display='';
+      var _dt=document.getElementById('sv_done_title');if(_dt)_dt.textContent='محرّك التسميع جاهز ✓';
+      var _dd=document.getElementById('sv_diag');if(_dd)_dd.textContent=_svDiagText;
+      return;
+    }
+    if(QA.loading){
+      var pct=_qaPct();
+      if(QA.dl.done!==lastDone){lastDone=QA.dl.done;lastMove=Date.now();}
+      if(l)l.textContent=QA.dl.phase==='download'?('تنزيل محرّك التسميع… '+ar(pct)+'٪'):(QA.dl.phase==='verify'?'التحقّق من الملفات…':'تحميل محرّك التسميع…');
+      if(fl)fl.style.width=(QA.dl.phase==='download'?pct:100)+'%';
+      if(ss)ss.textContent=QA.dl.total>0?(_svFmt(QA.dl.done)+' / '+_svFmt(QA.dl.total)):'';
+      /* لا تقدّم 90ث: أظهر خطأً قابلاً للتخطّي (يستمر التنزيل ويُستأنف عند فتح التسميع) */
+      if(Date.now()-lastMove>90000){clearInterval(_svNativeIv);_svNativeIv=null;_svShowErr('طال التنزيل — تابع، وسيُستأنف عند فتح التسميع');}
+      return;
+    }
+    if(QA.err&&!QA.checking){clearInterval(_svNativeIv);_svNativeIv=null;_svShowErr(QA.err+(QA.dlFails>=2?' — يمكنك المتابعة وإعادة المحاولة من شاشة التسميع':' — يمكنك المتابعة وسيُعاد عند فتح التسميع'));return;}
+    if(Date.now()-t0>30000&&!QA.checking){clearInterval(_svNativeIv);_svNativeIv=null;_svShowErr('تعذّر بدء التحميل — تابع وسيُعاد عند فتح التسميع');}
+  },500);
+}
+/* GGUF عبر WhisperNative + مرجع العفاسي — لا WASM (المسار السابق كما هو) */
+function _setupRunWN(){
   var lbl=document.getElementById('sv_lbl');if(lbl)lbl.textContent='تحميل المحرّك الأصلي (~43MB)…';
   /* مرجع العفاسي لحزمة الذهب — في الخلفية بلا إعاقة */
   W2_REF=null;W2_REF_LOADING=false;W2_REF_CBS=[];try{_loadW2Ref(function(){});}catch(e){}
@@ -8517,6 +9644,7 @@ function _setupRunNative(){
 }
 var _svNativeIv=null;
 /* ===== تسلسل البداية: سبلاش → شروط → بريميوم → دخول → التطبيق ===== */
+/* التسميع (ومحرّكه) خارج أي اشتراك أو تجربة أو إعلان — شرط رخصة NPL-1.2 */
 var PREMIUM_ENABLED=false; /* اضبطه true لإعادة تفعيل شاشة الاشتراك */
 if(!PREMIUM_ENABLED){var _ts=document.getElementById('termsSub');if(_ts)_ts.style.display='none';} /* لا اشتراك → أخفِ فقرته من الشروط */
 /* سياسة الخصوصية: في التطبيق الأصلي تُفتح بالمتصفّح الخارجي — privacy.html المحلي يستبدل
@@ -8638,6 +9766,12 @@ function enterApp(){
   if(!lsGet('setup_done')){
     /* Reset setup UI to invite phase before showing */
     ['sv_invite','sv_progress','sv_done','sv_err'].forEach(function(i){var e=document.getElementById(i);if(e)e.style.display=(i==='sv_invite'?'':'none');});
+    /* أندرويد مع المحرّك الصوتي: الدعوة تذكره (مع التنبيه ورابط الرخصة) بدل GGUF */
+    try{if(_isAndroidNative()&&_qaPlug()){
+      var _l1=document.getElementById('sv_li_eng');if(_l1)_l1.innerHTML='محرّك التسميع الصوتي (على الجهاز)<span class="sv-size">~74 MB</span>';
+      var _l2=document.getElementById('sv_li_ref');if(_l2)_l2.innerHTML='مرجع العفاسي لمطابقة التسميع<span class="sv-size">~1 MB</span>';
+      var _qd=document.getElementById('sv_qa_disc');if(_qd){_qd.innerHTML=_qaDisclaimerHtml();_qd.style.display='';}
+    }}catch(e){}
     showOv('setup');return;
   }
   showOv(null);
@@ -9784,6 +10918,7 @@ function _fmtBytes(b){if(b==null||b<0)return '—';return b>=1048576?(b/1048576)
 var _settRefetchId=null;
 function _settModelDl(id,has){
   if(id==='vosk')lsSet('vkConsent','1');
+  if(id==='qasr')lsSet('qaConsent','1');
   if(!has){_settRedownloadModel(id);return;}
   _settRefetchId=id;_settDeleteModel(id);
 }
@@ -9793,17 +10928,21 @@ function _renderStorageSett(){
     host.innerHTML='<div style="font-size:13px;color:var(--muted)">إدارة النماذج متاحة في تطبيق أندرويد.</div>';return;
   }
   var P=window.Capacitor.Plugins,FS=P.Filesystem,WNP=P.WhisperNative;
+  /* محرّك التسميع الصوتي أولاً (مجاني دائماً — NPL-1.2)؛ whisper صار المحرّك البديل */
+  var QP=_qaPlug();
   var models=[
-    {id:'gguf',name:'محرّك التدقيق (whisper)',size:null,loaded:function(){return WN.ready;}},
+    {id:'qasr',name:'محرّك التسميع الصوتي',size:null,loaded:function(){return QA.ready;},off:!QP},
+    {id:'gguf',name:'المحرّك البديل (whisper)',size:null,loaded:function(){return WN.ready;}},
     {id:'vosk',name:'المحرّك الفوري (Vosk)',size:null,loaded:function(){return VK.ready;},off:!VK_ENABLED},
     {id:'pose',name:'نموذج الكاميرا (الوضعيات)',size:null,loaded:function(){return typeof SWC!=='undefined'&&SWC.ready;}}
   ];
-  var left=3;
+  var left=4;
   function done(){
     left--;if(left>0)return;
     if(_settRefetchId){var rf=_settRefetchId;_settRefetchId=null;
       for(var i=0;i<models.length;i++)if(models[i].id===rf&&!(models[i].size>0))_settRedownloadModel(rf);}
-    if(WN.ready||VK.ready){try{_engIdleArmIfAway();}catch(e){}} /* محمّل من الإعدادات → لا يبقى مقيماً بلا استخدام */
+    if(WN.ready||VK.ready||QA.ready){try{_engIdleArmIfAway();}catch(e){}} /* محمّل من الإعدادات → لا يبقى مقيماً بلا استخدام */
+    var qaRow=!(models[0].off&&!(models[0].size>0));
     host.innerHTML=models.filter(function(m){return !(m.off&&!(m.size>0));}).map(function(m){
       var has=m.size!=null&&m.size>0;
       return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
@@ -9812,16 +10951,30 @@ function _renderStorageSett(){
         +(has?'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px;border-color:rgba(224,112,95,.5);color:var(--red)" onclick="_settDeleteModel(\''+m.id+'\')">حذف</button>':'')
         +(m.off?'':'<button class="madhhab-btn" style="flex:none;padding:7px 12px;font-size:12.5px" onclick="_settModelDl(\''+m.id+'\','+(has?1:0)+')">'+(has?'إعادة تنزيل':'تنزيل')+'</button>')
         +'</div>';
-    }).join('')+'<p class="note" style="margin:8px 0 0">النماذج تعمل على جهازك — حذفها يحرّر المساحة ويُعاد تنزيلها عند الحاجة.</p>';
+    }).join('')+'<p class="note" style="margin:8px 0 0">النماذج تعمل على جهازك — حذفها يحرّر المساحة ويُعاد تنزيلها عند الحاجة.</p>'
+      +(qaRow?_qaDisclaimerHtml().replace('<p class="lm-disc">','<p class="note lm-disc" style="margin:6px 0 0;text-align:start">'):'');
   }
-  FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(s){models[0].size=s.size;}).catch(function(){models[0].size=-1;}).then(done,done);
-  FS.stat({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(s){models[2].size=s.size;}).catch(function(){models[2].size=-1;}).then(done,done);
-  if(WNP&&WNP.voskDiskUsage)WNP.voskDiskUsage().then(function(r){models[1].size=(r&&r.exists)?(r.bytes||0):-1;}).catch(function(){models[1].size=-1;}).then(done,done);
-  else{models[1].size=-1;done();}
+  /* الحجم من المكوّن الأصلي (الملفات المتحقَّق منها) — غيابه أو غياب مكتبته يخفي الصف */
+  if(QP&&QP.status)QP.status({files:QA_FILES}).then(function(r){if(!r||!r.lib){models[0].off=true;models[0].size=-1;return;}models[0].size=r.bytes>0?r.bytes:-1;}).catch(function(){models[0].off=true;models[0].size=-1;}).then(done,done);
+  else{models[0].size=-1;done();}
+  FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(s){models[1].size=s.size;}).catch(function(){models[1].size=-1;}).then(done,done);
+  FS.stat({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(s){models[3].size=s.size;}).catch(function(){models[3].size=-1;}).then(done,done);
+  if(WNP&&WNP.voskDiskUsage)WNP.voskDiskUsage().then(function(r){models[2].size=(r&&r.exists)?(r.bytes||0):-1;}).catch(function(){models[2].size=-1;}).then(done,done);
+  else{models[2].size=-1;done();}
 }
 /* الحذف: حرّر المحرّك من الذاكرة أولاً إن كان محمّلاً، ثم احذف الملفات */
 function _settDeleteModel(id){
   var P=window.Capacitor&&window.Capacitor.Plugins,FS=P&&P.Filesystem,WNP=P&&P.WhisperNative;
+  if(id==='qasr'){
+    var Q=_qaPlug();if(!Q||!Q.deleteModel)return;
+    if(LM.rec&&LM.engine==='qa'){try{lmStop();}catch(e){}}
+    Q.deleteModel().then(function(){
+      QA.ready=false;QA.verified=false;QA.loading=false;QA.phon=null;QA.view=null;QA.lex=null;QA.bg=null;QA.err='';QA.dl.phase='';
+      lsSet('qaConsent','0');
+      toast('حُذف محرّك التسميع ✓','success');_renderStorageSett();_qaRenderBox();
+    }).catch(function(e){toast('تعذّر الحذف: '+String(e&&e.message||e).slice(0,50),'error');_renderStorageSett();});
+    return;
+  }
   if(!FS)return;
   function resetWN(){WN.ready=false;WN.tried=false;WN.loading=false;WN.attempts=0;WN.exhausted=false;}
   function resetVK(){VK.ready=false;VK.tried=false;VK.loading=false;}
@@ -9848,7 +11001,10 @@ function _settDeleteModel(id){
   }
 }
 function _settRedownloadModel(id){
-  if(id==='gguf'){toast('بدأ تنزيل محرّك التدقيق (~43MB)…');try{_wnEnsure(true);}catch(e){}
+  if(id==='qasr'){lsSet('qaConsent','1');toast('بدأ تنزيل محرّك التسميع (~74MB)…');
+    QA.err='';try{_qaEnsure();}catch(e){}
+    var iq=setInterval(function(){if(!QA.loading){clearInterval(iq);_renderStorageSett();}},1500);
+  }else if(id==='gguf'){toast('بدأ تنزيل محرّك التدقيق (~43MB)…');try{_wnEnsure(true);}catch(e){}
     var iv=setInterval(function(){if(!WN.loading){clearInterval(iv);_renderStorageSett();}},1500);
   }else if(id==='vosk'){toast('بدأ تنزيل المحرّك الفوري (~318MB)…');
     try{_vkEnsure(function(){_renderStorageSett();});}catch(e){}
@@ -9881,14 +11037,17 @@ var HELP_GUIDES={
     steps:[
       'اختر السورة أو اكتب رقم الصفحة ثم «اذهب» — تظهر صفحة المصحف كاملة.',
       'اضغط «🎙 استمع» واقرأ بوتيرتك الطبيعية — الكلمات تتلوّن أثناء قراءتك.',
-      'الألوان: <b>أخضر باهت</b> = سُمعت مبدئياً (الطبقة الفورية) · <b>أخضر ثابت</b> = مؤكّدة (طبقة التدقيق) · <b>أحمر</b> = خطأ، واضغط الكلمة الحمراء ليظهر ما سُمع مكانها · <b>رمادي</b> = تُجوِّزت دون حكم.',
+      'الألوان: <b>أخضر باهت</b> = سُمعت مبدئياً (الطبقة الفورية) · <b>أخضر ثابت</b> = مؤكّدة (طبقة التدقيق) · <b>أحمر</b> = خطأ، واضغط الكلمة الحمراء ليظهر ما سُمع مكانها · <b>رمادي</b> = تُجوِّزت دون حكم. مع المحرّك الصوتي: <b>خط منقّط ذهبي</b> = كلمة للمراجعة (سُمعت بفرق طفيف أو بحرف مختلف — اضغطها لترى ما سُمع؛ ليست خطأً بالضرورة). <b>بنفسجي بخط متقطّع</b> = للتحقّق: سُمع ما يخالف المكتوب ولم يُحسم أنه خطأ — اضغطها لترى ما سُمع، ولا تُحسب مقروءة.',
       'التأكيد النهائي يلحق قراءتك بثانية إلى ثانيتين — هذا طبيعي وليس بطئاً.',
       'فواتح السور (الم، طه، يس…) تُحتسب تلقائياً عند قراءتها ولا تُعدّ خطأً أبداً.',
       'اضغط «⏹ إيقاف» عند الانتهاء ليظهر الحكم النهائي: الأخضر مثبت، والرمادي لم يُسمع (لا يُحسب خطأً).'
     ],tips:[
       'التنزيل الأول مرة واحدة: نموذج التدقيق (~43MB) — بعدها يعمل التسميع دون إنترنت بالكامل، وصوتك لا يغادر جهازك.',
       'لأفضل نتيجة: مكان هادئ، والجوال قريب منك، واقرأ بوتيرة طبيعية — لا داعي للإبطاء.',
-      'زر 🙈 يخفي النص لاختبار الحفظ: لا يظهر إلا ما قرأتَه فعلاً.'
+      'زر 🙈 يخفي النص لاختبار الحفظ: لا يظهر إلا ما قرأتَه فعلاً.',
+      'على أندرويد: محرّك التسميع الصوتي (~74MB) يُنزَّل مرة واحدة من GitHub بموافقتك، ثم يعمل على جهازك دون إنترنت؛ وإن تعذّر يُستخدم المحرّك البديل تلقائياً.',
+      QA_DISCLAIMER,
+      'محرّك التسميع مجاني دائماً ومرخّص بـNPL-1.2 — لا يُباع ولا يوضع خلف اشتراك أو إعلانات.'
     ]},
   qibla:{title:'كيف تجد القبلة',
     steps:[
@@ -11159,6 +12318,156 @@ function _fbMerge(r){
   </div>
 </div>
 
+<!-- رخصة نموذج التسميع (NPL-1.2) — النص الكامل مضمَّن ليُعرض دون إنترنت (_qaShowLicense) -->
+<template id="qaLicTpl">Quran-Lab No-Profit License
+Version 1.2 (NPL-1.2)
+
+Copyright (c) 2026 Muno459 / Quran-Lab
+
+This work, including its source code, specification documents, data
+artifacts, token lexicon, generated labels, model weights, and any file
+distributed alongside it (the "Work"), is made available under the following
+terms. By downloading, using, running, copying, or adapting the Work, you agree
+to these terms. If you do not agree, you may not use the Work.
+
+Changes from Version 1.1: the condition is now stated as attaching to the Work
+itself rather than to the user or their organisation. Charging for the Work, for
+access to it, or for any feature it powers remains prohibited. Earning a living
+by your own labour alongside the Work is not restricted, and was never intended
+to be. Section 13 states plainly that this License is not a ruling on anyone's
+livelihood. Version 1.1 removed the attribution requirement; that remains so.
+
+1. DEFINITIONS
+
+   "You" means the individual or entity exercising rights under this License.
+
+   "Derivative" means any work based on the Work, including any
+   modification, fork, port, translation, format conversion, or re-export,
+   any dataset, lexicon, label set, or artifact produced from the Work,
+   any machine-learning model trained, fine-tuned, aligned, or evaluated
+   using the Work or its outputs, and any model, file, or artifact
+   produced from the Work or from another Derivative.
+
+   "Charge" means requiring or accepting payment of any kind for the Work, for
+   access to the Work, or for any feature, capability, or output that the Work
+   provides. This includes sale, licensing for a fee, rental, a paid product or
+   feature, a paid subscription, a paywall, a trial that later requires payment,
+   and advertising revenue earned on a feature the Work powers.
+
+   "Hosted Service" means making the Work or a Derivative available to other
+   people over a network, for example through an API, a web application, or an
+   inference endpoint.
+
+   "Local Use" means running the Work or a Derivative on your own device or
+   infrastructure, for yourself or for those you teach or serve directly,
+   without making it available to other people over a network.
+
+   "Cost Recovery" means charging the users of a Hosted Service no more than
+   the actual, documented, strictly necessary direct costs of operating that
+   service for those users, such as compute, storage, and bandwidth. Cost
+   Recovery does not include any margin, markup, profit, salaries beyond
+   direct operation, or overhead unrelated to running the service.
+
+2. GRANT
+
+   Subject to the conditions below, You are granted a worldwide, royalty-free,
+   non-exclusive, non-transferable license to use, run, copy, and create
+   Derivatives of the Work.
+
+3. THE WORK IS NOT FOR SALE
+
+   You may not Charge for the Work or for any Derivative. It may not be sold,
+   licensed for a fee, rented, or supplied for payment, and neither the Work nor
+   any feature it powers may be placed behind a payment, a subscription, a
+   paywall, or advertising.
+
+   This condition attaches to the Work, not to You. Your own labour remains your
+   own. A teacher may charge for teaching, a developer may draw a salary, and an
+   organisation may earn from products, services and activities that do not
+   include the Work or any feature it powers. What may never be charged for is
+   the Work itself, access to it, or a feature that depends on it.
+
+4. LOCAL USE
+
+   Local Use is always permitted and is never a Charge. Running the Work on your
+   own device, for yourself or for your own students, is not selling it, and
+   nothing in this License restricts payment You receive for your own teaching,
+   services, or labour, so long as the Work itself is not what is being sold and
+   no one is charged for access to it or to a feature it powers.
+
+5. HOSTED SERVICE: COST RECOVERY ONLY
+
+   You may operate the Work or a Derivative as a Hosted Service free of charge,
+   or on a Cost Recovery basis. You may recover from users no more than Cost
+   Recovery as defined above, and never any amount beyond it. On reasonable
+   request, You must be able to demonstrate that the amounts charged do not
+   exceed Cost Recovery.
+
+   Cost Recovery covers the cost of running the Work for a user. It does not
+   cover development time, effort, expertise, support, or a service fee, and no
+   user may be denied the Work for declining to pay.
+
+6. NO ATTRIBUTION REQUIRED
+
+   No credit, acknowledgement, or attribution to the author is required, in any
+   form, anywhere. You must retain this License file when you distribute the
+   Work or a Derivative (see Section 7), but you owe the author no mention.
+
+7. SHARE-ALIKE
+
+   You must distribute and make available every Derivative under this same
+   License, either Version 1.2 or any later version published by Quran-Lab, with
+   no additional or different terms. You may not sublicense the Work or a
+   Derivative under any other license, and You may not relicense a Derivative to
+   remove or weaken these terms.
+
+8. UPSTREAM COMPONENTS
+
+   Where this Work builds on upstream components released under other terms,
+   those components retain their own terms for their original portions, and
+   this License governs the Work as distributed in this repository. Nothing
+   here purports to revoke any rights granted by an upstream license for the
+   original upstream material. Any upstream components are identified in the
+   repository README.
+
+9. NO COMMERCIAL LICENSE
+
+   There is no license to Charge for this Work, and none will be granted. The
+   right to sell the Work, to place it or a feature it powers behind a payment,
+   or to charge for access to it, is not available for a fee, a revenue share, a
+   one-time payment, or any other arrangement.
+
+10. TERMINATION
+
+   Any use that breaches these terms immediately and automatically ends the
+   rights granted to You under this License.
+
+11. NO WARRANTY
+
+   The Work is provided "as is", without warranty of any kind, express or
+   implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose, and noninfringement. In no event shall
+   the authors or copyright holders be liable for any claim, damages, or other
+   liability arising from or in connection with the Work or its use.
+
+12. NOT LEGAL ADVICE
+
+   This License text sets out the author's terms of use for the Work. It is
+   not, and does not constitute, legal advice.
+
+13. NOT A RULING ON ANYONE'S LIVELIHOOD
+
+   This License states the conditions on which this Work is given. It is not a
+   ruling on anyone's livelihood, and nothing in it says that taking a wage for
+   teaching the Quran, or for any other lawful work, is impermissible.
+
+---
+
+This work is shared freely for the sake of Allah, so that it reaches as many
+people as possible and so that whoever builds on it does so as sadaqah.
+
+  وَما أَسأَلُكُم عَلَيهِ مِن أَجرٍ إِن أَجرِيَ إِلّا عَلىٰ رَبِّ العالَمِين
+</template>
 <div id="customModal">
   <div class="cm-sheet">
     <h3 id="cmTitle"></h3>

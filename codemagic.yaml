@@ -52,6 +52,22 @@ workflows:
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+      - name: Fetch sherpa-onnx AAR (on-device recitation recognizer)
+        script: |
+          set -eu
+          AAR_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar"
+          AAR_SHA="633c24321e06b1fe79feafa03ea16cbc0f8a286641e2da3559bac91bdb13bd96"
+          mkdir -p android/app/libs
+          AAR_OUT="android/app/libs/sherpa-onnx-1.13.8.aar"
+          curl -fL --retry 3 --retry-delay 5 -o "$AAR_OUT.tmp" "$AAR_URL"
+          GOT=$(shasum -a 256 "$AAR_OUT.tmp" | awk '{print $1}')
+          if [ "$GOT" != "$AAR_SHA" ]; then
+            echo "sherpa-onnx AAR sha256 mismatch: got $GOT expected $AAR_SHA"
+            rm -f "$AAR_OUT.tmp"
+            exit 1
+          fi
+          mv -f "$AAR_OUT.tmp" "$AAR_OUT"
+          echo "sherpa-onnx AAR verified: $AAR_SHA"
       - name: Build release AAB
         script: |
           cd android

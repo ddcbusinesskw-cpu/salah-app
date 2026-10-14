@@ -26,3 +26,6 @@ keystore.properties
 # Misc
 .DS_Store
 *.log
+
+# sherpa-onnx AAR — downloaded + sha256-verified by codemagic.yaml at build time
+android/app/libs/*.aar
