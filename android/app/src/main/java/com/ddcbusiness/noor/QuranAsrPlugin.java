@@ -1,15 +1,27 @@
 package com.ddcbusiness.noor;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.ActivityManager;
+import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
+import android.util.Base64;
 import android.util.Log;
+
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -40,12 +52,20 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -59,7 +79,10 @@ import java.util.zip.GZIPInputStream;
  *  صوتية قرآنية، بلا نموذج لغوي يصحّح الخطأ) → أحداث asr_partial تراكمية لكل مقطع كلام.
  *  يقطع المقاطع عند صمت ≥0.9ث (VAD متكيّف بأرضية ضجيج لا تصعد إلى مستوى الكلام). ينزّل ملفاته ويتحقّق من sha256
  *  لكل ملف ويكتبها بنقل ذرّي. فشل المكتبة الأصلية لا يكسر التطبيق — JS يسقط لمحرّك whisper.
- *  الصوت لا يغادر الجهاز ولا يُخزَّن. الميزة مجانية دائماً (شرط الترخيص). */
+ *  أحداث إضافية: asr_pause (توقّف القارئ ≥400ms) و hold («أعِد الآية»: لا يُغذّى صوت المكبّر للمُعرِّف).
+ *  الصوت لا يغادر الجهاز، ولا يُخزَّن إلا إذا فعّل المستخدم «سجّل جلساتي» (start({record})): ملف محلي في
+ *  noBackupFilesDir/recordings (خارج النسخ الاحتياطي)، لا يُرفع ولا يُزامَن، ولا يُشارَك إلا بـrecShare الصريح.
+ *  الميزة مجانية دائماً (شرط الترخيص). */
 @CapacitorPlugin(name = "QuranAsr", permissions = { @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone") })
 public class QuranAsrPlugin extends Plugin {
 
@@ -138,6 +161,41 @@ public class QuranAsrPlugin extends Plugin {
     private volatile int rawPeak = 0;
     private volatile double rawRms = 0, noiseFloor = VOICE_MIN;
     private int sentTok = 0;                         // رموز أُرسلت في المقطع الحالي (خيط الفكّ فقط)
+    private int uttEv = 0;                           // أحداث asr_partial أُرسلت في المقطع الحالي (خيط الفكّ فقط)
+
+    /* ── حدث asr_pause: صمت ≥400ms وآخر رمز أقدم من 400ms — مرّة لكل توقّف (لا يغيّر الفكّ ولا القطع) ── */
+    private static final int PAUSE_MS = 400, PAUSE_TOK_MS = 400;
+    private static final int BLOCK_MS = BLOCK * 1000 / SR;
+
+    /* ── «أعِد الآية» (hold): نوافذ بزمن الالتقاط (elapsedRealtime) لا يُغذّى صوتها ولا يُسجَّل ولا يتقدّم به
+       الخط الزمني. ما التُقط قبل النافذة يُفكّ عادياً (طابور متأخّر لا يُسقط كلام القارئ)، وما بعدها يُسقط
+       حتى ذيل HOLD_TAIL_MS (كمون مكبّر الصوت/الصدى) — فلا يدخل صوت التلاوة المُشغَّلة إلى المُعرِّف أبداً ── */
+    private static final int HOLD_TAIL_MS = 200;
+    private static final long HOLD_MAX_MS = 300000L;                 // حدّ أمان: نافذة منسيّة تُغلق بعد 5 دقائق (حدث asr_hold)
+    private final ArrayDeque<long[]> holdWins = new ArrayDeque<>();   // [t0, t1|MAX] (تحت holdWins)
+    private final ArrayList<long[]> recHolds = new ArrayList<>();     // [atMs على خط الجلسة, ms مُسقطة] (تحت holdWins)
+    private volatile boolean holding = false;
+
+    /* ── تسجيل الجلسة (اختياري، محلي فقط): noBackupFilesDir/recordings — خارج النسخ الاحتياطي بنظام التشغيل،
+       لا يُرفع ولا يُزامَن، ولا يغادر الجهاز إلا بـrecShare الصريح (نسخة مؤقّتة في cache/share تُحذف بعد ساعة) ── */
+    private static final Pattern REC_ID_RE = Pattern.compile("^[0-9]{8}-[0-9]{6}(-[0-9]{1,3})?$");
+    private static final long REC_MIN_FREE = 200L * MB;              // شرط بدء التسجيل
+    private static final long REC_STOP_FREE = 50L * MB;              // يتوقّف التسجيل (لا الجلسة) تحت هذا
+    private static final int REC_DEF_MIN = 60, REC_MAX_MIN = 120;
+    private static final long REC_PART_AGE_MS = 60000L;              // .wav.part ليس للجلسة الحيّة وأقدم من هذا = يتيم انهيار يُصلَح
+    private static final long SHARE_TTL_MS = 3600000L;               // نسخ المشاركة المؤقّتة
+    private static final int REC_READ_MAX = 2 * 1024 * 1024;         // recRead: أقصى قطعة
+    private static final long REC_SLICE_MAX_MS = 120000L;            // recSlice: أطول نافذة (≈3.8MB WAV)
+    private static final String[] REC_EXT = {".wav.part", ".m4a.part", ".wav", ".m4a"};
+    private final Object recFsLock = new Object();                   // كل تعديل لملفات مجلد التسجيلات
+    private volatile RecWriter recW = null;                          // كاتب الجلسة الحيّة (خيط الفكّ وحده يكتب)
+    private int recGen = -1;                                          // جيل جلسة recW (تحت sessLock)
+    private JSObject recRes = null;                                   // نتيجة آخر تسجيل أُنهي…
+    private int recResGen = -1;                                       // …وجيل جلسته (تحت sessLock)
+    private volatile String encId = null;                            // معرّف يُرمَّز الآن إلى M4A
+    private volatile boolean encCancel = false;                      // حُذف أثناء الترميز
+    private final ExecutorService recExec = single();                // الترميز وحده (قد يطول) — لا يحجب التنزيل/التحميل
+    private final ExecutorService recRdExec = single();              // القائمة/الحذف/القراءة/المشاركة (قصيرة)
 
     /** كتلة صوت ملتقَطة: PCM ±1.0 + وقت الالتقاط + rms16 الخام */
     private static final class Block {
@@ -156,6 +214,155 @@ public class QuranAsrPlugin extends Plugin {
             done = true; PluginCall c = call; call = null;
             if (c != null) { try { c.resolve(res); } catch (Throwable ignored) {} }
         }
+    }
+
+    /** كاتب WAV لتسجيل الجلسة (PCM 16kHz أحادي 16bit) — بلا اعتماد على أندرويد (يُختبر على JVM).
+     *  خيط الفكّ وحده يكتب، وفقط كتلاً حقيقية غُذّيت للمُعرِّف (لا ذيول أصفار، لا نوافذ hold) فتطابق عيّنات الملف
+     *  الخطَّ الزمني لأحداث asr_partial (uttStartMs + ts) عيّنةً بعيّنة. مخزن 64KB يُفرَّغ كل ثانية صوت، والرأس
+     *  يُرقَّع كل 10ث (الملف صالح للتشغيل بعد انهيار؛ recList يُصلح الباقي من طول الملف). */
+    static final class RecWriter {
+        static final int HDR = 44, BYTES_PER_SEC = SR * 2, BYTES_PER_MS = BYTES_PER_SEC / 1000;
+        static final int FLUSH_BYTES = BYTES_PER_SEC;
+        static final long PATCH_BYTES = 10L * BYTES_PER_SEC;
+        final String id; final File part, fin; final long maxBytes, stopFree;
+        private RandomAccessFile raf;
+        private final byte[] buf = new byte[65536];
+        private int bn = 0;
+        private long lastPatch = 0;
+        volatile long dataBytes = 0;                 // عيّنات مقبولة ×2 (في الملف بعد كل تفريغ)
+        volatile boolean limited = false, failed = false;
+        volatile String err = null;
+        boolean limitSent = false, errSent = false;  // خيط الفكّ فقط
+        int patches = 0;
+
+        static long maxBytesFor(int maxMin) { return (long) Math.max(1, Math.min(REC_MAX_MIN, maxMin)) * 60L * BYTES_PER_SEC; }
+
+        RecWriter(File dir, String id, long maxBytes, long stopFree) throws IOException {
+            this.id = id; this.maxBytes = Math.max(2, maxBytes) & ~1L; this.stopFree = stopFree;
+            part = new File(dir, id + ".wav.part"); fin = new File(dir, id + ".wav");
+            RandomAccessFile r = new RandomAccessFile(part, "rw");
+            try { r.setLength(0); r.write(header(0)); }
+            catch (IOException e) { try { r.close(); } catch (Throwable ignored) {} part.delete(); throw e; }
+            raf = r;
+        }
+
+        static byte[] header(long data) {
+            ByteBuffer b = ByteBuffer.allocate(HDR).order(ByteOrder.LITTLE_ENDIAN);
+            b.put(new byte[]{'R', 'I', 'F', 'F'}).putInt((int) (36 + data)).put(new byte[]{'W', 'A', 'V', 'E'});
+            b.put(new byte[]{'f', 'm', 't', ' '}).putInt(16).putShort((short) 1).putShort((short) 1)
+                    .putInt(SR).putInt(BYTES_PER_SEC).putShort((short) 2).putShort((short) 16);
+            b.put(new byte[]{'d', 'a', 't', 'a'}).putInt((int) data);
+            return b.array();
+        }
+
+        /** يكتب كتلة حقيقية. false = لم تُكتب كاملة أو صار الكاتب متوقّفاً (بلغ الحد / خطأ / مساحة) */
+        boolean write(float[] pcm) {
+            if (limited || failed || raf == null) return false;
+            int n = pcm.length;
+            int k = (int) Math.min(n, (maxBytes - dataBytes) / 2);
+            try {
+                for (int i = 0; i < k; i++) {
+                    if (bn + 2 > buf.length) flushBuf();
+                    int v = Math.round(pcm[i] * 32768f);             // معكوس دقيق لـ v/32768f عند الالتقاط (بلا فقد)
+                    if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+                    buf[bn++] = (byte) v; buf[bn++] = (byte) (v >> 8);
+                }
+                dataBytes += 2L * k;
+                if (bn >= FLUSH_BYTES) flushBuf();
+                if (dataBytes - lastPatch >= PATCH_BYTES) {
+                    flushBuf(); patch();
+                    long fr = part.getUsableSpace();                 // 0 = تعذّرت القراءة: خطأ الكتابة يحسم
+                    if (fr > 0 && fr < stopFree) { failed = true; err = "disk-low"; return false; }
+                }
+                if (dataBytes >= maxBytes) { flushBuf(); patch(); limited = true; return false; }
+            } catch (Throwable t) {
+                failed = true; err = msg(t);
+                return false;
+            }
+            return k == n;
+        }
+
+        /** المخزن يُصفَّر قبل الكتابة: فشلها لا يُعاد (والطول الحقيقي يُقرأ من الملف عند الإنهاء) */
+        private void flushBuf() throws IOException { if (bn > 0) { int n = bn; bn = 0; raf.write(buf, 0, n); } }
+
+        private void patch() throws IOException {
+            long p = raf.getFilePointer();
+            raf.seek(0); raf.write(header(dataBytes)); raf.seek(p);
+            lastPatch = dataBytes; patches++;
+        }
+
+        /** تفريغ + رأس نهائي بطول البيانات الفعلي + مزامنة + إغلاق + نقل .part → .wav. true = النهائي موجود */
+        boolean finish() {
+            if (raf != null) {
+                try { flushBuf(); } catch (Throwable t) { if (!failed) { failed = true; err = msg(t); } }
+                try {
+                    long data = Math.max(0L, Math.min(dataBytes, raf.length() - HDR)) & ~1L;
+                    dataBytes = data;
+                    raf.setLength(HDR + data);
+                    raf.seek(0); raf.write(header(data));
+                } catch (Throwable ignored) {}
+                try { raf.getFD().sync(); } catch (Throwable ignored) {}
+                try { raf.close(); } catch (Throwable ignored) {}
+                raf = null;
+            }
+            return part.isFile() ? promote(part, fin) : fin.isFile();
+        }
+
+        long ms() { return dataBytes / BYTES_PER_MS; }
+
+        /** إصلاح .wav.part يتيم (انهيار/قتل): الرأس من طول الملف ثم النقل. ليس WAV منّا أو < 44 بايت → يُحذف */
+        static boolean repair(File part, File fin) {
+            long len = part.length();
+            boolean ours = false;
+            if (len >= HDR) {
+                try (RandomAccessFile r = new RandomAccessFile(part, "rw")) {
+                    byte[] h = new byte[12]; r.readFully(h);
+                    ours = h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F' && h[8] == 'W' && h[9] == 'A' && h[10] == 'V' && h[11] == 'E';
+                    if (ours) {
+                        long data = (len - HDR) & ~1L;
+                        r.setLength(HDR + data); r.seek(0); r.write(header(data));
+                    }
+                } catch (Throwable t) { return false; }
+            }
+            if (!ours) { part.delete(); return false; }
+            return promote(part, fin);
+        }
+
+        private static String msg(Throwable t) { return String.valueOf(t.getMessage() != null ? t.getMessage() : t); }
+    }
+
+    /** مدة M4A (ms) من moov/mvhd بلا مكتبات — يثبت أيضاً أن الملف مكتمل (moov يُكتب عند الإنهاء). -1 = تعذّر */
+    static long mp4DurationMs(File f) {
+        try (RandomAccessFile r = new RandomAccessFile(f, "r")) {
+            long[] moov = mp4Box(r, 0, r.length(), "moov");
+            long[] mvhd = moov == null ? null : mp4Box(r, moov[0], moov[1], "mvhd");
+            if (mvhd == null || mvhd[1] - mvhd[0] < 24) return -1;
+            r.seek(mvhd[0]);
+            int ver = r.readUnsignedByte(); r.skipBytes(3);
+            long ts, dur;
+            if (ver == 1) { r.skipBytes(16); ts = r.readInt() & 0xFFFFFFFFL; dur = r.readLong(); }
+            else { r.skipBytes(8); ts = r.readInt() & 0xFFFFFFFFL; dur = r.readInt() & 0xFFFFFFFFL; }
+            if (ts <= 0 || dur < 0) return -1;
+            return dur * 1000L / ts;
+        } catch (Throwable t) { return -1; }
+    }
+
+    /** صندوق MP4 من نوع type بين [from,to): {بداية الحمولة، النهاية} أو null */
+    private static long[] mp4Box(RandomAccessFile r, long from, long to, String type) throws IOException {
+        byte[] want = type.getBytes(StandardCharsets.US_ASCII), t = new byte[4];
+        long p = from;
+        for (int guard = 0; p + 8 <= to && guard < 4096; guard++) {
+            r.seek(p);
+            long size = r.readInt() & 0xFFFFFFFFL;
+            r.readFully(t);
+            long hdr = 8;
+            if (size == 1) { size = r.readLong(); hdr = 16; }
+            else if (size == 0) size = to - p;
+            if (size < hdr || p + size > to) return null;
+            if (Arrays.equals(t, want)) return new long[]{p + hdr, p + size};
+            p += size;
+        }
+        return null;
     }
 
     /** وصف ملف مطلوب: الاسم + sha256 + الحجم */
@@ -578,6 +785,20 @@ public class QuranAsrPlugin extends Plugin {
         }
         if (!quiesce()) { call.reject("busy"); return; }
 
+        /* تسجيل الجلسة (اختياري): فحوص رخيصة قبل فتح المايك. أي رفض rec-* → JS يبدأ بلا تسجيل */
+        String recId = null; long recMax = 0;
+        JSObject recArg = call.getObject("record");
+        if (recArg != null) {
+            recId = recArg.getString("id", "");
+            if (!recIdOk(recId)) { call.reject("rec-bad-id"); return; }
+            recMax = RecWriter.maxBytesFor((int) Math.max(1, Math.min(REC_MAX_MIN, numArg(recArg, "maxMin", REC_DEF_MIN))));
+            File rd;
+            try { rd = recDir(); } catch (Throwable t) { call.reject("rec-io: " + t.getMessage()); return; }
+            if (!rd.isDirectory()) { call.reject("rec-io: mkdir"); return; }
+            if (rd.getUsableSpace() < REC_MIN_FREE) { call.reject("rec-disk"); return; }
+            if (new File(rd, recId + ".wav").exists() || new File(rd, recId + ".m4a").exists()) { call.reject("rec-exists"); return; }
+        }
+
         int minBuf = AudioRecord.getMinBufferSize(SR, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         if (minBuf <= 0) minBuf = SR;
         final int recBuf = Math.max(minBuf, SR) * 2;
@@ -618,6 +839,22 @@ public class QuranAsrPlugin extends Plugin {
             call.reject("mic-busy: المايك مستخدَم من تطبيق آخر");
             return;
         }
+        RecWriter rw0 = null;
+        if (recId != null) {
+            try {
+                // يُعلَن نشطاً تحت قفل الملفات نفسه الذي أنشأه: لا حذف/إصلاح يلمس .part الجديد
+                synchronized (recFsLock) { rw0 = new RecWriter(recDir(), recId, recMax, REC_STOP_FREE); recW = rw0; }
+            } catch (Throwable t) {
+                // كفرع mic-busy: حرّر كل ما فُتح
+                abandonFocus();
+                try { ar.stop(); } catch (Throwable ignored) {}
+                try { ar.release(); } catch (Throwable ignored) {}
+                synchronized (lock) { try { st.release(); } catch (Throwable ignored) {} }
+                call.reject("rec-io: " + t.getMessage());
+                return;
+            }
+        }
+        final RecWriter rw = rw0;
         Integer js0 = call.getInt("sess", 0);
         final int js = js0 == null ? 0 : js0;
         final ArrayBlockingQueue<Block> q = new ArrayBlockingQueue<>(QUEUE_CAP);
@@ -625,22 +862,25 @@ public class QuranAsrPlugin extends Plugin {
         synchronized (sessLock) {
             g = ++gen;
             jsSess = js;
-            seq = 0; utt = 0; dropped = 0; sentTok = 0;
+            seq = 0; utt = 0; dropped = 0; sentTok = 0; uttEv = 0;
             fedSamples = 0; decodeNs = 0; maxBacklogMs = 0; uttStartMs = 0;
             lastText = ""; backlogWarned = false; rawPeak = 0; rawRms = 0; noiseFloor = VOICE_MIN;
             recorder = ar; queue = q; pendingStop = null;
+            recW = rw; recGen = g; recRes = null; recResGen = -1;
+            synchronized (holdWins) { holdWins.clear(); recHolds.clear(); holding = false; }
             capturing = true; listening = true;
         }
-        Thread dt = new Thread(() -> decLoop(g, js, q, rec, st), "quranasr-decode");
+        Thread dt = new Thread(() -> decLoop(g, js, q, rec, st, rw), "quranasr-decode");
         Thread ct = new Thread(() -> capLoop(g, js, q, ar), "quranasr-capture");
         ct.setPriority(Thread.MAX_PRIORITY);
         synchronized (lock) { activeDec = dt; }
         synchronized (sessLock) { decThread = dt; capThread = ct; stopHelper = null; }
         dt.start();
         ct.start();
-        Log.i(TAG, "start sess=" + js + " gen=" + g + " threads=" + loadedThreads + " minBuf=" + minBuf);
+        Log.i(TAG, "start sess=" + js + " gen=" + g + " threads=" + loadedThreads + " minBuf=" + minBuf + (rw != null ? " rec=" + rw.id : ""));
         JSObject r = new JSObject();
         r.put("ok", true); r.put("sess", js); r.put("sampleRate", SR);
+        if (rw != null) { JSObject ro = new JSObject(); ro.put("id", rw.id); ro.put("maxMs", rw.maxBytes / RecWriter.BYTES_PER_MS); r.put("rec", ro); }
         call.resolve(r);
     }
 
@@ -709,10 +949,11 @@ public class QuranAsrPlugin extends Plugin {
         }
     }
 
-    /** خيط الفكّ: يملك التيار؛ تغذية → فكّ → حدث عند تغيّر النص → VAD → قطع المقطع */
+    /** خيط الفكّ: يملك التيار؛ تغذية → فكّ → حدث عند تغيّر النص → VAD → توقّف/قطع المقطع.
+     *  w (اختياري): كاتب تسجيل الجلسة — يُكتب فيه ما غُذّي فقط، ويُنهى في finally قبل حلّ الإيقاف. */
     private void decLoop(final int g, final int js, final ArrayBlockingQueue<Block> q,
-                         final OnlineRecognizer rec, final OnlineStream first) {
-        OnlineStream st = first;
+                         final OnlineRecognizer rec, final OnlineStream first, final RecWriter w) {
+        final OnlineStream[] cur = {first};     // التيار الحالي (cutUtt يستبدله؛ finally يحرّر ما بقي)
         boolean ended = false;
         /* أرضية الضجيج = أدنى متوسط متحرّك (0.5ث) خلال آخر 30ث: لا تصعد إلى مستوى الكلام في التلاوة المتصلة
            (وسيط أهدأ 20% من آخر 8ث كان يصعد مع الكلام المتصل فيقطع المقطع وسط الكلمة ويُسقطها) */
@@ -722,7 +963,7 @@ public class QuranAsrPlugin extends Plugin {
         int ringN = 0, ringPos = 0;
         long lastTokMs = Long.MIN_VALUE / 4;    // زمن آخر رمز (ms صوتية منذ بدء الجلسة)
         double floor = VOICE_MIN;
-        boolean hadSpeech = false;
+        boolean hadSpeech = false, pauseSent = false, inHold = false;
         int silMs = 0;
         long lastTCap = SystemClock.elapsedRealtime(), lastLogMs = 0;
         try {
@@ -736,6 +977,7 @@ public class QuranAsrPlugin extends Plugin {
                     OnlineRecognizerResult r;
                     synchronized (lock) {
                         if (g != gen) break;
+                        OnlineStream st = cur[0];
                         st.acceptWaveform(TAIL_END, SR);
                         st.inputFinished();
                         while (rec.isReady(st)) rec.decode(st);
@@ -746,16 +988,33 @@ public class QuranAsrPlugin extends Plugin {
                     ended = true;
                     break;
                 }
+                // ── «أعِد الآية»: كتلة داخل نافذة hold تُسقط (لا تغذية، لا تسجيل، لا تقدّم للخط الزمني) ──
+                if (heldBlock(b.tCap, g, js)) {
+                    long fedMs = fedSamples * 1000L / SR;
+                    if (!inHold) {
+                        inHold = true; hadSpeech = false; silMs = 0; pauseSent = false;
+                        holdMark(fedMs, 0);
+                        // التيار غُذّي صوتاً منذ آخر قطع: أنهِ المقطع كقطع الصمت (بلا حدث إن لم يكن فيه شيء)
+                        if (fedMs > uttStartMs && !cutUtt(g, js, rec, cur, SystemClock.elapsedRealtime() - b.tCap, true, "hold")) break;
+                    }
+                    holdMark(-1, b.pcm.length * 1000L / SR);
+                    lastTCap = b.tCap;
+                    continue;
+                }
+                if (inHold) { inHold = false; hadSpeech = false; silMs = 0; pauseSent = false; }
                 long t0 = System.nanoTime();
                 OnlineRecognizerResult r;
                 synchronized (lock) {
                     if (g != gen) break;
+                    OnlineStream st = cur[0];
                     st.acceptWaveform(b.pcm, SR);
                     while (rec.isReady(st)) rec.decode(st);
                     r = rec.getResult(st);
                 }
                 decodeNs += System.nanoTime() - t0;
                 fedSamples += b.pcm.length;
+                // التسجيل: الكتلة نفسها التي غُذّيت للتوّ — عيّنات الملف = الخط الزمني للأحداث
+                if (w != null && !w.limited && !w.failed && !w.write(b.pcm)) recTrouble(g, js, w);
                 long lag = SystemClock.elapsedRealtime() - b.tCap;
                 lastTCap = b.tCap;
                 if (lag > maxBacklogMs) maxBacklogMs = lag;
@@ -777,12 +1036,17 @@ public class QuranAsrPlugin extends Plugin {
                 double voiceThr = Math.max(VOICE_MIN, floor * 2.5);
                 double silThr = Math.max(SIL_MIN, floor * 1.5);
                 int blkMs = (int) (b.pcm.length * 1000L / SR);
-                if (b.rms > voiceThr) { hadSpeech = true; silMs = 0; }
+                if (b.rms > voiceThr) { hadSpeech = true; silMs = 0; pauseSent = false; }
                 else if (b.rms < silThr) silMs += blkMs;
                 else silMs = 0;   // منطقة رمادية: تقطع الصمت المتصل ولا تُعدّ كلاماً
 
                 long fedMs = fedSamples * 1000L / SR;
                 long uttMs = fedMs - uttStartMs;
+                // توقّف القارئ (أبكر من القطع): JS يُنهي الكلمة الأخيرة ليّناً ويقيّم التجويد — مرّة لكل توقّف
+                if (!pauseSent && hadSpeech && silMs >= PAUSE_MS && fedMs - lastTokMs >= PAUSE_TOK_MS && !holding) {
+                    pauseSent = true;
+                    emitPause(g, js, fedMs, silMs, lastTokMs);
+                }
                 // القطع بالصمت لا يقع ورموز الكلام حديثة (مدّ/غنّة خافتة تحت العتبة ليست صمتاً)
                 // المقطع الطويل جداً (تلاوة متصلة بلا صمت 0.9ث): يُقطع عند نَفَس قصير لا عند أول هبوط —
                 // القطع وسط الكلمة يُسقط بقيّتها (التيار الجديد يفقد أول أصواته)
@@ -792,26 +1056,7 @@ public class QuranAsrPlugin extends Plugin {
                         || uttMs >= UTT_HARD_MS;
                 if (cut) {
                     // قطع المقطع: ذيل 0.8ث أصفار → نهائي → تيار جديد
-                    long t1 = System.nanoTime();
-                    OnlineRecognizerResult rf;
-                    synchronized (lock) {
-                        if (g != gen) break;
-                        st.acceptWaveform(TAIL_CUT, SR);
-                        st.inputFinished();
-                        while (rec.isReady(st)) rec.decode(st);
-                        rf = rec.getResult(st);
-                    }
-                    decodeNs += System.nanoTime() - t1;
-                    emitPartial(g, js, rf, true, lag);
-                    int len = lastText.length();
-                    synchronized (lock) {
-                        try { st.release(); } catch (Throwable ignored) {}
-                        st = null;
-                        if (g != gen) break;
-                        st = rec.createStream("");
-                    }
-                    Log.d(TAG, "utt " + utt + " cut at " + fedMs + "ms len=" + uttMs + "ms chars=" + len + " sil=" + silMs);
-                    utt++; uttStartMs = fedMs; sentTok = 0; lastText = "";
+                    if (!cutUtt(g, js, rec, cur, lag, false, "sil=" + silMs)) break;
                     hadSpeech = false; silMs = 0;
                 }
                 if (fedMs - lastLogMs >= 5000) {
@@ -833,23 +1078,69 @@ public class QuranAsrPlugin extends Plugin {
             }
         } finally {
             synchronized (lock) {
-                if (st != null) { try { st.release(); } catch (Throwable ignored) {} }
+                if (cur[0] != null) { try { cur[0].release(); } catch (Throwable ignored) {} cur[0] = null; }
                 if (activeDec == Thread.currentThread()) activeDec = null;
                 if (activeDec == null && !pendingRelease.isEmpty()) {
                     for (OnlineRecognizer pr : pendingRelease) { try { pr.release(); } catch (Throwable ignored) {} }
                     pendingRelease.clear();
                 }
             }
+            // التسجيل يُنهى هنا في كل نهاية (إيقاف/onPause/خطأ/تفريغ/تدمير) وقبل حلّ الإيقاف فيحمل stop().rec
+            if (w != null) {
+                JSObject rr = null;
+                try { rr = finishRec(w); } catch (Throwable t) { Log.w(TAG, "rec finish " + t); }
+                synchronized (sessLock) {
+                    if (rr != null) { recRes = rr; recResGen = g; }
+                    if (recW == w) recW = null;
+                }
+                if (rr != null) {
+                    JSObject ev = new JSObject();
+                    ev.put("sess", js); ev.put("kind", "saved");
+                    java.util.Iterator<String> it = rr.keys();
+                    while (it.hasNext()) { String k = it.next(); ev.put(k, rr.opt(k)); }
+                    emit("rec_event", ev);      // إشعار موثوق حتى إن ضاعت نتيجة stop (onPause/تفريغ)
+                }
+            }
             decDeadGen = g;
             if (ended) {
                 StopReq p = pendingStop;
                 if (p != null && p.gen == g) {
-                    JSObject res = sessionStats(p.js, false);
+                    JSObject res = sessionStats(p.js, false, g);
                     Log.i(TAG, "stop " + res.toString());
                     p.finish(res);
                 }
             }
         }
+    }
+
+    /** قطع المقطع: ذيل TAIL_CUT أصفار → نهائي (final:true) → تيار جديد، utt++. quiet: مقطع بلا أي حدث ولا
+     *  نص بعد الذيل يُستبدل تياره بصمت (لا حدث ولا utt++). false = تغيّر الجيل (يخرج المستدعي). */
+    private boolean cutUtt(int g, int js, OnlineRecognizer rec, OnlineStream[] cur, long lag, boolean quiet, String why) {
+        long t1 = System.nanoTime();
+        OnlineRecognizerResult rf;
+        synchronized (lock) {
+            if (g != gen) return false;
+            OnlineStream st = cur[0];
+            st.acceptWaveform(TAIL_CUT, SR);
+            st.inputFinished();
+            while (rec.isReady(st)) rec.decode(st);
+            rf = rec.getResult(st);
+        }
+        decodeNs += System.nanoTime() - t1;
+        boolean silent = quiet && uttEv == 0 && clean(rf.getText()).isEmpty();
+        if (!silent) emitPartial(g, js, rf, true, lag);
+        int len = lastText.length();
+        synchronized (lock) {
+            try { cur[0].release(); } catch (Throwable ignored) {}
+            cur[0] = null;
+            if (g != gen) return false;
+            cur[0] = rec.createStream("");
+        }
+        long fedMs = fedSamples * 1000L / SR;
+        Log.d(TAG, "utt " + utt + " cut(" + why + ") at " + fedMs + "ms len=" + (fedMs - uttStartMs) + "ms chars=" + len + (silent ? " silent" : ""));
+        if (!silent) utt++;
+        uttStartMs = fedMs; sentTok = 0; lastText = ""; uttEv = 0;
+        return true;
     }
 
     /** حدث asr_partial: النص التراكمي للمقطع + الرموز الجديدة منذ آخر إرسال (from) */
@@ -868,7 +1159,7 @@ public class QuranAsrPlugin extends Plugin {
             if (Double.isNaN(v) || Double.isInfinite(v)) v = 0;
             ts.put((Object) Double.valueOf(Math.round(v * 1000.0) / 1000.0));
         }
-        seq++;
+        seq++; uttEv++;
         JSObject ev = new JSObject();
         ev.put("sess", js);
         ev.put("seq", seq);
@@ -884,6 +1175,93 @@ public class QuranAsrPlugin extends Plugin {
         sentTok = tk.length;
         lastText = text;
         if (g == gen) emit("asr_partial", ev);
+    }
+
+    /** حدث asr_pause {sess, utt, seq (آخر asr_partial), tMs, silMs, lastTokMs (-1 = لا رمز بعد)} */
+    private void emitPause(int g, int js, long fedMs, int silMs, long lastTokMs) {
+        JSObject ev = new JSObject();
+        ev.put("sess", js);
+        ev.put("utt", utt);
+        ev.put("seq", seq);
+        ev.put("tMs", fedMs);
+        ev.put("silMs", silMs);
+        ev.put("lastTokMs", lastTokMs < 0 ? -1 : lastTokMs);
+        if (g == gen) emit("asr_pause", ev);
+    }
+
+    /** هل الكتلة (نهاية التقاطها tCap) داخل نافذة hold؟ الكتل بترتيب الالتقاط، فتُسقط النوافذ المنتهية (بعد الذيل)
+     *  من الأمام. نافذة مفتوحة أطول من HOLD_MAX_MS تُغلق (حدث asr_hold reason:timeout). */
+    private boolean heldBlock(long tCap, int g, int js) {
+        boolean expired = false, held = false;
+        synchronized (holdWins) {
+            long[] w;
+            while ((w = holdWins.peekFirst()) != null) {
+                if (w[1] == Long.MAX_VALUE && tCap - w[0] > HOLD_MAX_MS) { w[1] = w[0] + HOLD_MAX_MS; holding = false; expired = true; }
+                if (w[1] != Long.MAX_VALUE && tCap - BLOCK_MS >= w[1] + HOLD_TAIL_MS) { holdWins.pollFirst(); continue; }
+                held = tCap > w[0];
+                break;
+            }
+        }
+        if (expired && g == gen) {
+            Log.w(TAG, "hold: timeout → released");
+            JSObject ev = new JSObject(); ev.put("sess", js); ev.put("holding", false); ev.put("reason", "timeout");
+            emit("asr_hold", ev);
+        }
+        return held;
+    }
+
+    /** سجلّ نوافذ hold على خط الجلسة: at ≥ 0 يفتح مدخلاً [at, 0]؛ at < 0 يضيف ms مُسقطة لآخر مدخل */
+    private void holdMark(long at, long ms) {
+        synchronized (holdWins) {
+            if (at >= 0) recHolds.add(new long[]{at, 0});
+            else if (!recHolds.isEmpty()) recHolds.get(recHolds.size() - 1)[1] += ms;
+        }
+    }
+
+    private JSArray holdsJson() {
+        JSArray a = new JSArray();
+        synchronized (holdWins) {
+            for (long[] h : recHolds) { JSArray x = new JSArray(); x.put(h[0]); x.put(h[1]); a.put(x); }
+        }
+        return a;
+    }
+
+    /** الكاتب توقّف (حد/خطأ/مساحة): حدث rec_event مرّة واحدة لكل نوع؛ الجلسة مستمرّة بلا تسجيل */
+    private void recTrouble(int g, int js, RecWriter w) {
+        JSObject ev = new JSObject();
+        ev.put("sess", js); ev.put("id", w.id); ev.put("ms", w.ms());
+        if (w.limited && !w.limitSent) {
+            w.limitSent = true; ev.put("kind", "limit");
+            Log.i(TAG, "rec limit " + w.id + " ms=" + w.ms());
+        } else if (w.failed && !w.errSent) {
+            w.errSent = true; ev.put("kind", "error"); ev.put("msg", w.err == null ? "" : w.err);
+            Log.w(TAG, "rec error " + w.id + ": " + w.err);
+        } else return;
+        if (g == gen) emit("rec_event", ev);
+    }
+
+    /** يُنهي ملف الجلسة → نتيجة stop().rec */
+    private JSObject finishRec(RecWriter w) {
+        boolean ok = w.finish();
+        JSObject r = recInfo(w, false);
+        if (!ok) r.put("err", "rename");
+        Log.i(TAG, "rec saved " + w.id + " ms=" + w.ms() + " ok=" + ok + (w.limited ? " limited" : "") + (w.failed ? " failed=" + w.err : ""));
+        return r;
+    }
+
+    /** {id, file, ms, bytes, holds:[[atMs,ms]…], limited[, failed, err][, pending]} */
+    private JSObject recInfo(RecWriter w, boolean pending) {
+        JSObject r = new JSObject();
+        r.put("id", w.id);
+        r.put("file", w.id + ".wav");
+        r.put("format", "wav");
+        r.put("ms", w.ms());
+        r.put("bytes", !pending && w.fin.isFile() ? w.fin.length() : RecWriter.HDR + w.dataBytes);
+        r.put("holds", holdsJson());
+        r.put("limited", w.limited);
+        if (w.failed) { r.put("failed", true); r.put("err", w.err == null ? "" : w.err); }
+        if (pending) r.put("pending", true);
+        return r;
     }
 
     @PluginMethod
@@ -902,7 +1280,7 @@ public class QuranAsrPlugin extends Plugin {
         final Thread ct, dt; final AudioRecord ar; final ArrayBlockingQueue<Block> q; final StopReq req;
         synchronized (sessLock) {
             if (!listening) return false;
-            listening = false; capturing = false;
+            listening = false; capturing = false; holding = false;   // نوافذ hold تبقى: ما في الطابور منها يُسقط
             ct = capThread; dt = decThread; ar = recorder; q = queue;
             recorder = null; capThread = null;
             req = new StopReq(gen, jsSess, call);
@@ -918,7 +1296,7 @@ public class QuranAsrPlugin extends Plugin {
             try { if (dt != null) dt.join(4000); } catch (InterruptedException ignored) {}
             boolean to = dt != null && dt.isAlive();
             if (to) Log.w(TAG, "stop: decoder did not finish in 4000ms");
-            req.finish(sessionStats(req.js, to));   // لا أثر إن حلّه خيط الفكّ قبلنا
+            req.finish(sessionStats(req.js, to, req.gen));   // لا أثر إن حلّه خيط الفكّ قبلنا
         }, "quranasr-stop");
         synchronized (sessLock) { stopHelper = h; }
         h.start();
@@ -929,7 +1307,7 @@ public class QuranAsrPlugin extends Plugin {
     private void hardStop() {
         Thread ct, dt; AudioRecord ar;
         synchronized (sessLock) {
-            listening = false; capturing = false; gen++;
+            listening = false; capturing = false; holding = false; gen++;
             ct = capThread; dt = decThread; ar = recorder;
             recorder = null; capThread = null;
         }
@@ -941,7 +1319,9 @@ public class QuranAsrPlugin extends Plugin {
         try { if (dt != null) dt.join(2000); } catch (InterruptedException ignored) {}
     }
 
-    private JSObject sessionStats(int js, boolean timeout) {
+    /** ملخّص الجلسة g. rec: نتيجة التسجيل المُنهى، أو {…, pending:true} إن كان ما زال يُكتب
+     *  (مهلة الإيقاف تحت تأخّر شديد — يصل rec_event{kind:'saved'} حين يُنهى) */
+    private JSObject sessionStats(int js, boolean timeout, int g) {
         JSObject r = new JSObject();
         long audioMs = fedSamples * 1000L / SR;
         long decMs = decodeNs / 1000000L;
@@ -955,13 +1335,21 @@ public class QuranAsrPlugin extends Plugin {
         r.put("dropped", dropped);
         r.put("maxBacklogMs", maxBacklogMs);
         if (timeout) r.put("timeout", true);
+        JSObject rr = null; RecWriter aw = null;
+        synchronized (sessLock) {
+            if (recRes != null && recResGen == g) rr = recRes;
+            else if (recW != null && recGen == g) aw = recW;
+        }
+        if (rr != null) r.put("rec", rr);
+        else if (aw != null) r.put("rec", recInfo(aw, true));
         return r;
     }
 
     @PluginMethod
     public void stats(PluginCall call) {
-        JSObject r = sessionStats(jsSess, false);
+        JSObject r = sessionStats(jsSess, false, gen);
         r.put("listening", listening);
+        r.put("holding", holding);
         r.put("uttMs", Math.max(0, fedSamples * 1000L / SR - uttStartMs));
         r.put("lastText", lastText);
         r.put("ready", recognizer != null);
@@ -973,6 +1361,636 @@ public class QuranAsrPlugin extends Plugin {
         ArrayBlockingQueue<Block> q = queue;
         r.put("queue", q != null ? q.size() : 0);
         call.resolve(r);
+    }
+
+    // ═══ «أعِد الآية» ═══
+
+    /** hold({on}): on=true → ما يُلتقط من الآن لا يُغذّى للمُعرِّف ولا يُسجَّل (المقطع الجاري يُنهى أولاً)؛
+     *  on=false → يُستأنف بعد ذيل HOLD_TAIL_MS. يحلّ {ok, holding}؛ ok:false بلا جلسة (JS لا يشغّل الصوت حينها). */
+    @PluginMethod
+    public void hold(PluginCall call) {
+        Boolean on0 = call.getBoolean("on", Boolean.TRUE);
+        final boolean on = on0 == null || on0;
+        boolean ok;
+        synchronized (sessLock) {
+            ok = listening;
+            if (ok) {
+                long now = SystemClock.elapsedRealtime();
+                synchronized (holdWins) {
+                    long[] last = holdWins.peekLast();
+                    boolean open = last != null && last[1] == Long.MAX_VALUE;
+                    if (on && !open) holdWins.addLast(new long[]{now, Long.MAX_VALUE});
+                    else if (!on && open) last[1] = now;
+                    holding = on;
+                }
+            }
+        }
+        if (ok) Log.i(TAG, "hold " + on);
+        JSObject r = new JSObject();
+        r.put("ok", ok); r.put("holding", ok && on);
+        call.resolve(r);
+    }
+
+    // ═══ تسجيلات الجلسات (على الجهاز فقط) ═══
+
+    private File recDir() {
+        File d = new File(getContext().getNoBackupFilesDir(), "recordings");
+        if (!d.isDirectory()) d.mkdirs();
+        return d;
+    }
+
+    private static boolean recIdOk(String id) { return id != null && REC_ID_RE.matcher(id).matches(); }
+
+    /** معرّف التسجيل من اسم ملف المجلد (<id>.wav|.m4a|.wav.part|.m4a.part)؛ null لغير ذلك */
+    private static String recIdOf(String name) {
+        for (String e : REC_EXT) if (name.endsWith(e)) { String id = name.substring(0, name.length() - e.length()); return recIdOk(id) ? id : null; }
+        return null;
+    }
+
+    private String activeRecId() { RecWriter w = recW; return w != null ? w.id : null; }
+
+    /** الملف النهائي: M4A مكتمل إن وُجد وإلا WAV؛ null = غير موجود (أو ما زال يُسجَّل) */
+    private File recFile(String id) {
+        if (id.equals(activeRecId())) return null;
+        File d = recDir();
+        File m = new File(d, id + ".m4a");
+        if (m.isFile() && m.length() > 0 && !id.equals(encId)) return m;
+        File w = new File(d, id + ".wav");
+        if (w.isFile() && w.length() >= RecWriter.HDR) return w;
+        if (m.isFile() && m.length() > 0) return m;
+        return null;
+    }
+
+    private static boolean isM4a(File f) { return f.getName().endsWith(".m4a"); }
+    private static String mimeOf(File f) { return isM4a(f) ? "audio/mp4" : "audio/wav"; }
+    private static long recMs(File f) { return isM4a(f) ? mp4DurationMs(f) : Math.max(0, f.length() - RecWriter.HDR) / RecWriter.BYTES_PER_MS; }
+
+    private static JSObject recItem(String id, File f) {
+        JSObject o = new JSObject();
+        o.put("id", id); o.put("file", f.getName()); o.put("format", isM4a(f) ? "m4a" : "wav");
+        o.put("bytes", f.length()); o.put("ms", recMs(f)); o.put("mtime", f.lastModified());
+        return o;
+    }
+
+    private static long numArg(JSONObject o, String k, long def) {
+        Object v = o == null ? null : o.opt(k);
+        if (v instanceof Number) { double d = ((Number) v).doubleValue(); if (!Double.isNaN(d) && !Double.isInfinite(d)) return (long) d; }
+        return def;
+    }
+
+    /** صيانة المجلد (تحت recFsLock): إصلاح .wav.part اليتيم (ليس للجلسة الحيّة وأقدم من دقيقة)، حذف .m4a.part
+     *  اليتيم، وحذف WAV صار له M4A مكتمل (انقطاع بين النقل والحذف)، وM4A ناقص له WAV */
+    private void recHousekeep(File d) {
+        long now = System.currentTimeMillis();
+        synchronized (recFsLock) {
+            String act = activeRecId(), enc = encId;
+            File[] kids = d.listFiles();
+            if (kids == null) return;
+            for (File k : kids) {
+                String n = k.getName(), id = recIdOf(n);
+                if (id == null || !k.isFile() || id.equals(act) || id.equals(enc)) continue;
+                try {
+                    if (n.endsWith(".wav.part")) {
+                        if (now - k.lastModified() < REC_PART_AGE_MS) continue;
+                        File fin = new File(d, id + ".wav");
+                        if (fin.exists() || new File(d, id + ".m4a").exists()) { k.delete(); continue; }
+                        boolean ok = RecWriter.repair(k, fin);
+                        Log.i(TAG, "rec repair " + id + " → " + ok);
+                    } else if (n.endsWith(".m4a.part")) {
+                        k.delete();
+                    } else if (n.endsWith(".wav")) {
+                        File m = new File(d, id + ".m4a");
+                        if (m.isFile()) {
+                            if (mp4DurationMs(m) >= 0) k.delete(); else m.delete();
+                        }
+                    }
+                } catch (Throwable t) { Log.w(TAG, "rec housekeep " + n + ": " + t); }
+            }
+        }
+        purgeShare(false);
+    }
+
+    /** نسخ المشاركة المؤقّتة في cache/share: الأقدم من ساعة (أو الكل بعد حذف تسجيل — خصوصية) */
+    private void purgeShare(boolean all) {
+        try {
+            File[] kids = new File(getContext().getCacheDir(), "share").listFiles();
+            long now = System.currentTimeMillis();
+            if (kids != null) for (File k : kids) if (k.isFile() && (all || now - k.lastModified() > SHARE_TTL_MS)) k.delete();
+        } catch (Throwable ignored) {}
+    }
+
+    /** recList → {items:[{id,file,format,bytes,ms,mtime}] الأحدث أولاً, bytes, free}. لا يرفض أبداً. */
+    @PluginMethod
+    public void recList(PluginCall call) {
+        recRdExec.execute(() -> {
+            JSObject r = new JSObject();
+            JSArray items = new JSArray();
+            long total = 0;
+            try {
+                File d = recDir();
+                recHousekeep(d);
+                File[] kids = d.listFiles();
+                Set<String> ids = new HashSet<>();
+                if (kids != null) for (File k : kids) {
+                    if (!k.isFile()) continue;
+                    total += k.length();
+                    String id = recIdOf(k.getName());
+                    if (id != null && !k.getName().endsWith(".part")) ids.add(id);
+                }
+                List<String> sorted = new ArrayList<>(ids);
+                java.util.Collections.sort(sorted, java.util.Collections.reverseOrder());   // المعرّف = تاريخ ووقت
+                for (String id : sorted) {
+                    File f = recFile(id);
+                    if (f == null) continue;
+                    JSObject it = recItem(id, f);
+                    if (id.equals(encId)) it.put("encoding", true);
+                    items.put(it);
+                }
+                r.put("free", d.getUsableSpace());
+            } catch (Throwable t) {
+                r.put("err", String.valueOf(t));
+            }
+            r.put("items", items); r.put("bytes", total);
+            String act = activeRecId();
+            if (act != null) r.put("active", act);
+            safeResolve(call, r);
+        });
+    }
+
+    /** recDelete({id}) → {ok, freed}. يحذف <id>.* (ونسخ المشاركة)؛ busy للجلسة الحيّة؛ يلغي ترميزاً جارياً له */
+    @PluginMethod
+    public void recDelete(PluginCall call) {
+        final String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        recRdExec.execute(() -> {
+            try {
+                long freed = 0;
+                synchronized (recFsLock) {
+                    if (id.equals(activeRecId())) { safeReject(call, "busy"); return; }
+                    if (id.equals(encId)) encCancel = true;
+                    File d = recDir();
+                    for (String e : REC_EXT) {
+                        File f = new File(d, id + e);
+                        if (f.isFile()) { long l = f.length(); if (f.delete()) freed += l; }
+                    }
+                }
+                purgeShare(true);
+                Log.i(TAG, "rec delete " + id + " freed=" + freed);
+                JSObject r = new JSObject(); r.put("ok", true); r.put("freed", freed);
+                safeResolve(call, r);
+            } catch (Throwable t) {
+                safeReject(call, "io: " + t.getMessage());
+            }
+        });
+    }
+
+    /** recDeleteAll → {ok, freed, n}. لا يمسّ تسجيل الجلسة الحيّة */
+    @PluginMethod
+    public void recDeleteAll(PluginCall call) {
+        recRdExec.execute(() -> {
+            try {
+                long freed = 0; Set<String> gone = new HashSet<>();
+                synchronized (recFsLock) {
+                    String act = activeRecId();
+                    if (encId != null) encCancel = true;
+                    File[] kids = recDir().listFiles();
+                    if (kids != null) for (File k : kids) {
+                        String id = recIdOf(k.getName());
+                        if (id == null || id.equals(act) || !k.isFile()) continue;
+                        long l = k.length();
+                        if (k.delete()) { freed += l; if (!k.getName().endsWith(".part")) gone.add(id); }
+                    }
+                }
+                purgeShare(true);
+                Log.i(TAG, "rec deleteAll n=" + gone.size() + " freed=" + freed);
+                JSObject r = new JSObject(); r.put("ok", true); r.put("freed", freed); r.put("n", gone.size());
+                safeResolve(call, r);
+            } catch (Throwable t) {
+                safeReject(call, "io: " + t.getMessage());
+            }
+        });
+    }
+
+    /** recPath({id}) (متزامن) → {path, uri:"file://…", format, mime, bytes, ms} للتشغيل بـconvertFileSrc */
+    @PluginMethod
+    public void recPath(PluginCall call) {
+        String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        File f;
+        try { f = recFile(id); } catch (Throwable t) { f = null; }
+        if (f == null) { call.reject("rec-missing"); return; }
+        JSObject r = new JSObject();
+        r.put("id", id);
+        r.put("path", f.getAbsolutePath());
+        r.put("uri", "file://" + f.getAbsolutePath());
+        r.put("format", isM4a(f) ? "m4a" : "wav");
+        r.put("mime", mimeOf(f));
+        r.put("bytes", f.length());
+        r.put("ms", recMs(f));
+        call.resolve(r);
+    }
+
+    /** recRead({id, offset, length≤2MB}) → {data: base64, offset, length, total, eof, format, mime}
+     *  (مصدر التشغيل في الواجهة: Blob للملف كاملاً ≤15MB، ونوافذ WAV بقراءة بايتاتها — لا Range عبر الخادم المحلي) */
+    @PluginMethod
+    public void recRead(PluginCall call) {
+        final String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        final long off = Math.max(0, numArg(call.getData(), "offset", 0));
+        final int want = (int) Math.max(1, Math.min(REC_READ_MAX, numArg(call.getData(), "length", REC_READ_MAX)));
+        recRdExec.execute(() -> {
+            File f = recFile(id);
+            if (f == null) { safeReject(call, "rec-missing"); return; }
+            try (RandomAccessFile in = new RandomAccessFile(f, "r")) {
+                long total = in.length();
+                int n = (int) Math.max(0, Math.min(want, total - off));
+                byte[] b = new byte[n];
+                if (n > 0) { in.seek(off); in.readFully(b); }
+                JSObject r = new JSObject();
+                r.put("id", id); r.put("format", isM4a(f) ? "m4a" : "wav"); r.put("mime", mimeOf(f));
+                r.put("offset", off); r.put("length", n); r.put("total", total); r.put("eof", off + n >= total);
+                r.put("data", n > 0 ? Base64.encodeToString(b, Base64.NO_WRAP) : "");
+                safeResolve(call, r);
+            } catch (Throwable t) {
+                safeReject(call, "io: " + t.getMessage());
+            }
+        });
+    }
+
+    /** recSlice({id, t0, t1} ms) → {data: base64 WAV (PCM 16-bit), t0, ms, sr, ch, format}: نافذة من التسجيل كملف WAV صغير.
+     *  التشغيل في الواجهة لا يعتمد على HTTP Range: خادم Capacitor 6 المحلي يجيب طلب Range بـ206 لكن الجسم من بداية الملف،
+     *  فالتقديم داخل الملف يُسمِع موضعاً خاطئاً بلا خطأ. WAV: نسخ بايتات النافذة؛ M4A: MediaExtractor (أقرب إطار سابق) +
+     *  MediaCodec إلى PCM ثم قصّ دقيق بالعيّنات على [t0, t1]. النافذة ≤ REC_SLICE_MAX_MS. */
+    @PluginMethod
+    public void recSlice(PluginCall call) {
+        final String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        final long t0 = Math.max(0, numArg(call.getData(), "t0", 0));
+        final long t1 = Math.max(t0 + 1, Math.min(numArg(call.getData(), "t1", t0 + 1000), t0 + REC_SLICE_MAX_MS));
+        recRdExec.execute(() -> {
+            File f = recFile(id);
+            if (f == null) { safeReject(call, "rec-missing"); return; }
+            try {
+                Slice sl = isM4a(f) ? sliceM4a(f, t0, t1) : sliceWav(f, t0, t1);
+                if (sl.pcm.length == 0) { safeReject(call, "rec-empty"); return; }
+                JSObject r = new JSObject();
+                r.put("id", id); r.put("format", isM4a(f) ? "m4a" : "wav");
+                r.put("t0", sl.t0); r.put("ms", sl.ms()); r.put("sr", sl.sr); r.put("ch", sl.ch);
+                r.put("data", Base64.encodeToString(sl.wav(), Base64.NO_WRAP));
+                safeResolve(call, r);
+            } catch (Throwable t) {
+                safeReject(call, "io: " + t.getMessage());
+            }
+        });
+    }
+
+    /** نافذة PCM 16-bit مقصوصة: t0 الفعلي (ms) وعيّناتها */
+    static final class Slice {
+        final long t0; final int sr, ch; final byte[] pcm;
+        Slice(long t0, int sr, int ch, byte[] pcm) { this.t0 = t0; this.sr = sr; this.ch = ch; this.pcm = pcm; }
+        long ms() { return (long) (pcm.length / (2 * ch)) * 1000L / sr; }
+        byte[] wav() {
+            ByteBuffer b = ByteBuffer.allocate(44 + pcm.length).order(ByteOrder.LITTLE_ENDIAN);
+            b.put(new byte[]{'R', 'I', 'F', 'F'}).putInt(36 + pcm.length).put(new byte[]{'W', 'A', 'V', 'E'});
+            b.put(new byte[]{'f', 'm', 't', ' '}).putInt(16).putShort((short) 1).putShort((short) ch)
+                    .putInt(sr).putInt(sr * 2 * ch).putShort((short) (2 * ch)).putShort((short) 16);
+            b.put(new byte[]{'d', 'a', 't', 'a'}).putInt(pcm.length).put(pcm);
+            return b.array();
+        }
+    }
+
+    /** WAV الجلسة (رأس 44 بايت، 16kHz أحادي): بايتات [t0, t1] مباشرة */
+    static Slice sliceWav(File f, long t0, long t1) throws IOException {
+        try (RandomAccessFile in = new RandomAccessFile(f, "r")) {
+            long data = Math.max(0, in.length() - RecWriter.HDR) & ~1L;
+            long a = Math.min(data, t0 * RecWriter.BYTES_PER_MS), e = Math.min(data, t1 * RecWriter.BYTES_PER_MS);
+            int n = (int) Math.max(0, e - a) & ~1;
+            byte[] b = new byte[n];
+            if (n > 0) { in.seek(RecWriter.HDR + a); in.readFully(b); }
+            return new Slice(a / RecWriter.BYTES_PER_MS, SR, 1, b);
+        }
+    }
+
+    /** M4A (AAC من encodeM4a): فكّ النافذة فقط. البدء قبل t0 بـ200ms (إحماء المفكّك بعد القفز) ثم قصّ بالعيّنات حسب pts؛
+     *  إدخال EOS بعد t1+100ms؛ حارس توقّف 5ث. مخرج المفكّك PCM 16-bit (الافتراضي)، وPCM عائم يُحوَّل إن صرّح به الجهاز. */
+    static Slice sliceM4a(File f, long t0, long t1) throws Exception {
+        MediaExtractor ex = new MediaExtractor();
+        MediaCodec dec = null; boolean started = false;
+        try {
+            ex.setDataSource(f.getAbsolutePath());
+            int tr = -1; MediaFormat fmt = null;
+            for (int i = 0; i < ex.getTrackCount(); i++) {
+                MediaFormat m = ex.getTrackFormat(i); String mime = m.getString(MediaFormat.KEY_MIME);
+                if (mime != null && mime.startsWith("audio/")) { tr = i; fmt = m; break; }
+            }
+            if (tr < 0) throw new IOException("no-audio-track");
+            ex.selectTrack(tr);
+            int sr = fmt.containsKey(MediaFormat.KEY_SAMPLE_RATE) ? fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE) : SR;
+            int ch = fmt.containsKey(MediaFormat.KEY_CHANNEL_COUNT) ? fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 1;
+            boolean flt = false;
+            ex.seekTo(Math.max(0, t0 - 200) * 1000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+            dec = MediaCodec.createDecoderByType(fmt.getString(MediaFormat.KEY_MIME));
+            dec.configure(fmt, null, null, 0);
+            dec.start(); started = true;
+            final long t0us = t0 * 1000L, t1us = t1 * 1000L;
+            ByteArrayOutputStream out = new ByteArrayOutputStream((int) Math.min(8 * MB, (t1 - t0) * 32L + 8192));
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            boolean inEos = false, outEos = false; long lastStep = SystemClock.elapsedRealtime(), first = -1;
+            while (!outEos) {
+                if (SystemClock.elapsedRealtime() - lastStep > 5000) throw new IOException("decoder stalled");
+                if (!inEos) {
+                    int ii = dec.dequeueInputBuffer(10000);
+                    if (ii >= 0) {
+                        ByteBuffer ib = dec.getInputBuffer(ii);
+                        int n = ib == null ? -1 : ex.readSampleData(ib, 0);
+                        long pts = ex.getSampleTime();
+                        if (n < 0 || pts < 0 || pts > t1us + 100000L) {
+                            dec.queueInputBuffer(ii, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM); inEos = true;
+                        } else { dec.queueInputBuffer(ii, 0, n, pts, 0); ex.advance(); }
+                        lastStep = SystemClock.elapsedRealtime();
+                    }
+                }
+                int oi = dec.dequeueOutputBuffer(info, 10000);
+                if (oi == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    MediaFormat of = dec.getOutputFormat();
+                    if (of.containsKey(MediaFormat.KEY_SAMPLE_RATE)) sr = of.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                    if (of.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) ch = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+                    flt = of.containsKey("pcm-encoding") && of.getInteger("pcm-encoding") == 4;   // AudioFormat.ENCODING_PCM_FLOAT
+                    lastStep = SystemClock.elapsedRealtime();
+                } else if (oi >= 0) {
+                    ByteBuffer ob = dec.getOutputBuffer(oi);
+                    if (ob != null && info.size > 0 && sr > 0 && ch > 0) {
+                        int bps = flt ? 4 : 2, fr = bps * ch, nFr = info.size / fr;
+                        long pts = info.presentationTimeUs;
+                        long s0 = pts >= t0us ? 0 : Math.min(nFr, (t0us - pts) * sr / 1000000L);
+                        long s1 = Math.min(nFr, Math.max(0, (t1us - pts) * sr / 1000000L));
+                        if (s1 > s0) {
+                            if (first < 0) first = pts + s0 * 1000000L / sr;
+                            ob.limit(info.offset + info.size); ob.position(info.offset + (int) (s0 * fr));
+                            int cnt = (int) ((s1 - s0) * ch);
+                            byte[] b = new byte[cnt * 2];
+                            if (flt) {
+                                ByteBuffer fb = ob.slice().order(ByteOrder.nativeOrder());
+                                for (int k = 0; k < cnt; k++) {
+                                    int v = Math.round(fb.getFloat(k * 4) * 32767f);
+                                    if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+                                    b[2 * k] = (byte) v; b[2 * k + 1] = (byte) (v >> 8);
+                                }
+                            } else {
+                                ByteBuffer sb = ob.slice().order(ByteOrder.nativeOrder());
+                                for (int k = 0; k < cnt; k++) { short v = sb.getShort(k * 2); b[2 * k] = (byte) v; b[2 * k + 1] = (byte) (v >> 8); }
+                            }
+                            out.write(b, 0, b.length);
+                        }
+                        if (pts + (long) nFr * 1000000L / sr >= t1us) outEos = true;
+                    }
+                    dec.releaseOutputBuffer(oi, false);
+                    if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outEos = true;
+                    lastStep = SystemClock.elapsedRealtime();
+                }
+            }
+            return new Slice(first < 0 ? t0 : first / 1000L, sr, ch, out.toByteArray());
+        } finally {
+            if (dec != null) {
+                if (started) { try { dec.stop(); } catch (Throwable ignored) {} }
+                try { dec.release(); } catch (Throwable ignored) {}
+            }
+            try { ex.release(); } catch (Throwable ignored) {}
+        }
+    }
+
+    /** recQuota → {bytes, n, free} */
+    @PluginMethod
+    public void recQuota(PluginCall call) {
+        recRdExec.execute(() -> {
+            JSObject r = new JSObject();
+            long bytes = 0; Set<String> ids = new HashSet<>(); long free = -1;
+            try {
+                File d = recDir();
+                File[] kids = d.listFiles();
+                if (kids != null) for (File k : kids) {
+                    if (!k.isFile()) continue;
+                    bytes += k.length();
+                    String id = recIdOf(k.getName());
+                    if (id != null && !k.getName().endsWith(".part")) ids.add(id);
+                }
+                free = d.getUsableSpace();
+            } catch (Throwable t) { r.put("err", String.valueOf(t)); }
+            r.put("bytes", bytes); r.put("n", ids.size()); r.put("free", free);
+            safeResolve(call, r);
+        });
+    }
+
+    /** recShare({id, name, title}): المستخدم وحده يطلبه. نسخة في cache/share (cache-path مُعلن لـFileProvider)
+     *  ثم ACTION_SEND عبر منتقي النظام بإذن قراءة مؤقّت. لا شيء يُرسَل تلقائياً. */
+    @PluginMethod
+    public void recShare(PluginCall call) {
+        final String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        final String name = call.getString("name", "");
+        final String title = call.getString("title", "");
+        recRdExec.execute(() -> {
+            File f = recFile(id);
+            if (f == null) { safeReject(call, "rec-missing"); return; }
+            try {
+                purgeShare(false);
+                File sd = new File(getContext().getCacheDir(), "share");
+                if (!sd.isDirectory() && !sd.mkdirs()) { safeReject(call, "share: mkdir"); return; }
+                File out = new File(sd, shareName(name, id, isM4a(f) ? ".m4a" : ".wav"));
+                if (!copyFile(f, out)) { out.delete(); safeReject(call, "share: copy"); return; }
+                Context ctx = getContext();
+                final Uri u = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", out);
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType(mimeOf(f));
+                i.putExtra(Intent.EXTRA_STREAM, u);
+                i.setClipData(ClipData.newRawUri("", u));
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                final Intent ch = Intent.createChooser(i, title == null ? "" : title);
+                ch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                final Activity a = getActivity();
+                if (a == null) { safeReject(call, "share: no-activity"); return; }
+                a.runOnUiThread(() -> {
+                    try {
+                        a.startActivity(ch);
+                        Log.i(TAG, "rec share " + id);
+                        JSObject r = new JSObject(); r.put("ok", true);
+                        safeResolve(call, r);
+                    } catch (Throwable t) {
+                        safeReject(call, "share: " + t.getMessage());
+                    }
+                });
+            } catch (Throwable t) {
+                safeReject(call, "share: " + t.getMessage());
+            }
+        });
+    }
+
+    /** اسم آمن لنسخة المشاركة: [A-Za-z0-9._-] فقط، بلا امتداد مُرسَل، والامتداد من الصيغة الفعلية */
+    static String shareName(String name, String id, String ext) {
+        String s = name == null ? "" : name.replaceAll("[^A-Za-z0-9._-]", "");
+        int dot = s.lastIndexOf('.');
+        if (dot >= 0) s = s.substring(0, dot);
+        while (s.startsWith(".")) s = s.substring(1);
+        if (s.length() > 64) s = s.substring(0, 64);
+        if (s.isEmpty()) s = "tasmee-" + id;
+        return s + ext;
+    }
+
+    private static boolean copyFile(File src, File dst) {
+        byte[] b = new byte[131072]; int rd;
+        try (InputStream in = new FileInputStream(src); FileOutputStream out = new FileOutputStream(dst)) {
+            while ((rd = in.read(b)) > 0) out.write(b, 0, rd);
+            out.flush();
+        } catch (Throwable t) { return false; }
+        return dst.length() == src.length();
+    }
+
+    /** recFinalize({id, bitrate=32000}): WAV → M4A (AAC-LC 16kHz أحادي) ثم حذف WAV. فشل الترميز يُبقي WAV ويحلّ
+     *  {format:'wav', encErr}. busy للجلسة الحيّة؛ rec-missing إن لم يوجد (أو حُذف أثناء الترميز). */
+    @PluginMethod
+    public void recFinalize(PluginCall call) {
+        final String id = call.getString("id", "");
+        if (!recIdOk(id)) { call.reject("rec-bad-id"); return; }
+        if (id.equals(activeRecId())) { call.reject("busy"); return; }
+        final int br = (int) Math.max(16000, Math.min(64000, numArg(call.getData(), "bitrate", 32000)));
+        recExec.execute(() -> {
+            try { doFinalize(call, id, br); }
+            catch (Throwable t) { safeReject(call, "io: " + t.getMessage()); }
+        });
+    }
+
+    private void doFinalize(PluginCall call, String id, int br) {
+        File d = recDir();
+        File wav = new File(d, id + ".wav"), m4a = new File(d, id + ".m4a"), part = new File(d, id + ".m4a.part");
+        synchronized (recFsLock) {
+            if (id.equals(activeRecId())) { safeReject(call, "busy"); return; }
+            if (!wav.isFile()) {
+                if (m4a.isFile() && mp4DurationMs(m4a) >= 0) {   // رُمِّز سابقاً: نتيجة متطابقة
+                    JSObject r = recItem(id, m4a); r.put("cached", true);
+                    safeResolve(call, r);
+                } else safeReject(call, "rec-missing");
+                return;
+            }
+            encId = id; encCancel = false;
+        }
+        long t0 = SystemClock.elapsedRealtime();
+        long ms = Math.max(0, wav.length() - RecWriter.HDR) / RecWriter.BYTES_PER_MS;
+        String encErr = null;
+        try {
+            encodeM4a(id, wav, part, br);
+            long dm = mp4DurationMs(part);
+            if (dm < 0) throw new IOException("bad-mp4");
+            if (dm > 0 && Math.abs(dm - ms) > Math.max(1500, ms / 10)) throw new IOException("duration " + dm + "≠" + ms);
+        } catch (CancelledIO c) {
+            encErr = "cancelled";
+        } catch (Throwable t) {
+            encErr = String.valueOf(t.getMessage() != null ? t.getMessage() : t);
+        }
+        boolean cancelled, promoted = false;
+        synchronized (recFsLock) {
+            cancelled = encCancel;
+            if (encErr == null && !cancelled && promote(part, m4a)) { promoted = true; wav.delete(); }
+            else part.delete();
+            encId = null; encCancel = false;
+        }
+        if (cancelled) { safeReject(call, "rec-missing"); return; }       // حُذف أثناء الترميز
+        Log.i(TAG, "rec finalize " + id + " " + (promoted ? "m4a" : "wav encErr=" + encErr) + " in " + (SystemClock.elapsedRealtime() - t0) + "ms");
+        JSObject r;
+        if (promoted) r = recItem(id, m4a);
+        else {
+            r = recItem(id, wav);
+            r.put("encErr", encErr == null ? "rename" : encErr);
+        }
+        r.put("ms", ms);
+        safeResolve(call, r);
+    }
+
+    /** ترميز AAC-LC عبر MediaCodec → MediaMuxer(MPEG_4). إطارات 1024 عيّنة؛ pts من عدد العيّنات؛ حارس توقّف 10ث.
+     *  إلغاء (حذف/تدمير) → CancelledIO. */
+    private void encodeM4a(String id, File wav, File part, int bitrate) throws Exception {
+        final int frameBytes = 2048;
+        MediaCodec enc = null; MediaMuxer mux = null; boolean muxStarted = false, encStarted = false;
+        try (RandomAccessFile in = new RandomAccessFile(wav, "r")) {
+            long data = Math.max(0, in.length() - RecWriter.HDR) & ~1L;
+            if (data < frameBytes) throw new IOException("empty");
+            in.seek(RecWriter.HDR);
+            MediaFormat fmt = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SR, 1);
+            fmt.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+            fmt.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+            fmt.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384);
+            enc = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+            enc.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            enc.start(); encStarted = true;
+            part.delete();
+            mux = new MediaMuxer(part.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            byte[] fb = new byte[frameBytes];
+            long fed = 0, lastPts = 0, lastStep = SystemClock.elapsedRealtime(), frames = 0;
+            int track = -1, pct = 0;
+            boolean inEos = false, outEos = false;
+            while (!outEos) {
+                if (encCancel || Thread.currentThread().isInterrupted()) throw new CancelledIO();
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastStep > 10000) throw new IOException("encoder stalled");
+                if (!inEos) {
+                    int ii = enc.dequeueInputBuffer(10000);
+                    if (ii >= 0) {
+                        ByteBuffer ib = enc.getInputBuffer(ii);
+                        long pts = (fed / 2) * 1000000L / SR;
+                        int n = (int) Math.min(frameBytes, data - fed);
+                        if (ib != null) { ib.clear(); n = Math.min(n, ib.remaining()) & ~1; }
+                        if (n <= 0 || ib == null) {
+                            enc.queueInputBuffer(ii, 0, 0, pts, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                            inEos = true;
+                        } else {
+                            in.readFully(fb, 0, n);
+                            ib.put(fb, 0, n);
+                            enc.queueInputBuffer(ii, 0, n, pts, 0);
+                            fed += n;
+                            int p = (int) (fed * 10 / data);
+                            if (p > pct) {
+                                pct = p;
+                                JSObject ev = new JSObject();
+                                ev.put("kind", "enc"); ev.put("id", id); ev.put("done", fed); ev.put("total", data);
+                                emit("rec_event", ev);
+                            }
+                        }
+                        lastStep = now;
+                    }
+                }
+                int oi = enc.dequeueOutputBuffer(info, 10000);
+                if (oi == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (muxStarted) throw new IllegalStateException("format changed twice");
+                    track = mux.addTrack(enc.getOutputFormat());
+                    mux.start(); muxStarted = true;
+                    lastStep = now;
+                } else if (oi >= 0) {
+                    ByteBuffer ob = enc.getOutputBuffer(oi);
+                    boolean cfg = (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
+                    if (!cfg && info.size > 0 && ob != null) {
+                        if (!muxStarted) throw new IllegalStateException("data before format");
+                        if (info.presentationTimeUs < lastPts) info.presentationTimeUs = lastPts;   // الحاوي يرفض الرجوع
+                        ob.position(info.offset); ob.limit(info.offset + info.size);
+                        mux.writeSampleData(track, ob, info);
+                        lastPts = info.presentationTimeUs; frames++;
+                    }
+                    enc.releaseOutputBuffer(oi, false);
+                    if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outEos = true;
+                    lastStep = now;
+                }
+            }
+            if (!muxStarted || frames == 0) throw new IOException("no-output");
+            mux.stop(); muxStarted = false;
+        } finally {
+            if (enc != null) {
+                if (encStarted) { try { enc.stop(); } catch (Throwable ignored) {} }
+                try { enc.release(); } catch (Throwable ignored) {}
+            }
+            if (mux != null) {
+                if (muxStarted) { try { mux.stop(); } catch (Throwable ignored) {} }
+                try { mux.release(); } catch (Throwable ignored) {}
+            }
+        }
     }
 
     // ═══ التفريغ والحذف ═══
@@ -1049,6 +2067,9 @@ public class QuranAsrPlugin extends Plugin {
         final HttpURLConnection c = curConn;
         // أوقف المنفّذ أولاً: تحميل جارٍ يرى الإغلاق فيحرّر مُعرِّفه بدل تثبيته
         try { ioExec.shutdownNow(); } catch (Throwable ignored) {}
+        encCancel = true;   // ترميز جارٍ يتوقّف (WAV يبقى؛ .m4a.part يُحذف في recList التالي)
+        try { recExec.shutdownNow(); } catch (Throwable ignored) {}
+        try { recRdExec.shutdownNow(); } catch (Throwable ignored) {}
         try {
             new Thread(() -> {
                 try { if (c != null) c.disconnect(); } catch (Throwable ignored) {}
