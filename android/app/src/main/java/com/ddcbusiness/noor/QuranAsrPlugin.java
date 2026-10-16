@@ -88,10 +88,13 @@ public class QuranAsrPlugin extends Plugin {
 
     private static final String TAG = "QuranAsr";
     private static final int SR = 16000;
-    private static final int BLOCK = 1600;                  // 100ms لكل كتلة
-    private static final int QUEUE_CAP = 600;               // 60ث تأخّر أقصى قبل الإسقاط
+    private static final int BLOCK = 1600;                  // 100ms: نافذة VAD (تُجمَّع من الكتل الفرعية)
+    /* الالتقاط والتغذية بكتل فرعية 20ms: المُعرِّف يفكّ القطعة متى اكتملت عيّناتها بدل انتظار نهاية كتلة 100ms
+       (الرموز والطوابع والتقطيع مطابقة حرفياً لتغذية 100ms؛ الحدث يصل أبكر بـ≤80ms). الـVAD يبقى على نوافذ 100ms. */
+    private static final int SUB = 320;                     // 20ms لكل كتلة التقاط/تغذية
+    private static final int QUEUE_CAP = 3000;              // 60ث (بكتل 20ms) تأخّر أقصى قبل الإسقاط
     private static final String DIR_VER = "v1";
-    private static final String MODEL = "zipformer_p_arabic_v3.1.int8.onnx";
+    private static final String MODEL = "zipformer_p_arabic_v3.1.int8.onnx";   // الافتراضي حين لا يسمّي load نموذجاً
     private static final String TOKENS = "tokens.txt";
     private static final String MARKER = "verified.json";   // {"<name>":"<sha256>"} بعد التحقّق
     private static final long MB = 1024L * 1024L;
@@ -131,8 +134,10 @@ public class QuranAsrPlugin extends Plugin {
     private Thread activeDec = null;                 // خيط الفكّ المالك لتيار (تحت lock)
     private final ArrayList<OnlineRecognizer> pendingRelease = new ArrayList<>();  // تحرير مؤجَّل حتى يخرج خيط الفكّ (تحت lock)
     private volatile int loadedThreads = 0;
+    private volatile String loadedModel = null;      // اسم ملف النموذج المحمَّل (load({model}))
     private volatile long loadMs = 0;
     private volatile boolean loading = false;
+    private volatile int loadGen = 0;                // يُكتب في load() وحده (خيط المكوّن)
 
     // ── التنزيل ──
     private volatile boolean downloading = false;
@@ -156,6 +161,11 @@ public class QuranAsrPlugin extends Plugin {
     // ── عدّادات الجلسة (كاتب واحد لكل حقل؛ تُقرأ من stats) ──
     private volatile int seq = 0, utt = 0, dropped = 0;
     private volatile long fedSamples = 0, decodeNs = 0, maxBacklogMs = 0, uttStartMs = 0;
+    /* مؤشّرا تأخّر رخيصان لكل جلسة (JS يحكم بهما على «فترة اختبار» نموذج أثقل): maxQ = أقصى عمق باقٍ للطابور بعد سحب
+       كتلة (كتل 20ms)، lagEndMs = تأخّر آخر كتلة غُذّيت (ms بين التقاطها ونهاية فكّها) — يكبر مع الجلسة إن كان الفكّ
+       أبطأ من الزمن الحقيقي، ويبقى صغيراً إن لحق */
+    private volatile int maxQ = 0;
+    private volatile long lagEndMs = 0;
     private volatile String lastText = "";
     private volatile boolean backlogWarned = false;
     private volatile int rawPeak = 0;
@@ -165,7 +175,6 @@ public class QuranAsrPlugin extends Plugin {
 
     /* ── حدث asr_pause: صمت ≥400ms وآخر رمز أقدم من 400ms — مرّة لكل توقّف (لا يغيّر الفكّ ولا القطع) ── */
     private static final int PAUSE_MS = 400, PAUSE_TOK_MS = 400;
-    private static final int BLOCK_MS = BLOCK * 1000 / SR;
 
     /* ── «أعِد الآية» (hold): نوافذ بزمن الالتقاط (elapsedRealtime) لا يُغذّى صوتها ولا يُسجَّل ولا يتقدّم به
        الخط الزمني. ما التُقط قبل النافذة يُفكّ عادياً (طابور متأخّر لا يُسقط كلام القارئ)، وما بعدها يُسقط
@@ -179,6 +188,7 @@ public class QuranAsrPlugin extends Plugin {
     /* ── تسجيل الجلسة (اختياري، محلي فقط): noBackupFilesDir/recordings — خارج النسخ الاحتياطي بنظام التشغيل،
        لا يُرفع ولا يُزامَن، ولا يغادر الجهاز إلا بـrecShare الصريح (نسخة مؤقّتة في cache/share تُحذف بعد ساعة) ── */
     private static final Pattern REC_ID_RE = Pattern.compile("^[0-9]{8}-[0-9]{6}(-[0-9]{1,3})?$");
+    private static final long LOAD_MIN_AVAIL = 200L * MB;            // ذاكرة متاحة لازمة لبناء مُعرِّف (load)
     private static final long REC_MIN_FREE = 200L * MB;              // شرط بدء التسجيل
     private static final long REC_STOP_FREE = 50L * MB;              // يتوقّف التسجيل (لا الجلسة) تحت هذا
     private static final int REC_DEF_MIN = 60, REC_MAX_MIN = 120;
@@ -197,10 +207,10 @@ public class QuranAsrPlugin extends Plugin {
     private final ExecutorService recExec = single();                // الترميز وحده (قد يطول) — لا يحجب التنزيل/التحميل
     private final ExecutorService recRdExec = single();              // القائمة/الحذف/القراءة/المشاركة (قصيرة)
 
-    /** كتلة صوت ملتقَطة: PCM ±1.0 + وقت الالتقاط + rms16 الخام */
+    /** كتلة صوت ملتقَطة (20ms): PCM ±1.0 + وقت الالتقاط + مجموع مربّعات int16 الدقيق (نافذة VAD تُجمَّع منه) */
     private static final class Block {
-        final float[] pcm; final long tCap; final double rms;
-        Block(float[] p, long t, double r) { pcm = p; tCap = t; rms = r; }
+        final float[] pcm; final long tCap; final long sq;
+        Block(float[] p, long t, long s) { pcm = p; tCap = t; sq = s; }
     }
     private static final Block EOS = new Block(new float[0], 0, 0);   // حارس نهاية الجلسة
 
@@ -384,6 +394,8 @@ public class QuranAsrPlugin extends Plugin {
             r.put("lib", lib);
             r.put("libErr", libErr == null ? "" : libErr);
             r.put("ready", recognizer != null);
+            String lm = loadedModel;
+            r.put("model", recognizer != null && lm != null ? lm : "");
             r.put("loading", loading);
             r.put("listening", listening);
             r.put("downloading", downloading);
@@ -639,36 +651,59 @@ public class QuranAsrPlugin extends Plugin {
         if (loading || listening) { call.reject("busy"); return; }
         Integer reqT = call.getInt("threads", 2);
         final int threads = Math.max(1, Math.min(reqT == null ? 2 : reqT, Math.min(2, cores())));
+        /* model (اختياري): اسم ملف نموذج مُتحقَّق في مجلد المحرّك — JS يختار الأحدث المُتحقَّق ويبقى على السابق
+           حتى يكتمل تنزيل الجديد؛ الإعداد (حجم القطعة…) يُقرأ من بيانات ONNX الوصفية فلا تغيير آخر هنا */
+        String mn = call.getString("model", MODEL);
+        if (mn == null || mn.isEmpty()) mn = MODEL;
+        if (!NAME_RE.matcher(mn).matches() || !mn.endsWith(".onnx")) { call.reject("bad-args: model"); return; }
+        final String modelName = mn;
+        final int lg = ++loadGen;
         loading = true;
         ioExec.execute(() -> {
-            try { doLoad(call, threads); }
-            catch (Throwable t) { safeReject(call, "init: " + t.getMessage()); }
-            finally { loading = false; }
+            try { doLoad(call, threads, modelName); }
+            catch (Throwable t) { loadReject(call, "init: " + t.getMessage()); }
+            finally { if (loadGen == lg) loading = false; }   // load أحدث بدأ بعد تسليم النتيجة: علمه له
         });
     }
 
-    private void doLoad(PluginCall call, int threads) throws Exception {
+    /* نتيجة load: «loading» يُصفَّر قبل تسليمها — وإلا فاستدعاء load تالٍ فور وصولها (عودة إلى chunk-24 بعد فشل chunk-16، أو
+       إعادة تحميل بعد low-mem) قد يسبق finally فيُرفض «busy» بلا سبب */
+    private void loadResolve(PluginCall call, JSObject r) { loading = false; safeResolve(call, r); }
+    private void loadReject(PluginCall call, String msg) { loading = false; safeReject(call, msg); }
+
+    private void doLoad(PluginCall call, int threads, String modelName) throws Exception {
         File dir = asrDir(false);
-        File model = new File(dir, MODEL), tokens = new File(dir, TOKENS);
+        File model = new File(dir, modelName), tokens = new File(dir, TOKENS);
         JSONObject mk = readMarker(dir);
         if (!model.isFile() || !tokens.isFile()
-                || !SHA_RE.matcher(mk.optString(MODEL, "")).matches()
+                || !SHA_RE.matcher(mk.optString(modelName, "")).matches()
                 || !SHA_RE.matcher(mk.optString(TOKENS, "")).matches()) {
-            safeReject(call, "not-verified");
+            loadReject(call, "not-verified");
             return;
         }
-        if (recognizer != null && loadedThreads == threads) {
+        if (recognizer != null && loadedThreads == threads && modelName.equals(loadedModel)) {
             JSObject r = new JSObject();
-            r.put("ok", true); r.put("ms", 0); r.put("threads", threads); r.put("cached", true);
-            safeResolve(call, r);
+            r.put("ok", true); r.put("ms", 0); r.put("threads", threads); r.put("cached", true); r.put("model", modelName);
+            loadResolve(call, r);
             return;
         }
-        if (listening) { safeReject(call, "busy"); return; }
+        if (listening) { loadReject(call, "busy"); return; }
+        /* مُعرِّف يعمل (تبديل نموذج، مثل chunk-24 → chunk-16): افحص الذاكرة قبل تحريره. الرفض هنا «low-mem: kept …»
+           يُبقي القديم محمَّلاً وجاهزاً (status.model لم يتغيّر) — لا يُحرَّر ثم يُرفض الجديد فيبقى المستخدم بلا محرّك.
+           العتبة نفسها والقديم ما زال في الذاكرة: أحوط (بعد تحريره يتوفّر أكثر) */
+        if (recognizer != null) {
+            ActivityManager.MemoryInfo m0 = memInfo();
+            if (m0 != null && (m0.lowMemory || m0.availMem < LOAD_MIN_AVAIL)) {
+                Log.w(TAG, "load: low-mem before replacing " + loadedModel + " avail=" + (m0.availMem / MB) + "MB low=" + m0.lowMemory + " — kept");
+                loadReject(call, "low-mem: kept " + (m0.availMem / MB));
+                return;
+            }
+        }
         releaseRecognizer();   // حرّر القديم قبل بناء الجديد — لا نسختان في الذاكرة
         ActivityManager.MemoryInfo mi = memInfo();
-        if (mi != null && (mi.lowMemory || mi.availMem < 200L * MB)) {
+        if (mi != null && (mi.lowMemory || mi.availMem < LOAD_MIN_AVAIL)) {
             Log.w(TAG, "load: low-mem avail=" + (mi.availMem / MB) + "MB low=" + mi.lowMemory);
-            safeReject(call, "low-mem: " + (mi.availMem / MB));
+            loadReject(call, "low-mem: " + (mi.availMem / MB));
             return;
         }
         long t0 = SystemClock.elapsedRealtime();
@@ -687,12 +722,12 @@ public class QuranAsrPlugin extends Plugin {
             rec = new OnlineRecognizer(null, cfg);                        // null AssetManager → من ملف
         } catch (OutOfMemoryError oom) {
             Log.w(TAG, "load: oom");
-            safeReject(call, "low-mem: oom");
+            loadReject(call, "low-mem: oom");
             return;
         } catch (Throwable t) {
             Log.w(TAG, "load: init failed " + t);
-            dropMarker(dir, MODEL, TOKENS);   // ensureModel التالي يعيد الهاش
-            safeReject(call, "init: " + t.getMessage());
+            dropLoadMarker(dir, modelName);   // ensureModel التالي يعيد الهاش
+            loadReject(call, "init: " + t.getMessage());
             return;
         }
         long ms = SystemClock.elapsedRealtime() - t0;
@@ -700,8 +735,8 @@ public class QuranAsrPlugin extends Plugin {
            بعده ينهار؛ افحص المؤشر (انعكاساً) وارفض بدل الانهيار */
         if (nativePtr(rec) == 0L) {
             Log.w(TAG, "load: native config rejected");
-            dropMarker(dir, MODEL, TOKENS);
-            safeReject(call, "init: config rejected");
+            dropLoadMarker(dir, modelName);
+            loadReject(call, "init: config rejected");
             return;
         }
         // تسخين: نصف ثانية صمت — يحجز الذاكرة ويثبت سلامة المُعرِّف قبل أول جلسة
@@ -717,20 +752,20 @@ public class QuranAsrPlugin extends Plugin {
         } catch (Throwable t) {
             try { rec.release(); } catch (Throwable ignored) {}
             Log.w(TAG, "load: warmup failed " + t);
-            dropMarker(dir, MODEL, TOKENS);
-            safeReject(call, "init: warmup " + t.getMessage());
+            dropLoadMarker(dir, modelName);
+            loadReject(call, "init: warmup " + t.getMessage());
             return;
         }
         long warmMs = SystemClock.elapsedRealtime() - w0;
         synchronized (lock) {
             // أُغلق المنفّذ (تدمير النشاط) أثناء البناء → لا تثبّت مُعرِّفاً لن يُحرَّر
             if (ioExec.isShutdown()) { try { rec.release(); } catch (Throwable ignored) {} return; }
-            recognizer = rec; loadedThreads = threads; loadMs = ms;
+            recognizer = rec; loadedThreads = threads; loadMs = ms; loadedModel = modelName;
         }
-        Log.i(TAG, "load ok ms=" + ms + " warm=" + warmMs + " threads=" + threads + " cores=" + cores());
+        Log.i(TAG, "load ok model=" + modelName + " ms=" + ms + " warm=" + warmMs + " threads=" + threads + " cores=" + cores());
         JSObject r = new JSObject();
-        r.put("ok", true); r.put("ms", ms); r.put("threads", threads); r.put("warmMs", warmMs);
-        safeResolve(call, r);
+        r.put("ok", true); r.put("ms", ms); r.put("threads", threads); r.put("warmMs", warmMs); r.put("model", modelName);
+        loadResolve(call, r);
     }
 
     @PluginMethod
@@ -863,7 +898,7 @@ public class QuranAsrPlugin extends Plugin {
             g = ++gen;
             jsSess = js;
             seq = 0; utt = 0; dropped = 0; sentTok = 0; uttEv = 0;
-            fedSamples = 0; decodeNs = 0; maxBacklogMs = 0; uttStartMs = 0;
+            fedSamples = 0; decodeNs = 0; maxBacklogMs = 0; uttStartMs = 0; maxQ = 0; lagEndMs = 0;
             lastText = ""; backlogWarned = false; rawPeak = 0; rawRms = 0; noiseFloor = VOICE_MIN;
             recorder = ar; queue = q; pendingStop = null;
             recW = rw; recGen = g; recRes = null; recResGen = -1;
@@ -900,12 +935,12 @@ public class QuranAsrPlugin extends Plugin {
         return !((dt != null && dt.isAlive()) || (ct != null && ct.isAlive()));
     }
 
-    /** خيط الالتقاط: كتل 100ms → float ±1.0 → الطابور (يُسقط الأقدم عند الامتلاء) */
+    /** خيط الالتقاط: كتل 20ms → float ±1.0 → الطابور (يُسقط الأقدم عند الامتلاء) */
     private void capLoop(final int g, final int js, final ArrayBlockingQueue<Block> q, final AudioRecord ar) {
-        short[] sb = new short[BLOCK];
+        short[] sb = new short[SUB];
         while (capturing && g == gen) {
             int n;
-            try { n = ar.read(sb, 0, BLOCK); } catch (Throwable t) { n = -1000; }
+            try { n = ar.read(sb, 0, SUB); } catch (Throwable t) { n = -1000; }
             if (n > 0) {
                 long tCap = SystemClock.elapsedRealtime();
                 float[] f = new float[n];
@@ -922,7 +957,7 @@ public class QuranAsrPlugin extends Plugin {
                 rawRms = rms;
                 if (pk > rawPeak) rawPeak = pk;
                 if (decDeadGen == g) continue;   // خيط الفكّ توقّف بخطأ: لا طابور ينمو بلا مستهلك
-                Block blk = new Block(f, tCap, rms);
+                Block blk = new Block(f, tCap, sq);
                 if (!q.offer(blk)) {
                     dropped++;
                     if (!backlogWarned) {
@@ -930,7 +965,7 @@ public class QuranAsrPlugin extends Plugin {
                         Log.w(TAG, "backlog: queue full, dropping oldest");
                         JSObject ev = new JSObject();
                         ev.put("sess", js); ev.put("code", "backlog");
-                        ev.put("msg", "decoder behind by >" + (QUEUE_CAP * BLOCK / SR) + "s");
+                        ev.put("msg", "decoder behind by >" + (QUEUE_CAP * SUB / SR) + "s");
                         emit("asr_error", ev);
                     }
                     q.poll();
@@ -965,12 +1000,15 @@ public class QuranAsrPlugin extends Plugin {
         double floor = VOICE_MIN;
         boolean hadSpeech = false, pauseSent = false, inHold = false;
         int silMs = 0;
+        long vSq = 0; int vN = 0;               // نافذة VAD الجارية (100ms) تُجمَّع من الكتل الفرعية المُغذّاة
         long lastTCap = SystemClock.elapsedRealtime(), lastLogMs = 0;
         try {
             while (g == gen) {
                 Block b;
                 try { b = q.poll(250, TimeUnit.MILLISECONDS); } catch (InterruptedException ie) { break; }
                 if (b == null) continue;
+                int qn = q.size();                     // الباقي خلف هذه الكتلة (يتراكم إن كان الفكّ أبطأ من المايك)
+                if (qn > maxQ) maxQ = qn;
                 if (b.pcm.length == 0) {
                     // نهاية الجلسة: ذيل 0.8ث ثم إنهاء الإدخال وتفريغ آخر الرموز
                     long t0 = System.nanoTime();
@@ -989,10 +1027,11 @@ public class QuranAsrPlugin extends Plugin {
                     break;
                 }
                 // ── «أعِد الآية»: كتلة داخل نافذة hold تُسقط (لا تغذية، لا تسجيل، لا تقدّم للخط الزمني) ──
-                if (heldBlock(b.tCap, g, js)) {
+                if (heldBlock(b.tCap, b.pcm.length * 1000L / SR, g, js)) {
                     long fedMs = fedSamples * 1000L / SR;
                     if (!inHold) {
                         inHold = true; hadSpeech = false; silMs = 0; pauseSent = false;
+                        vSq = 0; vN = 0;        // نافذة VAD الناقصة قبل hold تُهمل (الحالة تُصفَّر على أي حال)
                         holdMark(fedMs, 0);
                         // التيار غُذّي صوتاً منذ آخر قطع: أنهِ المقطع كقطع الصمت (بلا حدث إن لم يكن فيه شيء)
                         if (fedMs > uttStartMs && !cutUtt(g, js, rec, cur, SystemClock.elapsedRealtime() - b.tCap, true, "hold")) break;
@@ -1003,13 +1042,15 @@ public class QuranAsrPlugin extends Plugin {
                 }
                 if (inHold) { inHold = false; hadSpeech = false; silMs = 0; pauseSent = false; }
                 long t0 = System.nanoTime();
-                OnlineRecognizerResult r;
+                OnlineRecognizerResult r = null;
                 synchronized (lock) {
                     if (g != gen) break;
                     OnlineStream st = cur[0];
                     st.acceptWaveform(b.pcm, SR);
-                    while (rec.isReady(st)) rec.decode(st);
-                    r = rec.getResult(st);
+                    boolean decoded = false;
+                    while (rec.isReady(st)) { rec.decode(st); decoded = true; }
+                    // النتيجة لا تتغيّر بلا فكّ: لا استدعاء JNI لها في كتل 20ms التي لم تُكمل قطعة
+                    if (decoded) r = rec.getResult(st);
                 }
                 decodeNs += System.nanoTime() - t0;
                 fedSamples += b.pcm.length;
@@ -1018,12 +1059,22 @@ public class QuranAsrPlugin extends Plugin {
                 long lag = SystemClock.elapsedRealtime() - b.tCap;
                 lastTCap = b.tCap;
                 if (lag > maxBacklogMs) maxBacklogMs = lag;
-                if (!clean(r.getText()).equals(lastText)) emitPartial(g, js, r, false, lag);
-                float[] tsl = r.getTimestamps();
-                if (tsl != null && tsl.length > 0) lastTokMs = uttStartMs + Math.round(tsl[tsl.length - 1] * 1000.0);
+                lagEndMs = lag;
+                if (r != null) {
+                    if (!clean(r.getText()).equals(lastText)) emitPartial(g, js, r, false, lag);
+                    float[] tsl = r.getTimestamps();
+                    if (tsl != null && tsl.length > 0) lastTokMs = uttStartMs + Math.round(tsl[tsl.length - 1] * 1000.0);
+                }
+
+                // ── نافذة VAD = 100ms مُغذّاة (5 كتل فرعية): القرار والقطع على حدودها فقط، كما كانا بكتل 100ms ──
+                vSq += b.sq; vN += b.pcm.length;
+                if (vN < BLOCK) continue;
+                final double rms = Math.sqrt((double) vSq / vN);
+                int blkMs = (int) (vN * 1000L / SR);
+                vSq = 0; vN = 0;
 
                 // ── VAD متكيّف: أرضية = أدنى متوسط 0.5ث خلال 30ث (العتبتان كما في محرّك whisper) ──
-                smSum += b.rms - sm[smPos]; sm[smPos] = b.rms; smPos = (smPos + 1) % sm.length; if (smN < sm.length) smN++;
+                smSum += rms - sm[smPos]; sm[smPos] = rms; smPos = (smPos + 1) % sm.length; if (smN < sm.length) smN++;
                 ring[ringPos] = smSum / smN;
                 ringPos = (ringPos + 1) % ring.length;
                 if (ringN < ring.length) ringN++;
@@ -1035,9 +1086,8 @@ public class QuranAsrPlugin extends Plugin {
                 }
                 double voiceThr = Math.max(VOICE_MIN, floor * 2.5);
                 double silThr = Math.max(SIL_MIN, floor * 1.5);
-                int blkMs = (int) (b.pcm.length * 1000L / SR);
-                if (b.rms > voiceThr) { hadSpeech = true; silMs = 0; pauseSent = false; }
-                else if (b.rms < silThr) silMs += blkMs;
+                if (rms > voiceThr) { hadSpeech = true; silMs = 0; pauseSent = false; }
+                else if (rms < silThr) silMs += blkMs;
                 else silMs = 0;   // منطقة رمادية: تقطع الصمت المتصل ولا تُعدّ كلاماً
 
                 long fedMs = fedSamples * 1000L / SR;
@@ -1052,7 +1102,7 @@ public class QuranAsrPlugin extends Plugin {
                 // القطع وسط الكلمة يُسقط بقيّتها (التيار الجديد يفقد أول أصواته)
                 boolean cut = (hadSpeech && silMs >= UTT_SIL_MS && !lastText.isEmpty() && fedMs - lastTokMs >= TOK_AGE_MS)
                         || (uttMs >= UTT_SOFT_MS && silMs >= UTT_SOFT_SIL_MS)
-                        || (uttMs >= UTT_SOFT2_MS && b.rms < voiceThr)
+                        || (uttMs >= UTT_SOFT2_MS && rms < voiceThr)
                         || uttMs >= UTT_HARD_MS;
                 if (cut) {
                     // قطع المقطع: ذيل 0.8ث أصفار → نهائي → تيار جديد
@@ -1064,7 +1114,7 @@ public class QuranAsrPlugin extends Plugin {
                     long dms = decodeNs / 1000000L;
                     Log.d(TAG, "live t=" + fedMs + "ms rtf=" + (fedMs > 0 ? Math.round(dms * 1000.0 / fedMs) / 1000.0 : 0)
                             + " lag=" + lag + "ms q=" + q.size() + " utt=" + utt + " ev=" + seq
-                            + " floor=" + Math.round(floor) + " rms=" + Math.round(b.rms));
+                            + " floor=" + Math.round(floor) + " rms=" + Math.round(rms));
                 }
             }
         } catch (Throwable t) {
@@ -1189,15 +1239,15 @@ public class QuranAsrPlugin extends Plugin {
         if (g == gen) emit("asr_pause", ev);
     }
 
-    /** هل الكتلة (نهاية التقاطها tCap) داخل نافذة hold؟ الكتل بترتيب الالتقاط، فتُسقط النوافذ المنتهية (بعد الذيل)
-     *  من الأمام. نافذة مفتوحة أطول من HOLD_MAX_MS تُغلق (حدث asr_hold reason:timeout). */
-    private boolean heldBlock(long tCap, int g, int js) {
+    /** هل الكتلة (نهاية التقاطها tCap، مدتها durMs) داخل نافذة hold؟ الكتل بترتيب الالتقاط، فتُسقط النوافذ المنتهية
+     *  (بعد الذيل) من الأمام. نافذة مفتوحة أطول من HOLD_MAX_MS تُغلق (حدث asr_hold reason:timeout). */
+    private boolean heldBlock(long tCap, long durMs, int g, int js) {
         boolean expired = false, held = false;
         synchronized (holdWins) {
             long[] w;
             while ((w = holdWins.peekFirst()) != null) {
                 if (w[1] == Long.MAX_VALUE && tCap - w[0] > HOLD_MAX_MS) { w[1] = w[0] + HOLD_MAX_MS; holding = false; expired = true; }
-                if (w[1] != Long.MAX_VALUE && tCap - BLOCK_MS >= w[1] + HOLD_TAIL_MS) { holdWins.pollFirst(); continue; }
+                if (w[1] != Long.MAX_VALUE && tCap - durMs >= w[1] + HOLD_TAIL_MS) { holdWins.pollFirst(); continue; }
                 held = tCap > w[0];
                 break;
             }
@@ -1334,6 +1384,8 @@ public class QuranAsrPlugin extends Plugin {
         r.put("events", seq);
         r.put("dropped", dropped);
         r.put("maxBacklogMs", maxBacklogMs);
+        r.put("maxQ", maxQ);
+        r.put("lagEndMs", lagEndMs);
         if (timeout) r.put("timeout", true);
         JSObject rr = null; RecWriter aw = null;
         synchronized (sessLock) {
@@ -1353,6 +1405,8 @@ public class QuranAsrPlugin extends Plugin {
         r.put("uttMs", Math.max(0, fedSamples * 1000L / SR - uttStartMs));
         r.put("lastText", lastText);
         r.put("ready", recognizer != null);
+        String lm = loadedModel;
+        r.put("model", recognizer != null && lm != null ? lm : "");
         r.put("threads", loadedThreads);
         r.put("loadMs", loadMs);
         r.put("noiseFloor", Math.round(noiseFloor));
@@ -2026,11 +2080,40 @@ public class QuranAsrPlugin extends Plugin {
         });
     }
 
+    /** deleteFile({name}): يحذف ملفاً واحداً من مجلد المحرّك (+ جزئيّه) ويُسقط مدخله من علامة التحقّق — لإزالة
+     *  النموذج السابق بعد أن يُحمَّل الجديد ويعمل. يرفض «in-use» إن كان هو النموذج المحمَّل، و«busy» أثناء
+     *  تحميل/جلسة. {ok, freed}؛ ملف غير موجود = ok بلا تحرير. على منفّذ الإدخال/الإخراج: بعد أي تنزيل/تحميل سابق. */
+    @PluginMethod
+    public void deleteFile(PluginCall call) {
+        final String name = call.getString("name", "");
+        if (name == null || !NAME_RE.matcher(name).matches() || name.endsWith(".part") || name.startsWith(MARKER)) {
+            call.reject("bad-args: name");
+            return;
+        }
+        ioExec.execute(() -> {
+            try {
+                if (loading || listening) { safeReject(call, "busy"); return; }
+                if (recognizer != null && name.equals(loadedModel)) { safeReject(call, "in-use"); return; }
+                File dir = asrDir(false);
+                File f = new File(dir, name), part = new File(dir, name + ".part");
+                long freed = (f.isFile() ? f.length() : 0) + (part.isFile() ? part.length() : 0);
+                if (readMarker(dir).has(name)) dropMarker(dir, name);   // العلامة أولاً: لا ملف «مُتحقَّق» نصف محذوف
+                if (part.isFile()) part.delete();
+                if (f.exists() && !f.delete()) { safeReject(call, "io: تعذّر حذف " + name); return; }
+                Log.i(TAG, "deleteFile " + name + " freed=" + freed);
+                JSObject r = new JSObject(); r.put("ok", true); r.put("freed", freed);
+                safeResolve(call, r);
+            } catch (Throwable t) {
+                safeReject(call, "io: " + t.getMessage());
+            }
+        });
+    }
+
     /** حرّر المُعرِّف تحت القفل؛ إن كان خيط فكّ ما زال يملك تياراً فالتحرير عند خروجه */
     private void releaseRecognizer() {
         synchronized (lock) {
             OnlineRecognizer r = recognizer;
-            recognizer = null; loadedThreads = 0;
+            recognizer = null; loadedThreads = 0; loadedModel = null;
             if (r == null) return;
             if (activeDec != null && activeDec.isAlive()) { pendingRelease.add(r); return; }
             activeDec = null;
@@ -2297,6 +2380,14 @@ public class QuranAsrPlugin extends Plugin {
             return false;
         }
         return promote(tmp, new File(dir, MARKER));
+    }
+
+    /** فشل تحميل نموذج (بناء/إعداد/إحماء): تُسقط علامته هو فقط فيعيد ensureModel التالي هاشه. tokens.txt مشترك
+     *  بين chunk-24 وchunk-16: لا يُسقَط إلا مع النموذج الافتراضي (chunk-24) — وإلا فشلُ chunk-16 يُبطل تحقّق
+     *  chunk-24 فترفض العودة إليه «not-verified» ويبقى المستخدم بلا محرّك وملفه على القرص */
+    private static void dropLoadMarker(File dir, String modelName) {
+        if (MODEL.equals(modelName)) dropMarker(dir, modelName, TOKENS);
+        else dropMarker(dir, modelName);
     }
 
     /** إسقاط مدخلات من العلامة (فشل التحميل) — ensureModel التالي يعيد هاش الملفات */
