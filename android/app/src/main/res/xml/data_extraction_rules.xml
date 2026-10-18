@@ -1,18 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- API 31+: قواعد النسخ السحابي ونقل جهاز-لجهاز.
-     نستثني كاش النماذج الضخم وحالة الجلسة الحسّاسة من كليهما. -->
+<!-- أندرويد 12+ : النسخ السحابي (سقف ٢٥MB) ونقل جهاز-إلى-جهاز. القواعد نفسها في الحالتين (انظر backup_rules.xml):
+     تُستثنى ملفات المحرّكات والكاشات، ويبقى تقدّم المستخدم (localStorage الـWebView) والإعدادات.
+     domain="file" = files/ ، domain="root" = مجلد بيانات التطبيق (فيه app_webview). -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="file" path="app_webview/Default/Service Worker" />
-        <exclude domain="file" path="app_webview/Default/Cache" />
-        <exclude domain="file" path="app_webview/Default/blob_storage" />
-        <exclude domain="file" path="app_webview/Default/IndexedDB" />
+        <exclude domain="file" path="asr" />
+        <exclude domain="file" path="vosk" />
+        <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin" />
+        <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin.part" />
+        <exclude domain="file" path="pose_landmarker_lite.task" />
+        <exclude domain="root" path="app_webview/Default/Service Worker" />
+        <exclude domain="root" path="app_webview/Default/IndexedDB" />
+        <exclude domain="root" path="app_webview/Default/blob_storage" />
+        <exclude domain="root" path="app_webview/Default/GPUCache" />
+        <exclude domain="root" path="app_webview/Default/Cache" />
+        <exclude domain="root" path="app_webview/Default/Code Cache" />
         <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+        <exclude domain="sharedpref" path="NOTIFICATION_STORE.xml" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="file" path="app_webview/Default/Service Worker" />
-        <exclude domain="file" path="app_webview/Default/Cache" />
-        <exclude domain="file" path="app_webview/Default/blob_storage" />
-        <exclude domain="file" path="app_webview/Default/IndexedDB" />
+        <exclude domain="file" path="asr" />
+        <exclude domain="file" path="vosk" />
+        <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin" />
+        <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin.part" />
+        <exclude domain="file" path="pose_landmarker_lite.task" />
+        <exclude domain="root" path="app_webview/Default/Service Worker" />
+        <exclude domain="root" path="app_webview/Default/IndexedDB" />
+        <exclude domain="root" path="app_webview/Default/blob_storage" />
+        <exclude domain="root" path="app_webview/Default/GPUCache" />
+        <exclude domain="root" path="app_webview/Default/Cache" />
+        <exclude domain="root" path="app_webview/Default/Code Cache" />
+        <exclude domain="sharedpref" path="NOTIFICATION_STORE.xml" />
     </device-transfer>
 </data-extraction-rules>

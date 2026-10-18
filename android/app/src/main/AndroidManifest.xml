@@ -16,6 +16,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -30,10 +31,29 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- N06: يحلّ محلّ مستقبِل الإقلاع في إضافة الإشعارات ويستدعيه بنفسه بعد حذف الأذانات الفائتة منذ أكثر من ٣٠ دقيقة
+             (بدل إطلاقها كلها دفعة واحدة بعد الإقلاع)، وينبّه بفتح التطبيق عند تغيّر المنطقة الزمنية والتطبيق مغلق -->
+        <receiver
+            android:name="com.capacitorjs.plugins.localnotifications.LocalNotificationRestoreReceiver"
+            tools:node="remove" />
+        <receiver
+            android:name=".AdhanSystemReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- نوع الاتصال (Wi-Fi/بيانات الجوال) قبل تنزيل محرّك التسميع الكبير — إذن عادي بلا سؤال للمستخدم -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Geolocation: prayer times + Qibla direction -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -52,12 +72,15 @@
     <!-- Local Notifications + wakelock for prayer alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- N37: الأذان منبّه يضبطه المستخدم لكل صلاة ويجب أن يرنّ في دقيقته — الوظيفة الأساسية للتطبيق.
+         USE_EXACT_ALARM (أندرويد 13+) يتطلّب إقرار «Exact alarm» في Play Console (الفئة: Alarm). تذكير الذكر الساعي
+         لم يعد يوقظ الهاتف (native-bridge.js: بلا allowWhileIdle). إن رفضت Play الإقرار: البديل في N37.md (SCHEDULE_EXACT_ALARM) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- دقة الأذان على أندرويد 12/12L (USE_EXACT_ALARM يبدأ من API 33) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- استثناء اختياري من تحسين البطارية لضمان وصول الأذان على أجهزة OEM -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- N37: أُزيل REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — سياسة Play تمنع طلب الاستثناء المباشر إلا إن تعطّلت الوظيفة
+         الأساسية؛ صار التطبيق يشرح السبب ثم يفتح قائمة «تحسين البطارية» في الإعدادات (لا تحتاج إذناً) -->
 
     <!-- Vibration for haptics -->
     <uses-permission android:name="android.permission.VIBRATE" />

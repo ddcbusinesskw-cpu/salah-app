@@ -1440,8 +1440,19 @@ public class QuranAsrPlugin extends Plugin {
             }
         }
         if (ok) Log.i(TAG, "hold " + on);
+        /* N39: صوت «أعِد الآية» (WebView) سحب التركيز الصوتي أثناء الإمساك — يُستعاد عند الاستئناف كي تُبلَّغ مكالمة لاحقة */
+        if (ok && !on) requestFocus();
         JSObject r = new JSObject();
         r.put("ok", ok); r.put("holding", ok && on);
+        call.resolve(r);
+    }
+
+    /** refocus(): يستعيد التركيز الصوتي أثناء جلسة بعد صوت شغّلته الواجهة نفسها (▶ الآية من ورقة الكلمة) — {ok}. */
+    @PluginMethod
+    public void refocus(PluginCall call) {
+        boolean ok = listening;
+        if (ok) requestFocus();
+        JSObject r = new JSObject(); r.put("ok", ok);
         call.resolve(r);
     }
 
@@ -2174,13 +2185,22 @@ public class QuranAsrPlugin extends Plugin {
             AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (am == null) return;
             if (focusListener == null) {
-                /* مكالمة واردة/تطبيق آخر يسحب الصوت → أبلغ JS لينهي الجلسة بملخّص */
+                /* مكالمة واردة/تطبيق آخر يسحب الصوت → أبلغ JS (مهلة قصيرة ثم يحفظ ويوقف، ويعرض «تابِع»).
+                   N39: أثناء الإمساك («أعِد الآية») الفاقد سببه صوت الواجهة نفسها — لا يُبلَّغ (يُستعاد التركيز عند hold off)؛
+                   وعودة التركيز تُبلَّغ asr_focus فتُلغي المهلة */
                 focusListener = fc -> {
-                    if ((fc == AudioManager.AUDIOFOCUS_LOSS || fc == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) && listening) {
+                    if (!listening) return;
+                    if (fc == AudioManager.AUDIOFOCUS_LOSS || fc == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        if (holding) { Log.i(TAG, "focus loss while holding — ignored"); return; }
                         JSObject ev = new JSObject();
                         ev.put("sess", jsSess);
                         ev.put("reason", fc == AudioManager.AUDIOFOCUS_LOSS ? "loss" : "transient");
                         emit("asr_interrupt", ev);
+                    } else if (fc == AudioManager.AUDIOFOCUS_GAIN) {
+                        JSObject ev = new JSObject();
+                        ev.put("sess", jsSess);
+                        ev.put("gain", true);
+                        emit("asr_focus", ev);
                     }
                 };
             }

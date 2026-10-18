@@ -1,4 +1,4 @@
-const CACHE='mujaddid-v46';
+const CACHE='mujaddid-v47'; /* v47: mushaf/pages.json N01 (2:79, 2:224, 83:35) */
 const CORE=[
   './','./index.html','./manifest.json',
   './favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png','./icon-maskable-512.png',

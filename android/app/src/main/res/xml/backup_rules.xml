@@ -1,10 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Auto Backup (API ≤ 31): استثنِ بيانات WebView الضخمة وحالة الجلسة الحسّاسة.
-     نموذج Whisper (~145MB) وكاش النماذج لا يجوز نسخهما (يتجاوزان سقف 25MB). -->
+<!-- Auto Backup (أندرويد 11 وأقدم): يُنسخ كل شيء ما عدا المستثنى أدناه. سقف النسخ السحابي ٢٥MB للتطبيق، وتجاوزه
+     يُسقط النسخة كلها — فتُستثنى ملفات المحرّكات والكاشات (تُنزَّل/تُبنى من جديد عند الحاجة) ويبقى تقدّم المستخدم:
+     localStorage الـWebView (app_webview/Default/Local Storage) والإعدادات.
+     المسارات: domain="file" = مجلد files/ للتطبيق (getFilesDir)، domain="root" = مجلد بيانات التطبيق (فيه app_webview).
+     التسجيلات في no_backup (getNoBackupFilesDir) والكاش في cache/ — مستثناة تلقائياً. -->
 <full-backup-content>
-    <exclude domain="file" path="app_webview/Default/Service Worker" />
-    <exclude domain="file" path="app_webview/Default/Cache" />
-    <exclude domain="file" path="app_webview/Default/blob_storage" />
-    <exclude domain="file" path="app_webview/Default/IndexedDB" />
+    <!-- محرّك التسميع (QuranAsrPlugin: files/asr/v1 … ~73MB) والمحرّك الفوري (WhisperNativePlugin: files/vosk) -->
+    <exclude domain="file" path="asr" />
+    <exclude domain="file" path="vosk" />
+    <!-- Capacitor Filesystem Directory.DATA = files/: نموذج whisper البديل (~43MB) وجزؤه أثناء التنزيل، ونموذج الكاميرا -->
+    <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin" />
+    <exclude domain="file" path="ggml-tiny-ar-quran-q8_0.bin.part" />
+    <exclude domain="file" path="pose_landmarker_lite.task" />
+    <!-- كاشات الـWebView (تُعاد تلقائياً): Service Worker/CacheStorage، وIndexedDB (كاش مرجع التسميع والصوت ورموز
+         جلسة Firebase — لا تُنقل إلى جهاز آخر)، وblob_storage وGPUCache. «Local Storage» يبقى مشمولاً عمداً -->
+    <exclude domain="root" path="app_webview/Default/Service Worker" />
+    <exclude domain="root" path="app_webview/Default/IndexedDB" />
+    <exclude domain="root" path="app_webview/Default/blob_storage" />
+    <exclude domain="root" path="app_webview/Default/GPUCache" />
+    <exclude domain="root" path="app_webview/Default/Cache" />
+    <exclude domain="root" path="app_webview/Default/Code Cache" />
+    <!-- حالة جلسة حسّاسة (كما كانت) + مواعيد الأذان المجدولة على الجهاز القديم (مدينته ومنطقته الزمنية): التطبيق
+         يعيد جدولتها عند أول فتح على الجهاز الجديد -->
     <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+    <exclude domain="sharedpref" path="NOTIFICATION_STORE.xml" />
 </full-backup-content>

@@ -3,6 +3,7 @@ package com.ddcbusiness.noor;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebView;
 import androidx.core.graphics.Insets;
@@ -26,14 +27,24 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WhisperNativePlugin.class);
         registerPlugin(QuranAsrPlugin.class);
         registerPlugin(SystemBarsPlugin.class);
+        registerPlugin(AppSettingsPlugin.class);
         super.onCreate(savedInstanceState);
+        // N38: لوحة المفاتيح تُقصّر مساحة المحتوى بدل إزاحة النافذة (adjustPan) — مع edge-to-edge المفروض في أندرويد 15/16
+        // لا يُعاد تحجيم النافذة تلقائياً، فتُطبَّق حافة لوحة المفاتيح (IME) أدناه حشوةً سفلية. يعادل
+        // android:windowSoftInputMode="adjustResize" في البيان (مقترح منفصل) ويعمل بدونه.
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                | (getWindow().getAttributes().softInputMode & WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE));
         // API 36 / أندرويد 16: edge-to-edge إجباري (windowOptOutEdgeToEdgeEnforcement
         // يُتجاهَل) — نُبقي الـWebView بين شريط الحالة وشريط التنقّل.
         View wv = (View) getBridge().getWebView().getParent();
         ViewCompat.setOnApplyWindowInsetsListener(wv, (v, insets) -> {
             Insets b = insets.getInsets(WindowInsetsCompat.Type.systemBars()
                     | WindowInsetsCompat.Type.displayCutout());
-            v.setPadding(b.left, b.top, b.right, b.bottom);
+            // N38: لوحة المفاتيح ظاهرة → الحافة السفلية = max(شريط التنقّل، لوحة المفاتيح): يصغر الـWebView فوقها
+            // فلا تغطّي خانات الكتابة وأزرار الأوراق السفلية (خانة «إضافة تسبيحة» مثلاً). على أندرويد الأقدم
+            // (بلا edge-to-edge) تصل الحافتان صفراً هنا لأن النافذة نفسها تُحجَّم — فلا ازدواج.
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            v.setPadding(b.left, b.top, b.right, Math.max(b.bottom, ime.bottom));
             return WindowInsetsCompat.CONSUMED;
         });
         // انهيار/قتل محرّك العرض: أعِد إنشاء النشاط بدل إغلاق التطبيق كله.

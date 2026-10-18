@@ -36,11 +36,16 @@ rm -rf "$ROOT/www/mushaf"
 cp -r "$ROOT/mushaf" "$ROOT/www/mushaf"
 
 echo "→ Injecting native-bridge.js into www/index.html"
-# Append script tag before </body> — only if not already present
-if ! grep -q 'native-bridge.js' "$ROOT/www/index.html"; then
+# Append script tag before </body> — only if the TAG is not already present
+# (matching the bare file name skipped the injection when a comment in index.html mentioned it — fix1 lead BLOCKER)
+if ! grep -q '<script src="native-bridge.js"' "$ROOT/www/index.html"; then
   perl -i -pe 's|</body>|<script src="native-bridge.js"></script>\n</body>|' "$ROOT/www/index.html"
 fi
 
 cp "$ROOT/native-bridge.js" "$ROOT/www/native-bridge.js"
+
+# الحارس: يجب أن يحوي www/index.html وسم الجسر مرة واحدة بالضبط وإلا يفشل البناء (لا أذان أصلي بدونه)
+N=$(grep -c '<script src="native-bridge.js"></script>' "$ROOT/www/index.html" || true)
+if [ "$N" != "1" ]; then echo "✗ www/index.html has $N native-bridge script tags (expected 1)"; exit 1; fi
 
 echo "✓ www/ ready for cap sync"
