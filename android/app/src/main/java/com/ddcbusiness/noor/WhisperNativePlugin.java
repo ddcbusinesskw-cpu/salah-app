@@ -18,8 +18,6 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
 import org.json.JSONObject;
-import org.vosk.Model;
-import org.vosk.Recognizer;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -50,6 +48,16 @@ import java.util.zip.ZipInputStream;
     }
 )
 public class WhisperNativePlugin extends Plugin {
+    /* N64: مكتبة Vosk (‎~10MB لكل معمارية) أُزيلت من البناء — المحرّك الفوري معطّل في الواجهة (VK_ENABLED=false).
+       بديلان صغيران بنفس الأسماء يُبقيان الكود يُبنى؛ أي محاولة تحميل تفشل بأمان ويُبلغ voskAvailable أن المكتبة غير موجودة.
+       حذف/فحص ملفات موديل Vosk القديمة (voskModelExists/voskDeleteModel) يبقى يعمل لتنظيف أجهزة المستخدمين. */
+    private static final class Model { Model(String p) { throw new UnsupportedOperationException("vosk removed"); } void close() {} }
+    private static final class Recognizer {
+        Recognizer(Model m, float sr) { throw new UnsupportedOperationException("vosk removed"); }
+        boolean acceptWaveForm(short[] b, int n) { return false; } String getResult() { return "{}"; } String getPartialResult() { return "{}"; }
+        void setWords(boolean w) {} void reset() {} void close() {}
+    }
+
 
     private static final int SR = 16000;
 

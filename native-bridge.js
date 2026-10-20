@@ -145,6 +145,7 @@
        4. Local Notifications
           - قناة 'adhan'   : صوت adhan_alert.wav، أولوية عالية (IDs 2000‑2019)
           - قناة 'reminder': ذِكر ساعي هادئ، بدون صوت (IDs 3000‑3199)
+          - قناة 'reminders': التذكيرات الاختيارية (أذكار الصباح/المساء/النوم، قبل الأذان، الحفظ، الختمة، الكهف) IDs 4000‑4299 — index.html (fix2 «worship2» N86)
     ════════════════════════════════════════════ */
     if (LocalNotif) {
 
@@ -244,6 +245,7 @@
           if (window._nativeNotifGranted) {
             if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
             if (typeof window.scheduleHourlyDhikr === 'function') window.scheduleHourlyDhikr();
+            if (typeof window.scheduleNoorReminders === 'function') window.scheduleNoorReminders();
           }
         }).catch(function () {});
       }
@@ -350,7 +352,7 @@
           try {
             if (typeof window.scheduleNoorPrayerAlerts === 'function') window.scheduleNoorPrayerAlerts();
           } catch (e) {}
-          /* الذِكر الساعي: ٤٨ إشعاراً ≈ ٣ أيام — جدِّده عند العودة لا عند الإقلاع فقط.
+          /* الذِكر الساعي: ١١٢ إشعاراً ≈ ٧ أيام — جدِّده عند العودة لا عند الإقلاع فقط.
              مرة يومياً على الأكثر: كل جدولة تبدأ الدورة من أول ذِكر */
           try {
             var _dts = 0;
@@ -361,6 +363,10 @@
               if (window._nativeNotifGranted) { try { localStorage.setItem('_dhikr_sched_ts', String(Date.now())); } catch (e) {} }
             }
           } catch (e) {}
+          /* fix2 «worship2» N86: التذكيرات الاختيارية — تُعاد عند كل عودة (index.html يتخطّى إن لم يتغيّر شيء خلال ٦ ساعات) */
+          try {
+            if (typeof window.scheduleNoorReminders === 'function') window.scheduleNoorReminders();
+          } catch (e) {}
         });
         /* نقر الإشعار → افتح شاشة المواقيت */
         if (LocalNotif.addListener) {
@@ -369,6 +375,8 @@
               var id = ev && ev.notification && ev.notification.id;
               /* جلسة نشطة (تسميع/متابع صلاة): لا تقطعها بالتنقّل */
               if ((window.LM && window.LM.rec) || (window.SW && window.SW.active)) return;
+              /* fix2 «worship2» N86: تذكير اختياري → شاشته (الأذكار/المواقيت/الحفظ/الختمة/الكهف) */
+              if (id >= 4000 && id < 4300) { if (typeof window._remTap === 'function') window._remTap((ev.notification && ev.notification.extra) || null); return; }
               /* تذكير الذكر: افتح التطبيق فقط */
               if (id >= 3000 && id < 3200) return;
               if (typeof window.go === 'function') window.go('times');
@@ -379,7 +387,7 @@
 
       /**
        * _nativeHourlyDhikr(dhikrList)
-       * يُجدِّل 48 إشعاراً ساعياً (24 على iOS) (IDs 3000‑3199) ضمن ساعات 7 ص–11 م
+       * يُجدِّل 112 إشعاراً ساعياً ≈ ٧ أيام (24 على iOS) (IDs 3000‑3199) ضمن ساعات 7 ص–11 م — fix2 «worship2» N86: كان 48 (≈ ٣ أيام فيتوقف)
        * يستخدم قناة 'reminder' الهادئة.
        */
       window._cancelNativeHourlyDhikr = function () {
@@ -391,9 +399,9 @@
       window._nativeHourlyDhikr = function (dhikrList) {
         if (!window._nativeNotifGranted || !dhikrList || !dhikrList.length) return;
         var now = new Date(), notifs = [], idx = 0;
-        /* iOS يحتفظ بأقرب 64 إشعاراً معلّقاً فقط: 36 للأذان + 24 للذكر */
-        var _max = (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 24 : 48;
-        outerDhikr: for (var d = 0; d < 4; d++) {
+        /* iOS يحتفظ بأقرب 64 إشعاراً معلّقاً فقط: 36 للأذان + 24 للذكر. أندرويد ~٥٠٠ منبّه: الأذان ≤161 + الذكر 112 + التذكيرات ≤72 */
+        var _max = (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 24 : 112;
+        outerDhikr: for (var d = 0; d < 8; d++) {
           for (var h = 7; h <= 22; h++) {
             var dt = new Date(now);
             dt.setDate(dt.getDate() + d);

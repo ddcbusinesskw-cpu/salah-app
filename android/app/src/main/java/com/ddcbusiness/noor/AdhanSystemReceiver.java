@@ -18,7 +18,7 @@ import org.json.JSONObject;
 /**
  * N06 (اقتراح): يحلّ محلّ LocalNotificationRestoreReceiver التابع للإضافة (يُزال من الـmanifest المدمج بـ tools:node="remove")
  * ويستدعيه بنفسه، فيصير الترتيب مضموناً:
- *  - بعد الإقلاع: يحذف أولاً إشعارات الأذان (2000–2189) التي فات وقتها بأكثر من ٣٠ دقيقة، ثم يترك الإضافة تعيد تسليح الباقي.
+ *  - بعد الإقلاع: يحذف أولاً إشعارات الأذان (2000–2189) والتذكيرات (4000–4299) التي فات وقتها بأكثر من ١٠ دقائق، ثم يترك الإضافة تعيد تسليح الباقي.
  *    بدونه تُطلق الإضافة كل أذان فات والهاتف مطفأ دفعة واحدة بعد ١٥ ث من الإقلاع (حتى ~٥ أذانات لكل يوم إطفاء).
  *  - عند تغيّر المنطقة الزمنية (سفر) والتطبيق مغلق: الأذان مجدول بلحظات مطلقة لمدينة الجدولة ولا يمكن إعادة الحساب هنا
  *    (المحرّك في JS)، فنُنبّه بفتح التطبيق. النصّ بلغة الواجهة: يكتبه native-bridge.js في extra.nbTzB لإشعارات الأذان المخزّنة.
@@ -29,7 +29,9 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
      *  فتح التطبيق وإعادة جدولة الأذان يزيلان هذا التنبيه تلقائياً. لا يستعمله الجسر لغير ذلك (الأذان 2000–2189، التجديد 2199). */
     static final int TZ_NOTICE_ID = 2198;
     static final int ADHAN_ID0 = 2000, ADHAN_ID_END = 2190; /* [2000, 2190) */
-    static final long STALE_MS = 30L * 60L * 1000L;
+    /** fix2 lead: تذكيرات worship2 (أذكار الصباح/المساء، قبل الأذان، النوم، المراجعة، الورد، الكهف) — فائتها بعد إطفاء الهاتف لا يُطلق دفعة واحدة */
+    static final int REM_ID0 = 4000, REM_ID_END = 4300; /* [4000, 4300) */
+    static final long STALE_MS = 10L * 60L * 1000L;
     static final String AR_T = "🔄 المجدّد";
     static final String AR_B = "تغيّرت المنطقة الزمنية — افتح التطبيق لتحديث مواقيت الأذان لموقعك الجديد";
     static final String AR_C = "تجديد مواقيت الأذان";
@@ -56,7 +58,7 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
         return um != null && um.isUserUnlocked();
     }
 
-    /** أذان فات وقته بأكثر من ٣٠ دقيقة لا قيمة لإطلاقه الآن */
+    /** أذان أو تذكير فات وقته بأكثر من ١٠ دقائق لا قيمة لإطلاقه الآن */
     static int pruneStaleAdhan(Context ctx) {
         NotificationStorage st = new NotificationStorage(ctx);
         long cut = System.currentTimeMillis() - STALE_MS;
@@ -64,7 +66,8 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
         for (String id : st.getSavedNotificationIds()) {
             int iid;
             try { iid = Integer.parseInt(id); } catch (NumberFormatException e) { continue; }
-            if (iid < ADHAN_ID0 || iid >= ADHAN_ID_END) continue;
+            boolean adhan = iid >= ADHAN_ID0 && iid < ADHAN_ID_END, rem = iid >= REM_ID0 && iid < REM_ID_END;
+            if (!adhan && !rem) continue;
             LocalNotification ln = st.getSavedNotification(id);
             if (ln == null || ln.getSchedule() == null) continue;
             Date at = ln.getSchedule().getAt();
