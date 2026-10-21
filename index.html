@@ -2464,6 +2464,14 @@ html[dir="ltr"] #lmBar>.ts-assist{direction:ltr;}
 .ts-hint-chip{display:inline-flex;align-items:center;padding-inline-start:10px;margin-inline-start:2px;border-inline-start:1px solid var(--chip-on-bd);min-height:28px;}
 .ts-hint-chip b{font-family:"Uthmani","Noto Naskh Arabic",serif;font-size:22px;line-height:1.3;color:var(--gold);font-weight:400;direction:rtl;unicode-bidi:isolate;}
 .ts-hint-chip[hidden]{display:none;}
+/* fix3: رقاقة «وضع الشيخ» وشريط «صحّح أخطاءك» */
+.ts-sheikh b{font-family:"Uthmani","Noto Naskh Arabic",serif;font-size:20px;line-height:1.3;color:var(--gold);font-weight:400;direction:rtl;unicode-bidi:isolate;}
+.ts-sheikh .ts-sh-go{margin-inline-start:6px;min-height:32px;}
+.ts-fix-st{font-size:13.5px;color:var(--text2);}
+.ts-fix-bad{color:var(--err);margin-inline-start:6px;}
+.ts-fix-sum{color:var(--green);font-weight:600;}
+.ts-fix-sum-p{margin:8px 0;font-size:15px;}
+.ts-fix-na{font-size:13px;color:var(--text2);margin:8px 0;}
 .t-quran{font-family:"Uthmani","Noto Naskh Arabic",serif;}
 /* الرصيف ظاهر: تبطين أسفل الصفحة بارتفاعه الفعلي (+١٦px) كي يُمرَّر آخر سطر فوقه */
 #memorize.ts-assist-on>.pad{padding-bottom:calc(var(--ts-dock,260px) + 16px)!important;}
@@ -3163,9 +3171,11 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
       <div id="lmAssist" class="ts-assist" hidden>
         <button id="tsHintBtn" class="ts-pill gold" hidden onclick="_tsHintPress()"><span class="ts-hb-l">تلميح</span><span id="tsHintChip" class="ts-hint-chip" hidden aria-live="polite"></span></button>
         <button id="tsReplayBtn" class="ts-pill" hidden onclick="_tsReplayAyah()">أعِد الآية</button>
+        <span id="tsSheikhChip" class="ts-pill gold ts-sheikh" hidden aria-live="polite"></span>
         <button id="tsNextPill" class="ts-pill gold" hidden onclick="_tsTurn()"><span>الصفحة التالية</span> <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       </div>
       <div id="tsDrillBar" class="ts-assist" hidden></div>
+      <div id="tsFixBar" class="ts-assist" hidden aria-live="polite"></div>
       <!-- fix2 N54: كتقليب المصحف العربي — «السابقة» يميناً و«التالية» يساراً (في كل اللغات؛ الترتيب بـorder) -->
       <button class="mem2-nav-btn nv-prev" onclick="lmFlipPage(-1)" title="الصفحة السابقة" aria-label="الصفحة السابقة"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span class="nv-l" aria-hidden="true">الصفحة السابقة</span></button>
       <button class="mem2-mic-btn" id="lmMic" onclick="lmToggleRec()" style="position:relative">
@@ -5195,7 +5205,9 @@ function cid(c){
 var DEF={R_OK:0.35,R_TENT:0.45,R_WRONG:0.55,R_LEXW:0.25,COV_OK:0.6,J_BACK:2.0,BACK_MAX:12,J_FWD0:2.5,J_FWD1:0.3,
   J_START:1.5,INS_PRE:0.5,LAG_CHARS:6,WIN_BACK:8,WIN_FWD:60,MAX_S:320,CORR_DIST:3,START_WIN:120,START_RUN:3,START_CHARS:18,SUS_AGE:600,WRONG_CDIFF:2,START_MARGIN:1.0,START_SEP:4,SKIP_MAX:6,J_FWD_MIN:1,BAD_FIN:1,EDGE_INS:0,WRONG_MT:0.75,CSUB:1,
   /* G4a (v2): زمن التثبيت — انظر الشرح في رأس الملف */
-  PROV:1,PROV_R:0.15,PROV_WL:1.2,PROV_AHEAD:2,START_SKIP:1,UNBLOCK:1,REP_WIN:60,EARLY:0,EARLY_COV:0.5,EARLY_R:0.15,TRACE:0,resume:false};
+  PROV:1,PROV_R:0.15,PROV_WL:1.2,PROV_AHEAD:2,START_SKIP:1,UNBLOCK:1,REP_WIN:60,EARLY:0,EARLY_COV:0.5,EARLY_R:0.15,TRACE:0,resume:false,
+  /* fix3: التصحيح بإعادة الآية (AY_CORR) — انظر corrLo · وضع الشيخ (SHEIKH): خطأٌ يوقف الالتزام بما بعده حتى تُعاد الكلمة صحيحة */
+  AY_CORR:1,AY_BACK_MAX:40,AY_JMP:8,SHEIKH:0};
 /* فواتح السور (مقطّعة): لا تُحكم بخطأ ولا تخطٍّ — تُعرف بهيكلها (بلا تشكيل ولا علامات) */
 var MUQ={'الم':1,'المص':1,'الر':1,'المر':1,'كهيعص':1,'طه':1,'طسم':1,'طس':1,'يس':1,'ص':1,'حم':1,'عسق':1,'ق':1,'ن':1};
 function skel(w){return (w||'').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g,'');}
@@ -5245,6 +5257,8 @@ function createAsrAligner(pageWords,phonData,opts){
       U.push({real:false,wi:i,forms:whole});
     }else U.push({real:true,wi:i,forms:forms});
   }
+  /* fix3: أول كلمة في آية كل كلمة (داخل القائمة) — لحدود التصحيح بإعادة الآية */
+  var ayStart=new Int32Array(W);for(i=0;i<W;i++)ayStart[i]=(i>0&&words[i-1].s===words[i].s&&words[i-1].a===words[i].a)?ayStart[i-1]:i;
   /* زوج كلمتين يتكرّر قريباً في الصفحة (آيات متشابهة: الكافرون، الرحمن): لا التزام قبل جار أيمن ملاصق جيد —
      السياق الأطول وحده يميّز التكرار من التخطّي */
   var rep2=new Uint8Array(W);(function(){var pos={},k2,j2;for(i=0;i+1<W;i++){if(!words[i].forms.length||!words[i+1].forms.length)continue;
@@ -5282,6 +5296,8 @@ function createAsrAligner(pageWords,phonData,opts){
   }
 
   /* ── 3) حالة الجلسة ── */
+  /* holdI (وضع الشيخ): أول كلمة «خطأ» لم تُصحَّح بعد — لا يُلتزم بما بعدها (ولا يُعرض مبدئياً) حتى تُقرأ صحيحة */
+  var holdI=-1;
   var H='',Htime=[],hc=0,cur=0,started=!!O.resume,cbs=[],utt={id:-1,text:'',base:0,startMs:0,toks:[],ts:[],finMs:null,rtBase:0};
   /* الرموز الخام للجلسة {c,t,u} ومصدر كل حرف مطبَّع في H (فهرسه في RT) — v2 */
   var RT=[],Hsrc=[],fresh=!!O.resume;
@@ -5311,7 +5327,21 @@ function createAsrAligner(pageWords,phonData,opts){
     if(prev===st)return;
     if(wd.sure){wd.sure=0;}
     if(st!=='tentative')wd.tn=0;
+    if(O.SHEIKH){if(st==='wrong'&&(holdI<0||i<holdI))holdI=i;else if(i===holdI&&(st==='confirmed'||st==='doubt'))holdI=-1;}   /* أُعيدت (ولو بفرق حرف: «للمراجعة») */
     wd.st=st;emit(i,prev);
+  }
+  /* fix3 «صحّح بإعادة الآية»: أدنى كلمة يُقبل الرجوع إليها وتصحيحها خلف المؤشر — أول الآية التي فيها المؤشر (وعلى حدّ آيتين: الآية
+     المنتهية للتوّ)، أو أول الآية التي قبلها إن كان فيها خطأ/تخطٍّ/«للتحقّق» لم يُصحَّح؛ بحدّ AY_BACK_MAX كلمة. AY_CORR=1: لا توسيع
+     إلا مع كلمة كهذه في الآيتين (القراءة المتقدّمة بلا خطأ لا تتغيّر)، 2: دائماً. -1 = النافذة الافتراضية (WIN_BACK/CORR_DIST).
+     قواعد الأمان كما هي: إعادة بحرف مختلف ليست تصحيحاً، والمثبت لا يُخفَّض، والخطأ لا يصير مقروءاً إلا بإعادة مطابقة */
+  function corrLo(){
+    if(!O.AY_CORR||!started||cur<=0)return -1;
+    var c=Math.min(cur,W-1),a=ayStart[c];
+    if(cur>=W||a===cur)a=ayStart[cur-1];
+    var pa=a>0?ayStart[a-1]:a,lim=Math.max(0,cur-O.AY_BACK_MAX),lo=-1,k,s;
+    for(k=Math.max(pa,lim);k<cur;k++){s=words[k].st;if(s==='wrong'||s==='skipped'||s==='unclear'){lo=ayStart[k];break;}}
+    if(lo<0){if(O.AY_CORR<2)return -1;lo=a;}
+    return Math.max(lo,lim);
   }
   function timeOf(absIdx){return (absIdx>=0&&absIdx<Htime.length)?Htime[absIdx]:null;}
   function isGood(V){return V.r<=O.R_OK&&V.complete;}
@@ -5356,10 +5386,11 @@ function createAsrAligner(pageWords,phonData,opts){
     /* قبل البدء: كلام خارج الصفحة لا يتراكم — نافذة البحث آخر START_WIN حرفاً فقط */
     if(!started&&T>O.START_WIN){var d2=T-O.START_WIN;hc+=d2;diag.dropped+=d2;S=H.slice(hc);T=S.length;}
     var abs0=H.length-T;
-    var wLoU=started?wUnit[Math.max(0,Math.min(W-1,cur-O.WIN_BACK))]:0;
+    var cLo=started?corrLo():-1,lo0=cur-O.WIN_BACK;if(cLo>=0&&cLo<lo0)lo0=cLo;
+    var wLoU=started?wUnit[Math.max(0,Math.min(W-1,lo0))]:0;
     while(wLoU>0&&!U[wLoU-1].real)wLoU--;   /* ابدأ النافذة من أول كتلة اختيارية قبل الكلمة */
     var wHiU=started?((cur+O.WIN_FWD<W)?wUnit[cur+O.WIN_FWD]:NU):NU;
-    var curU=cur<W?wUnit[cur]:NU;
+    var curU=cur<W?wUnit[cur]:NU,jX=cLo>=0?curU+O.AY_JMP:-1;   /* fix3: الرجوع إلى أول الآية من موضع القراءة (أبعد من BACK_MAX) */
     var nLo=bnode[wLoU],nHi=bnode[wHiU];   /* شامل */
     var R=nHi-nLo+1,INF=1e9;
     ensure((T+1)*R,T);
@@ -5384,7 +5415,7 @@ function createAsrAligner(pageWords,phonData,opts){
         if(pass===1&&started){ /* قفز للخلف (تكرار/رجوع): B_k ← min_{k<j≤k+BACK_MAX} B_j + J_BACK */
           for(var ku=wLoU;ku<wHiU;ku++){
             if(!U[ku].real)continue;
-            var kb=off+bnode[ku]-nLo,best=cost[kb],src=-1,jmax=Math.min(wHiU,ku+O.BACK_MAX);
+            var kb=off+bnode[ku]-nLo,best=cost[kb],src=-1,jmax=Math.min(wHiU,(ku<curU&&jX>ku+O.BACK_MAX)?jX:ku+O.BACK_MAX);
             for(var ju=ku+1;ju<=jmax;ju++){var jv=cost[off+bnode[ju]-nLo]+O.J_BACK;if(jv<best){best=jv;src=ju;}}
             if(src>=0){cost[kb]=best;bp[kb]=6;bsrc[kb]=src;}
           }
@@ -5496,6 +5527,8 @@ function createAsrAligner(pageWords,phonData,opts){
     function goodRunAhead(ri){var X0=rv[ri],n=0;for(var k=ri+1;k<rv.length&&k<=ri+5;k++){var X=rv[k];if(X.wi<=X0.wi)continue;if(isGood(X)){if(++n>=2)return true;}else n=0;}return false;}
     for(ri=0;ri<rv.length;ri++){
       V=rv[ri];
+      /* وضع الشيخ: ما بعد الخطأ المعلَّق لا يُلتزم به (القارئ يُعيد من قبله) */
+      if(holdI>=0&&V.wi>holdI)continue;
       var bad=!(V.r<=O.R_OK&&V.cov>=O.COV_OK);
       if(bad&&started&&V.wi>=cur){var sj=superseded(ri);if(sj>ri){diag.superseded=(diag.superseded||0)+1;ri=sj-1;continue;}}
       var good=0;
@@ -5538,7 +5571,7 @@ function createAsrAligner(pageWords,phonData,opts){
     var onPath={};
     for(ri=committedUpTo+1;ri<rv.length;ri++){
       V=rv[ri];var rr=V.complete?V.r:(V.rPartial!=null?V.rPartial:V.r);
-      if(V.wi>=cur&&rr<=O.R_TENT&&V.cov>=0.5){onPath[V.wi]=1;if(words[V.wi].st==='pending')setSt(V.wi,'tentative');}
+      if(V.wi>=cur&&rr<=O.R_TENT&&V.cov>=0.5&&!(holdI>=0&&V.wi>holdI)){onPath[V.wi]=1;if(words[V.wi].st==='pending')setSt(V.wi,'tentative');}
     }
     for(var wi=cur;wi<W;wi++)if(words[wi].st==='tentative'&&!onPath[wi])setSt(wi,'pending',null,true);
     for(wi=cur;wi<W;wi++){if(words[wi].st==='tentative')words[wi].tn=(words[wi].tn||0)+1;}
@@ -5570,7 +5603,7 @@ function createAsrAligner(pageWords,phonData,opts){
     var i=V.wi,wd=words[i],k;diag.commits++;started=true;fresh=false;
     var nx=rv[ri+1]||null,nx2=rv[ri+2]||null;
     if(i<cur){ /* تكرار/رجوع: تصحيح ذاتي فقط، لا تخفيض أبداً */
-      if((wd.st==='wrong'||wd.st==='skipped'||wd.st==='unclear')&&isGood(V)&&(cur-1-i)<=O.CORR_DIST){
+      if((wd.st==='wrong'||wd.st==='skipped'||wd.st==='unclear')&&isGood(V)&&((cur-1-i)<=O.CORR_DIST||(function(){var cl=corrLo();return cl>=0&&i>=cl;})())){
         /* الإعادة بحرف مختلف ليست تصحيحاً: إبدال أول الكلمة المعجمي لا يغيّر شيئاً، وغيره «للمراجعة» بما سُمع (كما لو قُرئت أول مرة) */
         var c2=cdiff1(V,wd,V.ext||'',i),lx2=phonData.lex||{};
         if(!c2)setSt(i,'confirmed',{corrected:true,r:V.r});
@@ -5686,6 +5719,9 @@ function createAsrAligner(pageWords,phonData,opts){
       for(var j=0;j<W;j++){if(words[j].st==='tentative')setSt(j,'pending',null,true);}
       return res;
     },
+    /* وضع الشيخ: فهرس الخطأ المعلَّق (-1 = لا شيء)، وrelease() يتجاوزه بطلب القارئ («تابِع») */
+    held:function(){return holdI;},
+    release:function(){holdI=-1;},
     _H:function(){return H;},_hc:function(){return hc;},_cur:function(){return cur;}
   };
 }
@@ -7580,7 +7616,8 @@ function _hzApplyPage(res){
   else if(g.q===null)out.why='cov';
   else if(pw&&g.N<HZ_PAGE_FRAC*pw)out.why='frac';
   else{out.rec=_hzSrsUpdate(p,g.q,day);out.graded=!!out.rec;if(!out.rec)out.why='store';}
-  out.weak=_hzWeakApply(words,eng,day);
+  /* fix3: إعادة التقييم بعد «صحّح أخطاءك» لا تعدّ أخطاء الآيات مرّة ثانية */
+  out.weak=res.regrade?0:_hzWeakApply(words,eng,day);
   out.plan=_hzPlanOnPage(p,words,eng,g,day);
   return out;
 }
@@ -8033,11 +8070,13 @@ var RUB_START=[1001,2026,2044,2060,2075,2092,2106,2124,2142,2158,2177,2189,2203,
 /* ── الإعدادات ── */
 function _tsJ(k,d){try{var v=JSON.parse(lsGet(k)||'null');return (v&&typeof v==='object')?v:d;}catch(e){return d;}}
 function _tsSet(){
-  var o=_tsJ('tsm_set_v1',{}),d={hid:'off',hintSec:6,tjMunf:'off',wbw:1,autoTurn:1},k;
+  var o=_tsJ('tsm_set_v1',{}),d={hid:'off',hintSec:6,tjMunf:'off',wbw:1,autoTurn:1,errAlert:'vib',sheikh:0},k;
   for(k in d)if(o[k]==null)o[k]=d[k];
   if(['off','full','first'].indexOf(o.hid)<0)o.hid='off';
   if([0,4,6,10].indexOf(+o.hintSec)<0)o.hintSec=6;else o.hintSec=+o.hintSec;
   if(['off','tawassut','qasr'].indexOf(o.tjMunf)<0)o.tjMunf='off';
+  if(['vib','snd','off'].indexOf(o.errAlert)<0)o.errAlert='vib';   /* fix3: تنبيه عند الخطأ */
+  o.sheikh=o.sheikh===1||o.sheikh===true||o.sheikh==='1'?1:0;      /* fix3: وضع الشيخ (مطفأ افتراضياً) */
   return o;
 }
 function _tsSetPut(p){var o=_tsSet(),k;for(k in p)if(p.hasOwnProperty(k))o[k]=p[k];lsSet('tsm_set_v1',JSON.stringify(o));try{localStorage.setItem('settings_updatedAt',String(Date.now()));}catch(e){}return o;}
@@ -8176,7 +8215,8 @@ function createAsrRange(segs,view,o){
     if(nx<segs.length){
       var c=al.cursor(),h=hoOf(nx-1);
       if(c>=map.length-Math.max(PF,h)&&!pf[nx]){pf[nx]=1;if(o.onPrefetch)o.onPrefetch(segs[nx].p);}
-      if(c>=Math.max(0,map.length-h)&&(lastFin||!al.started()||c>=Math.max(0,map.length-Math.min(h,HARD))))handoff();
+      /* fix3 F4: خطأ معلَّق في وضع الشيخ — لا تسليم قبل تصحيحه (الكلمة في هذا المحاذي) */
+      if(!(al.held&&al.held()>=0)&&c>=Math.max(0,map.length-h)&&(lastFin||!al.started()||c>=Math.max(0,map.length-Math.min(h,HARD))))handoff();
     }
   }
   build(segList(0),!!o.resume0);nx=1;
@@ -8218,6 +8258,7 @@ function _tsBegin(engine){
   var R=LM.sxNext,sx;LM.sxNext=null;
   if(R&&R.order&&R.order.indexOf(LM.page)<0)R=null;
   if(!R)R={kind:'page',label:'',from:null,to:null,order:[LM.page]};
+  if(TSF&&R.kind!=='fix'){TSF=null;try{_tsFixBar();}catch(e){}}   /* fix3 F3: جلسة أخرى تُنهي جولة التصحيح */
   LM.showRes=false;
   sx={id:_tsNewId(),range:R,k:R.order.indexOf(LM.page),pg:{},rec:{on:false,id:null,ok:false,res:null},hid:LM.hid||'off',
       engine:engine,startedAt:Date.now(),done:false,lastProg:Date.now(),far:-1,hint:{lv:0,i:-1},prevSx:null};
@@ -8258,6 +8299,7 @@ var TS_FINAL={confirmed:1,doubt:1,wrong:1,unclear:1,skipped:1};
 function _qaRoute(p,i,s,w,al,prev){
   var sx=LM.sx,pg=sx&&sx.pg[p];if(!pg)return;
   if(pg.lock&&pg.lock[i]){if(!TS_HEARD[s])return;delete pg.lock[i];}   /* N18: كلمة محمولة من الجلسة السابقة */
+  var old=pg.ws[i];   /* fix3 */
   pg.ws[i]=s;pg.sure[i]=(s==='tentative'&&w&&w.sure)?1:0;
   if(s==='wrong'||s==='unclear'||(s==='doubt'&&w&&w.heard))pg.heard[i]={heard:(w&&w.heard)||'',lexRef:(w&&w.lexRef)||null};
   else if(s==='confirmed')delete pg.heard[i];
@@ -8267,6 +8309,9 @@ function _qaRoute(p,i,s,w,al,prev){
   if(s==='confirmed')try{_tjOnWord(p,i,s,w,al);}catch(e){}
   if(TS_FINAL[s]&&sx.gq)_tsGradeDue();
   if(TS_FINAL[s]||s==='tentative')_tsMaybeTurn();
+  /* fix3 F2: تنبيه لحظة الخطأ (جلسة حيّة، حالة جديدة) · F4: رقاقة وضع الشيخ */
+  if((s==='wrong'||s==='skipped')&&old!=='wrong'&&old!=='skipped'&&LM.rec&&!sx.done)try{_tsErrAlert();}catch(e){}
+  if(s==='wrong'||(sx.hold&&(s==='confirmed'||s==='doubt')))try{_tsSheikhSync(p,i,s,al);}catch(e){}
 }
 /* المحرّك الصوتي: رسم حالة كلمة على الصفحة المعروضة (كما في v1، و«مقروءة مبدئياً» sure تُرسم كالمثبتة) */
 function _qaDraw(i,s,w){
@@ -8301,7 +8346,7 @@ function _qaRangeStart(fromK){
     var pw=_tsPageWords(p).slice(pg.i0,pg.i1+1);sx.segP.push(p);
     segs.push({p:p,i0:pg.i0,words:pw.map(function(x){return {s:x.s,a:x.a,w:x.w,raw:x.raw};})});}
   if(!segs.length)throw new Error('empty-range');
-  QA.rg=createAsrRange(segs,QA.view,{onWord:_qaRoute,alOpts:_qaAlOpts(),
+  QA.rg=createAsrRange(segs,QA.view,{onWord:_qaRoute,alOpts:_tsAlOpts(sx),
     onPrefetch:function(p){try{lmInjectFont(p);if(document.fonts&&document.fonts.load)document.fonts.load("1em 'QCF_P"+_lmPad(p)+"'").catch(function(){});}catch(e){}},
     onHandoff:function(info){QA.diag.handoffs=(QA.diag.handoffs||0)+1;}});
   QA.al=QA.rg.al();
@@ -8309,6 +8354,7 @@ function _qaRangeStart(fromK){
 function _qaFeed(ev){
   if(QA.rg){QA.rg.feed(ev);QA.al=QA.rg.al();}
   else if(QA.al)QA.al.feed(ev.text||'',ev.tMs||0,!!ev.final,ev);
+  var sx=LM.sx;if(sx&&sx.hold&&!(QA.al&&QA.al.held&&QA.al.held()>=0)){sx.hold=null;try{_tsSheikhChip();}catch(e){}}   /* fix3 F4 */
 }
 /* أحداث المحرّك الإضافية: الوقف (ملاحظات التجويد بعده، والنهاية الليّنة إن فُعّلت) وانتهاء «أعِد الآية» بمهلة الأمان */
 function _qaOnPause(ev){
@@ -8318,6 +8364,32 @@ function _qaOnPause(ev){
   try{_tjOnPause();}catch(e){}
 }
 function _qaOnHold(ev){if(!ev||ev.sess!==QA.jsSess)return;if(ev.holding===false&&QA.holding){QA.holding=false;_tsReplayEnd(true);}}
+
+/* ═══ fix3 F4 «وضع الشيخ» (إعداد مطفأ افتراضياً): كلمة «خطأ» توقف التقدّم عندها (المحاذي SHEIKH: لا التزام بما بعدها والمايك يستمع)،
+   ورقاقة «أعِد من: «…»» ببداية الآية (أو الكلمتين قبل الخطأ في آية طويلة) حتى تُقرأ صحيحة ثم يتابع. «تابِع» على الرقاقة يتجاوزه.
+   التسميع المتصل لا يسلّم الصفحة ما دام الخطأ معلَّقاً؛ التلميح و«أعِد الآية» يشيران إلى موضع الإعادة ═══ */
+function _tsAlOpts(sx){var o=_qaAlOpts();if(_tsSet().sheikh&&!_tsIsFix(sx))o.SHEIKH=1;return o;}
+function _tsSheikhFrom(p,i){
+  var pw=_tsPageWords(p),w=pw[i];if(!w)return i;var a0=i;
+  while(a0>0&&pw[a0-1].s===w.s&&pw[a0-1].a===w.a)a0--;
+  var pg=_tsPg(p);if(pg&&a0<pg.i0)a0=pg.i0;
+  return (i-a0<=6)?a0:Math.max(a0,i-2);
+}
+function _tsSheikhSync(p,i,s,al){
+  var sx=LM.sx;if(!sx)return;al=al||QA.al;var h=(al&&al.held)?al.held():-1;
+  if(s==='wrong'&&h>=0)sx.hold={p:p,i:i,from:_tsSheikhFrom(p,i)};
+  else if(h<0&&sx.hold)sx.hold=null;
+  _tsSheikhChip();
+}
+function _tsSheikhChip(){
+  var c=document.getElementById('tsSheikhChip');if(!c)return;var sx=LM.sx,H=sx&&sx.hold,on=!!(H&&LM.rec&&!sx.done);
+  if(on){var pw=_tsPageWords(H.p),w1=pw[H.from],w2=pw[H.from+1];
+    c.innerHTML='<span>'+_tsT('أعِد من:')+'</span> «<b class="t-quran" data-noi18n>'+_esc(w1.raw+(w2&&w2.a===w1.a&&w2.s===w1.s?' '+w2.raw:''))+'</b>»'
+      +'<button class="ts-link ts-sh-go" onclick="_tsSheikhRelease()">'+_tsT('تابِع')+'</button>';}
+  else c.innerHTML='';
+  c.hidden=!on;_tsAssistRender();
+}
+function _tsSheikhRelease(){var al=QA.al;try{if(al&&al.release)al.release();}catch(e){}if(LM.sx)LM.sx.hold=null;_tsSheikhChip();}
 
 /* ═══ الوضع المخفي (G1a) ═══ */
 /* ملكية حروف الخط: كل حرف من الآية (عدا رقمها) لكلمة واحدة — كلمة + علامات وقفها (مطابق) أو مدى متصل (تناسبي) */
@@ -8368,9 +8440,32 @@ function lmToggleHide(){
   _tsSetPut({hid:h});_tsHidApply();_tsAssistRender();
   try{toast({off:'النص ظاهر',full:'الوضع المخفي: تظهر الكلمة حين تقرؤها صحيحة',first:'تظهر أول كلمة من كل آية'}[h]);}catch(e){}
 }
+/* ═══ fix3 F2: تنبيه لطيف لحظة الخطأ — اهتزاز قصير (Haptics أو navigator.vibrate) أو نغمة خافتة قصيرة (WebAudio)، إعداد
+   «تنبيه عند الخطأ» (الافتراضي اهتزاز). لكلمة صارت «خطأ» أو «لم تُسمع» في جلسة حيّة فقط (لا «للتحقّق» ولا «للمراجعة»)، لا أثناء نظرة
+   الوضع المخفي، وتنبيه واحد على الأكثر كل TS_ALERT.gap. ما لا يدعمه الجهاز يُتجاهل بصمت ═══ */
+var TS_ALERT={last:-1e9,gap:1500,peek:1800,ctx:null,n:0,via:''};
+function _tsErrAlert(now,preview){
+  var m=_tsSet().errAlert;if(m==='off')return '';
+  now=now==null?Date.now():now;
+  if(!preview){if(now-TS_ALERT.last<TS_ALERT.gap)return '';if(LM._peekAt&&now-LM._peekAt<TS_ALERT.peek)return '';}
+  TS_ALERT.last=now;TS_ALERT.n++;
+  var v=m==='snd'?_tsBeep():_tsBuzz();TS_ALERT.via=v;return v||'none';
+}
+function _tsBuzz(){
+  try{var C=window.Capacitor,Hp=C&&C.Plugins&&C.Plugins.Haptics;if(Hp&&Hp.vibrate){var r=Hp.vibrate({duration:40});if(r&&r.catch)r.catch(function(){});return 'haptics';}}catch(e){}
+  try{if(navigator.vibrate&&navigator.vibrate(40)!==false)return 'vibrate';}catch(e){}
+  return '';
+}
+function _tsBeep(){
+  try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return '';
+    var c=TS_ALERT.ctx||(TS_ALERT.ctx=new AC());if(c.state==='suspended'&&c.resume)c.resume();
+    var o=c.createOscillator(),g=c.createGain(),t=c.currentTime;o.type='sine';o.frequency.value=660;
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.05,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.14);return 'tone';}catch(e){return '';}
+}
 /* نظرة عند الطلب: ضغط مطوّل على كلمة مخفية (تُحسب تلميحاً جزئياً) */
 function _tsPeek(i,ms){
-  var w=LM.words[i];if(!w)return;var gs=w.glyphs||[w.spanId];
+  var w=LM.words[i];if(!w)return;LM._peekAt=Date.now();   /* fix3 F2: لا تنبيه أثناء النظرة */var gs=w.glyphs||[w.spanId];
   for(var g=0;g<gs.length;g++){var el=document.getElementById(gs[g]);if(el)el.classList.add('peek');}
   setTimeout(function(){for(var g=0;g<gs.length;g++){var el=document.getElementById(gs[g]);if(el)el.classList.remove('peek');}},ms||1500);
 }
@@ -8384,6 +8479,7 @@ function _tsOnProgress(p,i,s,w){
 }
 /* الكلمة التالية المتوقَّعة: بعد آخر كلمة بلغها القارئ (أو أول النطاق) */
 function _tsNextWord(){
+  var sx0=LM.sx;if(sx0&&sx0.hold&&sx0.hold.p===LM.page&&LM.engine==='qa')return sx0.hold.from;   /* fix3 F4: موضع الإعادة */
   var pg=_tsPg(),i0=pg?pg.i0:0,i1=pg?pg.i1:LM.words.length-1,last=i0-1;
   if(LM.engine==='qa'&&pg){for(var i=i0;i<=i1;i++){var s=pg.ws[i];if(TS_FINAL[s]||(s==='tentative'&&pg.sure[i]))last=i;}}
   else last=Math.max(last,LM.cursor-1);
@@ -8446,13 +8542,14 @@ function _tsAssistRender(){
   if(hb)hb.hidden=!showHint;if(rb){rb.hidden=!showRep;rb.disabled=!!QA.holding;}
   var showNext=on&&!!sx.turnReady;if(np)np.hidden=!showNext;
   var chip=document.getElementById('tsHintChip'),chipOn=chip&&!chip.hidden;
-  box.hidden=!(showHint||showRep||showNext||chipOn||QA.holding);
+  var shc=document.getElementById('tsSheikhChip'),shOn=!!(shc&&!shc.hidden);   /* fix3 F4 */
+  box.hidden=!(showHint||showRep||showNext||chipOn||shOn||QA.holding);
   _tsDockSync();
 }
 /* الرصيف السفلي: صفّ المساعدة أو شريط التكرار ظاهر ⇒ الشريط معتم (ts-dock) والصفحة مبطَّنة بارتفاعه الفعلي (--ts-dock) */
 function _tsDockSync(){
   var bar=document.getElementById('lmBar'),scr=document.getElementById('memorize');if(!bar||!scr)return;
-  var a=document.getElementById('lmAssist'),d=document.getElementById('tsDrillBar'),on=!!((a&&!a.hidden)||(d&&!d.hidden)),was=bar.classList.contains('ts-dock');
+  var a=document.getElementById('lmAssist'),d=document.getElementById('tsDrillBar'),fb=document.getElementById('tsFixBar'),on=!!((a&&!a.hidden)||(d&&!d.hidden)||(fb&&!fb.hidden)),was=bar.classList.contains('ts-dock');
   bar.classList.toggle('ts-dock',on);scr.classList.toggle('ts-assist-on',on);
   if(on){try{var r=bar.getBoundingClientRect(),vh=window.innerHeight||0;if(r.height>0&&vh>0)scr.style.setProperty('--ts-dock',Math.round(vh-r.top)+'px');}catch(e){}
     if(!was)_tsScrollVis(null);}   /* ظهر الرصيف: الصفحة القصيرة تُعرض كاملة فوقه */
@@ -8562,10 +8659,11 @@ function _tsGradePage(p,left){
   if(left){left=false;for(var k=pg.i0;k<=pg.i1;k++){if(pg.ws[k]&&pg.ws[k]!=='pending'){left=true;break;}}}
   for(var i=pg.i0;i<=pg.i1;i++){var s=pg.ws[i]||'pending';
     if(left&&(s==='pending'||s==='tentative'))s=(s==='tentative'&&pg.sure[i])?'confirmed':'skipped';
+    if(pg.fixd&&pg.fixd[i]&&s==='confirmed')s='unclear';   /* fix3 F3: صُحّحت بعد الجلسة — نصف خطأ، لا قراءة أولى نظيفة */
     if(s!=='pending')any=true;words.push({s:pw[i].s,a:pw[i].a,st:s});}
   if(!any)return null;
-  pg.graded=true;
-  try{pg.grade=_hzApplyPage({p:p,words:words,hints:pg.hints,replays:pg.replays,peeks:pg.peeks,engine:LM.engine==='wn'?'wn':'qa'});}catch(e){pg.grade=null;}
+  pg.graded=true;if(!pg.regr)pg.gradeLeft=!!left;
+  try{pg.grade=_hzApplyPage({p:p,words:words,hints:pg.hints,replays:pg.replays,peeks:pg.peeks,engine:LM.engine==='wn'?'wn':'qa',regrade:!!pg.regr});}catch(e){pg.grade=null;}
   return pg.grade;
 }
 /* التقييم المؤجَّل لصفحات قُلبت: حين تكتمل كلماتها، أو يتقدّم القارئ TS_GRADE_LAG كلمات محسومة في الصفحة التالية
@@ -8622,6 +8720,7 @@ function _tsOnStop(){
   QA.holding=false;
   var sx=LM.sx;if(sx){sx.turnReady=false;if(sx.turnT){clearTimeout(sx.turnT);sx.turnT=null;}}
   _tsHintClear(true);
+  if(sx)sx.hold=null;try{_tsSheikhChip();}catch(e){}   /* fix3 F4 */
   var b=document.getElementById('lmAssist');if(b)b.hidden=true;
   try{_recInd();}catch(e){}
 }
@@ -9295,13 +9394,15 @@ function _tsAfterFinish(bg){
     if(i0>_wr&&pg.ws[i0]==='skipped')delete pg.ws[i0];}}}
   sx.done=true;sx.bg=!!bg;LM.showRes=true;if(sx.turnT){clearTimeout(sx.turnT);sx.turnT=null;}sx.turnReady=false;
   _tsHintClear(true);_tsAssistRender();
-  if(!bg){var gq=sx.gq||{};for(var q in sx.pg){if(sx.pg.hasOwnProperty(q))try{_tsGradePage(+q,!!gq[q]&&_tsReadAfter(+q));}catch(e){}}}
+  if(!bg&&!_tsIsFix(sx)){var gq=sx.gq||{};for(var q in sx.pg){if(sx.pg.hasOwnProperty(q))try{_tsGradePage(+q,!!gq[q]&&_tsReadAfter(+q));}catch(e){}}}
   for(var i=0;i<LM.words.length;i++)_tsTjMark(i);
   _tsHidAll();
   try{_tsChips();}catch(e){}
+  if(_tsIsFix(sx))try{_tsFixAfter(sx);}catch(e){}   /* fix3 F3 */
 }
 function _tsResultHtml(bg){
   var sx=LM.sx,h='';if(!sx)return '';
+  if(_tsIsFix(sx))return '';   /* fix3 F3: شريط التصحيح يعرض حالة الآية */
   var R=sx.range,multi=R.order.length>1||R.kind!=='page';
   if(multi){
     var rows='',T={ok:0,err:0,miss:0,unc:0},RM=_tsRemain(sx);
@@ -9330,6 +9431,7 @@ function _tsResultHtml(bg){
     if(pg1&&!sx.meta&&sx.engine==='qa'&&_tsHeardN(pg1)&&!_tsPageDone(LM.page))h+='<button class="btn ts-cont" id="tsResumeBtn" onclick="_tsResume()">▶ '+_tsT('تابِع من حيث توقّفت')+'</button>';
     if(!bg&&!sx.meta&&pg1)h+=_tsNextActs();   /* fix2 N56 */
   }
+  if(!bg)h+=_tsFixBtnHtml(sx);   /* fix3 F3 */
   if(TJ.n>0&&_tjEnabled())h+='<p class="ts-tj-line"><span class="ts-tjdot" aria-hidden="true"></span><span>'+_tsT('ملاحظات التجويد (تجريبي):')+'</span> '+_tsN(TJ.n)+' — '+_tsT('اضغط الكلمة المعلَّمة للتفصيل.')+'</p>';
   h+=_recResultHtml();
   if(sx.engine==='qa'&&!sx.meta)h+='<details class="ts-leg-d"><summary>'+_tsT('دليل الألوان')+'</summary>'+_tsLegendHtml()+'</details>';
@@ -9384,7 +9486,7 @@ function _tsResumeGet(){var o=null;try{o=JSON.parse(lsGet('ts_resume')||'null');
   if(!o||o.v!==1||!o.order||!o.order.length||!(o.p>=1&&o.p<=604)||o.order.indexOf(o.p)<0||Date.now()-(+o.d||0)>30*86400000)return null;return o;}
 function _tsResumeSave(){
   var sx=LM.sx;if(!sx||sx.meta||sx.engine!=='qa')return;
-  var R=sx.range;if(!R||!(R.order.length>1||R.kind!=='page'))return;
+  var R=sx.range;if(!R||!(R.order.length>1||R.kind!=='page')||R.kind==='fix')return;
   var rm=_tsRemain(sx);
   if(!rm.rem){lsSet('ts_resume','');return;}
   lsSet('ts_resume',JSON.stringify({v:1,kind:R.kind,label:R.label||'',from:R.from||null,to:R.to||null,order:R.order,p:rm.p,d:Date.now()}));
@@ -9419,6 +9521,128 @@ function _tsSeg(name,opts,val,fn){
   return h+'</div>';
 }
 
+/* ═══ fix3 F3 «صحّح أخطاءك»: بعد جلسة صفحة/نطاق — جولة قصيرة على الآيات التي فيها خطأ/تخطٍّ/«للتحقّق» فقط، آيةً آية:
+   «▶ استمع أولاً» (اختياري، مشغّل الآية نفسه _tsAyahUrl) ثم يستمع المايك لتلك الآية وحدها (نطاق آية واحدة kind:'fix' بآلة النطاق نفسها:
+   لا تقييم ولا شارات ولا «تابِع»)؛ قُرئت صحيحة (كل كلماتها مقروءة، والمعلَّمة «مقروءة» بلا فرق حرف) ← كلماتها «مقروءة» في نتيجة
+   الجلسة الأصلية (fixd) وينتقل إلى التالية؛ وإلا «أعِد» أو «تخطَّ». في النهاية «صُحّحت X من Y»، ويُعاد تقييم الصفحات المصحّحة في
+   «مراجعة اليوم» (تقييم اليوم نفسه يُستبدل؛ الكلمة المصحّحة نصف خطأ — ليست قراءة أولى نظيفة). المحرّك الصوتي فقط (البديل: رسالة) ═══ */
+var TSF=null;
+function _tsIsFix(sx){sx=sx||LM.sx;return !!(sx&&sx.range&&sx.range.kind==='fix');}
+/* آيات الأخطاء بترتيب الجلسة: [{s,a,p,ws:{p:[i…]}}] — «لم تُسمع» ما قبل آخر كلمة مسموعة في الصفحة كما يعدّها lmFinish */
+function _tsFixItems(sx){
+  var out=[],by={};if(!sx||!sx.range||_tsIsFix(sx))return out;var R=sx.range;
+  for(var k=0;k<R.order.length;k++){var p=R.order[k],pg=sx.pg[p];if(!pg||pg.i0<0||!_tsHeardN(pg))continue;
+    var pw=_tsPageWords(p),rch=_tsReach(pg),fst=-1,i;for(i=pg.i0;i<=pg.i1&&fst<0;i++)if(TS_HEARD[pg.ws[i]])fst=i;
+    /* ما قبل أول كلمة مسموعة لم يُبدأ منه (بدءٌ من وسط الصفحة) — ليس خطأً يُصحَّح */
+    for(i=pg.i0;i<=pg.i1;i++){var s=pg.ws[i];
+      if(!(s==='wrong'||s==='unclear'||(i<rch&&i>fst&&!TS_HEARD[s]&&!(s==='tentative'&&pg.sure[i]))))continue;
+      var w=pw[i];if(!w)continue;var key=w.s+':'+w.a,it=by[key];
+      if(!it){it=by[key]={s:w.s,a:w.a,p:p,ws:{}};out.push(it);}
+      (it.ws[p]||(it.ws[p]=[])).push(i);}}
+  return out;
+}
+function _tsFixBtnHtml(sx){
+  if(!sx||sx.bg||_tsIsFix(sx)||TSF)return '';
+  var n=_tsFixItems(sx).length;if(!n)return '';
+  if(sx.engine!=='qa')return '<p class="ts-fix-na">'+_tsT('«صحّح أخطاءك» يعمل مع المحرّك الصوتي على الجهاز فقط.')+'</p>';
+  return '<button class="btn ts-cont ts-fix-go" id="tsFixBtn" onclick="_tsFixStart()">✎ '+_tsF('صحّح أخطاءك ({n})',{n:_tsN(n)})+'</button>';
+}
+function _tsFixStart(){
+  if(LM.rec||LM.stopping||LM.starting||TSF)return false;
+  var sx=LM.sx;if(!sx||!sx.done||_tsIsFix(sx))return false;
+  var items=_tsFixItems(sx);if(!items.length)return false;
+  if(sx.engine!=='qa'||!_qaUsable()){try{toast(_tsT('«صحّح أخطاءك» يعمل مع المحرّك الصوتي على الجهاز فقط.'),'info');}catch(e){}return false;}
+  TSF={orig:sx,items:items,k:0,ok:0,done:{},st:'idle',skipReq:false,endReq:false};
+  _tsFixShow();return true;
+}
+function _tsFixCur(){return TSF&&TSF.items[TSF.k]||null;}
+/* البند الحالي: صفحة آيته بنتيجة الجلسة الأصلية (الكلمة المعلَّمة ظاهرة)، والشريط بأزراره */
+function _tsFixShow(){
+  if(!TSF)return;var it=_tsFixCur();if(!it){_tsFixEnd();return;}
+  TSF.st='idle';LM.sx=TSF.orig;LM.page=it.p;lmRender({results:true});
+  var res=document.getElementById('lmResult');if(res)res.innerHTML='';
+  var st=document.getElementById('lmStatus');if(st){st.classList.remove('lm-st-res');st.innerHTML=_tsF('صحّح {q}: اقرأ الآية كاملة',{q:_tsQ(it.s,it.a)});}
+  _tsFixBar();
+  try{_tsScrollVis(_lmSpan(it.ws[it.p][0]),true);}catch(e){}
+}
+function _tsFixBar(){
+  var b=document.getElementById('tsFixBar');if(!b)return;
+  var it=_tsFixCur();
+  if(!TSF||!it){b.hidden=true;b.innerHTML='';_tsDockSync();return;}
+  var lbl='<span class="hz-dl">'+_tsF('صحّح {k} من {n}',{k:_tsN(TSF.k+1),n:_tsN(TSF.items.length)})+' · '+_tsQ(it.s,it.a)
+    +(TSF.st==='fail'?' <span class="ts-fix-st ts-fix-bad">'+_tsT('لم تُصحَّح بعد')+'</span>':'')+'</span>',h;
+  if(TSF.st==='listen')h=lbl+'<span class="ts-fix-st">🎙 '+_tsT('اقرأ الآية…')+'</span><button class="ts-pill" id="tsFixSkip" onclick="_tsFixSkip()">'+_tsT('تخطَّ')+'</button>';
+  else h=lbl+'<button class="ts-pill" id="tsFixPlay" onclick="_tsFixPlay(this)">'+_tsT('▶ استمع أولاً')+'</button>'
+    +'<button class="ts-pill gold" id="tsFixGo" onclick="_tsFixListen()">🎙 '+_tsT(TSF.st==='fail'?'أعِد':'سمِّع الآية')+'</button>'
+    +'<button class="ts-pill" id="tsFixSkip" onclick="_tsFixSkip()">'+_tsT('تخطَّ')+'</button>'
+    +'<button class="ts-pill" id="tsFixEnd" onclick="_tsFixEnd()" aria-label="'+_tsT('إنهاء')+'">■</button>';
+  b.innerHTML=h;b.hidden=false;_tsDockSync();
+}
+function _tsFixPlay(btn){var it=_tsFixCur();if(!it||LM.rec||LM.stopping)return;if(TSP.btn===btn){_tsPlayStop();return;}_tsPlayAyah(it.s,it.a,{btn:btn});}
+function _tsFixListen(){
+  var it=_tsFixCur();if(!it||LM.rec||LM.stopping||LM.starting)return false;
+  if(!_qaUsable()){try{toast(_tsT('«صحّح أخطاءك» يعمل مع المحرّك الصوتي على الجهاز فقط.'),'info');}catch(e){}return false;}
+  try{_tsPlayStop();}catch(e){}
+  var R=_tsRangeOf('fix',{s:it.s,a:it.a},{s:it.s,a:it.a},_tsSurahName(it.s)+' '+_tsAr(it.a));
+  TSF.st='listen';TSF.skipReq=false;_tsFixBar();
+  LM.sxNext=R;LM.page=R.order[0];lmRender();
+  var st=document.getElementById('lmStatus');if(st)st.innerHTML='🎙 '+_tsF('اقرأ {q} من أولها',{q:_tsQ(it.s,it.a)});
+  setTimeout(function(){if(!LM.rec&&TSF)lmStart();},50);
+  return true;
+}
+function _tsFixSkip(){
+  if(!TSF)return;
+  if(LM.rec){TSF.skipReq=true;lmStop();return;}
+  if(LM.stopping||LM.starting)return;
+  TSF.k++;_tsFixShow();
+}
+/* الآية قُرئت صحيحة في جلسة التصحيح sx؟ كل كلماتها مقروءة، والكلمات المعلَّمة أصلاً «مقروءة» (فرق حرف = لم تُصحَّح) */
+function _tsFixOk(sx,it){
+  var any=false,q,i,g,s;
+  for(q in sx.pg){if(!sx.pg.hasOwnProperty(q))continue;g=sx.pg[q];if(!g||g.i0<0)continue;
+    for(i=g.i0;i<=g.i1;i++){s=g.ws[i];if(s==='tentative'&&g.sure[i])s='confirmed';if(s!=='confirmed'&&s!=='doubt')return false;any=true;}}
+  if(!any)return false;
+  for(q in it.ws){if(!it.ws.hasOwnProperty(q))continue;g=sx.pg[q];if(!g)return false;
+    for(var j=0;j<it.ws[q].length;j++){s=g.ws[it.ws[q][j]];if(s==='tentative'&&g.sure[it.ws[q][j]])s='confirmed';if(s!=='confirmed')return false;}}
+  return true;
+}
+/* نهاية جلسة آية التصحيح (من _tsAfterFinish) */
+function _tsFixAfter(sx){
+  if(!TSF||!_tsIsFix(sx))return;
+  var it=_tsFixCur();if(!it){setTimeout(_tsFixEnd,0);return;}
+  if(TSF.endReq){setTimeout(_tsFixEnd,0);return;}
+  if(TSF.skipReq){TSF.skipReq=false;TSF.k++;setTimeout(_tsFixShow,0);return;}
+  if(_tsFixOk(sx,it)){
+    var O=TSF.orig;
+    for(var p in it.ws){if(!it.ws.hasOwnProperty(p))continue;var og=O.pg[p];if(!og)continue;og.fixd=og.fixd||{};
+      for(var j=0;j<it.ws[p].length;j++){var i=it.ws[p][j];og.ws[i]='confirmed';og.sure[i]=0;delete og.heard[i];og.fixd[i]=1;}
+      TSF.done[p]=1;}
+    TSF.ok++;TSF.k++;
+    try{toast('✓ '+_tsT('صُحّحت الآية'),'info');}catch(e){}
+    setTimeout(_tsFixShow,0);
+  }else{TSF.st='fail';setTimeout(function(){if(TSF)_tsFixBar();},0);}
+}
+function _tsFixEnd(){
+  if(!TSF)return;
+  if(LM.rec){TSF.endReq=true;lmStop();return;}
+  if(LM.stopping||LM.starting)return;
+  var F=TSF,O=F.orig,X=F.ok,Y=F.items.length;TSF=null;_tsFixBar();
+  try{_tsPlayStop();}catch(e){}
+  LM.sx=O;
+  /* «مراجعة اليوم»: الصفحات المصحّحة يُعاد تقييمها بالحالات الجديدة (تقييم اليوم نفسه يُستبدل) */
+  if(!O.bg&&O.engine==='qa'){for(var p in F.done){if(!F.done.hasOwnProperty(p))continue;var pg=O.pg[p];if(!pg)continue;
+    pg.graded=false;pg.regr=1;try{_tsGradePage(+p,!!pg.gradeLeft);}catch(e){}pg.regr=0;}}
+  LM.page=F.items.length?F.items[0].p:LM.page;lmRender({results:true});
+  var st=document.getElementById('lmStatus'),res=document.getElementById('lmResult');
+  var sum='<span class="ts-fix-sum">'+_tsF('صُحّحت {x} من {y}',{x:_tsN(X),y:_tsN(Y)})+'</span>';
+  if(st){st.innerHTML=sum;st.classList.add('lm-st-res');}
+  var h='';try{h=_tsResultHtml(false);}catch(e){}
+  if(res)res.innerHTML='<p class="ts-fix-sum-p">'+sum+'</p>'+h+_qaDisclaimerHtml(false);
+  LM._resPg=LM.page;LM._resBg=false;
+  F.x=X;F.y=Y;LM._fixLast=F;
+  return F;
+}
+
 /* ── «إعدادات التسميع» ── */
 function _tsSettingsOpen(){
   var set=_tsSet(),dev=_tsDev(),h=_tsSheetHead(_tsT('إعدادات التسميع'));
@@ -9426,6 +9650,10 @@ function _tsSettingsOpen(){
     +'<p class="ts-row-s">'+_tsT('في الوضع المخفي تظهر الكلمة حين تقرؤها صحيحة.')+'</p></div>';
   h+='<div class="ts-row"><div class="ts-row-t">'+_tsT('التلميح عند التوقّف')+'</div>'+_tsSeg('hint',[['4','بعد ٤ ث'],['6','بعد ٦ ث'],['10','بعد ١٠ ث'],['0','إيقاف']],set.hintSec,'_tsSetHint')+'</div>';
   h+='<div class="ts-row ts-row-tg"><div><div class="ts-row-t">'+_tsT('قلب الصفحة تلقائياً في التسميع المتصل')+'</div></div>'+_tsTog('tsTgTurn',!!set.autoTurn,'_tsSetTurn()')+'</div>';
+  /* fix3 F2/F4 */
+  h+='<div class="ts-row" id="tsRowAlert"><div class="ts-row-t">'+_tsT('تنبيه عند الخطأ')+'</div>'+_tsSeg('alert',[['vib','اهتزاز'],['snd','صوت خفيف'],['off','بلا']],set.errAlert,'_tsSetAlert')
+    +'<p class="ts-row-s">'+_tsT('تنبيه قصير لحظة تُعلَّم كلمة خطأً أو تُتجاوز.')+'</p></div>';
+  h+='<div class="ts-row ts-row-tg"><div><div class="ts-row-t">'+_tsT('وضع الشيخ')+'</div><p class="ts-row-s">'+_tsT('عند الخطأ يتوقّف التسميع عند الكلمة حتى تعيدها صحيحة، ويظهر لك من أين تعيد.')+'</p></div>'+_tsTog('tsTgSheikh',!!set.sheikh,'_tsSetSheikh()')+'</div>';
   var ra=_recAvail();
   h+='<div class="ts-row ts-row-tg"><div><div class="ts-row-t">'+_tsT('سجّل جلساتي على الجهاز')+'</div><p class="ts-row-s">'+(ra?_tsT('يُحفظ صوت الجلسة على جهازك فقط ولا يُرفع لأي خادم؛ لا يُشارَك إلا إذا ضغطت «مشاركة». لتسمع موضع الخطأ بصوتك.'):_tsT('يتطلّب المحرّك الصوتي'))+'</p></div>'
     +_tsTog('tsTgRec',ra&&dev.rec===1,'_tsSetRec()',!ra)+'</div>';
@@ -9443,6 +9671,8 @@ function _tsSettingsOpen(){
 function _tsSetHid(v){LM.hid=v;_tsSetPut({hid:v});_tsHidApply();_tsAssistRender();_tsSettingsOpen();}
 function _tsSetHint(v){_tsSetPut({hintSec:+v});if(LM.sx)LM.sx.lastProg=Date.now();_tsHintClear();_tsSettingsOpen();}
 function _tsSetTurn(){var s=_tsSet();_tsSetPut({autoTurn:s.autoTurn?0:1});_tsSettingsOpen();}
+function _tsSetAlert(v){_tsSetPut({errAlert:v});if(v!=='off')try{_tsErrAlert(null,true);}catch(e){}_tsSettingsOpen();}
+function _tsSetSheikh(){var s=_tsSet();_tsSetPut({sheikh:s.sheikh?0:1});if(LM.rec)try{toast(_tsT('يسري من الجلسة التالية'),'info');}catch(e){}_tsSettingsOpen();}
 function _tsSetWbw(){var s=_tsSet();_tsSetPut({wbw:s.wbw?0:1});_tsSettingsOpen();}
 function _tsSetMunf(v){_tsSetPut({tjMunf:v});_tsSettingsOpen();}
 function _tsSetRec(){
@@ -10001,7 +10231,7 @@ function _micLblSet(rec){
   var l=document.getElementById('lmMicLbl');if(!l)return;
   l.innerHTML=rec?('<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" style="vertical-align:-3px"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> إيقاف'):('<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> سمِّع');
 }
-function lmToggleRec(){LM.rec?lmStop():lmStart();}
+function lmToggleRec(){if(!LM.rec&&!LM.stopping&&TSF){_tsFixListen();return;}LM.rec?lmStop():lmStart();}   /* fix3 F3: المايك أثناء «صحّح أخطاءك» = آية البند */
 function lmStart(){
   var st=document.getElementById('lmStatus');
   if(st)st.classList.remove('lm-st-res');   /* fix2 N56 */
@@ -10201,7 +10431,7 @@ function lmFinish(bg){
   if(LM.active!=null){var ae=_lmSpan(LM.active);if(ae)ae.classList.remove('active');}
   /* شارات التسميع: «حافظ» = كل الكلمات محسومة بلا خطأ · «مُسمِّع» = كلها مؤكّدة ·
      «متقن الجزء» = ٢٠ صفحة بتثبيت ≥٩٠٪ · «ورد التسميع» = ٧ أيام متتالية */
-  if(!_bg)try{
+  if(!_bg&&!_tsIsFix())try{   /* fix3 F3: آية التصحيح لا تمنح شارات ولا سلسلة */
     if(N>0&&miss===0&&err===0&&unc===0&&todo===0)checkBadge('memorize_done');
     if((hbActive||qaActive)&&N>0){
       var _conf=0;for(var _ci=0;_ci<NW;_ci++)if(!_tsIsOut(_ci)&&(qaActive?QA.ws[_ci]:HB.wordState[_ci])==='confirmed')_conf++;
@@ -17052,6 +17282,9 @@ var HELP_GUIDES={
       'إن توقّفت قليلاً يظهر «تلميح» يذكّرك بأول الكلمة التالية، وزرّ «أعِد الآية» ليُسمعك الآية ثم تكمل.',
       'اضغط أي كلمة ملوّنة لترى ما سُمع والصحيح، واضغط «▶ الآية» لتسمعها بصوت القارئ.',
       '«⟳ تسميع متصل…» يسمّعك سورة أو حزباً أو جزءاً وتُقلب الصفحات وحدها؛ وإن توقّفت في منتصفه تجد «تابِع من ص …».',
+      'أخطأت في كلمة؟ أعِد الآية من أولها (أو من كلمات قبل الخطأ) واقرأها صحيحة: تصير الكلمة مقروءة. إعادتها بحرف مختلف لا تُصحّحها.',
+      'بعد الجلسة اضغط «صحّح أخطاءك»: يمرّ بك على الآيات التي فيها أخطاء فقط، آيةً آية — استمع إليها إن شئت ثم اقرأها، أو تخطَّها.',
+      '«وضع الشيخ» (من إعدادات التسميع): عند الخطأ يتوقّف التسميع عند الكلمة ويظهر «أعِد من: …» حتى تعيدها صحيحة، ثم تتابع.',
       'نتائجك تذهب إلى «لوحة الحفظ»: «مراجعة اليوم» تعيد عليك كل صفحة في وقتها لتثبت.',
       'أول مرة يُنزَّل محرّك التسميع (نحو ٧٤ ميغابايت) مرة واحدة بموافقتك، ثم يعمل دون إنترنت وصوتك لا يغادر جهازك.',
       'لأفضل نتيجة: مكان هادئ، والجوال قريب منك، واقرأ بوتيرة طبيعية.',
@@ -18214,6 +18447,7 @@ var ORIG=new WeakMap();
 
 /* fix2 «worship2» — DICT */(function(){var X={"{n} دقائق":{"en":"{n} minutes","fr":"{n} minutes","de":"{n} Minuten","hi":"{n} मिनट","zh":"{n} 分钟"},"{n} دقيقة":{"en":"{n} minutes","fr":"{n} minutes","de":"{n} Minuten","hi":"{n} मिनट","zh":"{n} 分钟"},"{t}: مفعّل ✓":{"en":"{t}: on ✓","fr":"{t} : activé ✓","de":"{t}: aktiviert ✓","hi":"{t}: चालू ✓","zh":"{t}：已开启 ✓"},"أذكار الصباح":{"en":"Morning adhkar","fr":"Invocations du matin","de":"Morgen-Adhkar","hi":"सुबह के अज़कार","zh":"早晨赞念"},"أذكار الصباح والمساء والنوم، وقبل الأذان، ومراجعة الحفظ، وورد الختمة، والكهف يوم الجمعة":{"en":"Morning, evening and sleep adhkar, before the adhan, memorization review, khatmah portion and al-Kahf on Friday","fr":"Invocations du matin, du soir et du coucher, avant l’adhan, révision de la mémorisation, portion de la khatma et al-Kahf le vendredi","de":"Morgen-, Abend- und Schlaf-Adhkar, vor dem Adhan, Wiederholung des Auswendiggelernten, Khatma-Abschnitt und al-Kahf am Freitag","hi":"सुबह, शाम और सोने के अज़कार, अज़ान से पहले, हिफ़्ज़ की दोहराई, ख़त्म का हिस्सा और जुमे को सूरह अल-कहफ़","zh":"早晚及睡前赞念、宣礼前、背诵复习、完读进度及周五的《山洞章》"},"أذكار المساء":{"en":"Evening adhkar","fr":"Invocations du soir","de":"Abend-Adhkar","hi":"शाम के अज़कार","zh":"傍晚赞念"},"أذكار النوم":{"en":"Sleep adhkar","fr":"Invocations du coucher","de":"Adhkar vor dem Schlafen","hi":"सोने के अज़कार","zh":"睡前赞念"},"أزل من المفضّلة":{"en":"Remove from favourites","fr":"Retirer des favoris","de":"Aus Favoriten entfernen","hi":"पसंदीदा से हटाएँ","zh":"从收藏中移除"},"أضف إلى المفضّلة":{"en":"Add to favourites","fr":"Ajouter aux favoris","de":"Zu Favoriten hinzufügen","hi":"पसंदीदा में जोड़ें","zh":"加入收藏"},"أنت تواجه القبلة ✓":{"en":"You are facing the Qibla ✓","fr":"Vous êtes face à la qibla ✓","de":"Sie sind zur Qibla ausgerichtet ✓","hi":"आप क़िबला की ओर हैं ✓","zh":"您正面向朝向 ✓"},"أيام صُمتَها":{"en":"Days fasted","fr":"Jours jeûnés","de":"Gefastete Tage","hi":"रोज़े रखे","zh":"已斋戒天数"},"أيام متبقية":{"en":"Days left","fr":"Jours restants","de":"Verbleibende Tage","hi":"बाकी दिन","zh":"剩余天数"},"أُزيل من المفضّلة":{"en":"Removed from favourites","fr":"Retiré des favoris","de":"Aus Favoriten entfernt","hi":"पसंदीदा से हटाया गया","zh":"已从收藏中移除"},"أُضيف إلى المفضّلة ★":{"en":"Added to favourites ★","fr":"Ajouté aux favoris ★","de":"Zu Favoriten hinzugefügt ★","hi":"पसंदीदा में जोड़ा गया ★","zh":"已加入收藏 ★"},"إعادة المعايرة":{"en":"Recalibrate","fr":"Recalibrer","de":"Neu kalibrieren","hi":"फिर से कैलिब्रेट करें","zh":"重新校准"},"إغلاق":{"en":"Close","fr":"Fermer","de":"Schließen","hi":"बंद करें","zh":"关闭"},"إمساكية رمضان":{"en":"Ramadan timetable (imsakiya)","fr":"Calendrier du Ramadan (imsakiya)","de":"Ramadan-Zeitplan (Imsakiya)","hi":"रमज़ान की समय-सारणी (इमसाकिया)","zh":"斋月时间表（封斋表）"},"إيقاف مؤقت":{"en":"Pause","fr":"Pause","de":"Pause","hi":"रोकें","zh":"暂停"},"اتجاه القبلة من الشمال — حرّك الهاتف":{"en":"Qibla direction from north — move the phone","fr":"Direction de la qibla depuis le nord — bougez le téléphone","de":"Qibla-Richtung von Norden — bewegen Sie das Telefon","hi":"उत्तर से क़िबला की दिशा — फ़ोन घुमाएँ","zh":"从北方起算的朝向——请转动手机"},"استدر يساراً":{"en":"Turn left","fr":"Tournez à gauche","de":"Nach links drehen","hi":"बाईं ओर मुड़ें","zh":"向左转"},"استدر يميناً":{"en":"Turn right","fr":"Tournez à droite","de":"Nach rechts drehen","hi":"दाईं ओर मुड़ें","zh":"向右转"},"اضغط ☆ على أي ذكر ليظهر هنا":{"en":"Tap ☆ on any dhikr to keep it here","fr":"Touchez ☆ sur un dhikr pour le garder ici","de":"Tippen Sie bei einem Dhikr auf ☆, um ihn hier zu sammeln","hi":"किसी भी ज़िक्र पर ☆ दबाएँ, वह यहाँ दिखेगा","zh":"点任意赞念上的 ☆，即可收在这里"},"افتح":{"en":"Open","fr":"Ouvrir","de":"Öffnen","hi":"खोलें","zh":"打开"},"الإمساك":{"en":"Imsak","fr":"Imsak","de":"Imsak","hi":"इमसाक","zh":"封斋"},"الإمساك قبل الفجر بعشر دقائق":{"en":"Imsak is ten minutes before Fajr","fr":"L’imsak est dix minutes avant le Fajr","de":"Imsak ist zehn Minuten vor Fadschr","hi":"इमसाक फ़ज्र से दस मिनट पहले","zh":"封斋时间为晨礼前十分钟"},"التاريخ":{"en":"Date","fr":"Date","de":"Datum","hi":"तारीख़","zh":"日期"},"التاريخ الهجري":{"en":"Hijri date","fr":"Date hégirienne","de":"Hidschri-Datum","hi":"हिजरी तारीख़","zh":"伊斯兰历日期"},"التذكيرات":{"en":"Reminders","fr":"Rappels","de":"Erinnerungen","hi":"अनुस्मारक","zh":"提醒"},"التفسير الميسّر دون إنترنت":{"en":"Al-Muyassar tafsir offline","fr":"Tafsir al-Muyassar hors ligne","de":"Tafsir al-Muyassar offline","hi":"तफ़सीर अल-मुयस्सर ऑफ़लाइन","zh":"离线《简明经注》"},"التفسير نفسه الذي يعرضه التطبيق عند الضغط على آية، محفوظاً على جهازك.":{"en":"The same tafsir the app shows when you tap a verse, saved on your device.","fr":"Le même tafsir que l’application affiche quand vous touchez un verset, enregistré sur votre appareil.","de":"Derselbe Tafsir, den die App beim Tippen auf einen Vers zeigt, auf Ihrem Gerät gespeichert.","hi":"वही तफ़सीर जो आयत दबाने पर ऐप दिखाता है, आपके डिवाइस पर सहेजा हुआ।","zh":"与点按经文时应用显示的经注相同，保存在您的设备上。"},"العشاء":{"en":"Isha","fr":"Icha","de":"Ischa","hi":"इशा","zh":"宵礼"},"الفجر":{"en":"Fajr","fr":"Fajr","de":"Fadschr","hi":"फ़ज्र","zh":"晨礼"},"المغرب":{"en":"Maghrib","fr":"Maghreb","de":"Maghrib","hi":"मग़रिब","zh":"昏礼"},"المفضّلة":{"en":"Favourites","fr":"Favoris","de":"Favoriten","hi":"पसंदीदा","zh":"收藏"},"اليوم:":{"en":"Today:","fr":"Aujourd’hui :","de":"Heute:","hi":"आज:","zh":"今天："},"بعد {n} أيام":{"en":"in {n} days","fr":"dans {n} jours","de":"in {n} Tagen","hi":"{n} दिन बाद","zh":"{n} 天后"},"بعد {n} يوماً":{"en":"in {n} days","fr":"dans {n} jours","de":"in {n} Tagen","hi":"{n} दिन बाद","zh":"{n} 天后"},"بعد العصر بـ":{"en":"After Asr +","fr":"Après l’Asr +","de":"Nach Asr +","hi":"अस्र के बाद +","zh":"晡礼后 +"},"بعد الفجر بـ":{"en":"After Fajr +","fr":"Après le Fajr +","de":"Nach Fadschr +","hi":"फ़ज्र के बाद +","zh":"晨礼后 +"},"بعد يومين":{"en":"in two days","fr":"dans deux jours","de":"in zwei Tagen","hi":"दो दिन बाद","zh":"两天后"},"تحديد الموقع":{"en":"Set location","fr":"Définir la position","de":"Standort festlegen","hi":"स्थान चुनें","zh":"设置位置"},"تعديل التاريخ الهجري":{"en":"Adjust the Hijri date","fr":"Ajuster la date hégirienne","de":"Hidschri-Datum anpassen","hi":"हिजरी तारीख़ समायोजित करें","zh":"调整伊斯兰历日期"},"تعديل التاريخ الهجري (بالأيام)":{"en":"Hijri date adjustment (days)","fr":"Ajustement de la date hégirienne (jours)","de":"Anpassung des Hidschri-Datums (Tage)","hi":"हिजरी तारीख़ में बदलाव (दिन)","zh":"伊斯兰历日期调整（天）"},"تقدّم التحميل":{"en":"Download progress","fr":"Progression du téléchargement","de":"Download-Fortschritt","hi":"डाउनलोड प्रगति","zh":"下载进度"},"تنبيه قبل الأذان":{"en":"Alert before the adhan","fr":"Alerte avant l’adhan","de":"Hinweis vor dem Adhan","hi":"अज़ान से पहले सूचना","zh":"宣礼前提醒"},"توقّف التحميل — تحقّق من الاتصال ثم اضغط «متابعة التحميل»":{"en":"Download stopped — check your connection, then tap “Resume download”","fr":"Téléchargement interrompu — vérifiez la connexion puis touchez « Reprendre le téléchargement »","de":"Download angehalten — Verbindung prüfen und dann auf „Download fortsetzen“ tippen","hi":"डाउनलोड रुक गया — कनेक्शन जाँचें, फिर “डाउनलोड जारी रखें” दबाएँ","zh":"下载已中断——请检查网络后点“继续下载”"},"جارٍ الإيقاف…":{"en":"Pausing…","fr":"Mise en pause…","de":"Wird angehalten…","hi":"रोका जा रहा है…","zh":"正在暂停…"},"حان وقت أذكار الصباح — اضغط لفتحها":{"en":"Time for the morning adhkar — tap to open them","fr":"C’est l’heure des invocations du matin — touchez pour les ouvrir","de":"Zeit für die Morgen-Adhkar — zum Öffnen tippen","hi":"सुबह के अज़कार का समय — खोलने के लिए दबाएँ","zh":"早晨赞念的时间到了——点按打开"},"حان وقت أذكار المساء — اضغط لفتحها":{"en":"Time for the evening adhkar — tap to open them","fr":"C’est l’heure des invocations du soir — touchez pour les ouvrir","de":"Zeit für die Abend-Adhkar — zum Öffnen tippen","hi":"शाम के अज़कार का समय — खोलने के लिए दबाएँ","zh":"傍晚赞念的时间到了——点按打开"},"حجم التحميل:":{"en":"Download size:","fr":"Taille du téléchargement :","de":"Downloadgröße:","hi":"डाउनलोड का आकार:","zh":"下载大小："},"حدّد موقعك لعرض إمساكية الشهر":{"en":"Set your location to see the month’s timetable","fr":"Définissez votre position pour voir le calendrier du mois","de":"Legen Sie Ihren Standort fest, um den Monatsplan zu sehen","hi":"महीने की समय-सारणी देखने के लिए अपना स्थान चुनें","zh":"设置位置以查看本月时间表"},"حذف":{"en":"Delete","fr":"Supprimer","de":"Löschen","hi":"हटाएँ","zh":"删除"},"حذف التفسير المحمَّل":{"en":"Delete the downloaded tafsir","fr":"Supprimer le tafsir téléchargé","de":"Heruntergeladenen Tafsir löschen","hi":"डाउनलोड की गई तफ़सीर हटाएँ","zh":"删除已下载的经注"},"حذف التفسير المحمَّل؟":{"en":"Delete the downloaded tafsir?","fr":"Supprimer le tafsir téléchargé ?","de":"Heruntergeladenen Tafsir löschen?","hi":"डाउनलोड की गई तफ़सीर हटाएँ?","zh":"删除已下载的经注？"},"حرّك الهاتف بحركة رقم 8 في الهواء عدة مرات، ثم وجّهه نحو السهم":{"en":"Move the phone in a figure 8 in the air a few times, then point it at the arrow","fr":"Décrivez plusieurs fois un 8 en l’air avec le téléphone, puis orientez-le vers la flèche","de":"Bewegen Sie das Telefon mehrmals in einer 8 durch die Luft und richten Sie es dann auf den Pfeil","hi":"फ़ोन को हवा में कुछ बार 8 के आकार में घुमाएँ, फिर तीर की ओर करें","zh":"将手机在空中画几次“8”字，然后对准箭头"},"حمّل التفسير للاستخدام دون إنترنت":{"en":"Download the tafsir for offline use","fr":"Télécharger le tafsir pour l’utiliser hors ligne","de":"Tafsir für die Offline-Nutzung herunterladen","hi":"ऑफ़लाइन उपयोग के लिए तफ़सीर डाउनलोड करें","zh":"下载经注以便离线使用"},"حُذف التفسير المحمَّل":{"en":"Downloaded tafsir deleted","fr":"Tafsir téléchargé supprimé","de":"Heruntergeladener Tafsir gelöscht","hi":"डाउनलोड की गई तफ़सीर हटा दी गई","zh":"已删除下载的经注"},"حُمِّل {n} من {m} سورة":{"en":"{n} of {m} surahs downloaded","fr":"{n} sourates sur {m} téléchargées","de":"{n} von {m} Suren heruntergeladen","hi":"{m} में से {n} सूरह डाउनलोड","zh":"已下载 {n}/{m} 章"},"حُمِّل التفسير الميسّر كاملاً ✓ — يعمل الآن دون إنترنت":{"en":"Al-Muyassar tafsir fully downloaded ✓ — it now works offline","fr":"Tafsir al-Muyassar entièrement téléchargé ✓ — il fonctionne désormais hors ligne","de":"Tafsir al-Muyassar vollständig heruntergeladen ✓ — funktioniert jetzt offline","hi":"तफ़सीर अल-मुयस्सर पूरी डाउनलोड हो गई ✓ — अब ऑफ़लाइन चलती है","zh":"《简明经注》已全部下载 ✓——现在可离线使用"},"دون إنترنت":{"en":"offline","fr":"hors ligne","de":"offline","hi":"ऑफ़लाइन","zh":"离线"},"رمضان":{"en":"Ramadan","fr":"Ramadan","de":"Ramadan","hi":"रमज़ान","zh":"斋月"},"رمضان القادم يبدأ تقريباً يوم {d} — {w}":{"en":"Next Ramadan begins around {d} — {w}","fr":"Le prochain Ramadan commence vers le {d} — {w}","de":"Der nächste Ramadan beginnt etwa am {d} — {w}","hi":"अगला रमज़ान लगभग {d} को शुरू होगा — {w}","zh":"下一个斋月约于 {d} 开始——{w}"},"سورة الكهف يوم الجمعة":{"en":"Surah al-Kahf on Friday","fr":"Sourate al-Kahf le vendredi","de":"Sure al-Kahf am Freitag","hi":"जुमे को सूरह अल-कहफ़","zh":"周五读《山洞章》"},"سيُحذف التفسير الميسّر من جهازك. يبقى متاحاً عبر الإنترنت، ويمكنك تحميله مرة أخرى متى شئت.":{"en":"Al-Muyassar tafsir will be removed from your device. It stays available online, and you can download it again any time.","fr":"Le tafsir al-Muyassar sera supprimé de votre appareil. Il reste disponible en ligne et vous pourrez le retélécharger à tout moment.","de":"Der Tafsir al-Muyassar wird von Ihrem Gerät entfernt. Er bleibt online verfügbar, und Sie können ihn jederzeit erneut herunterladen.","hi":"तफ़सीर अल-मुयस्सर आपके डिवाइस से हटा दी जाएगी। यह ऑनलाइन उपलब्ध रहेगी और आप इसे कभी भी फिर से डाउनलोड कर सकते हैं।","zh":"《简明经注》将从您的设备中删除。它仍可在线使用，您也可以随时重新下载。"},"صلاة الجمعة":{"en":"Jumu’ah prayer","fr":"Prière du vendredi (Joumou’a)","de":"Freitagsgebet (Dschumu’a)","hi":"जुमे की नमाज़","zh":"聚礼"},"طريقة الحساب:":{"en":"Calculation method:","fr":"Méthode de calcul :","de":"Berechnungsmethode:","hi":"गणना विधि:","zh":"计算方法："},"عدّاد رمضان":{"en":"Ramadan counter","fr":"Compteur du Ramadan","de":"Ramadan-Zähler","hi":"रमज़ान गणक","zh":"斋月计数"},"عُدِّل التاريخ الهجري ✓":{"en":"Hijri date adjusted ✓","fr":"Date hégirienne ajustée ✓","de":"Hidschri-Datum angepasst ✓","hi":"हिजरी तारीख़ बदल दी गई ✓","zh":"伊斯兰历日期已调整 ✓"},"غداً":{"en":"tomorrow","fr":"demain","de":"morgen","hi":"कल","zh":"明天"},"غير محمَّل":{"en":"Not downloaded","fr":"Non téléchargé","de":"Nicht heruntergeladen","hi":"डाउनलोड नहीं","zh":"未下载"},"في الأيام التي فيها صفحات مستحقّة، الساعة":{"en":"On days with pages due, at","fr":"Les jours où des pages sont à réviser, à","de":"An Tagen mit fälligen Seiten, um","hi":"जिन दिनों दोहराने के पन्ने हों, समय","zh":"有待复习页面的日子，时间"},"في نسخة المتصفّح تظهر التذكيرات داخل التطبيق فقط وهو مفتوح.":{"en":"In the browser version, reminders appear only inside the app while it is open.","fr":"Dans la version navigateur, les rappels n’apparaissent que dans l’application lorsqu’elle est ouverte.","de":"In der Browserversion erscheinen Erinnerungen nur in der geöffneten App.","hi":"ब्राउज़र संस्करण में अनुस्मारक केवल ऐप खुला होने पर ऐप के अंदर दिखते हैं।","zh":"在浏览器版本中，提醒只会在应用打开时显示在应用内。"},"قبل أن تنام: أذكار النوم — اضغط لفتحها":{"en":"Before you sleep: the sleep adhkar — tap to open them","fr":"Avant de dormir : les invocations du coucher — touchez pour les ouvrir","de":"Vor dem Schlafen: die Schlaf-Adhkar — zum Öffnen tippen","hi":"सोने से पहले: सोने के अज़कार — खोलने के लिए दबाएँ","zh":"睡前：睡前赞念——点按打开"},"قبل كل صلاة بـ":{"en":"Before each prayer:","fr":"Avant chaque prière :","de":"Vor jedem Gebet:","hi":"हर नमाज़ से पहले:","zh":"每次礼拜前："},"قد تختلف بداية الشهر في بلدك برؤية الهلال بيوم.":{"en":"Where the month starts by moon sighting, it may begin a day earlier or later in your country.","fr":"Là où le mois commence par l’observation du croissant, il peut débuter un jour plus tôt ou plus tard dans votre pays.","de":"Wo der Monat mit der Mondsichtung beginnt, kann er in Ihrem Land einen Tag früher oder später anfangen.","hi":"जहाँ महीना चाँद देखकर शुरू होता है, वहाँ आपके देश में यह एक दिन आगे-पीछे हो सकता है।","zh":"在以见月定月首的地区，您所在国家的月首可能早或晚一天。"},"كل تذكير اختياري بوقته، ويصلك إشعاراً على هاتفك.":{"en":"Each reminder is optional with its own time, and arrives as a notification on your phone.","fr":"Chaque rappel est facultatif, avec sa propre heure, et arrive en notification sur votre téléphone.","de":"Jede Erinnerung ist optional, hat ihre eigene Uhrzeit und kommt als Mitteilung auf Ihr Telefon.","hi":"हर अनुस्मारक वैकल्पिक है, उसका अपना समय है, और यह आपके फ़ोन पर सूचना के रूप में आता है।","zh":"每个提醒都可选，各有时间，会以通知形式发送到您的手机。"},"كل جمعة الساعة":{"en":"Every Friday at","fr":"Chaque vendredi à","de":"Jeden Freitag um","hi":"हर जुमे को समय","zh":"每周五"},"كل ليلة الساعة":{"en":"Every night at","fr":"Chaque soir à","de":"Jeden Abend um","hi":"हर रात समय","zh":"每晚"},"لا أذكار في المفضّلة بعد. اضغط ☆ على أي ذكر لإضافته.":{"en":"No favourite adhkar yet. Tap ☆ on any dhikr to add it.","fr":"Aucune invocation favorite pour l’instant. Touchez ☆ sur un dhikr pour l’ajouter.","de":"Noch keine Lieblings-Adhkar. Tippen Sie bei einem Dhikr auf ☆, um ihn hinzuzufügen.","hi":"अभी कोई पसंदीदा ज़िक्र नहीं। जोड़ने के लिए किसी भी ज़िक्र पर ☆ दबाएँ।","zh":"还没有收藏的赞念。点任意赞念上的 ☆ 即可添加。"},"لا تنسَ قراءة سورة الكهف اليوم":{"en":"Don’t forget to read Surah al-Kahf today","fr":"N’oubliez pas de lire la sourate al-Kahf aujourd’hui","de":"Vergessen Sie nicht, heute die Sure al-Kahf zu lesen","hi":"आज सूरह अल-कहफ़ पढ़ना न भूलें","zh":"别忘了今天诵读《山洞章》"},"لا تنسَ وردك من الختمة اليوم":{"en":"Don’t forget today’s khatmah portion","fr":"N’oubliez pas votre portion de khatma aujourd’hui","de":"Vergessen Sie Ihren heutigen Khatma-Abschnitt nicht","hi":"आज ख़त्म का अपना हिस्सा न भूलें","zh":"别忘了今天的完读进度"},"لا توجد مساحة كافية على الجهاز لحفظ التفسير":{"en":"Not enough space on the device to save the tafsir","fr":"Espace insuffisant sur l’appareil pour enregistrer le tafsir","de":"Nicht genug Speicherplatz auf dem Gerät für den Tafsir","hi":"तफ़सीर सहेजने के लिए डिवाइस पर पर्याप्त जगह नहीं है","zh":"设备空间不足，无法保存经注"},"لديك {n} صفحات للمراجعة اليوم":{"en":"You have {n} pages to review today","fr":"Vous avez {n} pages à réviser aujourd’hui","de":"Sie haben heute {n} Seiten zu wiederholen","hi":"आज आपके पास दोहराने के लिए {n} पन्ने हैं","zh":"今天有 {n} 页待复习"},"لديك {n} صفحة للمراجعة اليوم":{"en":"You have {n} pages to review today","fr":"Vous avez {n} pages à réviser aujourd’hui","de":"Sie haben heute {n} Seiten zu wiederholen","hi":"आज आपके पास दोहराने के लिए {n} पन्ने हैं","zh":"今天有 {n} 页待复习"},"لديك صفحة واحدة للمراجعة اليوم":{"en":"You have one page to review today","fr":"Vous avez une page à réviser aujourd’hui","de":"Sie haben heute eine Seite zu wiederholen","hi":"आज आपके पास दोहराने के लिए एक पन्ना है","zh":"今天有 1 页待复习"},"لديك صفحتان للمراجعة اليوم":{"en":"You have two pages to review today","fr":"Vous avez deux pages à réviser aujourd’hui","de":"Sie haben heute zwei Seiten zu wiederholen","hi":"आज आपके पास दोहराने के लिए दो पन्ने हैं","zh":"今天有 2 页待复习"},"ما دامت لديك ختمة جارية، الساعة":{"en":"While a khatmah is in progress, at","fr":"Tant qu’une khatma est en cours, à","de":"Solange eine Khatma läuft, um","hi":"जब तक ख़त्म जारी है, समय","zh":"完读进行期间，时间"},"متابعة التحميل":{"en":"Resume download","fr":"Reprendre le téléchargement","de":"Download fortsetzen","hi":"डाउनलोड जारी रखें","zh":"继续下载"},"متوقف":{"en":"Off","fr":"Désactivé","de":"Aus","hi":"बंद","zh":"已关闭"},"مراجعة الحفظ":{"en":"Memorization review","fr":"Révision de la mémorisation","de":"Wiederholung des Auswendiggelernten","hi":"हिफ़्ज़ की दोहराई","zh":"背诵复习"},"مشاركة الذكر":{"en":"Share this dhikr","fr":"Partager ce dhikr","de":"Diesen Dhikr teilen","hi":"यह ज़िक्र साझा करें","zh":"分享这段赞念"},"مفعّل ✓":{"en":"On ✓","fr":"Activé ✓","de":"Aktiviert ✓","hi":"चालू ✓","zh":"已开启 ✓"},"نسخ الذكر":{"en":"Copy this dhikr","fr":"Copier ce dhikr","de":"Diesen Dhikr kopieren","hi":"यह ज़िक्र कॉपी करें","zh":"复制这段赞念"},"نُسخ الذكر ✓":{"en":"Dhikr copied ✓","fr":"Dhikr copié ✓","de":"Dhikr kopiert ✓","hi":"ज़िक्र कॉपी हो गया ✓","zh":"已复制赞念 ✓"},"تعذّر النسخ — انسخ النص يدوياً":{"en":"Couldn’t copy — copy the text manually","fr":"Copie impossible — copiez le texte manuellement","de":"Kopieren fehlgeschlagen — Text bitte manuell kopieren","hi":"कॉपी नहीं हो सका — टेक्स्ट ख़ुद कॉपी करें","zh":"无法复制——请手动复制文字"},"ورد الختمة":{"en":"Khatmah portion","fr":"Portion de la khatma","de":"Khatma-Abschnitt","hi":"ख़त्म का हिस्सा","zh":"完读进度"},"يدخل وقت {p} الساعة {t}":{"en":"{p} begins at {t}","fr":"{p} commence à {t}","de":"{p} beginnt um {t}","hi":"{p} का समय {t} पर शुरू होगा","zh":"{p}于 {t} 开始"},"يظهر داخل التطبيق وهو مفتوح":{"en":"shown inside the app while it is open","fr":"affiché dans l’application lorsqu’elle est ouverte","de":"wird in der geöffneten App angezeigt","hi":"ऐप खुला होने पर ऐप के अंदर दिखेगा","zh":"在应用打开时于应用内显示"},"يعتمد التطبيق تقويم أم القرى. إن بدأ الشهر في بلدك برؤية الهلال بيوم مختلف فعدّله هنا — يتغيّر التاريخ في الرئيسية وشاشة رمضان ومواعيد الإشعارات.":{"en":"The app uses the Umm al-Qura calendar. If the month in your country began a day earlier or later by moon sighting, adjust it here — the date changes on the home screen, the Ramadan screen and notification times.","fr":"L’application utilise le calendrier Umm al-Qura. Si, dans votre pays, le mois a commencé un jour plus tôt ou plus tard par l’observation du croissant, ajustez-le ici — la date change sur l’accueil, l’écran du Ramadan et les horaires des notifications.","de":"Die App nutzt den Umm-al-Qura-Kalender. Hat der Monat in Ihrem Land durch Mondsichtung einen Tag früher oder später begonnen, passen Sie ihn hier an — das Datum ändert sich auf der Startseite, im Ramadan-Bildschirm und bei den Benachrichtigungszeiten.","hi":"ऐप उम्म अल-क़ुरा कैलेंडर का उपयोग करता है। अगर आपके देश में चाँद देखकर महीना एक दिन पहले या बाद में शुरू हुआ हो, तो यहाँ समायोजित करें — तारीख़ होम, रमज़ान स्क्रीन और सूचनाओं के समय में बदल जाएगी।","zh":"本应用采用乌姆古拉历。如果您所在国家以见月定月首而早或晚一天，请在此调整——首页、斋月页面和通知时间中的日期都会随之改变。"},"يلزم منح إذن الإشعارات من إعدادات الجهاز":{"en":"Notification permission is needed — allow it in the device settings","fr":"L’autorisation des notifications est nécessaire — activez-la dans les réglages de l’appareil","de":"Benachrichtigungsberechtigung erforderlich — in den Geräteeinstellungen erlauben","hi":"सूचना की अनुमति चाहिए — डिवाइस सेटिंग्स में दें","zh":"需要通知权限——请在设备设置中允许"},"يوم رمضان":{"en":"Day of Ramadan","fr":"Jour du Ramadan","de":"Ramadan-Tag","hi":"रमज़ान का दिन","zh":"斋月第几天"},"≈ {n} ميغابايت":{"en":"≈ {n} MB","fr":"≈ {n} Mo","de":"≈ {n} MB","hi":"≈ {n} MB","zh":"≈ {n} MB"},"☀️ أذكار الصباح":{"en":"☀️ Morning adhkar","fr":"☀️ Invocations du matin","de":"☀️ Morgen-Adhkar","hi":"☀️ सुबह के अज़कार","zh":"☀️ 早晨赞念"},"✓ محمَّل كاملاً — يعمل دون إنترنت":{"en":"✓ Fully downloaded — works offline","fr":"✓ Entièrement téléchargé — fonctionne hors ligne","de":"✓ Vollständig heruntergeladen — funktioniert offline","hi":"✓ पूरी डाउनलोड — ऑफ़लाइन चलती है","zh":"✓ 已全部下载——可离线使用"},"🌙 أذكار المساء":{"en":"🌙 Evening adhkar","fr":"🌙 Invocations du soir","de":"🌙 Abend-Adhkar","hi":"🌙 शाम के अज़कार","zh":"🌙 傍晚赞念"},"📖 مراجعة الحفظ":{"en":"📖 Memorization review","fr":"📖 Révision de la mémorisation","de":"📖 Wiederholung des Auswendiggelernten","hi":"📖 हिफ़्ज़ की दोहराई","zh":"📖 背诵复习"},"📗 ورد الختمة":{"en":"📗 Khatmah portion","fr":"📗 Portion de la khatma","de":"📗 Khatma-Abschnitt","hi":"📗 ख़त्म का हिस्सा","zh":"📗 完读进度"},"🕋 يوم الجمعة":{"en":"🕋 Friday","fr":"🕋 Vendredi","de":"🕋 Freitag","hi":"🕋 जुमा","zh":"🕋 周五"},"🕌 {p} بعد {n} دقائق":{"en":"🕌 {p} in {n} minutes","fr":"🕌 {p} dans {n} minutes","de":"🕌 {p} in {n} Minuten","hi":"🕌 {p} {n} मिनट में","zh":"🕌 {n} 分钟后{p}"},"🕌 {p} بعد {n} دقيقة":{"en":"🕌 {p} in {n} minutes","fr":"🕌 {p} dans {n} minutes","de":"🕌 {p} in {n} Minuten","hi":"🕌 {p} {n} मिनट में","zh":"🕌 {n} 分钟后{p}"},"😴 أذكار النوم":{"en":"😴 Sleep adhkar","fr":"😴 Invocations du coucher","de":"😴 Adhkar vor dem Schlafen","hi":"😴 सोने के अज़कार","zh":"😴 睡前赞念"}};for(var k in X)if(X.hasOwnProperty(k)){if(!DICT[k])DICT[k]=X[k];else for(var l in X[k])if(X[k].hasOwnProperty(l)&&DICT[k][l]==null)DICT[k][l]=X[k][l];}})();
 /* fix2 «lead» — DICT */(function(){var X={"(معدَّل {n})":{"en":"(adjusted {n})","fr":"(ajusté {n})","de":"(angepasst {n})","hi":"(समायोजित {n})","zh":"（已调整 {n}）"},"الملف المُنزَّل لا يطابق البصمة المتوقّعة (sha256) — لم يُحفظ":{"en":"The downloaded file does not match the expected fingerprint (sha256) — it was not saved","fr":"Le fichier téléchargé ne correspond pas à l’empreinte attendue (sha256) — il n’a pas été enregistré","de":"Die heruntergeladene Datei entspricht nicht dem erwarteten Fingerabdruck (sha256) – sie wurde nicht gespeichert","hi":"डाउनलोड की गई फ़ाइल अपेक्षित फ़िंगरप्रिंट (sha256) से मेल नहीं खाती — सहेजी नहीं गई","zh":"下载的文件与预期指纹（sha256）不符，未保存"},"التحقّق من سلامة الملف":{"en":"Checking the file’s integrity","fr":"Vérification de l’intégrité du fichier","de":"Integrität der Datei wird geprüft","hi":"फ़ाइल की अखंडता जाँची जा रही है","zh":"正在校验文件完整性"},"حفظ الملف":{"en":"Saving the file","fr":"Enregistrement du fichier","de":"Datei wird gespeichert","hi":"फ़ाइल सहेजी जा रही है","zh":"正在保存文件"}};for(var k in X)if(X.hasOwnProperty(k)){if(!DICT[k])DICT[k]=X[k];else for(var l in X[k])if(X[k].hasOwnProperty(l)&&DICT[k][l]==null)DICT[k][l]=X[k][l];}})();
+/* fix3 «تصحيح التسميع» (التصحيح بإعادة الآية، تنبيه الخطأ، «صحّح أخطاءك»، «وضع الشيخ») — DICT: تُضاف، ولغات ناقصة لمفاتيح قائمة تُكمَّل */(function(){var X={"تنبيه عند الخطأ":{"en":"Alert on a mistake","fr":"Alerte en cas d’erreur","de":"Hinweis bei einem Fehler","hi":"गलती पर संकेत","zh":"出错时提醒"},"اهتزاز":{"en":"Vibrate","fr":"Vibration","de":"Vibration","hi":"कंपन","zh":"振动"},"صوت خفيف":{"en":"Soft sound","fr":"Son léger","de":"Leiser Ton","hi":"हल्की ध्वनि","zh":"轻提示音"},"بلا":{"en":"None","fr":"Aucun","de":"Keiner","hi":"कोई नहीं","zh":"无"},"تنبيه قصير لحظة تُعلَّم كلمة خطأً أو تُتجاوز.":{"en":"A short alert the moment a word is marked wrong or missed.","fr":"Une courte alerte dès qu’un mot est marqué faux ou omis.","de":"Ein kurzer Hinweis, sobald ein Wort als falsch oder ausgelassen markiert wird.","hi":"जैसे ही कोई शब्द गलत या छूटा हुआ चिह्नित हो, एक छोटा संकेत।","zh":"某个词被标为错误或漏读时立即短暂提醒。"},"وضع الشيخ":{"en":"Teacher mode","fr":"Mode enseignant","de":"Lehrer-Modus","hi":"शिक्षक मोड","zh":"老师模式"},"عند الخطأ يتوقّف التسميع عند الكلمة حتى تعيدها صحيحة، ويظهر لك من أين تعيد.":{"en":"On a mistake, the recitation check stops at that word until you repeat it correctly, and shows you where to repeat from.","fr":"En cas d’erreur, la vérification s’arrête sur ce mot jusqu’à ce que vous le répétiez correctement, et vous indique d’où reprendre.","de":"Bei einem Fehler bleibt die Prüfung bei diesem Wort stehen, bis Sie es richtig wiederholen, und zeigt Ihnen, ab wo Sie wiederholen sollen.","hi":"गलती होने पर जाँच उसी शब्द पर रुक जाती है जब तक आप उसे सही न दोहराएँ, और बताती है कि कहाँ से दोहराना है।","zh":"出错时，检查会停在该词，直到您正确重读，并提示从哪里重读。"},"يسري من الجلسة التالية":{"en":"Takes effect from the next session","fr":"S’applique à partir de la prochaine séance","de":"Gilt ab der nächsten Sitzung","hi":"अगले सत्र से लागू होगा","zh":"从下一次背诵开始生效"},"أعِد من:":{"en":"Repeat from:","fr":"Reprenez à :","de":"Wiederholen ab:","hi":"यहाँ से दोहराएँ:","zh":"从这里重读："},"تابِع":{"en":"Continue","fr":"Continuer","de":"Weiter","hi":"जारी रखें","zh":"继续"},"«صحّح أخطاءك» يعمل مع المحرّك الصوتي على الجهاز فقط.":{"en":"«Fix your mistakes» works only with the on-device recitation engine.","fr":"«Corrigez vos erreurs» ne fonctionne qu’avec le moteur de récitation sur l’appareil.","de":"«Fehler korrigieren» funktioniert nur mit der Rezitations-Engine auf dem Gerät.","hi":"«अपनी गलतियाँ सुधारें» केवल डिवाइस पर चलने वाले पाठ इंजन के साथ काम करता है।","zh":"“纠正错误”仅适用于设备上的背诵引擎。"},"صحّح أخطاءك ({n})":{"en":"Fix your mistakes ({n})","fr":"Corrigez vos erreurs ({n})","de":"Fehler korrigieren ({n})","hi":"अपनी गलतियाँ सुधारें ({n})","zh":"纠正错误（{n}）"},"صحّح {q}: اقرأ الآية كاملة":{"en":"Fix {q}: recite the whole verse","fr":"Corrigez {q} : récitez tout le verset","de":"Korrigieren Sie {q}: rezitieren Sie den ganzen Vers","hi":"{q} सुधारें: पूरी आयत पढ़ें","zh":"纠正 {q}：完整背诵这节经文"},"صحّح {k} من {n}":{"en":"Fix {k} of {n}","fr":"Correction {k} sur {n}","de":"Korrektur {k} von {n}","hi":"सुधार {k} / {n}","zh":"纠正 {k}/{n}"},"اقرأ الآية…":{"en":"Recite the verse…","fr":"Récitez le verset…","de":"Rezitieren Sie den Vers…","hi":"आयत पढ़ें…","zh":"请背诵这节经文…"},"تخطَّ":{"en":"Skip","fr":"Passer","de":"Überspringen","hi":"छोड़ें","zh":"跳过"},"لم تُصحَّح بعد":{"en":"Not fixed yet","fr":"Pas encore corrigé","de":"Noch nicht korrigiert","hi":"अभी सुधरा नहीं","zh":"尚未纠正"},"▶ استمع أولاً":{"en":"▶ Listen first","fr":"▶ Écouter d’abord","de":"▶ Zuerst anhören","hi":"▶ पहले सुनें","zh":"▶ 先听一遍"},"سمِّع الآية":{"en":"Recite the verse","fr":"Réciter le verset","de":"Vers rezitieren","hi":"आयत सुनाएँ","zh":"背诵这节经文"},"أعِد":{"en":"Repeat","fr":"Recommencer","de":"Wiederholen","hi":"दोहराएँ","zh":"重来"},"إنهاء":{"en":"Finish","fr":"Terminer","de":"Beenden","hi":"समाप्त","zh":"结束"},"اقرأ {q} من أولها":{"en":"Recite {q} from its start","fr":"Récitez {q} depuis le début","de":"Rezitieren Sie {q} von Anfang an","hi":"{q} शुरू से पढ़ें","zh":"从开头背诵 {q}"},"صُحّحت الآية":{"en":"Verse fixed","fr":"Verset corrigé","de":"Vers korrigiert","hi":"आयत सुधर गई","zh":"这节经文已纠正"},"صُحّحت {x} من {y}":{"en":"Fixed {x} of {y}","fr":"{x} sur {y} corrigés","de":"{x} von {y} korrigiert","hi":"{y} में से {x} सुधारे गए","zh":"已纠正 {x}/{y}"},"أخطأت في كلمة؟ أعِد الآية من أولها (أو من كلمات قبل الخطأ) واقرأها صحيحة: تصير الكلمة مقروءة. إعادتها بحرف مختلف لا تُصحّحها.":{"en":"Made a mistake in a word? Restart the verse from its beginning (or a few words before the mistake) and recite it correctly: the word becomes read. Repeating it with a different letter does not fix it.","fr":"Une erreur sur un mot ? Reprenez le verset depuis le début (ou quelques mots avant l’erreur) et récitez-le correctement : le mot devient lu. Le répéter avec une autre lettre ne le corrige pas.","de":"Fehler bei einem Wort? Beginnen Sie den Vers von vorn (oder ein paar Wörter vor dem Fehler) und rezitieren Sie ihn richtig: Das Wort gilt dann als gelesen. Eine Wiederholung mit einem anderen Buchstaben korrigiert es nicht.","hi":"किसी शब्द में गलती हुई? आयत शुरू से (या गलती से कुछ शब्द पहले से) दोबारा सही पढ़ें: शब्द पढ़ा हुआ हो जाएगा। किसी दूसरे अक्षर के साथ दोहराने से वह नहीं सुधरता।","zh":"某个词读错了？从这节经文开头（或错误前几个词）重新正确背诵：该词即算已读。用不同的字母重读不算纠正。"},"بعد الجلسة اضغط «صحّح أخطاءك»: يمرّ بك على الآيات التي فيها أخطاء فقط، آيةً آية — استمع إليها إن شئت ثم اقرأها، أو تخطَّها.":{"en":"After the session tap «Fix your mistakes»: it takes you through only the verses with mistakes, one verse at a time — listen first if you like, then recite it, or skip it.","fr":"Après la séance, touchez «Corrigez vos erreurs» : seuls les versets comportant des erreurs vous sont proposés, un par un — écoutez d’abord si vous le souhaitez, puis récitez-le, ou passez-le.","de":"Tippen Sie nach der Sitzung auf «Fehler korrigieren»: Sie gehen nur die Verse mit Fehlern durch, einen nach dem anderen — hören Sie ihn bei Bedarf zuerst an, rezitieren Sie ihn dann oder überspringen Sie ihn.","hi":"सत्र के बाद «अपनी गलतियाँ सुधारें» दबाएँ: यह आपको केवल गलतियों वाली आयतों से, एक-एक करके, गुज़ारता है — चाहें तो पहले सुनें, फिर पढ़ें, या छोड़ दें।","zh":"背诵结束后点击“纠正错误”：只逐节带您复习有错误的经文——可以先听一遍，然后背诵，或跳过。"},"«وضع الشيخ» (من إعدادات التسميع): عند الخطأ يتوقّف التسميع عند الكلمة ويظهر «أعِد من: …» حتى تعيدها صحيحة، ثم تتابع.":{"en":"«Teacher mode» (in recitation settings): on a mistake the check stops at that word and shows «Repeat from: …» until you repeat it correctly, then you continue.","fr":"«Mode enseignant» (dans les réglages de récitation) : en cas d’erreur, la vérification s’arrête sur ce mot et affiche «Reprenez à : …» jusqu’à ce que vous le répétiez correctement, puis vous continuez.","de":"«Lehrer-Modus» (in den Rezitationseinstellungen): Bei einem Fehler bleibt die Prüfung bei diesem Wort stehen und zeigt «Wiederholen ab: …», bis Sie es richtig wiederholen; dann geht es weiter.","hi":"«शिक्षक मोड» (पाठ सेटिंग्स में): गलती होने पर जाँच उसी शब्द पर रुकती है और «यहाँ से दोहराएँ: …» दिखाती है जब तक आप उसे सही न दोहराएँ, फिर आप आगे बढ़ते हैं।","zh":"“老师模式”（在背诵设置中）：出错时检查停在该词并显示“从这里重读：…”，直到您正确重读，然后继续。"}};for(var k in X)if(X.hasOwnProperty(k)){if(!DICT[k])DICT[k]=X[k];else for(var l in X[k])if(X[k].hasOwnProperty(l)&&DICT[k][l]==null)DICT[k][l]=X[k][l];}})();
 /* fix2 «data2» — DICT */(function(){var X={"بياناتي":{"en":"My data","fr":"Mes données","de":"Meine Daten","hi":"मेरा डेटा","zh":"我的数据"},"احفظ تقدّمك وإعداداتك في ملف على جهازك، واستعدها متى شئت أو على هاتف آخر — دون حساب.":{"en":"Save your progress and settings to a file on your device, and restore them any time or on another phone — no account needed.","fr":"Enregistrez votre progression et vos réglages dans un fichier sur votre appareil, et restaurez-les quand vous voulez ou sur un autre téléphone — sans compte.","de":"Speichern Sie Ihren Fortschritt und Ihre Einstellungen in einer Datei auf Ihrem Gerät und stellen Sie sie jederzeit oder auf einem anderen Telefon wieder her – ganz ohne Konto.","hi":"अपनी प्रगति और सेटिंग्स अपने डिवाइस पर एक फ़ाइल में सहेजें, और कभी भी या किसी दूसरे फ़ोन पर वापस लाएँ — बिना खाते के।","zh":"把进度和设置保存为设备上的文件，随时或在另一部手机上恢复——无需账户。"},"تصدير بياناتي إلى ملف":{"en":"Export my data to a file","fr":"Exporter mes données dans un fichier","de":"Meine Daten in eine Datei exportieren","hi":"मेरा डेटा फ़ाइल में निर्यात करें","zh":"将我的数据导出为文件"},"استيراد من ملف":{"en":"Import from a file","fr":"Importer depuis un fichier","de":"Aus einer Datei importieren","hi":"फ़ाइल से आयात करें","zh":"从文件导入"},"مسح كل بيانات التطبيق من هذا الجهاز":{"en":"Erase all app data from this device","fr":"Effacer toutes les données de l’app sur cet appareil","de":"Alle App-Daten von diesem Gerät löschen","hi":"इस डिवाइस से ऐप का सारा डेटा मिटाएँ","zh":"清除本设备上的全部应用数据"},"يحوي الملف تقدّمك وإعداداتك فقط، دون التسجيلات الصوتية، ولا يُرفع لأي خادم.":{"en":"The file holds only your progress and settings (no voice recordings) and is never uploaded to any server.","fr":"Le fichier ne contient que votre progression et vos réglages (sans enregistrements vocaux) et n’est envoyé à aucun serveur.","de":"Die Datei enthält nur Ihren Fortschritt und Ihre Einstellungen (keine Sprachaufnahmen) und wird an keinen Server gesendet.","hi":"फ़ाइल में केवल आपकी प्रगति और सेटिंग्स होती हैं (आवाज़ की रिकॉर्डिंग नहीं), और यह किसी सर्वर पर अपलोड नहीं होती।","zh":"文件只包含你的进度和设置（不含录音），不会上传到任何服务器。"},"حُفظت نسخة بياناتك في ملف ✓":{"en":"Your data was saved to a file ✓","fr":"Vos données ont été enregistrées dans un fichier ✓","de":"Ihre Daten wurden in einer Datei gespeichert ✓","hi":"आपका डेटा फ़ाइल में सहेज लिया गया ✓","zh":"数据已保存到文件 ✓"},"تعذّر حفظ الملف — أعد المحاولة":{"en":"Couldn't save the file — please try again","fr":"Impossible d’enregistrer le fichier — réessayez","de":"Datei konnte nicht gespeichert werden – bitte erneut versuchen","hi":"फ़ाइल सहेजी नहीं जा सकी — फिर से कोशिश करें","zh":"无法保存文件——请重试"},"نسخة احتياطية من بياناتي":{"en":"Backup of my data","fr":"Sauvegarde de mes données","de":"Sicherung meiner Daten","hi":"मेरे डेटा का बैकअप","zh":"我的数据备份"},"احفظ الملف أو أرسله":{"en":"Save or send the file","fr":"Enregistrez ou envoyez le fichier","de":"Datei speichern oder senden","hi":"फ़ाइल सहेजें या भेजें","zh":"保存或发送文件"},"هذا الملف ليس نسخة احتياطية من «المجدّد»":{"en":"This file is not an Al-Mujaddid backup","fr":"Ce fichier n’est pas une sauvegarde d’Al-Mujaddid","de":"Diese Datei ist keine Al-Mujaddid-Sicherung","hi":"यह फ़ाइल अल-मुजद्दिद का बैकअप नहीं है","zh":"此文件不是 Al-Mujaddid 的备份"},"نسخة احتياطية من إصدار أحدث — حدّث التطبيق أولاً":{"en":"This backup is from a newer version — update the app first","fr":"Sauvegarde d’une version plus récente — mettez d’abord l’app à jour","de":"Sicherung aus einer neueren Version – bitte zuerst die App aktualisieren","hi":"यह बैकअप नए संस्करण का है — पहले ऐप अपडेट करें","zh":"该备份来自更新的版本——请先更新应用"},"الملف أكبر من المسموح":{"en":"The file is too large","fr":"Le fichier est trop volumineux","de":"Die Datei ist zu groß","hi":"फ़ाइल बहुत बड़ी है","zh":"文件过大"},"الملف لا يحوي بيانات":{"en":"The file contains no data","fr":"Le fichier ne contient aucune donnée","de":"Die Datei enthält keine Daten","hi":"फ़ाइल में कोई डेटा नहीं है","zh":"文件中没有数据"},"تعذّرت قراءة الملف":{"en":"Couldn't read the file","fr":"Impossible de lire le fichier","de":"Datei konnte nicht gelesen werden","hi":"फ़ाइल पढ़ी नहीं जा सकी","zh":"无法读取文件"},"استيراد النسخة الاحتياطية؟":{"en":"Import the backup?","fr":"Importer la sauvegarde ?","de":"Sicherung importieren?","hi":"बैकअप आयात करें?","zh":"导入备份？"},"تحلّ بيانات الملف ({n} عنصراً{d}) محلّ التقدّم والإعدادات على هذا الجهاز. لا يمكن التراجع.":{"en":"The file's data ({n} items{d}) will replace the progress and settings on this device. This can't be undone.","fr":"Les données du fichier ({n} éléments{d}) remplaceront la progression et les réglages de cet appareil. Action irréversible.","de":"Die Daten der Datei ({n} Einträge{d}) ersetzen den Fortschritt und die Einstellungen auf diesem Gerät. Das lässt sich nicht rückgängig machen.","hi":"फ़ाइल का डेटा ({n} आइटम{d}) इस डिवाइस की प्रगति और सेटिंग्स की जगह ले लेगा। इसे वापस नहीं किया जा सकता।","zh":"文件中的数据（{n} 项{d}）将替换本设备上的进度和设置，且无法撤销。"},"استيراد":{"en":"Import","fr":"Importer","de":"Importieren","hi":"आयात करें","zh":"导入"},"مساحة التخزين لا تكفي — لم يتغيّر شيء":{"en":"Not enough storage space — nothing was changed","fr":"Espace de stockage insuffisant — rien n’a été modifié","de":"Nicht genug Speicherplatz – nichts wurde geändert","hi":"स्टोरेज में जगह कम है — कुछ नहीं बदला","zh":"存储空间不足——未做任何更改"},"اكتمل الاستيراد — يُعاد فتح التطبيق":{"en":"Import complete — reopening the app","fr":"Importation terminée — réouverture de l’app","de":"Import abgeschlossen – die App wird neu geöffnet","hi":"आयात पूरा हुआ — ऐप फिर से खुल रहा है","zh":"导入完成——正在重新打开应用"},"مسح كل بيانات التطبيق من هذا الجهاز؟":{"en":"Erase all app data from this device?","fr":"Effacer toutes les données de l’app sur cet appareil ?","de":"Alle App-Daten von diesem Gerät löschen?","hi":"इस डिवाइस से ऐप का सारा डेटा मिटाएँ?","zh":"清除本设备上的全部应用数据？"},"يُحذف من هذا الجهاز كل التقدّم والإعدادات والتسجيلات ويُسجَّل خروجك. نسختك في حسابك تبقى وتعود عند الدخول من جديد.":{"en":"All progress, settings and recordings are deleted from this device and you are signed out. The copy in your account stays and comes back when you sign in again.","fr":"Toute la progression, les réglages et les enregistrements sont supprimés de cet appareil et vous êtes déconnecté. La copie de votre compte reste et revient à la prochaine connexion.","de":"Fortschritt, Einstellungen und Aufnahmen werden von diesem Gerät gelöscht und Sie werden abgemeldet. Die Kopie in Ihrem Konto bleibt erhalten und kehrt bei der nächsten Anmeldung zurück.","hi":"इस डिवाइस से सारी प्रगति, सेटिंग्स और रिकॉर्डिंग हटा दी जाएँगी और आप साइन आउट हो जाएँगे। आपके खाते की प्रति बनी रहेगी और दोबारा साइन इन करने पर लौट आएगी।","zh":"本设备上的所有进度、设置和录音将被删除，并退出登录。账户中的副本会保留，重新登录后即可恢复。"},"يُحذف من هذا الجهاز كل التقدّم والإعدادات والتسجيلات نهائياً ولا يمكن التراجع. صدّر نسخة إلى ملف أولاً إن أردت الاحتفاظ بها.":{"en":"All progress, settings and recordings are permanently deleted from this device. This can't be undone — export a copy to a file first if you want to keep it.","fr":"Toute la progression, les réglages et les enregistrements sont définitivement supprimés de cet appareil. Action irréversible — exportez d’abord une copie si vous voulez la garder.","de":"Fortschritt, Einstellungen und Aufnahmen werden endgültig von diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen – exportieren Sie vorher eine Kopie, wenn Sie sie behalten möchten.","hi":"इस डिवाइस से सारी प्रगति, सेटिंग्स और रिकॉर्डिंग हमेशा के लिए हट जाएँगी, इसे वापस नहीं किया जा सकता। रखना चाहें तो पहले फ़ाइल में एक प्रति निर्यात करें।","zh":"本设备上的所有进度、设置和录音将被永久删除，无法撤销。如需保留，请先导出一份文件。"},"امسح البيانات":{"en":"Erase data","fr":"Effacer les données","de":"Daten löschen","hi":"डेटा मिटाएँ","zh":"清除数据"},"على هذا الجهاز تقدّم ليس من هذا الحساب":{"en":"This device has progress that isn't from this account","fr":"Cet appareil contient une progression qui ne vient pas de ce compte","de":"Auf diesem Gerät gibt es Fortschritt, der nicht von diesem Konto stammt","hi":"इस डिवाइस पर ऐसी प्रगति है जो इस खाते की नहीं है","zh":"本设备上有不属于此账户的进度"},"سُجِّل هذا التقدّم (التسبيح والختمة والعلامات والحفظ وغيرها) دون حساب أو بحساب آخر. ماذا تريد أن تفعل به قبل مزامنة هذا الحساب؟":{"en":"This progress (tasbih, khatmah, bookmarks, memorization and more) was recorded without an account or with another account. What should happen to it before this account syncs?","fr":"Cette progression (tasbih, khatma, signets, mémorisation…) a été enregistrée sans compte ou avec un autre compte. Que voulez-vous en faire avant de synchroniser ce compte ?","de":"Dieser Fortschritt (Tasbih, Khatma, Lesezeichen, Auswendiglernen usw.) wurde ohne Konto oder mit einem anderen Konto erfasst. Was soll damit geschehen, bevor dieses Konto synchronisiert wird?","hi":"यह प्रगति (तस्बीह, ख़त्म, बुकमार्क, हिफ़्ज़ आदि) बिना खाते के या किसी दूसरे खाते से दर्ज हुई थी। इस खाते के सिंक होने से पहले इसके साथ क्या करें?","zh":"这些进度（念珠、通读、书签、背诵等）是在未登录或其他账户下记录的。在同步此账户之前，你想如何处理？"},"ضمّه إلى هذا الحساب":{"en":"Add it to this account","fr":"L’ajouter à ce compte","de":"Zu diesem Konto hinzufügen","hi":"इसे इस खाते में जोड़ें","zh":"合并到此账户"},"احفظه في ملف ثم امسحه من الجهاز":{"en":"Save it to a file, then erase it from the device","fr":"L’enregistrer dans un fichier, puis l’effacer de l’appareil","de":"In einer Datei speichern und dann vom Gerät löschen","hi":"इसे फ़ाइल में सहेजें, फिर डिवाइस से मिटाएँ","zh":"先保存到文件，再从设备中清除"},"امسحه من هذا الجهاز":{"en":"Erase it from this device","fr":"L’effacer de cet appareil","de":"Von diesem Gerät löschen","hi":"इसे इस डिवाइस से मिटाएँ","zh":"从本设备清除"},"إلغاء وتسجيل الخروج":{"en":"Cancel and sign out","fr":"Annuler et se déconnecter","de":"Abbrechen und abmelden","hi":"रद्द करें और साइन आउट करें","zh":"取消并退出登录"},"بانتظار اختيارك…":{"en":"Waiting for your choice…","fr":"En attente de votre choix…","de":"Warte auf Ihre Auswahl…","hi":"आपके चुनाव की प्रतीक्षा…","zh":"等待你的选择…"},"متابعة رمضان والمسابقة وإحصاءات متابع الصلاة":{"en":"Ramadan tracking, the quiz and prayer-tracker statistics","fr":"Suivi du Ramadan, quiz et statistiques du suivi de prière","de":"Ramadan-Verfolgung, Quiz und Statistiken des Gebetsbegleiters","hi":"रमज़ान ट्रैकिंग, क्विज़ और नमाज़ ट्रैकर के आँकड़े","zh":"斋月记录、问答和礼拜追踪统计"},"• الجهات التي يتصل بها التطبيق عند استعمال ميزتها فقط، ولا يصلها إلا رقم السورة أو الآية أو اسم الملف وعنوان IP (لا موقعك ولا صوتك): تلاوة السور mp3quran.net، وتلاوة الآيات cdn.islamic.network وeveryayah.com، والترجمة والتفسير api.alquran.cloud، وصوت الكلمة ومواقيتها من Quran.com (audio.qurancdn.com وverses.quran.com وapi.quran.com وmirrors.quranicaudio.com)، وأصوات الأذان cdn.aladhan.com، ومحرّك التسميع raw.githubusercontent.com وhuggingface.co، ومكتبات الكاميرا والتسميع البديل cdn.jsdelivr.net وesm.sh، ونموذج الوضعيات storage.googleapis.com، والحساب عند تسجيل الدخول فقط Firebase (firebaseio.com وgoogleapis.com وapis.google.com)، وفحص الاتصال ddcbusinesskw-cpu.github.io.":{"en":"• Services the app contacts only when you use the feature, receiving nothing but the surah/ayah number or file name and your IP address (never your location or voice): surah recitation mp3quran.net; ayah recitation cdn.islamic.network and everyayah.com; translation and tafsir api.alquran.cloud; word audio and timings from Quran.com (audio.qurancdn.com, verses.quran.com, api.quran.com, mirrors.quranicaudio.com); adhan sounds cdn.aladhan.com; recitation engine raw.githubusercontent.com and huggingface.co; camera and backup-recitation libraries cdn.jsdelivr.net and esm.sh; pose model storage.googleapis.com; the account, only after you sign in, Firebase (firebaseio.com, googleapis.com, apis.google.com); connection check ddcbusinesskw-cpu.github.io.","fr":"• Services contactés uniquement quand vous utilisez la fonction, qui ne reçoivent que le numéro de sourate/verset ou le nom du fichier et votre adresse IP (jamais votre position ni votre voix) : récitation des sourates mp3quran.net ; récitation des versets cdn.islamic.network et everyayah.com ; traduction et tafsir api.alquran.cloud ; audio et minutage des mots de Quran.com (audio.qurancdn.com, verses.quran.com, api.quran.com, mirrors.quranicaudio.com) ; sons de l’adhan cdn.aladhan.com ; moteur de récitation raw.githubusercontent.com et huggingface.co ; bibliothèques caméra et récitation de secours cdn.jsdelivr.net et esm.sh ; modèle de postures storage.googleapis.com ; le compte, seulement après connexion, Firebase (firebaseio.com, googleapis.com, apis.google.com) ; test de connexion ddcbusinesskw-cpu.github.io.","de":"• Dienste, die die App nur bei Nutzung der jeweiligen Funktion kontaktiert und die nur die Suren-/Versnummer oder den Dateinamen und Ihre IP-Adresse erhalten (nie Ihren Standort oder Ihre Stimme): Surenrezitation mp3quran.net; Versrezitation cdn.islamic.network und everyayah.com; Übersetzung und Tafsir api.alquran.cloud; Wortaudio und -zeiten von Quran.com (audio.qurancdn.com, verses.quran.com, api.quran.com, mirrors.quranicaudio.com); Adhan-Klänge cdn.aladhan.com; Rezitations-Engine raw.githubusercontent.com und huggingface.co; Kamera- und Ersatz-Rezitationsbibliotheken cdn.jsdelivr.net und esm.sh; Haltungsmodell storage.googleapis.com; das Konto, nur nach der Anmeldung, Firebase (firebaseio.com, googleapis.com, apis.google.com); Verbindungstest ddcbusinesskw-cpu.github.io.","hi":"• ऐप ये सेवाएँ केवल तभी इस्तेमाल करता है जब आप वह सुविधा चलाते हैं, और इन्हें केवल सूरह/आयत संख्या या फ़ाइल का नाम और आपका IP पता मिलता है (आपका स्थान या आवाज़ कभी नहीं): सूरह की तिलावत mp3quran.net; आयत की तिलावत cdn.islamic.network और everyayah.com; अनुवाद और तफ़सीर api.alquran.cloud; शब्द की आवाज़ और समय Quran.com से (audio.qurancdn.com, verses.quran.com, api.quran.com, mirrors.quranicaudio.com); अज़ान की आवाज़ें cdn.aladhan.com; तिलावत इंजन raw.githubusercontent.com और huggingface.co; कैमरा और वैकल्पिक तिलावत लाइब्रेरी cdn.jsdelivr.net और esm.sh; मुद्रा मॉडल storage.googleapis.com; खाता, केवल साइन इन के बाद, Firebase (firebaseio.com, googleapis.com, apis.google.com); कनेक्शन जाँच ddcbusinesskw-cpu.github.io.","zh":"• 应用仅在你使用相应功能时联系以下服务，它们只收到章节/经文编号或文件名以及你的 IP 地址（绝不包括位置或声音）：整章诵读 mp3quran.net；单节诵读 cdn.islamic.network 和 everyayah.com；译文与经注 api.alquran.cloud；单词音频与时间来自 Quran.com（audio.qurancdn.com、verses.quran.com、api.quran.com、mirrors.quranicaudio.com）；宣礼音 cdn.aladhan.com；背诵引擎 raw.githubusercontent.com 和 huggingface.co；摄像头与备用背诵库 cdn.jsdelivr.net 和 esm.sh；姿势模型 storage.googleapis.com；账户（仅登录后）Firebase（firebaseio.com、googleapis.com、apis.google.com）；连接检测 ddcbusinesskw-cpu.github.io。"},"نسخة جديدة من التطبيق جاهزة — تظهر عند فتحه في المرة القادمة":{"en":"A new version of the app is ready — it appears the next time you open it","fr":"Une nouvelle version de l’app est prête — elle s’affichera à la prochaine ouverture","de":"Eine neue App-Version ist bereit – sie erscheint beim nächsten Öffnen","hi":"ऐप का नया संस्करण तैयार है — अगली बार खोलने पर दिखेगा","zh":"新版应用已就绪——下次打开时生效"},"التلاوة متوقّفة لضعف الاتصال — تُستأنف وحدها حين يتحسّن، أو أوقفها ثم اضغط ▶ لإعادة المحاولة":{"en":"Recitation paused by a weak connection — it resumes by itself when the connection improves, or stop it and tap ▶ to retry","fr":"Récitation interrompue par une connexion faible — elle reprend seule quand la connexion s’améliore, ou arrêtez-la puis touchez ▶ pour réessayer","de":"Rezitation wegen schwacher Verbindung angehalten – sie läuft von selbst weiter, sobald die Verbindung besser wird, oder stoppen Sie sie und tippen Sie ▶ für einen neuen Versuch","hi":"कमज़ोर कनेक्शन के कारण तिलावत रुकी है — कनेक्शन सुधरने पर अपने आप चलेगी, या रोककर ▶ दबाएँ और फिर कोशिश करें","zh":"网络较弱，诵读已暂停——连接好转后会自动继续，或先停止再点 ▶ 重试"},"مؤجَّلة حتى تسجيل الدخول":{"en":"Deferred until sign-in","fr":"Différé jusqu’à la connexion","de":"Bis zur Anmeldung aufgeschoben","hi":"साइन इन तक स्थगित","zh":"登录后再初始化"}};for(var k in X)if(X.hasOwnProperty(k)){if(!DICT[k])DICT[k]=X[k];else for(var l in X[k])if(X[k].hasOwnProperty(l)&&DICT[k][l]==null)DICT[k][l]=X[k][l];}})();
 /* ═══ fix1 «i18n» N30: ما لا يطابق مفتاحاً كاملاً يُترجَم بقوالب DICT ذات الخانات («{n} آية»، «الصلاة القادمة: {p}»؛
    {x} يجب أن تُترجَم قيمتها، {_x} تُترجَم إن أمكن وإلا تبقى، {=x} تبقى حرفياً كلفظ القرآن أو اسم علم، {#x} رقم فقط)،
