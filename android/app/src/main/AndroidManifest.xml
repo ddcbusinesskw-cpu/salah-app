@@ -22,6 +22,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- اختصارات التطبيق (ضغطة مطوّلة على الأيقونة): المواقيت، القبلة، المصحف، التسبيح، التسميع — res/xml/shortcuts.xml
+                 كل اختصار يحمل extra noor_screen تقرأه MainActivity وتوجّه الواجهة إلى الشاشة (go) -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
         <provider
@@ -47,6 +50,18 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
+        </receiver>
+
+        <!-- أداة الشاشة الرئيسية «المجدّد — المواقيت» (PrayerWidgetProvider): الصلاة القادمة والصلوات الخمس والهجري.
+             exported=true لازم لمستقبِل الأدوات (النظام يرسل APPWIDGET_UPDATE)؛ البيانات تكتبها الواجهة عبر NoorWidget.update -->
+        <receiver
+            android:name=".PrayerWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/noor_widget_info" />
         </receiver>
     </application>
 
