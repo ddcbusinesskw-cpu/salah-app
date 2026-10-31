@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- نصوص أداة الشاشة الرئيسية «المجدّد — المواقيت» واختصارات التطبيق (shortcuts.xml). القيم مطابقة لـ DICT في index.html -->
+<resources>
+    <string name="widget_name">المجدّد — المواقيت</string>
+    <string name="widget_description">مواقيت الصلاة: الصلاة القادمة والصلوات الخمس والتاريخ الهجري</string>
+    <string name="widget_next_prayer">الصلاة القادمة</string>
+    <string name="widget_open_app">افتح التطبيق لتحديث المواقيت</string>
+    <string name="sc_times">المواقيت</string>
+    <string name="sc_times_long">مواقيت الصلاة</string>
+    <string name="sc_qibla">القبلة</string>
+    <string name="sc_qibla_long">اتجاه القبلة</string>
+    <string name="sc_quran">المصحف</string>
+    <string name="sc_quran_long">المصحف الشريف</string>
+    <string name="sc_tasbih">التسبيح</string>
+    <string name="sc_tasbih_long">السبحة والتسبيح</string>
+    <string name="sc_tasmee">التسميع</string>
+    <string name="sc_tasmee_long">تسميع الحفظ</string>
+</resources>

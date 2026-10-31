@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- وصف أداة «المجدّد — المواقيت» (PrayerWidgetProvider). صغيرة ٢×١ (الصلاة القادمة) حتى متوسطة ٤×٢ (الخمس)؛
+     قابلة لتغيير الحجم؛ النظام يجدّدها كل ٣٠ دقيقة (الحدّ الأدنى المسموح) والتطبيق يدفع البيانات عند كل حساب.
+     تُفعَّل فقط بعد إضافة <receiver> في AndroidManifest.xml (مقترح widget_manifest.diff) -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:maxResizeWidth="400dp"
+    android:maxResizeHeight="200dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_prayer_small"
+    android:previewLayout="@layout/widget_prayer_medium"
+    android:description="@string/widget_description"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- اختصارات التطبيق (ضغطة مطوّلة على الأيقونة): المواقيت، القبلة، المصحف، التسبيح، التسميع.
+     كل اختصار يفتح MainActivity مع extra noor_screen → الواجهة تنفّذ go(<screen>) (index.html: _wgRoute).
+     أغلب المشغّلات تعرض ٤ اختصارات ثابتة فقط — الترتيب هنا هو ترتيب الأهمية. تُفعَّل بعد إضافة
+     <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/> داخل <activity> في البيان (مقترح). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="times"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_times"
+        android:shortcutShortLabel="@string/sc_times"
+        android:shortcutLongLabel="@string/sc_times_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.ddcbusiness.noor"
+            android:targetClass="com.ddcbusiness.noor.MainActivity">
+            <extra android:name="noor_screen" android:value="times" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="qibla"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_qibla"
+        android:shortcutShortLabel="@string/sc_qibla"
+        android:shortcutLongLabel="@string/sc_qibla_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.ddcbusiness.noor"
+            android:targetClass="com.ddcbusiness.noor.MainActivity">
+            <extra android:name="noor_screen" android:value="qibla" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="quran"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_quran"
+        android:shortcutShortLabel="@string/sc_quran"
+        android:shortcutLongLabel="@string/sc_quran_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.ddcbusiness.noor"
+            android:targetClass="com.ddcbusiness.noor.MainActivity">
+            <extra android:name="noor_screen" android:value="quran" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="tasbih"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_tasbih"
+        android:shortcutShortLabel="@string/sc_tasbih"
+        android:shortcutLongLabel="@string/sc_tasbih_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.ddcbusiness.noor"
+            android:targetClass="com.ddcbusiness.noor.MainActivity">
+            <extra android:name="noor_screen" android:value="tasbih" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="tasmee"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_tasmee"
+        android:shortcutShortLabel="@string/sc_tasmee"
+        android:shortcutLongLabel="@string/sc_tasmee_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.ddcbusiness.noor"
+            android:targetClass="com.ddcbusiness.noor.MainActivity">
+            <extra android:name="noor_screen" android:value="memorize" />
+        </intent>
+    </shortcut>
+</shortcuts>

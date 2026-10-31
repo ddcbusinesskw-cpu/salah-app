@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget + app-shortcut strings (de); values follow DICT in index.html -->
+<resources>
+    <string name="widget_name">Al-Mujaddid — Zeiten</string>
+    <string name="widget_description">Gebetszeiten: nächstes Gebet, die fünf Gebete und das Hidschri-Datum</string>
+    <string name="widget_next_prayer">Nächstes Gebet</string>
+    <string name="widget_open_app">App öffnen, um die Gebetszeiten zu aktualisieren</string>
+    <string name="sc_times">Zeiten</string>
+    <string name="sc_times_long">Gebetszeiten</string>
+    <string name="sc_qibla">Qibla</string>
+    <string name="sc_qibla_long">Qibla-Richtung</string>
+    <string name="sc_quran">Koran</string>
+    <string name="sc_quran_long">Der edle Koran</string>
+    <string name="sc_tasbih">Tasbih</string>
+    <string name="sc_tasbih_long">Tasbih-Zähler</string>
+    <string name="sc_tasmee">Rezitation</string>
+    <string name="sc_tasmee_long">Auswendiglern-Test</string>
+</resources>

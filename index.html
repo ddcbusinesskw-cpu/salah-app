@@ -12873,8 +12873,55 @@ function _ptDayCheck(){
 }
 setInterval(_ptDayCheck,60000);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')_ptDayCheck();});
+/* ══════════════ أداة الشاشة الرئيسية «المجدّد — المواقيت» + اختصارات التطبيق (أندرويد) ══════════════
+   الواجهة هي المصدر الوحيد للمواقيت: بعد كل إعادة عرض (buildTimes/renderHome: الفتح، العودة، تغيير المدينة أو
+   الطريقة أو اللغة أو نظام ١٢ ساعة، منتصف الليل) تُدفع مواقيت اليوم كنصوص إلى الإضافة الأصلية NoorWidget
+   (WidgetPlugin.java) التي تخزّنها وتعيد رسم الأداة. لا شيء يحدث على الويب/iOS (الإضافة غائبة).
+   التوجيه: اختصار أو أداة تفتح التطبيق مع extra noor_screen → MainActivity → إمّا حدث window «noorRoute»
+   (التطبيق يعمل) أو NoorWidget.getLaunchRoute() بعد الدخول (إطلاق بارد) → go(<screen>). */
+function _wgPlugin(){try{if(!_isNative())return null;var C=window.Capacitor;if(C.isPluginAvailable&&!C.isPluginAvailable('NoorWidget'))return null;return (C.Plugins&&C.Plugins.NoorWidget)||null;}catch(e){return null;}}
+var _wgPushT=null,_wgLast='';
+function _wgPayload(){
+  var d=PT.data;if(!d||!d.timings)return null;var t=d.timings,pv=d.prev||{},nx=null;
+  try{nx=nextPrayer();}catch(e){}
+  return {times:{fajr:t.Fajr,sunrise:t.Sunrise,dhuhr:t.Dhuhr,asr:t.Asr,maghrib:t.Maghrib,isha:t.Isha},
+    prev:{maghrib:pv.Maghrib||'',isha:pv.Isha||''},next:nx&&nx.key?String(nx.key).toLowerCase():'',
+    hijri:(function(){try{return hijriStr();}catch(e){return '';}})(),lang:window.noorLang||'ar',
+    city:(function(){try{return lsGet('cityName')||tzCity()||'';}catch(e){return '';}})(),
+    tz:(function(){try{return (PT.lz||_tzId())||'';}catch(e){return '';}})(),h12:!!_tm12On(),day:_ptDayKey()};
+}
+/* دفع مؤجَّل (٣٠٠ مث) وبلا تكرار للحمولة نفسها؛ force=true (العودة إلى التطبيق) يدفع ولو لم تتغيّر */
+function _wgPush(force){
+  var pl=_wgPlugin();if(!pl||typeof pl.update!=='function')return;
+  if(_wgPushT)clearTimeout(_wgPushT);
+  _wgPushT=setTimeout(function(){_wgPushT=null;
+    var o=_wgPayload();if(!o)return;var j=JSON.stringify(o);if(!force&&j===_wgLast)return;_wgLast=j;
+    try{var p=pl.update(o);if(p&&p.catch)p.catch(function(e){console.warn('[widget] update:',e&&e.message||e);});}catch(e){}
+  },300);
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&PT.data){try{_wgPush(true);}catch(e){}}});
+/* الشاشات المسموح فتحها من اختصار/أداة → معرّف الشاشة في go() */
+var _WG_SCREENS={times:'times',qibla:'qibla',quran:'quran',mushaf:'quran',tasbih:'tasbih',memorize:'memorize',tasmee:'memorize',adhkar:'adhkar',khatmah:'khatmah',hifz:'hifz',salahw:'salahw',home:'home'};
+function _wgRoute(screen){
+  var id=_WG_SCREENS[String(screen||'').toLowerCase()];if(!id)return false;
+  if(!window._wgEntered){window._wgPending=id;return true;} /* قبل الدخول (موافقة/تسجيل): يُنفَّذ في enterApp */
+  try{go(id);}catch(e){console.warn('[route]',e&&e.message||e);return false;}return true;
+}
+/* بعد الدخول: الشاشة المعلّقة، أو ما حمله intent الإطلاق البارد */
+function _wgLaunchRoute(){
+  window._wgEntered=true;
+  if(window._wgPending){var p=window._wgPending;window._wgPending=null;_wgRoute(p);return;}
+  var pl=_wgPlugin();if(!pl||typeof pl.getLaunchRoute!=='function')return;
+  try{var pr=pl.getLaunchRoute();if(pr&&pr.then)pr.then(function(r){if(r&&r.screen)_wgRoute(r.screen);},function(){});}catch(e){}
+}
+/* التطبيق يعمل والمستخدم ضغط اختصاراً/الأداة: MainActivity.onNewIntent → triggerWindowJSEvent('noorRoute',{screen}) */
+window.addEventListener('noorRoute',function(e){
+  var d=(e&&e.detail)||e||{},sc=d.screen||(typeof d==='string'?d:'');
+  if(typeof sc==='string'&&/^[A-Za-z_]{1,24}$/.test(sc))_wgRoute(sc);
+  var pl=_wgPlugin();try{if(pl&&pl.getLaunchRoute)pl.getLaunchRoute().then(function(){},function(){});}catch(ex){} /* استهلاك النسخة المحفوظة احتياطاً */
+});
 function renderHome(){
-  if(!PT.data)return;var t=PT.data.timings;
+  if(!PT.data)return;var t=PT.data.timings;try{_wgPush();}catch(e){}
   document.getElementById('dateBar').textContent=gregStr()+' — '+hijriStr();
   document.getElementById('strip').innerHTML=P_ORDER.map(function(k){
     var _d=_tmD(t[k]),_m=/^(.*\S)\s+(ص|م|AM|PM)$/.exec(_d);if(_m)_d='<span class="pt-hm">'+_m[1]+'</span> <span class="pt-ap">'+_m[2]+'</span>';
@@ -16526,6 +16573,7 @@ function enterApp(){
   else{try{renderTimesScreen();}catch(ex){}} /* تحديث شاشة المواقيت لعرض "تحديد الموقع" */
   try{_refreshCoordsIfStale();}catch(e){} /* إحداثيات قديمة بعد السفر → تحديث خلفي */
   try{_ptSetupCard();}catch(e){} /* بطاقة الموقع (مع السبب) أو عرض تفعيل الأذان */
+  try{_wgLaunchRoute();}catch(e){} /* أداة/اختصار: الشاشة المطلوبة بعد الدخول */
   updateStreak();
   updateRamadanBanner();
   checkWeeklyReport();

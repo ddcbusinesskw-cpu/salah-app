@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget + app-shortcut strings (fr); values follow DICT in index.html -->
+<resources>
+    <string name="widget_name">Al-Mujaddid — Horaires</string>
+    <string name="widget_description">Horaires de prière : prochaine prière, les cinq prières et la date hégirienne</string>
+    <string name="widget_next_prayer">Prochaine prière</string>
+    <string name="widget_open_app">Ouvrez l’application pour actualiser les horaires</string>
+    <string name="sc_times">Horaires</string>
+    <string name="sc_times_long">Horaires de prière</string>
+    <string name="sc_qibla">Qibla</string>
+    <string name="sc_qibla_long">Direction de la Qibla</string>
+    <string name="sc_quran">Coran</string>
+    <string name="sc_quran_long">Le Saint Coran</string>
+    <string name="sc_tasbih">Tasbih</string>
+    <string name="sc_tasbih_long">Compteur de tasbih</string>
+    <string name="sc_tasmee">Récitation</string>
+    <string name="sc_tasmee_long">Test de mémorisation</string>
+</resources>

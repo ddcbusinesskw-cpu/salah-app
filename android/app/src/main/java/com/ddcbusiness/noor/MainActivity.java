@@ -1,5 +1,6 @@
 package com.ddcbusiness.noor;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
@@ -18,6 +19,17 @@ public class MainActivity extends BridgeActivity {
     // وقت آخر انهيار لمحرّك العرض (ثابت عبر إعادة إنشاء النشاط) — حارس حلقة الانهيار
     private static long lastRenderGoneAt = 0;
 
+    /** الشاشة المطلوبة من اختصار التطبيق أو أداة الشاشة الرئيسية (extra noor_screen) قبل أن تطلبها الواجهة
+     *  (NoorWidget.getLaunchRoute عند الإطلاق البارد) — ثابت كي يصمد لإعادة إنشاء النشاط */
+    private static String pendingScreen = null;
+
+    /** تأخذ الواجهة الشاشة المعلّقة مرة واحدة */
+    static synchronized String takePendingScreen() {
+        String s = pendingScreen;
+        pendingScreen = null;
+        return s;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FirebaseAuthenticationPlugin.class);
@@ -28,7 +40,16 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(QuranAsrPlugin.class);
         registerPlugin(SystemBarsPlugin.class);
         registerPlugin(AppSettingsPlugin.class);
+        registerPlugin(WidgetPlugin.class);
         super.onCreate(savedInstanceState);
+        /* اختصار/أداة عند الإطلاق البارد: تُحفظ الشاشة حتى تطلبها الواجهة بعد الإقلاع */
+        try {
+            String sc = WidgetPlugin.screenOf(getIntent());
+            if (sc != null) {
+                synchronized (MainActivity.class) { pendingScreen = sc; }
+                getIntent().removeExtra(PrayerWidgetProvider.EXTRA_SCREEN); /* recreate() بعد انهيار العرض لا يعيد التوجيه */
+            }
+        } catch (Exception ignored) {}
         // N38: لوحة المفاتيح تُقصّر مساحة المحتوى بدل إزاحة النافذة (adjustPan) — مع edge-to-edge المفروض في أندرويد 15/16
         // لا يُعاد تحجيم النافذة تلقائياً، فتُطبَّق حافة لوحة المفاتيح (IME) أدناه حشوةً سفلية. يعادل
         // android:windowSoftInputMode="adjustResize" في البيان (مقترح منفصل) ويعمل بدونه.
@@ -59,5 +80,18 @@ public class MainActivity extends BridgeActivity {
                 return true;
             }
         });
+    }
+
+    /** singleTask: اختصار/أداة والتطبيق يعمل → حدث noorRoute على window (الواجهة تنفّذ go(screen))؛
+     *  وتُحفظ احتياطاً إن لم تكن الصفحة جاهزة بعد (تُقرأ بـ getLaunchRoute). */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        try {
+            String sc = WidgetPlugin.screenOf(intent);
+            if (sc == null) return;
+            synchronized (MainActivity.class) { pendingScreen = sc; }
+            if (getBridge() != null) getBridge().triggerWindowJSEvent("noorRoute", "{\"screen\":\"" + sc + "\"}");
+        } catch (Exception ignored) {}
     }
 }

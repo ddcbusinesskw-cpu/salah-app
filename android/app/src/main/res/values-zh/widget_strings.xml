@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget + app-shortcut strings (zh); values follow DICT in index.html -->
+<resources>
+    <string name="widget_name">穆贾迪德 — 时间</string>
+    <string name="widget_description">礼拜时间：下一次礼拜、五次礼拜与伊斯兰历日期</string>
+    <string name="widget_next_prayer">下一次礼拜</string>
+    <string name="widget_open_app">打开应用以更新礼拜时间</string>
+    <string name="sc_times">时间</string>
+    <string name="sc_times_long">礼拜时间</string>
+    <string name="sc_qibla">朝向</string>
+    <string name="sc_qibla_long">朝向方向</string>
+    <string name="sc_quran">古兰经</string>
+    <string name="sc_quran_long">古兰经</string>
+    <string name="sc_tasbih">赞颂</string>
+    <string name="sc_tasbih_long">赞颂计数</string>
+    <string name="sc_tasmee">背诵</string>
+    <string name="sc_tasmee_long">背诵测试</string>
+</resources>

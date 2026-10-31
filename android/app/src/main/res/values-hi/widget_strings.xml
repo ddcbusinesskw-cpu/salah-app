@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget + app-shortcut strings (hi); values follow DICT in index.html -->
+<resources>
+    <string name="widget_name">अल-मुजद्दिद — समय</string>
+    <string name="widget_description">नमाज़ के समय: अगली नमाज़, पाँच नमाज़ें और हिजरी तारीख़</string>
+    <string name="widget_next_prayer">अगली नमाज़</string>
+    <string name="widget_open_app">नमाज़ के समय अपडेट करने के लिए ऐप खोलें</string>
+    <string name="sc_times">समय</string>
+    <string name="sc_times_long">नमाज़ के समय</string>
+    <string name="sc_qibla">क़िबला</string>
+    <string name="sc_qibla_long">क़िबला की दिशा</string>
+    <string name="sc_quran">क़ुरआन</string>
+    <string name="sc_quran_long">पवित्र क़ुरआन</string>
+    <string name="sc_tasbih">तस्बीह</string>
+    <string name="sc_tasbih_long">तस्बीह काउंटर</string>
+    <string name="sc_tasmee">तस्मी</string>
+    <string name="sc_tasmee_long">हिफ़्ज़ परीक्षण</string>
+</resources>
