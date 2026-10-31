@@ -888,6 +888,23 @@ button,a{-webkit-tap-highlight-color:transparent;}
 .sw-shield{position:fixed;inset:0;z-index:90;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(30px + env(safe-area-inset-bottom));color:#665;font-size:12px;}
 .sw-shield.hold{color:#9a8850;}
 body.sw-lock .bnav,body.sw-lock #langBtn,body.sw-lock #pwaInstallBar{display:none!important;}
+/* sw5: جلسة الكاميرا تخفي الأشرطة (SW-17)؛ مؤشّر الوضعية الكبير (SW-07)؛ مرحلة التحقّق؛ شارات «المقترح/تجريبي»؛ قائمة «لم يُرصد» */
+body.sw-cam .bnav,body.sw-cam #langBtn,body.sw-cam #pwaInstallBar{display:none!important;}
+.sw-pose{min-height:40px;font-size:32px;line-height:40px;font-weight:800;color:#fff;background:#111;border:2px solid #e8c55f;border-radius:var(--r-md);padding:4px 14px;margin:6px auto 8px;display:inline-block;letter-spacing:.5px;}
+.sw-pose:empty{display:none;}
+.sw-pose.pause{font-size:22px;line-height:1.35;background:#5a1d12;border-color:#ff9e85;color:#fff;display:block;white-space:normal;}
+#salahw.sw-dimmed .sw-pose{background:#000;color:#f3dda8;border-color:#9a8850;}
+.sw-check{background:var(--card);border:1px solid var(--line2);border-radius:var(--r-md);padding:12px 14px;margin:10px 0;text-align:center;}
+.sw-check p{margin:0 0 10px;font-size:var(--fs-md);line-height:1.75;color:var(--text);}
+.sw-check .cta{width:100%;margin:0;}
+.sw-tag{display:inline-block;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;border-radius:999px;vertical-align:middle;margin-inline-start:6px;}
+.sw-tag-ok{background:rgba(63,185,164,.18);color:var(--green);border:1px solid rgba(63,185,164,.5);}
+.sw-tag-exp{background:rgba(232,160,60,.18);color:#e0a03c;border:1px solid rgba(232,160,60,.5);}
+.sw-exp{color:#e0a03c;font-size:var(--fs-sm);margin-top:6px;}
+.sw-miss{background:rgba(224,160,60,.1);border:1px solid rgba(224,160,60,.4);border-radius:var(--r-md);padding:10px 13px;margin:8px 0;color:var(--text);font-size:var(--fs-md);}
+.sw-miss b{color:#e0a03c;display:block;margin-bottom:4px;}
+.sw-miss ul{margin:0;padding-inline-start:18px;line-height:1.8;}
+.sw-sum-note{color:var(--muted);font-size:var(--fs-sm);line-height:1.7;margin:8px 2px;}
 /* N30 (lead): شاشة الموافقة لها زرّ اللغة الخاص بها (#ovLangBtn) — لا زرّان */
 body.ov-consent-on #langBtn{display:none!important;}
 </style>
@@ -3241,17 +3258,17 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
     <div class="top"><button class="back" aria-label="رجوع" onclick="swBack()">→</button><h2>متابع الصلاة</h2></div>
     <div class="pad">
 
-      <!-- ١) اختيار الوضع -->
+      <!-- ١) اختيار الوضع (الحسّاس هو المقترح؛ الكاميرا تجريبية حتى تُتحقّق على هواتف حقيقية) -->
       <div id="swPanePick">
         <div id="swFailBox" class="sw-fail" role="alert" style="display:none"></div>
         <p class="sw-intro">يعدّ ركعاتك أثناء الصلاة ليعينك على عدم السهو. يسجّل ما رصده فعلاً فقط، بلا تخمين ولا حكم على صلاتك.</p>
         <button class="sw-mode-card" id="swModeSensor" onclick="swPickMode('sensor')">
           <span class="sw-mode-ic">📡</span>
-          <span class="sw-mode-tx"><b>وضع الحسّاس</b><small>ضع الهاتف عند موضع الجبهة على السجادة — يرصد كل سجدة بحسّاس القرب. لا كاميرا ولا صوت إطلاقاً.</small></span>
+          <span class="sw-mode-tx"><b>وضع الحسّاس <span class="sw-tag sw-tag-ok">المقترح</span></b><small>ضع الهاتف عند موضع الجبهة على السجادة — يرصد كل سجدة بحسّاس القرب. لا كاميرا ولا صوت إطلاقاً.</small></span>
         </button>
-        <button class="sw-mode-card" onclick="swPickMode('camera')">
+        <button class="sw-mode-card" id="swModeCamera" onclick="swPickMode('camera')">
           <span class="sw-mode-ic">📷</span>
-          <span class="sw-mode-tx"><b>وضع الكاميرا</b><small>انصب الهاتف على جانبك — يرصد الأركان بتحليل الوضعيات. معالجة على الجهاز فقط، لا تسجيل ولا إرسال.</small></span>
+          <span class="sw-mode-tx"><b>وضع الكاميرا <span class="sw-tag sw-tag-exp">تجريبي</span></b><small>انصب الهاتف على جانبك — يرصد الأركان بتحليل الوضعيات. معالجة على الجهاز فقط، لا تسجيل ولا إرسال.</small></span>
         </button>
         <div id="swStats" class="sw-stats"></div>
       </div>
@@ -3259,8 +3276,10 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
       <!-- ٢) اختيار الصلاة (+ إرشاد الوضعية) -->
       <div id="swPanePrayer" style="display:none">
         <div id="swSensGuide" class="sw-guide" style="display:none">
-          <p>📡 ضع الهاتف مستلقياً على السجادة عند موضع الجبهة، والشاشة للأعلى. تُرصد السجدة عندما تقترب الجبهة من الهاتف ٠٫٧ ثانية فأكثر.</p>
-          <p>💡 أبقِ الشاشة مضاءة: إطفاؤها أو مغادرة التطبيق يُنهي الجلسة. اللمسات العابرة مُعطّلة أثناء الجلسة — للإنهاء اضغط مطوّلاً ٢ث.</p>
+          <p>📡 ضع الهاتف مستلقياً على السجادة عند موضع الجبهة، والشاشة للأعلى، وحافته العليا (حيث السماعة وحسّاس القرب) نحو جبهتك. تُرصد السجدة عندما تقترب الجبهة من الهاتف ٠٫٧ ثانية فأكثر.</p>
+          <p>✋ قبل العدّ: مرّر يدك فوق أعلى الشاشة — إن أضاءت النقطة فالحسّاس يستجيب، ثم اضغط «ابدأ العدّ». بعدها ٨ ثوانٍ لرفع يدك قبل رصد أول سجدة.</p>
+          <p>🌙 تُعتم الشاشة إلى السواد تلقائياً بعد بدء العدّ لتوفير البطارية. لا تقلب الهاتف على وجهه: الحسّاس في جهة الشاشة.</p>
+          <p>💡 أبقِ الشاشة مضاءة: إطفاؤها أو مغادرة التطبيق يُنهي الجلسة. اللمسات العابرة مُعطّلة أثناء الجلسة — للإنهاء اضغط مطوّلاً ٢ث، أو تنتهي وحدها بعد ٩٠ث من آخر سجدة حين تكتمل الركعات (١٠ دقائق قبل ذلك).</p>
         </div>
         <div id="swCamGuide" class="sw-guide" style="display:none">
           <svg viewBox="0 0 220 92" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -3271,30 +3290,36 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
             <path d="M168 44l-26 12" stroke="#3FB9A4" stroke-dasharray="4 4"/>
             <text x="183" y="46" font-size="10" fill="#3FB9A4" stroke="none" text-anchor="middle">📱</text>
           </svg>
-          <p>📷 انصب الهاتف طولياً (عمودياً) على جانبك بزاوية ٤٥–٩٠ درجة بحيث يظهر جذعك كاملاً في الكادر (رأس + كتفان + وركان).</p>
-          <p class="sw-priv">🔒 المعالجة على الجهاز فقط — لا تسجيل ولا إرسال. تُطلب صلاحية الكاميرا عند البدء.</p>
+          <p>📷 انصب الهاتف طولياً (عمودياً) على جانبك بزاوية ٤٥–٩٠ درجة بحيث يظهر جسمك كاملاً في الكادر (رأس + كتفان + وركان). يبدأ العدّ وحده بعد ثانيتين من الوقوف أمام الكاميرا.</p>
+          <p>⏹ للإنهاء اضغط «إنهاء الجلسة»، أو تنتهي وحدها بعد ٩٠ث من آخر حركة حين تكتمل الركعات (١٠ دقائق قبل ذلك).</p>
+          <p class="sw-exp">🧪 تجريبي: وضع الكاميرا ما زال قيد التحقّق على هواتف حقيقية — قد يفوته رصد بعض الحركات، والملخّص يذكر ما لم يُرصد. وضع الحسّاس هو المقترح.</p>
+          <p class="sw-priv">🔒 المعالجة على الجهاز فقط — لا تسجيل ولا إرسال. تُطلب صلاحية الكاميرا عند البدء، ويُنزَّل المحرّك مرة واحدة (نحو ١٦ ميغابايت أول مرة).</p>
         </div>
         <h3 class="sw-h">اختر الصلاة</h3>
         <div id="swPrayerChips" class="sw-chips"></div>
         <div id="swNafl" class="sw-nafl" style="display:none">
-          <button onclick="swNaflAdj(-2)" aria-label="أنقص">−</button><span id="swNaflN">٢</span><button onclick="swNaflAdj(2)" aria-label="زد">+</button>
-          <small>ركعات النافلة</small>
+          <button onclick="swNaflAdj(-1)" aria-label="أنقص">−</button><span id="swNaflN">٢</span><button onclick="swNaflAdj(1)" aria-label="زد">+</button>
+          <small id="swNaflLbl">ركعات النافلة</small>
         </div>
-        <label class="sw-raqib"><input type="checkbox" id="swRaqibNow"> تنبيه فوري: اهتزاز خفيف عند خلل مرصود (سجدة يتيمة / تسلسل ناقص)</label>
+        <label class="sw-raqib" id="swQasrRow" style="display:none"><input type="checkbox" id="swQasr" onchange="swQasrTog(this.checked)"> قصر الصلاة في السفر (ركعتان بدل أربع)</label>
+        <label class="sw-raqib" id="swChairRow" style="display:none"><input type="checkbox" id="swChair"> الصلاة على كرسي <span class="sw-tag sw-tag-exp">تجريبي</span> — يُرصد الانحناء (ثلاث انحناءات لكل ركعة) بدل الركوع والسجود</label>
+        <label class="sw-raqib"><input type="checkbox" id="swRaqibNow"> تنبيه فوري: اهتزاز خفيف عندما لا يُرصد جزء من الركعة — تنبيه عن الرصد لا حكم على صلاتك</label>
         <button class="cta sw-start" onclick="swStartSession()">ابدأ المتابعة</button>
       </div>
 
-      <!-- ٣) الجلسة -->
+      <!-- ٣) الجلسة (مرحلة التحقّق ثم العدّ) -->
       <div id="swPaneSession" style="display:none">
         <div class="sw-sess">
           <div class="sw-count-lbl" id="swSessPrayer"></div>
           <div class="sw-count" id="swCount">٠</div>
           <div class="sw-count-of" id="swCountOf"></div>
+          <div class="sw-pose" id="swPose" aria-live="polite"></div>
           <div class="sw-ind"><span class="sw-dot" id="swDot"></span><span id="swIndTx">…</span></div>
+          <div id="swCheck" class="sw-check" style="display:none"><p id="swCheckTx"></p><button class="cta" id="swCheckBtn" onclick="swBeginCount()" style="display:none">ابدأ العدّ</button></div>
           <div class="sw-elapsed" id="swElapsed">٠:٠٠</div>
           <video id="swVideo" playsinline muted style="display:none"></video>
           <button class="sw-camflip" id="swCamFlip" style="display:none" onclick="swcFlip()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><path d="M20 11a8 8 0 0 0-14.9-3M4 13a8 8 0 0 0 14.9 3"/><polyline points="4,4 4,8 8,8"/><polyline points="20,20 20,16 16,16"/></svg> تبديل الكاميرا</button>
-          <button class="sw-end" onclick="swEndSession('user')">إنهاء الجلسة</button>
+          <button class="sw-end" onclick="swEndAsk('user')">إنهاء الجلسة</button>
         </div>
       </div>
 
@@ -3310,6 +3335,7 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
   </div>
   <!-- درع لمس وضع الحسّاس (الجبهة تلمس الشاشة في السجود) — الإنهاء بضغط مطوّل أو زر الرجوع.
        خارج #salahw: حركة دخول الشاشة تُبقي transform فيصير fixed نسبياً لها وتحت الأشرطة -->
+  <div id="swShield" class="sw-shield" style="display:none"><span>اضغط مطوّلاً ٢ث للإنهاء</span></div>
   <div id="swShield" class="sw-shield" style="display:none"><span>اضغط مطوّلاً ٢ث للإنهاء</span></div>
 
 <div id="ov_city" class="ov" role="dialog" aria-modal="true" aria-labelledby="ovCityTitle">
@@ -3789,6 +3815,7 @@ html:not([dir="ltr"]) .top h2{white-space:normal;display:-webkit-box;-webkit-box
   <h3 style="text-align:center">تسجيل الدخول (اختياري)</h3>
   <p class="sub" style="text-align:center">التطبيق يعمل كاملاً بدون حساب.</p>
   <p class="sub" style="text-align:center">الحساب فقط لنسخ تقدّمك احتياطياً ومزامنته بين أجهزتك.</p>
+  <p class="sub" style="text-align:center">يشمل ذلك إحصاءات متابع الصلاة (أعداد الركعات المرصودة فقط).</p>
   <div class="grow"></div>
   <button class="authbtn google" onclick="login('google')">
     <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.9 2.4 30.4 0 24 0 14.6 0 6.4 5.4 2.6 13.2l7.8 6.1C12.2 13.2 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.6-9.6 6.6-17z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.3-4.5 2.1-8.8 2.1-6.4 0-11.8-3.7-13.6-9.8l-7.8 6.1C6.4 42.6 14.6 48 24 48z"/></svg>
@@ -15100,44 +15127,61 @@ function rakWakeLock(on){
   }
 }
 
+/* SW5-BEGIN */
 /* ═══════════════════ متابع الصلاة — عدّ مُشاهَد فقط ═══════════════════
    وضعان منفصلان تماماً، كلٌّ نظام عدّ مكتمل بذاته بلا منطق مشترك:
-   SWS = وضع الحسّاس (قرب فقط)، SWC = وضع الكاميرا (وضعيات فقط).
-   المشترك واجهة فقط (SW): اختيار الوضع/الصلاة، شاشة الجلسة، الملخّص،
-   سجل الأدلة، الإحصاءات المحلية. المبدأ: ما لم يُشاهَد، لم يحدث. */
-
-/* نقطة امتداد مستقبلية: علامات صوتية (تكبير/تسليم) من محرّك خارجي.
-   لا تُستدعى من أي مكان اليوم — موثّقة للمستقبل فقط.
-   type: 'takbir'|'taslim'|'custom' · ts: طابع زمني بالمللي ثانية. */
-function onAudioMarker(type,ts){/* مستقبلاً: دمج العلامة في سجل الأدلة */}
+   SWS = وضع الحسّاس (قرب فقط)، SWC = وضع الكاميرا (وضعيات فقط — تجريبي).
+   المشترك واجهة فقط (SW): اختيار الوضع/الصلاة، مرحلة التحقّق، شاشة الجلسة،
+   الملخّص، سجل الأدلة، الإحصاءات المحلية. المبدأ: ما لم يُشاهَد، لم يحدث —
+   و«لم يُرصد» وصفٌ لما رآه الهاتف، لا حكم على الصلاة. */
 
 /* ── الواجهة المشتركة (لا منطق عدّ هنا — تستقبل من المحرّكين فقط) ── */
-var SW={mode:'',pane:'pick',prayer:'',expected:0,active:false,raqib:false,t0:0,_elT:null,count:0,flags:0,evid:[],sums:null};
+var SW={mode:'',pane:'pick',prayer:'',expected:0,active:false,raqib:false,t0:0,_elT:null,count:0,flags:0,evid:[],sums:null,
+  stage:'',miss:[],pendSum:false,qasr:false,chair:false,satCheck:false,failMsg:'',failHtml:'',idleT:null,lastAct:0,sid:0};
+/* SW-14: الجمعة (٢) والوتر (قابل للتعديل، افتراضياً ١)؛ q=1: صلاة رباعية تقبل القصر (٤→٢) */
 var SW_PRAYERS=[
-  {id:'Fajr',nm:'الفجر',rk:2},{id:'Dhuhr',nm:'الظهر',rk:4},{id:'Asr',nm:'العصر',rk:4},
-  {id:'Maghrib',nm:'المغرب',rk:3},{id:'Isha',nm:'العشاء',rk:4},{id:'Nafl',nm:'نافلة',rk:0}
+  {id:'Fajr',nm:'الفجر',rk:2},{id:'Dhuhr',nm:'الظهر',rk:4,q:1},{id:'Asr',nm:'العصر',rk:4,q:1},
+  {id:'Maghrib',nm:'المغرب',rk:3},{id:'Isha',nm:'العشاء',rk:4,q:1},{id:'Jumuah',nm:'صلاة الجمعة',rk:2},
+  {id:'Witr',nm:'الوتر',rk:0,adj:1},{id:'Nafl',nm:'نافلة',rk:0,adj:1}
 ];
-var _swNaflN=2;
+var _swNaflN=2,_swWitrN=1;
+/* المُهَل كلّها في كائن واحد (بالمللي ثانية) — الاختبارات تقصّرها، والقيم هنا هي قيم الإنتاج */
+var SWK={IDLE:90000,IDLE_PRE:600000,CHECK_MS:2000,GRACE_MS:8000,ORPHAN_MS:30000,COVER_MS:35000,
+  DWELL:800,VIS_WARN:2000,GAP_MS:3000,CAM_TO:15000,RELEASE_MS:300000,CONF_N:2};
+
+function _swT(k){return typeof _tsT==='function'?_tsT(k):k;}
+function _swF(k,o){return typeof _tsF==='function'?_tsF(k,o):String(k).replace(/\{(\w+)\}/g,function(m,x){return (o&&o[x]!=null)?String(o[x]):m;});}
+function _swN(n){return typeof _tsN==='function'?_tsN(n):String(n);}
+function _swEl(id){return document.getElementById(id);}
+function _swPrayer(){for(var i=0;i<SW_PRAYERS.length;i++)if(SW_PRAYERS[i].id===SW.prayer)return SW_PRAYERS[i];return null;}
+function _swExpected(p){if(!p)return 0;if(p.adj)return p.id==='Witr'?_swWitrN:_swNaflN;if(p.q&&SW.qasr)return 2;return p.rk;}
+function _swId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+/* العدد الفعلي: في الكاميرا تُغلق الركعة الأخيرة عند القيام التالي أو عند الإيقاف — فتُحسب هنا إن كانت سجدتاها مُشاهَدتين */
+function _swEffCount(){var n=SW.count;if(SW.mode==='camera'&&SW.stage==='count'&&typeof _swcPendingRakaa==='function')n+=_swcPendingRakaa();return n;}
 
 function initSalahw(){
+  /* SW-20: غادر الشاشة أثناء جلسة → حُفظت، والملخّص يُعرض عند العودة */
+  if(SW.pendSum){SW.pendSum=false;swRenderSummary();swShowPane('summary');return;}
   swShowPane('pick');swRenderStats();
-  var rq=document.getElementById('swRaqibNow');if(rq)rq.checked=lsGet('sw_raqib')==='1';
+  var rq=_swEl('swRaqibNow');if(rq)rq.checked=lsGet('sw_raqib')==='1';
+  var ch=_swEl('swChair');if(ch)ch.checked=lsGet('sw_chair')==='1';
 }
 function swShowPane(p){
   ['Pick','Prayer','Session','Summary'].forEach(function(x){
-    var el=document.getElementById('swPane'+x);
+    var el=_swEl('swPane'+x);
     if(el)el.style.display=(p===x.toLowerCase())?'':'none';
   });
   SW.pane=p;
 }
 function swPickMode(m){
   SW.mode=m;
-  var cg=document.getElementById('swCamGuide');if(cg)cg.style.display=(m==='camera')?'':'none';
-  var sg=document.getElementById('swSensGuide');if(sg)sg.style.display=(m==='sensor')?'':'none';
+  var cg=_swEl('swCamGuide');if(cg)cg.style.display=(m==='camera')?'':'none';
+  var sg=_swEl('swSensGuide');if(sg)sg.style.display=(m==='sensor')?'':'none';
+  var cr=_swEl('swChairRow');if(cr)cr.style.display=(m==='camera')?'':'none';
   swRenderPrayerChips();
   swShowPane('prayer');
 }
-/* اقتراح تلقائي من مواقيت التطبيق: آخر صلاة دخل وقتها */
+/* اقتراح تلقائي من مواقيت التطبيق: آخر صلاة دخل وقتها (وظهر الجمعة يقترح صلاة الجمعة) */
 function _swSuggestPrayer(){
   try{
     if(!PT.data)return '';
@@ -15147,46 +15191,101 @@ function _swSuggestPrayer(){
       var hm=t[k].split(':'),s=(+hm[0])*3600+(+hm[1])*60;
       if(s<=nowS&&s>lastS){lastS=s;last=k;}
     });
+    if(last==='Dhuhr'&&now.getDay()===5)last='Jumuah';
     return last||'Isha'; /* قبل الفجر: آخر وقت قائم هو عشاء الأمس */
   }catch(e){return '';}
 }
 function swRenderPrayerChips(){
-  var sug=_swSuggestPrayer(),host=document.getElementById('swPrayerChips');
+  var sug=_swSuggestPrayer(),host=_swEl('swPrayerChips');
   if(!host)return;
-  /* دخول لوحة الصلاة (من اختيار الوضع) يقترح الصلاة الحالية في كل زيارة؛
-     إعادة الرسم داخل اللوحة (swSelPrayer) تُبقي اختيار المستخدم */
   if(!SW.prayer||SW.pane!=='prayer')SW.prayer=sug||SW.prayer||'Fajr';
   host.innerHTML=SW_PRAYERS.map(function(p){
-    return '<button data-p="'+p.id+'" class="'+(SW.prayer===p.id?'on':'')+'" onclick="swSelPrayer(\''+p.id+'\')">'+p.nm+(p.rk?' ('+ar(p.rk)+')':'')+(p.id===sug?'<span class="sug">✨ الحالية</span>':'')+'</button>';
+    var rk=_swExpected(p);
+    return '<button data-p="'+p.id+'" class="'+(SW.prayer===p.id?'on':'')+'" onclick="swSelPrayer(\''+p.id+'\')">'+_swT(p.nm)+(rk?' ('+_swN(rk)+')':'')
+      +(p.id===sug?'<span class="sug">'+_swT('✨ الحالية')+'</span>':'')+'</button>';
   }).join('');
-  var nf=document.getElementById('swNafl');if(nf)nf.style.display=(SW.prayer==='Nafl')?'flex':'none';
+  var cur=_swPrayer();
+  var nf=_swEl('swNafl');if(nf)nf.style.display=(cur&&cur.adj)?'flex':'none';
+  var nl=_swEl('swNaflLbl');if(nl)nl.textContent=_swT(SW.prayer==='Witr'?'ركعات الوتر':'ركعات النافلة');
+  var nn=_swEl('swNaflN');if(nn)nn.textContent=_swN(SW.prayer==='Witr'?_swWitrN:_swNaflN);
+  var qr=_swEl('swQasrRow');if(qr)qr.style.display=(cur&&cur.q)?'':'none';
+  var qc=_swEl('swQasr');if(qc)qc.checked=!!SW.qasr;
 }
 function swSelPrayer(id){SW.prayer=id;swRenderPrayerChips();}
+/* SW-14: النافلة والوتر بخطوة ١ (١–١٢ / ١–١١) */
 function swNaflAdj(d){
-  _swNaflN=Math.min(12,Math.max(2,_swNaflN+d));
-  var el=document.getElementById('swNaflN');if(el)el.textContent=ar(_swNaflN);
+  var w=(SW.prayer==='Witr'),n=w?_swWitrN:_swNaflN;
+  n=Math.min(w?11:12,Math.max(1,n+d));
+  if(w)_swWitrN=n;else _swNaflN=n;
+  var el=_swEl('swNaflN');if(el)el.textContent=_swN(n);
+  swRenderPrayerChips();
 }
+function swQasrTog(on){SW.qasr=!!on;swRenderPrayerChips();}
 function swStartSession(){
-  var p=null;for(var i=0;i<SW_PRAYERS.length;i++)if(SW_PRAYERS[i].id===SW.prayer)p=SW_PRAYERS[i];
-  if(!p)return;
-  SW.expected=p.rk||_swNaflN;
-  var rq=document.getElementById('swRaqibNow');SW.raqib=!!(rq&&rq.checked);
+  var p=_swPrayer();if(!p)return;
+  SW.expected=_swExpected(p);
+  var rq=_swEl('swRaqibNow');SW.raqib=!!(rq&&rq.checked);
   lsSet('sw_raqib',SW.raqib?'1':'0'); /* يُتذكَّر بين الجلسات */
-  SW.active=true;SW.count=0;SW.flags=0;SW.evid=[];SW.sums=null;SW.t0=Date.now();try{_swFailHide();}catch(e){}
-  var e1=document.getElementById('swSessPrayer');if(e1)e1.textContent=p.nm+' — '+(SW.mode==='sensor'?'وضع الحسّاس':'وضع الكاميرا');
-  var e2=document.getElementById('swCount');if(e2)e2.textContent='٠';
-  var e3=document.getElementById('swCountOf');if(e3)e3.textContent='من '+ar(SW.expected)+' ركعات';
-  var e4=document.getElementById('swIndTx');if(e4)e4.textContent='بانتظار أول رصد…';
-  var cf=document.getElementById('swCamFlip');if(cf)cf.style.display=(SW.mode==='camera')?'':'none';
-  var vd=document.getElementById('swVideo');if(vd)vd.style.display=(SW.mode==='camera')?'':'none';
-  var scr=document.getElementById('salahw');if(scr)scr.classList.add('sw-dimmed'); /* سطوع منخفض */
-  if(SW.mode==='sensor')_swShield(true);
+  var ch=_swEl('swChair');SW.chair=(SW.mode==='camera')&&!!(ch&&ch.checked);
+  lsSet('sw_chair',(ch&&ch.checked)?'1':'0');
+  SW.active=true;SW.stage='check';SW.count=0;SW.flags=0;SW.evid=[];SW.miss=[];SW.sums=null;SW.satCheck=false;SW.pendSum=false;
+  SW.t0=Date.now();SW.lastAct=SW.t0;SW.sid++;
+  try{_swFailHide();}catch(e){}
+  var e1=_swEl('swSessPrayer');if(e1)e1.textContent=_swT(p.nm)+' — '+_swT(SW.mode==='sensor'?'وضع الحسّاس':'وضع الكاميرا (تجريبي)');
+  var e2=_swEl('swCount');if(e2)e2.textContent=_swN(0);
+  var e3=_swEl('swCountOf');if(e3)e3.textContent=_swF('من {n} ركعات',{n:_swN(SW.expected)});
+  var e4=_swEl('swIndTx');if(e4)e4.textContent='';
+  var cf=_swEl('swCamFlip');if(cf)cf.style.display=(SW.mode==='camera')?'':'none';
+  var vd=_swEl('swVideo');if(vd)vd.style.display=(SW.mode==='camera')?'':'none';
+  var ps=_swEl('swPose');if(ps){ps.textContent='';ps.className='sw-pose';ps.style.display=(SW.mode==='camera')?'':'none';}
+  _swCheckUI(true,_swT(SW.mode==='sensor'?'ضع الهاتف':'تحقّق من الكادر'),SW.mode==='sensor');
+  _swCamCls(SW.mode==='camera');
   swShowPane('session');
   try{rakWakeLock(true);}catch(e){}
   if(SW._elT)clearInterval(SW._elT);
   SW._elT=setInterval(_swElapsedTick,1000);
-  swEvid('بدأت الجلسة — '+p.nm+' ('+ar(SW.expected)+' ركعات) — '+(SW.mode==='sensor'?'حسّاس القرب':'الكاميرا'));
+  swEvid(_swT('بدأت الجلسة')+' — '+_swT(p.nm)+' ('+_swF('{n} ركعات',{n:_swN(SW.expected)})+') — '+_swT(SW.mode==='sensor'?'حسّاس القرب':'الكاميرا (تجريبي)')
+    +(SW.chair?' — '+_swT('الصلاة على كرسي'):''));
+  _swIdleArm();
   if(SW.mode==='sensor')swsStart();else{_swcRotWatch(true);swcStart();}
+}
+/* SW-17: أثناء جلسة الكاميرا تُخفى الأشرطة السفلية والعائمات (الهاتف منصوب بعيداً — لا لمس عرَضي) */
+function _swCamCls(on){try{if(document.body)document.body.classList.toggle('sw-cam',!!on);}catch(e){}}
+/* SW-07: مرحلة التحقّق قبل العدّ — رسالة + (في وضع الحسّاس) زرّ «ابدأ العدّ» */
+function _swCheckUI(show,tx,btn){
+  var b=_swEl('swCheck');if(b)b.style.display=show?'':'none';
+  var t=_swEl('swCheckTx');if(t&&tx!=null)t.textContent=tx;
+  var k=_swEl('swCheckBtn');if(k)k.style.display=btn?'':'none';
+}
+function _swCheckMsg(tx){var t=_swEl('swCheckTx');if(t&&t.textContent!==tx)t.textContent=tx;}
+/* بدء العدّ فعلياً (تلقائياً في الكاميرا بعد ٢ث وقوف، وبالزرّ في الحسّاس) — قبله لا يُحتسب شيء */
+function swBeginCount(){
+  if(!SW.active||SW.stage!=='check')return;
+  SW.stage='count';SW.lastAct=Date.now();
+  _swCheckUI(false);
+  var scr=_swEl('salahw');if(scr)scr.classList.add('sw-dimmed'); /* سطوع منخفض */
+  swEvid(_swT('بدأ العدّ'));
+  if(SW.mode==='sensor'){
+    _swShield(true);SWS.graceT0=Date.now();
+    swInd(_swT('بدأ العدّ — ٨ ثوانٍ قبل رصد أول سجدة (ارفع يدك)'),false);
+  }else swInd(_swT('بدأ العدّ'),false);
+  try{buzz(40);}catch(e){}
+  _swIdleArm();
+}
+/* SW-04: إنهاء تلقائي للوضعين — ٩٠ث سكون بعد اكتمال الركعات المتوقعة (آخر جلوس)، وإلا ١٠ د */
+function _swIdleArm(){
+  SW.lastAct=Date.now();
+  if(SW.idleT)clearTimeout(SW.idleT);
+  SW.idleT=setTimeout(_swIdleCheck,SWK.IDLE);
+}
+function _swIdleCheck(){
+  SW.idleT=null;
+  if(!SW.active)return;
+  var lim=(SW.stage==='count'&&_swEffCount()>=SW.expected)?SWK.IDLE:SWK.IDLE_PRE;
+  var left=lim-(Date.now()-SW.lastAct);
+  if(left>0){SW.idleT=setTimeout(_swIdleCheck,left);return;}
+  swEvid(_swF('سكون {t} — إنهاء تلقائي',{t:(lim>=60000&&lim%60000===0)?_swF('{n} د',{n:_swN(lim/60000)}):_swF('{n} ث',{n:_swN(Math.round(lim/1000))})}));
+  swEndSession('auto');
 }
 /* درع اللمس (وضع الحسّاس): اللمسة العابرة لا تفعل شيئاً، والإنهاء بضغط مطوّل ٢ث
    والحسّاس بعيد — ضغط الجبهة في السجود يغطّي الحسّاس فلا يُحتسب */
@@ -15194,7 +15293,7 @@ var _swShT=null;
 function _swShield(on){
   if(_swShT){clearTimeout(_swShT);_swShT=null;}
   if(document.body)document.body.classList.toggle('sw-lock',!!on);
-  var sh=document.getElementById('swShield');if(!sh)return;
+  var sh=_swEl('swShield');if(!sh)return;
   sh.style.display=on?'flex':'none';sh.classList.remove('hold');
   if(sh._b)return;sh._b=1;
   function rel(){if(_swShT){clearTimeout(_swShT);_swShT=null;}sh.classList.remove('hold');}
@@ -15214,72 +15313,94 @@ function _swShield(on){
 function _swElapsedTick(){
   if(!SW.active)return;
   var s=Math.floor((Date.now()-SW.t0)/1000);
-  var el=document.getElementById('swElapsed');
-  if(el)el.textContent=ar(Math.floor(s/60))+':'+(s%60<10?'٠':'')+ar(s%60);
+  var el=_swEl('swElapsed');
+  if(el)el.textContent=_swN(Math.floor(s/60))+':'+(s%60<10?_swN(0):'')+_swN(s%60);
 }
 function swEvid(tx){
   var s=Math.max(0,Math.floor((Date.now()-SW.t0)/1000));
   SW.evid.push('['+Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60)+'] '+tx);
 }
-/* يستقبل ركعة مؤكّدة من أحد المحرّكين (flagged: تسلسل ناقص ⚠) */
+/* يستقبل ركعة مؤكّدة من أحد المحرّكين (flagged: لم يُرصد فيها جزء ⚠) — SW-07: اهتزاز مميّز */
 function swRakaa(flagged,detail){
   SW.count++;if(flagged)SW.flags++;
-  var el=document.getElementById('swCount');if(el)el.textContent=ar(SW.count)+(flagged?'⚠':'');
-  swEvid('ركعة #'+SW.count+(flagged?' ⚠ (تسلسل ناقص)':'')+(detail?' — '+detail:''));
-  try{buzz(30);}catch(e){}
+  var el=_swEl('swCount');if(el)el.textContent=_swN(SW.count)+(flagged?'⚠':'');
+  swEvid(_swF('ركعة #{n}',{n:SW.count})+(flagged?' ⚠':'')+(detail?' — '+detail:''));
+  try{buzz(flagged?[90,70,90,70,90]:[90,60,90]);}catch(e){}
+  _swIdleArm();
+}
+/* SW-05/SW-11: عنصر «لم يُرصد» — يُجمع للملخّص؛ الاهتزاز فقط إن اختار المستخدم «تنبيه فوري» */
+function swMiss(tx){
+  SW.miss.push(tx);
+  swEvid('⚠ '+_swT('لم يُرصد')+': '+tx);
+  if(SW.raqib)try{buzz([60,80,60]);}catch(e){}
 }
 function swInd(tx,hot){
-  var el=document.getElementById('swIndTx');if(el)el.textContent=tx;
-  var d=document.getElementById('swDot');if(d)d.classList.toggle('near',!!hot);
+  var el=_swEl('swIndTx');if(el)el.textContent=tx;
+  var d=_swEl('swDot');if(d)d.classList.toggle('near',!!hot);
 }
-/* الرقيب: افتراضياً ملخّص فقط؛ «تنبيه فوري» = اهتزاز خفيف عند خلل مرصود */
-function swRaqibAlert(tx){
-  swEvid('⚠ رقيب: '+tx);
-  if(SW.raqib)try{buzz([60,80,60]);}catch(e){}
+/* SW-17: تأكيد قبل الإنهاء إن كان العدّ جارياً ولم تُرصد كل الركعات */
+function swEndAsk(src){
+  if(!SW.active){swEndSession(src);return;}
+  var c=_swEffCount();
+  if(SW.stage!=='count'||c>=SW.expected||typeof _tsAsk!=='function'){swEndSession(src);return;}
+  _tsAsk(_swT('إنهاء الجلسة؟'),'<p class="ts-cm-p">'+_esc(_swF('رُصد {c} من {x} ركعات حتى الآن — سيُحفظ ما رُصد.',{c:_swN(c),x:_swN(SW.expected)}))+'</p>',
+    _swT('أنهِ الجلسة'),_swT('تابِع'),function(){if(SW.active)swEndSession(src);},null);
 }
 function swEndSession(src){
   if(!SW.active){swShowPane('pick');swRenderStats();return;}
-  SW.active=false;
+  SW.active=false;var stage=SW.stage;SW.stage='';
   if(SW._elT){clearInterval(SW._elT);SW._elT=null;}
+  if(SW.idleT){clearTimeout(SW.idleT);SW.idleT=null;}
   if(SW.mode==='sensor')swsStop();else swcStop();
   try{rakWakeLock(false);}catch(e){}
-  _swShield(false);
-  var scr=document.getElementById('salahw');if(scr)scr.classList.remove('sw-dimmed');
-  swEvid('انتهت الجلسة ('+(src==='auto'?'سكون':src==='user'?'زر الإنهاء':src==='hidden'?'مغادرة التطبيق':
-    src==='fail'?(SW.mode==='sensor'?'تعذّر تشغيل الحسّاس':'تعذّر تشغيل محرّك الكاميرا'):src==='camlost'?'انقطاع الكاميرا':'رجوع')+')');
-  if(src==='fail'){ /* N84: جلسة لم تبدأ فعلاً — لا ملخّص ولا إحصاءات، بل رسالة وإعادة محاولة */
+  _swShield(false);_swCamCls(false);_swCheckUI(false);
+  var scr=_swEl('salahw');if(scr)scr.classList.remove('sw-dimmed');
+  swEvid(_swT('انتهت الجلسة')+' ('+_swT(src==='auto'?'سكون':src==='user'?'زر الإنهاء':src==='hidden'?'مغادرة التطبيق':
+    src==='fail'?(SW.mode==='sensor'?'تعذّر تشغيل الحسّاس':'تعذّر تشغيل الكاميرا'):src==='camlost'?'انقطاع الكاميرا':'رجوع')+')');
+  if(src==='fail'){ /* N84/SW-03: جلسة لم تبدأ فعلاً — لا ملخّص ولا إحصاءات، بل رسالة وإعادة محاولة */
     swShowPane('pick');swRenderStats();try{_swFailShow();}catch(e){}return;}
+  if(stage==='check'){ /* SW-07: أُنهيت قبل بدء العدّ — لا يُحفظ شيء */
+    swShowPane('pick');swRenderStats();
+    try{toast(_swT('أُنهيت قبل بدء العدّ — لم يُسجَّل شيء'));}catch(e){}
+    return;}
   swSaveStats();
   swRenderSummary();
   swShowPane('summary');
 }
+function _swRow(l,v){return '<div class="sw-sum-row"><span>'+l+'</span><b>'+v+'</b></div>';}
 function swRenderSummary(){
-  var b=document.getElementById('swSumBody');if(!b)return;
-  var pnm='';for(var i=0;i<SW_PRAYERS.length;i++)if(SW_PRAYERS[i].id===SW.prayer)pnm=SW_PRAYERS[i].nm;
-  var h='<div class="sw-sum-row"><span>الصلاة</span><b>'+pnm+' ('+(SW.mode==='sensor'?'حسّاس':'كاميرا')+')</b></div>';
-  h+='<div class="sw-sum-row"><span>المرصود / المتوقع</span><b>'+ar(SW.count)+' / '+ar(SW.expected)+' ركعة</b></div>';
-  if(SW.flags)h+='<div class="sw-sum-row"><span>ركعات بتسلسل ناقص ⚠</span><b>'+ar(SW.flags)+'</b></div>';
-  h+='<div class="sw-sum-row"><span>المدة</span><b>'+ar(Math.max(1,Math.round((Date.now()-SW.t0)/60000)))+' د</b></div>';
+  var b=_swEl('swSumBody');if(!b)return;
+  var p=_swPrayer(),pnm=p?_swT(p.nm):'';
+  var h=_swRow(_swT('الصلاة'),pnm+' ('+_swT(SW.mode==='sensor'?'حسّاس':'كاميرا — تجريبي')+')');
+  h+=_swRow(_swT('المرصود / المتوقع'),_swF('{c} / {x} ركعة',{c:_swN(SW.count),x:_swN(SW.expected)}));
+  if(SW.flags)h+=_swRow(_swT('ركعات لم يُرصد فيها جزء ⚠'),_swN(SW.flags));
+  h+=_swRow(_swT('المدة'),_swF('{n} د',{n:_swN(Math.max(1,Math.round((Date.now()-SW.t0)/60000)))}));
   /* مقياس الطمأنينة: مدد الأدلة المرصودة (سجدات أو أركان) */
   if(SW.sums&&SW.sums.list&&SW.sums.list.length){
     var tot=0;SW.sums.list.forEach(function(x){tot+=x.dur;});
-    h+='<div class="sw-sum-row"><span>'+SW.sums.label+'</span><b>'+ar(SW.sums.list.length)+' — متوسط '+ar((tot/SW.sums.list.length/1000).toFixed(1))+' ث</b></div>';
+    h+=_swRow(_swT(SW.sums.label),_swF('{n} — متوسط {s} ث',{n:_swN(SW.sums.list.length),s:_swN((tot/SW.sums.list.length/1000).toFixed(1))}));
   }
   var pct=SW.expected?Math.round(100*Math.min(SW.count,SW.expected)/SW.expected):0;
-  h+='<div class="sw-sum-row"><span>نسبة الركعات المرصودة</span><b>'+ar(pct)+'٪'+(SW.flags?' (منها ⚠)':'')+'</b></div>';
-  h+='<p class="sw-sum-note">'+_tsT('تقيس ما رآه الهاتف من حركة، لا صحة صلاتك.')+'</p>';
+  h+=_swRow(_swT('نسبة الركعات المرصودة'),_swN(pct)+'٪'+(SW.flags?' ('+_swT('منها ⚠')+')':''));
+  /* SW-05: قائمة ما لم يُرصد — وصف لما رآه الهاتف فقط */
+  if(SW.miss.length){
+    h+='<div class="sw-miss"><b>'+_swT('لم يُرصد ⚠')+'</b><ul>'+SW.miss.map(function(x){return '<li>'+_esc(x)+'</li>';}).join('')+'</ul></div>';
+  }
+  if(SW.count<SW.expected)h+='<p class="sw-sum-note">'+_swT('الهاتف لم يرَ كل الركعات — لا يعني أن صلاتك ناقصة')+'</p>';
+  if(SW.mode==='camera'&&!SW.chair&&SW.satCheck)h+='<p class="sw-sum-note">'+_swT('إن كنت تصلّي جالساً فعّل خيار «الصلاة على كرسي» قبل البدء.')+'</p>';
+  h+='<p class="sw-sum-note">'+_swT('تقيس ما رآه الهاتف من حركة، لا صحة صلاتك.')+'</p>';
   b.innerHTML=h;
-  var lg=document.getElementById('swEvidLog');
-  if(lg)lg.innerHTML=SW.evid.map(function(e){return '<div>'+e+'</div>';}).join('');
+  var lg=_swEl('swEvidLog');
+  if(lg)lg.innerHTML=SW.evid.map(function(e){return '<div>'+_esc(e)+'</div>';}).join('');
 }
-/* إحصاءات محلية يومية/أسبوعية مفصولة حسب الوضع */
+/* إحصاءات محلية يومية/أسبوعية مفصولة حسب الوضع — SW-15: كل صف بختم زمني ومعرّف للمزامنة بلا تكرار */
 function swSaveStats(){
   try{
     var a=JSON.parse(lsGet('sw_stats_v1')||'[]');
-    a.push({d:todayKey(),m:SW.mode,p:SW.prayer,x:SW.expected,c:SW.count,f:SW.flags});
+    a.push({d:todayKey(),m:SW.mode,p:SW.prayer,x:SW.expected,c:SW.count,f:SW.flags,t:Date.now(),id:_swId()});
     if(a.length>400)a=a.slice(-400);
     lsSet('sw_stats_v1',JSON.stringify(a));
-    /* شارتا متابع الصلاة: «حاضر القلب» جلسة مكتملة بلا ⚠ · «خاشع الفجر» */
+    /* شارتا متابع الصلاة: «منتظم المتابعة» جلسة رُصدت فيها كل الركعات · «منتظم الفجر» */
     if(SW.expected>0&&SW.count===SW.expected&&SW.flags===0){
       var _fs=(+lsGet('sw_full_sessions')||0)+1;lsSet('sw_full_sessions',String(_fs));
       if(_fs>=10)checkBadge('salahw_10');
@@ -15291,10 +15412,10 @@ function swSaveStats(){
   }catch(e){}
 }
 function swRenderStats(){
-  var host=document.getElementById('swStats');if(!host)return;
+  var host=_swEl('swStats');if(!host)return;
   var a=[];try{a=JSON.parse(lsGet('sw_stats_v1')||'[]');}catch(e){}
-  if(!a.length){host.innerHTML='<div class="sw-empty" style="text-align:center;padding:10px 0">🕌 ابدأ أول جلسة متابعة لتظهر إحصاءاتك اليومية والأسبوعية هنا</div>';return;}
-  var tk=todayKey(),now=Date.now(),wk={};
+  if(!a.length){host.innerHTML='<div class="sw-empty" style="text-align:center;padding:10px 0">'+_swT('🕌 ابدأ أول جلسة متابعة لتظهر إحصاءاتك اليومية والأسبوعية هنا')+'</div>';return;}
+  var tk=todayKey(),wk={};
   /* أيام تقويمية (لا 24 ساعة) — آمن حول التوقيت الصيفي */
   for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);wk[d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()]=1;}
   function agg(f){
@@ -15303,26 +15424,30 @@ function swRenderStats(){
     return s;
   }
   var td=agg(function(r){return r.d===tk;}),wa=agg(function(r){return wk[r.d];});
-  function fmt(s){return 'حسّاس <b>'+ar(s.sensor[0])+'</b> جلسة ('+ar(s.sensor[1])+' ركعة) · كاميرا <b>'+ar(s.camera[0])+'</b> جلسة ('+ar(s.camera[1])+' ركعة)';}
-  host.innerHTML='<div>📊 اليوم: '+fmt(td)+'</div><div>هذا الأسبوع: '+fmt(wa)+'</div>';
+  function one(x){return _swF('{n} جلسة ({r} ركعة)',{n:'<b>'+_swN(x[0])+'</b>',r:_swN(x[1])});}
+  function fmt(s){return _swT('حسّاس')+' '+one(s.sensor)+' · '+_swT('كاميرا')+' '+one(s.camera);}
+  host.innerHTML='<div>📊 '+_swT('اليوم')+': '+fmt(td)+'</div><div>'+_swT('هذا الأسبوع')+': '+fmt(wa)+'</div>';
 }
-function swDone(){SW.count=0;SW.evid=[];swRenderStats();swShowPane('pick');}
+function swDone(){SW.count=0;SW.evid=[];SW.miss=[];swRenderStats();swShowPane('pick');}
 function swBack(){
-  if(SW.active){swEndSession('back');return;}
+  if(SW.active){swEndAsk('back');return;}
   if(SW.pane==='prayer'||SW.pane==='summary'){swRenderStats();swShowPane('pick');return;}
   go('home');
 }
-/* مغادرة الشاشة عبر go(): أوقف كل شيء بأمان (تُستدعى من teardown) */
+/* مغادرة الشاشة عبر go(): أوقف كل شيء بأمان (تُستدعى من teardown) — SW-20: يُحفظ ما رُصد ويُعرض الملخّص عند العودة */
 function swLeave(){
   if(SW.active){
-    SW.active=false;
+    var stage=SW.stage;
+    SW.active=false;SW.stage='';
     if(SW._elT){clearInterval(SW._elT);SW._elT=null;}
+    if(SW.idleT){clearTimeout(SW.idleT);SW.idleT=null;}
     if(SW.mode==='sensor'){try{swsStop();}catch(e){}}else if(SW.mode==='camera'){try{swcStop();}catch(e){}}
     try{rakWakeLock(false);}catch(e){}
-    swSaveStats();
+    if(stage==='count'){swEvid(_swT('انتهت الجلسة')+' ('+_swT('مغادرة الشاشة')+')');swSaveStats();SW.pendSum=true;}
   }
   try{_swShield(false);}catch(e){}
-  var scr=document.getElementById('salahw');if(scr)scr.classList.remove('sw-dimmed');
+  _swCamCls(false);_swCheckUI(false);
+  var scr=_swEl('salahw');if(scr)scr.classList.remove('sw-dimmed');
 }
 /* بالخلفية: أندرويد يقطع الكاميرا، ومنذ أندرويد ٩ لا يُسلِّم أحداث حسّاس القرب
    لتطبيق في الخلفية (wake lock لا يكفي) → أنهِ الوضعين بملخّص صادق */
@@ -15337,87 +15462,101 @@ document.addEventListener('visibilitychange',function(){
     if(!PX||!PX.isAvailable)return;
     PX.isAvailable().then(function(r){
       if(!r||r.value!==false)return;
-      var c=document.getElementById('swModeSensor');if(!c)return;
+      var c=_swEl('swModeSensor');if(!c)return;
       c.disabled=true;c.style.opacity='.5';
-      var t=c.querySelector('small');if(t)t.textContent='هذا الجهاز لا يحوي حسّاس قرب — استخدم وضع الكاميرا';
+      var t=c.querySelector('small');if(t)t.textContent=_swT('هذا الجهاز لا يحوي حسّاس قرب — استخدم وضع الكاميرا');
     }).catch(function(){});
   }catch(e){}
 })();
 
 /* ═══ الوضع الأول: محرّك حسّاس القرب (مستقل تماماً — لا كاميرا ولا صوت) ═══
-   حتمي: سجدة = near مستمر ≥700ms ثم far. ركعة = سجدتان بينهما فاصل far
-   قصير (0.8–20ث). النهاية: 90ث سكون بعد اكتمال الركعات المتوقعة (أو 10د
-   قبل اكتمالها — القيام والقراءة لا يحرّكان الحسّاس) أو زر الإنهاء. */
-var SWS={on:false,near:false,nearT0:0,pendSuj:false,pendT:0,sujDur:[],idleT:null,orphT:null,lastAct:0,lastSujEnd:0};
-var SWS_MIN_SUJ=700,SWS_GAP_MIN=800,SWS_GAP_MAX=20000,SWS_IDLE_MS=90000,SWS_IDLE_PRE_MS=600000,SWS_ORPHAN_MS=30000;
+   حتمي: سجدة = near مستمر ≥700ms ثم far (وأقلّ من ٣٥ث — الأطول تغطية لا سجدة).
+   ركعة = سجدتان بينهما فاصل far قصير (0.8–20ث). مرحلة التحقّق: تجربة اليد
+   تضيء النقطة، ثم «ابدأ العدّ» و٨ث سماح لرفع اليد. النهاية: ٩٠ث سكون بعد
+   اكتمال الركعات المتوقعة (أو ١٠ د قبلها) أو ضغط مطوّل. */
+var SWS={on:false,near:false,nearT0:0,pendSuj:false,pendT:0,sujDur:[],orphT:null,lastSujEnd:0,graceT0:0,sid:0,testOk:false};
+var SWS_MIN_SUJ=700,SWS_GAP_MIN=800,SWS_GAP_MAX=20000;
 
 function swsStart(){
-  SWS.on=true;SWS.near=false;SWS.nearT0=0;SWS.pendSuj=false;SWS.pendT=0;SWS.sujDur=[];SWS.lastSujEnd=0;
+  SWS.on=true;SWS.near=false;SWS.nearT0=0;SWS.pendSuj=false;SWS.pendT=0;SWS.sujDur=[];SWS.lastSujEnd=0;SWS.graceT0=0;SWS.testOk=false;
   var P=window.Capacitor&&window.Capacitor.Plugins,PX=P&&P.ProximitySensor;
   if(!PX){
-    swEvid('✗ لا حسّاس قرب (بيئة ويب؟)');
-    SW.failMsg=_tsT('حسّاس القرب غير متاح هنا — استخدم وضع الكاميرا');
+    swEvid('✗ '+_swT('لا حسّاس قرب (بيئة ويب؟)'));
+    SW.failMsg=_swT('حسّاس القرب غير متاح هنا — استخدم وضع الكاميرا');
     swEndSession('fail');return; /* لا جلسة ميتة ولا إحصاءات صفرية */
   }
   var sid=SWS.sid=(SWS.sid||0)+1;
   try{PX.removeAllListeners&&PX.removeAllListeners();}catch(e){}
   PX.addListener('proximity',_swsOnProx);
+  _swCheckMsg(_swT('ضع الهاتف مستلقياً عند موضع الجبهة، الشاشة للأعلى وحافته العليا (السماعة وحسّاس القرب) نحو جبهتك. مرّر يدك فوق أعلى الشاشة: تضيء النقطة إن استجاب الحسّاس، ثم اضغط «ابدأ العدّ».'));
   PX.start().then(function(){
-    swInd('الحسّاس يعمل — بانتظار أول سجدة',false);
-    swEvid('حسّاس القرب انطلق');
+    if(sid!==SWS.sid||!SWS.on)return;
+    swInd(_swT('الحسّاس يعمل — جرّب يدك فوق أعلى الشاشة'),false);
+    swEvid(_swT('حسّاس القرب انطلق'));
   }).catch(function(e){
     if(sid!==SWS.sid)return; /* رفض متأخر لجلسة سابقة */
     var m=String(e&&e.message||e).slice(0,50);
-    swEvid('✗ فشل تشغيل الحسّاس: '+m);
+    swEvid('✗ '+_swT('فشل تشغيل الحسّاس')+': '+m);
     if(!SWS.on||!SW.active)return;
-    SW.failMsg=_tsT(m.indexOf('no-sensor')>=0?'هذا الجهاز لا يحوي حسّاس قرب — استخدم وضع الكاميرا':'تعذّر تشغيل الحسّاس — أعد المحاولة');
+    SW.failMsg=_swT(m.indexOf('no-sensor')>=0?'هذا الجهاز لا يحوي حسّاس قرب — استخدم وضع الكاميرا':'تعذّر تشغيل الحسّاس — أعد المحاولة');
     swEndSession('fail');
   });
-  _swsArmIdle();
 }
 function _swsOnProx(ev){
   if(!SWS.on)return;
   var near=!!(ev&&ev.near),now=Date.now();
   if(near===SWS.near)return;
-  SWS.near=near;_swsArmIdle();
+  SWS.near=near;_swIdleArm();
+  if(SW.stage==='check'){ /* SW-10: تجربة اليد — تضيء النقطة ولا يُحتسب شيء */
+    if(near){SWS.nearT0=now;SWS.testOk=true;swInd(_swT('✓ الحسّاس يستجيب'),true);}
+    else swInd(_swT('الحسّاس يعمل — اضغط «ابدأ العدّ» حين تضع الهاتف'),false);
+    return;
+  }
   if(near){
     SWS.nearT0=now;
-    swInd('قرب مرصود…',true);
-  }else{
-    var dur=SWS.nearT0?now-SWS.nearT0:0;
-    if(dur>=SWS_MIN_SUJ)_swsSujood(SWS.nearT0,now,dur);
-    else if(dur>0)swEvid('قرب قصير ('+Math.round(dur)+'ms < 700ms) — يُهمل');
-    swInd(SWS.pendSuj?'سجدة ١ مرصودة — بانتظار الثانية':'بانتظار سجدة',false);
+    swInd(_swT('قرب مرصود…'),true);
+    return;
   }
+  var dur=SWS.nearT0?now-SWS.nearT0:0;
+  var wait=SWS.pendSuj?_swT('سجدة ١ مرصودة — بانتظار الثانية'):_swT('بانتظار سجدة');
+  if(SWS.graceT0&&SWS.nearT0&&(SWS.nearT0-SWS.graceT0)<SWK.GRACE_MS){ /* SW-10: فترة السماح ٨ث لرفع اليد */
+    swEvid(_swT('قرب في فترة السماح الأولى (٨ث) — يُهمل'));swInd(wait,false);return;
+  }
+  if(dur>=SWK.COVER_MS){ /* SW-18: تغطية طويلة (وجه الهاتف/ثوب) ليست سجدة */
+    swEvid(_swF('تغطية طويلة للحسّاس ({s}ث) — ليست سجدة',{s:_swN(Math.round(dur/1000))}));swInd(wait,false);return;
+  }
+  if(dur>=SWS_MIN_SUJ)_swsSujood(SWS.nearT0,now,dur);
+  else if(dur>0)swEvid(_swF('قرب قصير ({n}ms < 700ms) — يُهمل',{n:Math.round(dur)}));
+  swInd(SWS.pendSuj?_swT('سجدة ١ مرصودة — بانتظار الثانية'):_swT('بانتظار سجدة'),false);
 }
 function _swsSujood(t0,t1,dur){
   /* ارتداد الحسّاس بعد سجدة مكتملة العدّ: امتداد لها لا زوج جديد */
   if(!SWS.pendSuj&&SWS.lastSujEnd&&t0-SWS.lastSujEnd<SWS_GAP_MIN){
-    swEvid('ارتداد بعد السجدة (فاصل '+((t0-SWS.lastSujEnd)/1000).toFixed(1)+'ث) — امتداد لنفس السجدة');
+    swEvid(_swF('ارتداد بعد السجدة (فاصل {s}ث) — امتداد لنفس السجدة',{s:_swN(((t0-SWS.lastSujEnd)/1000).toFixed(1))}));
     SWS.lastSujEnd=t1;
     return;
   }
   SWS.lastSujEnd=t1;
   SWS.sujDur.push({dur:dur});
-  swEvid('سجدة مرصودة — '+(dur/1000).toFixed(1)+'ث');
+  swEvid(_swF('سجدة مرصودة — {s}ث',{s:_swN((dur/1000).toFixed(1))}));
   if(SWS.orphT){clearTimeout(SWS.orphT);SWS.orphT=null;}
   if(SWS.pendSuj){
     var gap=t0-SWS.pendT; /* من نهاية السجدة الأولى إلى بداية الثانية */
     if(gap>=SWS_GAP_MIN&&gap<=SWS_GAP_MAX){
       SWS.pendSuj=false;
-      swRakaa(false,'سجدتان بفاصل '+(gap/1000).toFixed(1)+'ث');
+      swRakaa(false,_swF('سجدتان بفاصل {s}ث',{s:_swN((gap/1000).toFixed(1))}));
       return;
     }
     if(gap<SWS_GAP_MIN){
       /* ارتداد الحسّاس خلال السجدة نفسها: امتداد، لا سجدة جديدة */
       SWS.sujDur.pop();
-      swEvid('فاصل قصير جداً ('+(gap/1000).toFixed(1)+'ث) — امتداد لنفس السجدة');
+      swEvid(_swF('فاصل قصير جداً ({s}ث) — امتداد لنفس السجدة',{s:_swN((gap/1000).toFixed(1))}));
       SWS.pendT=t1;
       _swsArmOrphan();
       return;
     }
-    /* فاصل أطول من ٢٠ث: الأولى يتيمة — تبقى في السجل، وهذه تبدأ زوجاً جديداً */
-    swEvid('⚠ سجدة يتيمة (الفاصل '+(gap/1000).toFixed(0)+'ث > ٢٠ث) — بدء زوج جديد');
+    /* فاصل أطول من ٢٠ث: الأولى مفردة — تُذكر في «لم يُرصد»، وهذه تبدأ زوجاً جديداً */
+    swMiss(_swF('سجدة مفردة — لم تُرصد ثانيتها خلال ٢٠ث (الفاصل {s}ث)',{s:_swN(Math.round(gap/1000))}));
     SWS.pendT=t1;
     _swsArmOrphan();
     return;
@@ -15430,62 +15569,86 @@ function _swsArmOrphan(){
   SWS.orphT=setTimeout(function(){
     SWS.orphT=null;
     if(!SWS.on||!SWS.pendSuj)return;
-    swRaqibAlert('سجدة يتيمة: مرّت ٣٠ث بلا سجدة ثانية');
-  },SWS_ORPHAN_MS);
-}
-function _swsArmIdle(){
-  if(SWS.idleT)clearTimeout(SWS.idleT);
-  SWS.lastAct=Date.now();
-  SWS.idleT=setTimeout(_swsIdleCheck,SWS_IDLE_MS);
-}
-/* الحدّ يُختار عند الانتهاء لا عند التسليح: آخر far يسبق زيادة SW.count */
-function _swsIdleCheck(){
-  SWS.idleT=null;
-  if(!SWS.on)return;
-  var lim=(SW.count>=SW.expected)?SWS_IDLE_MS:SWS_IDLE_PRE_MS;
-  var left=lim-(Date.now()-SWS.lastAct);
-  if(left>0){SWS.idleT=setTimeout(_swsIdleCheck,left);return;}
-  swEvid('سكون '+(lim>=60000&&lim%60000===0?ar(lim/60000)+'د':ar(Math.round(lim/1000))+'ث')+' — إنهاء تلقائي');
-  swEndSession('auto');
+    swEvid('⚠ '+_swT('لم تُرصد سجدة ثانية خلال ٣٠ث'));
+    if(SW.raqib)try{buzz([60,80,60]);}catch(e){}
+  },SWK.ORPHAN_MS);
 }
 function swsStop(){
   SWS.on=false;
-  if(SWS.idleT){clearTimeout(SWS.idleT);SWS.idleT=null;}
   if(SWS.orphT){clearTimeout(SWS.orphT);SWS.orphT=null;}
   var P=window.Capacitor&&window.Capacitor.Plugins,PX=P&&P.ProximitySensor;
   if(PX){try{PX.stop();}catch(e){}try{PX.removeAllListeners&&PX.removeAllListeners();}catch(e){}}
+  if(SWS.pendSuj){SWS.pendSuj=false;swMiss(_swT('سجدة مفردة في الختام — لم تُرصد ثانيتها'));}
   SW.sums={label:'سجدات مرصودة (متوسط المدة)',list:SWS.sujDur.slice()};
 }
 
-/* ═══ الوضع الثاني: محرّك الكاميرا MediaPipe (مستقل تماماً — لا حسّاس ولا صوت) ═══
+/* ═══ الوضع الثاني: محرّك الكاميرا MediaPipe (مستقل تماماً — لا حسّاس ولا صوت) — تجريبي ═══
    تصنيف حتمي من معالم الجذع فقط (رأس/كتفان/وركان، visibility≥0.5، تجاهل
-   القدمين). كل وضعية تتطلّب ثباتاً ≥800ms. ركعة نظيفة = قيام→ركوع→سجدتان
-   مُشاهَدة؛ تسلسل ناقص = ركعة ⚠ بلا تصحيح تخميني. معالجة على الجهاز فقط. */
-var SWC={on:false,ready:false,loading:false,err:'',lm:null,_lib:null,_fileset:null,
+   القدمين). وضعية جديدة = إطاران متتاليان ثم ثبات ≥800ms؛ الإطار الفارغ لا
+   يصفّر مؤقّت الثبات. ركعة نظيفة = ركوع→سجدتان مُشاهَدة؛ ما لم يُرصد يُذكر
+   بالاسم (⚠) بلا تصحيح تخميني. معالجة على الجهاز فقط. */
+var SWC={on:false,ready:false,loading:false,err:'',errStage:'',lm:null,_lib:null,_fileset:null,
   stream:null,video:null,af:null,facing:'user',lastTs:0,
-  pose:'',poseT0:0,stable:'',cyc:[],ref:null,arkan:[],_lastHipY:0,_lastHeadY:0};
+  pose:'',poseT0:0,stable:'',cand:'',candN:0,candT0:0,cyc:[],ref:null,arkan:[],_lastHipY:0,_lastHeadY:0,
+  lastSeen:0,gap:false,visWarn:false,checkT0:0,rotWarn:false,rotPause:false,rotT0:0,relT:null,camTO:null,camOk:false,
+  sid:0,camGen:0,camMuted:false,sitWarned:false,leanN:0,afterGap:false};
 var SWC_VER='0.10.14';
 var SWC_MJS='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+SWC_VER+'/vision_bundle.mjs';
 var SWC_WASM='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+SWC_VER+'/wasm';
 /* N63: الإصدار 1 المثبّت (لا /latest/) — بصمته DL_SHA.swcModel */
 var SWC_MODEL_URL='https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
-var SWC_MODEL_FILE='pose_landmarker_lite.task';
-var SWC_DWELL=800,SWC_VIS=0.5;
+var SWC_MODEL_FILE='pose_landmarker_lite.task',SWC_LIB_DIR='swc_lib';
+var SWC_LIB_FILES=['vision_bundle.mjs','vision_wasm_internal.js','vision_wasm_internal.wasm','vision_wasm_nosimd_internal.js','vision_wasm_nosimd_internal.wasm'];
+var SWC_VIS=0.5,SWC_STAND_HIP=0.68,SWC_DL_MB=16;
+/* SW-09: الركوع من ٣٦° (البقاء حتى ٢٨° — تخلّف)؛ على الكرسي: الانحناء من ٢٥° (البقاء حتى ١٨°) */
+var SWC_RUKU_IN=36,SWC_RUKU_OUT=28,SWC_LEAN_IN=25,SWC_LEAN_OUT=18;
 
+function _swcB64(u8){var bin='',CH=32768;for(var o=0;o<u8.length;o+=CH)bin+=String.fromCharCode.apply(null,u8.subarray(o,Math.min(o+CH,u8.length)));return btoa(bin);}
+function _swcUnB64(s){var bin=atob(s),n=bin.length,u8=new Uint8Array(n);for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);return u8;}
+/* SW-08: ملف من كاش Filesystem إن طابقت بصمته، وإلا تنزيل متحقَّق ثم حفظ */
+function _swcFsFile(name,url,sha){
+  var P=window.Capacitor&&window.Capacitor.Plugins,FS=P&&P.Filesystem,path=SWC_LIB_DIR+'/'+name;
+  function net(){
+    return _dlVerified(url,sha).then(function(ab){
+      if(FS)try{FS.writeFile({path:path,directory:'DATA',data:_swcB64(new Uint8Array(ab)),recursive:true}).catch(function(){});}catch(e){}
+      return ab;
+    });
+  }
+  if(!FS)return net();
+  return FS.readFile({path:path,directory:'DATA'}).then(function(r){
+    var u8=_swcUnB64(r.data);
+    return _sha256Hex(u8).then(function(h){if(h!==sha)throw new Error('sha');return u8.buffer;});
+  }).catch(function(){return net();});
+}
+/* حجم ما على القرص (الموديل + ملفات المكتبة) — لشاشة «التخزين» */
+function _swcDiskUsage(FS){
+  var ps=[FS.stat({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(s){return s.size||0;}).catch(function(){return 0;})];
+  SWC_LIB_FILES.forEach(function(f){ps.push(FS.stat({path:SWC_LIB_DIR+'/'+f,directory:'DATA'}).then(function(s){return s.size||0;}).catch(function(){return 0;}));});
+  return Promise.all(ps).then(function(a){var t=0;for(var i=0;i<a.length;i++)t+=a[i];return t>0?t:-1;});
+}
+/* حذف الموديل والمكتبة معاً (من «التخزين») */
+function _swcDeleteFiles(FS){
+  try{if(SWC.lm){try{SWC.lm.close();}catch(e){}}}catch(e){}
+  SWC.lm=null;SWC.ready=false;SWC.loading=false;
+  if(SWC.relT){clearTimeout(SWC.relT);SWC.relT=null;}
+  lsSet('swc_lib_ok','');lsSet('swc_model_len','');
+  var ps=[FS.deleteFile({path:SWC_MODEL_FILE,directory:'DATA'}).catch(function(){})];
+  SWC_LIB_FILES.forEach(function(f){ps.push(FS.deleteFile({path:SWC_LIB_DIR+'/'+f,directory:'DATA'}).catch(function(){}));});
+  return Promise.all(ps).then(function(){return FS.rmdir?FS.rmdir({path:SWC_LIB_DIR,directory:'DATA',recursive:true}).catch(function(){}):null;});
+}
+function _swcNeedDl(){return !(lsGet('swc_lib_ok')==='1'&&lsGet('swc_model_len'));}
 /* بايتات الموديل (~6MB): من كاش Filesystem إن وُجد، وإلا تنزيل + حفظ */
 function _swcModelBuffer(){
   var P=window.Capacitor&&window.Capacitor.Plugins,FS=P&&P.Filesystem;
   return new Promise(function(res,rej){
     function fromNet(){
-      swInd('تنزيل موديل الوضعيات (~6MB)…',false);
+      swInd(_swF('تنزيل محرّك الكاميرا (نحو {t} ميغابايت أول مرة)…',{t:_swN(SWC_DL_MB)}),false);
       _dlVerified(SWC_MODEL_URL,DL_SHA.swcModel)
       .then(function(ab){
         var u8=new Uint8Array(ab);
         if(FS)try{
-          var bin='',CH=32768;
-          for(var o=0;o<u8.length;o+=CH)bin+=String.fromCharCode.apply(null,u8.subarray(o,Math.min(o+CH,u8.length)));
           /* الطول يُختم بعد اكتمال الكتابة فقط — كتابة مبتورة لا تُقبل لاحقاً */
-          FS.writeFile({path:SWC_MODEL_FILE,directory:'DATA',data:btoa(bin),recursive:true})
+          FS.writeFile({path:SWC_MODEL_FILE,directory:'DATA',data:_swcB64(u8),recursive:true})
             .then(function(){lsSet('swc_model_len',String(u8.length));}).catch(function(){});
         }catch(e){}
         res(u8);
@@ -15494,17 +15657,18 @@ function _swcModelBuffer(){
     if(!FS){fromNet();return;}
     FS.readFile({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(r){
       try{
-        var bin=atob(r.data),n=bin.length,u8=new Uint8Array(n);
-        for(var i=0;i<n;i++)u8[i]=bin.charCodeAt(i);
+        var u8=_swcUnB64(r.data);
         /* طول لا يطابق المختوم = كتابة سابقة مبتورة → نزّل من جديد (الكتابة تستبدل الملف) */
         var L=lsGet('swc_model_len');if(L&&+L!==u8.length)throw 'len';
-        /* N63: النسخة المحفوظة تُقبل فقط إن طابقت بصمتها (ملف قديم من /latest/ تغيّر ← يُنزَّل المثبّت) */
+        /* N63: النسخة المحفوظة تُقبل فقط إن طابقت بصمتها */
         if(u8.length>1000000){_sha256Hex(u8).then(function(h){if(h===DL_SHA.swcModel)res(u8);else fromNet();},function(){fromNet();});return;}
         throw 'small';
       }catch(e){fromNet();}
     }).catch(fromNet);
   });
 }
+/* SW-20: import() عبر Function — الملف يبقى ES5 لأدوات الفحص، والاستيراد الديناميكي يعمل في WebView */
+function _swcImport(u){return (new Function('u','return import(u)'))(u);}
 /* تهيئة MediaPipe مرة واحدة: مكتبة ESM → WASM → موديل → PoseLandmarker */
 function _swcEnsure(cb){
   if(SWC.ready){cb&&cb(true);return;}
@@ -15516,17 +15680,19 @@ function _swcEnsure(cb){
     var q=SWC._cbs||[];SWC._cbs=[];
     q.forEach(function(f){try{f(ok);}catch(e){}});
   }
-  /* N63: المكتبة وملفّا WASM تُنزَّل وتُطابَق بصماتها أولاً، ثم تُشغَّل من نسخة محلية (blob:) — لا تنفيذ مباشر من الشبكة */
+  /* N63/SW-08: المكتبة وملفّا WASM تُنزَّل وتُطابَق بصماتها أولاً (أو تُقرأ من الكاش المتحقَّق منه)، ثم تُشغَّل من نسخة محلية (blob:) */
   function _blobUrl(ab,type){return URL.createObjectURL(new Blob([ab],{type:type}));}
-  _dlVerified(SWC_MJS,DL_SHA.swcMjs).then(function(ab){
-    return import(_blobUrl(ab,'text/javascript'));
+  if(_swcNeedDl())swInd(_swF('تنزيل محرّك الكاميرا (نحو {t} ميغابايت أول مرة)…',{t:_swN(SWC_DL_MB)}),false);
+  var libOk=0;
+  _swcFsFile('vision_bundle.mjs',SWC_MJS,DL_SHA.swcMjs).then(function(ab){
+    return _swcImport(_blobUrl(ab,'text/javascript'));
   }).then(function(mod){
-    SWC._lib=mod;swInd('تحميل محرّك الوضعيات…',false);
+    SWC._lib=mod;swInd(_swT('تحميل محرّك الوضعيات…'),false);
     return Promise.resolve(mod.FilesetResolver.isSimdSupported?mod.FilesetResolver.isSimdSupported():true);
   }).then(function(simd){
     var b='vision_'+(simd?'wasm_internal':'wasm_nosimd_internal');
-    return Promise.all([_dlVerified(SWC_WASM+'/'+b+'.js',DL_SHA[b+'.js']),_dlVerified(SWC_WASM+'/'+b+'.wasm',DL_SHA[b+'.wasm'])])
-      .then(function(a){return {wasmLoaderPath:_blobUrl(a[0],'text/javascript'),wasmBinaryPath:_blobUrl(a[1],'application/wasm')};});
+    return Promise.all([_swcFsFile(b+'.js',SWC_WASM+'/'+b+'.js',DL_SHA[b+'.js']),_swcFsFile(b+'.wasm',SWC_WASM+'/'+b+'.wasm',DL_SHA[b+'.wasm'])])
+      .then(function(a){libOk=1;return {wasmLoaderPath:_blobUrl(a[0],'text/javascript'),wasmBinaryPath:_blobUrl(a[1],'application/wasm')};});
   }).then(function(fs){
     SWC._fileset=fs;SWC.errStage='model';return _swcModelBuffer();
   }).then(function(buf){
@@ -15541,6 +15707,7 @@ function _swcEnsure(cb){
     return create('GPU').catch(function(){return create('CPU');}).then(function(lm){
       /* تحميل ناجح من كاش قديم بلا طول مختوم: اختمه الآن */
       if(!lsGet('swc_model_len')&&buf&&buf.length)lsSet('swc_model_len',String(buf.length));
+      if(libOk)lsSet('swc_lib_ok','1');
       return lm;
     });
   }).then(function(lm){
@@ -15548,7 +15715,7 @@ function _swcEnsure(cb){
     done(true);
   }).catch(function(e){
     SWC.loading=false;SWC.err=String(e&&e.message||e).slice(0,120);
-    if(e&&e.integrity)SWC.err='فشل التحقّق من سلامة ملف المحرّك (sha256): '+SWC.err;
+    if(e&&e.integrity)SWC.err='sha256: '+SWC.err;
     console.error('[swc] فشل التهيئة:',e);
     /* فشل بعد قراءة الموديل = ملف تالف غالباً → احذفه ليُنزَّل من جديد */
     if(SWC.errStage==='create'){
@@ -15558,68 +15725,122 @@ function _swcEnsure(cb){
     done(false);
   });
 }
+/* SW-08: على بيانات الجوال قبل أول تنزيل — سؤال بالحجم (يُعاد استعمال سطر الاتصال من التسميع) */
+function _swcConsentAsk(sid){
+  var sz=_swF('نحو {t} ميغابايت أول مرة',{t:_swN(SWC_DL_MB)});
+  var net=(typeof _tsNetLine==='function')?_tsNetLine(sz):'';
+  _tsAsk(_swF('تنزيل محرّك الكاميرا ({s})',{s:sz}),
+    '<div class="qa-consent"><p>'+_swT('يُنزَّل مرة واحدة ويعمل بعدها على جهازك دون إنترنت؛ الصورة لا تغادر جهازك.')+'</p>'+net
+    +'<p>'+_swT('وضع الكاميرا تجريبي — قد يفوته رصد بعض الحركات؛ الملخّص يذكر ما لم يُرصد.')+'</p></div>',
+    _swT('نزّل الآن'),_swT('لاحقاً'),
+    function(){lsSet('swcConsent','1');if(SW.active&&sid===SWC.sid&&SWC.on)_swcGo(sid);},
+    function(){
+      if(!SW.active||sid!==SWC.sid||!SWC.on)return;
+      SW.failMsg=_swT('لم يُنزَّل محرّك الكاميرا — ابدأ لاحقاً على Wi-Fi أو استخدم وضع الحسّاس');
+      swEndSession('fail');
+    });
+  if(typeof _tsNetLineRefresh==='function')try{_tsNetLineRefresh(sz);}catch(e){}
+}
 function swcStart(){
-  SWC.on=true;SWC.pose='';SWC.poseT0=0;SWC.stable='';SWC.cyc=[];SWC.ref=null;SWC.arkan=[];SWC.lastTs=0;SWC.camMuted=false;
+  SWC.on=true;SWC.pose='';SWC.poseT0=0;SWC.stable='';SWC.cand='';SWC.candN=0;SWC.candT0=0;SWC.cyc=[];SWC.ref=null;SWC.arkan=[];SWC.lastTs=0;SWC.camMuted=false;
+  SWC.lastSeen=0;SWC.gap=false;SWC.visWarn=false;SWC.checkT0=0;SWC.afterGap=false;SWC.rotPause=false;SWC.rotT0=0;SWC.camOk=false;SWC.sitWarned=false;SWC.leanN=0;
+  if(SWC.relT){clearTimeout(SWC.relT);SWC.relT=null;} /* SW-19: جلسة جديدة تُبقي المحرّك */
+  if(SWC.camTO){clearTimeout(SWC.camTO);SWC.camTO=null;}
   var sid=SWC.sid=(SWC.sid||0)+1; /* ردود _swcEnsure المتأخرة لجلسة سابقة تُهمل */
-  SWC.video=document.getElementById('swVideo');
-  swInd('تهيئة محرّك الوضعيات…',false);
+  SWC.video=_swEl('swVideo');
+  _swCheckMsg(_swT('تحقّق من الكادر — قف بحيث يظهر جسمك كاملاً (رأس وكتفان ووركان)'));
+  if(!SWC.ready&&_swcNeedDl()&&typeof _qaCellular==='function'&&_qaCellular()&&lsGet('swcConsent')!=='1'&&typeof _tsAsk==='function'){
+    swInd(_swT('قبل التنزيل: تأكيد على بيانات الجوال'),false);
+    _swcConsentAsk(sid);return;
+  }
+  _swcGo(sid);
+}
+function _swcGo(sid){
+  swInd(_swT('تهيئة محرّك الوضعيات…'),false);
   _swcEnsure(function(ok){
     if(!SWC.on||sid!==SWC.sid)return;
     if(!ok){
       /* السبب الخام للسجل فقط؛ للمستخدم رسالة عربية ثم إنهاء نظيف بلا إحصاءات */
-      var msg=SWC.errStage==='lib'?'وضع الكاميرا يحتاج اتصالاً بالإنترنت لتحميل المحرّك — جرّب وضع الحسّاس أو اتصل ثم أعد المحاولة'
+      var msg=SWC.errStage==='lib'?'وضع الكاميرا يحتاج اتصالاً بالإنترنت لتحميل المحرّك أول مرة — جرّب وضع الحسّاس أو اتصل ثم أعد المحاولة'
         :SWC.errStage==='model'?'تعذّر تنزيل نموذج الوضعيات — تحقّق من الاتصال ثم أعد المحاولة'
-        :'تعذّر تهيئة محرّك الوضعيات — أعد المحاولة';
-      swInd('✗ '+msg,false);
-      swEvid('✗ فشل MediaPipe ('+(SWC.errStage||'?')+'): '+SWC.err);
+        :'تعذّر تهيئة محرّك الوضعيات على هذا الجهاز — أعد المحاولة أو استخدم وضع الحسّاس';
+      swInd('✗ '+_swT(msg),false);
+      swEvid('✗ MediaPipe ('+(SWC.errStage||'?')+'): '+SWC.err);
       setTimeout(function(){
         if(!SW.active||SW.mode!=='camera'||!SWC.on||sid!==SWC.sid)return;
-        SW.failMsg=_tsT(msg);
+        SW.failMsg=_swT(msg);
         swEndSession('fail');
       },2500);
       return;
     }
-    swEvid('محرّك الوضعيات جاهز');
+    swEvid(_swT('محرّك الوضعيات جاهز'));
     if(!SWC.stream)_swcOpenCam();
   });
 }
+/* SW-03: تعذّر الكاميرا — رسالة عربية واضحة حسب السبب، وإنهاء بلا حفظ */
+function _swcCamFail(kind,raw){
+  var m,html='';
+  if(kind==='denied'){
+    m=_swT('لم يُسمح بالكاميرا — افتح إعدادات التطبيق ← الأذونات ← الكاميرا وفعّلها، ثم أعد المحاولة.');
+    html='<p>'+_esc(m)+'</p><p>'+(typeof _permBtn==='function'?_permBtn('app'):'')+'</p>';
+  }else if(kind==='notfound')m=_swT('لم تُوجد كاميرا صالحة في هذا الجهاز — استخدم وضع الحسّاس.');
+  else if(kind==='busy')m=_swT('الكاميرا مشغولة بتطبيق آخر أو تعذّر تشغيلها — أغلق التطبيق الآخر ثم أعد المحاولة.');
+  else if(kind==='nogum')m=_swT('هذه البيئة لا تتيح الكاميرا للتطبيق — استخدم وضع الحسّاس.');
+  else m=_swT('فُتحت الكاميرا لكن لم تصل صورة خلال ١٥ ثانية — أعد المحاولة أو جرّب تبديل الكاميرا.');
+  SW.failMsg=m;SW.failHtml=html;
+  swEvid('✗ '+_swT('تعذّر تشغيل الكاميرا')+' ('+kind+(raw?': '+String(raw).slice(0,40):'')+')');
+  swEndSession('fail');
+}
 function _swcOpenCam(){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    swInd('الكاميرا غير متاحة في هذه البيئة',false);swEvid('✗ لا getUserMedia');return;
-  }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){_swcCamFail('nogum');return;}
   var g=SWC.camGen=(SWC.camGen||0)+1; /* أحدث طلب فقط يفوز (تبديل مزدوج/إيقاف أثناء الطلب) */
-  navigator.mediaDevices.getUserMedia({video:{facingMode:SWC.facing,width:{ideal:640},height:{ideal:480}},audio:false})
-  .then(function(st){
+  var cons={video:{facingMode:SWC.facing,width:{ideal:640},height:{ideal:480}},audio:false};
+  function onErr(e){
+    if(g!==SWC.camGen||!SWC.on)return;
+    var n=String(e&&e.name||e);
+    if(/NotAllowed|PermissionDenied|Security/.test(n))_swcCamFail('denied',n);
+    else if(/NotFound|DevicesNotFound|Overconstrained/.test(n))_swcCamFail('notfound',n);
+    else if(/NotReadable|TrackStart|Abort/.test(n))_swcCamFail('busy',n);
+    else _swcCamFail('busy',n);
+  }
+  function onOk(st){
     if(!SWC.on||g!==SWC.camGen){st.getTracks().forEach(function(t){t.stop();});return;}
     if(SWC.stream&&SWC.stream!==st)SWC.stream.getTracks().forEach(function(t){t.stop();});
     if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
-    SWC.stream=st;SWC.camMuted=false;
+    SWC.stream=st;SWC.camMuted=false;SWC.camOk=false;
     /* انقطاع المسار (تطبيق آخر أخذ الكاميرا/أُوقف الإذن): أنهِ بملخّص صادق */
     var vt=st.getVideoTracks&&st.getVideoTracks()[0];
     if(vt){
       vt.onended=function(){
         if(!SWC.on||SWC.stream!==st||!SW.active)return;
-        swEvid('✗ انقطعت الكاميرا (استُخدمت من تطبيق آخر أو أُوقف إذنها)');
-        swEndSession('camlost');
+        swEvid('✗ '+_swT('انقطعت الكاميرا (استُخدمت من تطبيق آخر أو أُوقف إذنها)'));
+        if(SW.stage==='check')_swcCamFail('busy','ended');else swEndSession('camlost');
       };
-      vt.onmute=function(){if(SWC.stream!==st)return;SWC.camMuted=true;swInd('الكاميرا موقوفة مؤقتاً — تحقّق من إذن الكاميرا',false);};
+      vt.onmute=function(){if(SWC.stream!==st)return;SWC.camMuted=true;swInd(_swT('الكاميرا موقوفة مؤقتاً — تحقّق من إذن الكاميرا'),false);};
       vt.onunmute=function(){if(SWC.stream===st)SWC.camMuted=false;};
     }
     if(SWC.video){SWC.video.srcObject=st;var pr=SWC.video.play();if(pr&&pr.catch)pr.catch(function(){});}
-    swInd('الكاميرا تعمل — قف في الكادر',false);
-    swEvid('الكاميرا فُتحت ('+(SWC.facing==='user'?'أمامية':'خلفية')+' · 640×480)');
+    swInd(_swT('الكاميرا تعمل — قف في الكادر'),false);
+    swEvid(_swT('الكاميرا فُتحت')+' ('+_swT(SWC.facing==='user'?'أمامية':'خلفية')+' · 640×480)');
+    /* SW-03: صورة لم تصل خلال ١٥ث */
+    if(SWC.camTO)clearTimeout(SWC.camTO);
+    SWC.camTO=setTimeout(function(){SWC.camTO=null;if(SWC.on&&SW.active&&!SWC.camOk&&SWC.stream===st)_swcCamFail('timeout');},SWK.CAM_TO);
     _swcLoop();
-  }).catch(function(e){
-    if(g!==SWC.camGen)return;
-    swInd('تعذّر فتح الكاميرا: '+String(e&&e.name||e),false);
-    swEvid('✗ رفض/فشل الكاميرا: '+String(e&&e.name||e));
-  });
+  }
+  try{
+    navigator.mediaDevices.getUserMedia(cons).then(onOk).catch(function(e){
+      if(String(e&&e.name)==='OverconstrainedError'&&g===SWC.camGen&&SWC.on){ /* لا كاميرا بهذا الاتجاه: أي كاميرا */
+        navigator.mediaDevices.getUserMedia({video:true,audio:false}).then(onOk).catch(onErr);return;}
+      onErr(e);
+    });
+  }catch(e){onErr(e);}
 }
+/* SW-01: تبديل الكاميرا يُبقي مرجع القيام (الارتفاع النسبي للورك لا يتغيّر بتبديل العدسة) */
 function swcFlip(){
   if(!SWC.on||!SWC.ready)return; /* قبل جاهزية المحرّك لا كاميرا تُبدَّل */
   SWC.facing=(SWC.facing==='user')?'environment':'user';
-  SWC.ref=null;SWC.pose='';SWC.poseT0=0; /* كادر جديد → مرجع قيام جديد */
-  swEvid('تبديل الكاميرا — إعادة مرجع القيام');
+  SWC.pose='';SWC.cand='';SWC.candN=0;SWC.poseT0=0;
+  swEvid(_swT('تبديل الكاميرا — المرجع محفوظ'));
   if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
   if(SWC.stream){SWC.stream.getTracks().forEach(function(t){t.stop();});SWC.stream=null;}
   _swcOpenCam();
@@ -15629,6 +15850,7 @@ function _swcLoop(){
   SWC.af=requestAnimationFrame(_swcLoop);
   var v=SWC.video;
   if(!v||v.readyState<2||!SWC.ready||!SWC.lm)return;
+  if(!SWC.camOk){SWC.camOk=true;if(SWC.camTO){clearTimeout(SWC.camTO);SWC.camTO=null;}}
   var ts=performance.now();
   if(ts-SWC.lastTs<66)return; /* ~15 إطاراً/ث تكفي وتوفّر البطارية */
   SWC.lastTs=ts;
@@ -15636,118 +15858,249 @@ function _swcLoop(){
   try{res=SWC.lm.detectForVideo(v,ts);}catch(e){SWC.err='detect: '+String(e&&e.message||e).slice(0,60);return;}
   _swcTick(res);
 }
-/* تصنيف حتمي من الجذع فقط. ''=غير مرئي/غير محسوم — لا تخمين */
-function _swcClassify(lms){
+/* تصنيف حتمي من الجذع فقط. p=''=غير مرئي/غير محسوم — لا تخمين.
+   ref: مرجع القيام {hipY,headY} أو null · cur: الوضعية الحالية (للتخلّف) · chair: وضع الكرسي */
+function _swcClassify(lms,ref,cur,chair){
   var nose=lms[0],Ls=lms[11],Rs=lms[12],Lh=lms[23],Rh=lms[24];
   function vis(p){return p&&(p.visibility==null||p.visibility>=SWC_VIS);}
-  if(!vis(nose)||!vis(Ls)||!vis(Rs)||!vis(Lh)||!vis(Rh))return '';
+  var o={p:'',vis:false,hipY:0,headY:0,ang:0};
+  if(!vis(nose)||!vis(Ls)||!vis(Rs)||!vis(Lh)||!vis(Rh))return o;
   var shX=(Ls.x+Rs.x)/2,shY=(Ls.y+Rs.y)/2,hpX=(Lh.x+Rh.x)/2,hpY=(Lh.y+Rh.y)/2,hdY=nose.y;
-  SWC._lastHipY=hpY;SWC._lastHeadY=hdY;
   var dx=Math.abs(shX-hpX),dy=Math.abs(hpY-shY);
   var torso=Math.sqrt(dx*dx+dy*dy)||0.0001;
   var ang=Math.atan2(dx,dy)*180/Math.PI; /* 0=جذع عمودي، 90=أفقي */
+  o.vis=true;o.hipY=hpY;o.headY=hdY;o.ang=ang;
+  if(chair){ /* SW-09: اعتدال/انحناء فقط */
+    o.p=(ang>=(cur==='lean'?SWC_LEAN_OUT:SWC_LEAN_IN))?'lean':'upright';
+    return o;
+  }
   /* سجود: الورك أعلى نقطة في الجسم + انهيار الارتفاع الكلي */
   if(hpY<shY-0.04&&hpY<hdY-0.04){
     var hAll=Math.max(hdY,shY,hpY)-Math.min(hdY,shY,hpY);
-    if(hAll<torso*1.4)return 'sujud';
+    if(hAll<torso*1.4){o.p='sujud';return o;}
   }
-  /* ركوع: جذع أفقي والورك بمستوى الكتف تقريباً والرأس ليس أدنى الجسم */
-  if(ang>=55&&dy<=torso*0.45&&hdY>shY-0.25)return 'ruku';
+  /* SW-09: سجود «مستوٍ» (زاوية كاميرا لا تُظهر الورك أعلى): جسم أفقي والوركان أدنى بوضوح من مرجع القيام */
+  if(ref&&ang>=55&&hpY>ref.hipY+0.15&&hdY>=shY-0.05){o.p='sujud';return o;}
+  /* ركوع: جذع مائل ≥٣٦° (يبقى ركوعاً حتى ٢٨°) والرأس ليس أدنى الجسم والوركان قرب ارتفاع القيام */
+  var rth=(cur==='ruku')?SWC_RUKU_OUT:SWC_RUKU_IN;
+  if(ang>=rth&&hdY>shY-0.25&&(!ref||hpY<ref.hipY+0.12)){o.p='ruku';return o;}
   /* جذع عمودي والترتيب رأس فوق كتف فوق ورك: قيام أو جلوس */
-  if(ang<=32&&hdY<shY&&shY<hpY){
-    /* جلوس: الرأس نزل إلى مستوى ورك القيام المرجعي (جذع عمودي قصير) */
-    if(SWC.ref&&hdY>SWC.ref.hipY-0.06)return 'julus';
-    return 'qiyam';
+  if(ang<rth&&hdY<shY&&shY<hpY){
+    if(ref)o.p=(hdY>ref.hipY-0.06)?'julus':'qiyam'; /* جلوس: الرأس نزل إلى مستوى ورك القيام المرجعي */
+    else o.p=(hpY>SWC_STAND_HIP)?'julus':'qiyam'; /* SW-01: بلا مرجع، الورك في الثلث الأدنى = جلوس */
+    return o;
   }
-  return '';
+  return o;
 }
 function _swcTick(res){
-  var p='';
-  if(res&&res.landmarks&&res.landmarks[0]&&res.landmarks[0].length>=25)p=_swcClassify(res.landmarks[0]);
-  var now=Date.now();
-  if(p!==SWC.pose){SWC.pose=p;SWC.poseT0=now;}
-  if(p&&p!==SWC.stable&&(now-SWC.poseT0)>=SWC_DWELL){
+  var now=Date.now(),lm=null;
+  if(res&&res.landmarks&&res.landmarks[0]&&res.landmarks[0].length>=25)lm=res.landmarks[0];
+  if(SWC.rotWarn){_swcRotTick(now);return;} /* SW-06: الكادر مُدار — لا تصنيف */
+  if(SWC.rotPause){
+    SWC.rotPause=false;SWC.rotT0=0;
+    _swcPoseInd(SWC.stable,false);swInd('▶ '+_swT('استؤنف العدّ'),false);swEvid('▶ '+_swT('استؤنف العدّ'));
+  }
+  var o=lm?_swcClassify(lm,SWC.ref,SWC.pose||SWC.stable,SW.chair):{p:'',vis:false};
+  var p=o.p;
+  if(!p){_swcNoPose(now,o);return;} /* SW-02: إطار فارغ/غير محسوم لا يصفّر مؤقّت الثبات */
+  SWC.lastSeen=now;SWC._lastHipY=o.hipY;SWC._lastHeadY=o.headY;
+  if(SWC.gap){SWC.gap=false;swEvid(_swT('عادت الرؤية'));}
+  if(SWC.visWarn){SWC.visWarn=false;if(SW.stage==='count'&&SWC.stable)swInd(_swT('الوضعية')+': '+_swT(_swcAr(SWC.stable)),SWC.stable==='sujud');}
+  if(p!==SWC.pose){ /* SW-02: وضعية جديدة = إطاران متتاليان */
+    if(p!==SWC.cand){SWC.cand=p;SWC.candN=1;SWC.candT0=now;}else SWC.candN++;
+    if(SWC.candN<SWK.CONF_N)return;
+    SWC.pose=p;SWC.poseT0=SWC.candT0;
+  }else{SWC.cand=p;SWC.candN=SWK.CONF_N;}
+  if(SW.stage==='check'){_swcCheckTick(p,o,now);return;}
+  if(p!==SWC.stable&&(now-SWC.poseT0)>=SWK.DWELL){
     if(SWC.stable&&SWC.arkan.length){
       var last=SWC.arkan[SWC.arkan.length-1];
       if(!last.dur)last.dur=now-last.t0;
     }
     SWC.stable=p;
-    _swcOnStable(p,now);
+    _swcOnStable(p,now,o);
   }
-  /* رسالة الكاميرا الموقوفة/الكادر المُدار أولى من تلميح «الجذع غير مرئي» */
-  if(!p&&!SWC.camMuted&&!SWC.rotWarn)swInd(SWC.stable?('آخر وضعية: '+_swcAr(SWC.stable)+' — الجذع غير مكتمل الرؤية'):'الجذع غير مرئي — عدّل وضع الهاتف',false);
 }
-function _swcAr(k){return k==='qiyam'?'قيام':k==='ruku'?'ركوع':k==='sujud'?'سجود':k==='julus'?'جلوس':k;}
-function _swcOnStable(p,now){
+/* SW-02: لا وضعية في هذا الإطار — تحذير الرؤية بعد ٢ث، وانقطاع بعد ٣ث */
+function _swcNoPose(now,o){
+  if(!SWC.lastSeen)SWC.lastSeen=now;
+  var d=now-SWC.lastSeen;
+  if(SW.stage==='check'){ /* إطار فارغ عابر لا يعيد عدّ الثانيتين؛ غياب ≥٢ث يعيده مع رسالة */
+    if(d>=SWK.VIS_WARN){SWC.checkT0=0;_swCheckMsg(_swT('الجذع غير مرئي — أبعد الهاتف قليلاً أو عدّل زاويته حتى يظهر الرأس والكتفان والوركان'));}
+    return;
+  }
+  if(d>=SWK.VIS_WARN&&!SWC.visWarn&&!SWC.camMuted){
+    SWC.visWarn=true;
+    swInd(SWC.stable?_swF('آخر وضعية: {x} — الجذع غير مكتمل الرؤية',{x:_swT(_swcAr(SWC.stable))}):_swT('الجذع غير مرئي — عدّل وضع الهاتف'),false);
+  }
+  if(d>=SWK.GAP_MS&&!SWC.gap){SWC.gap=true;_swcGap(_swT('انقطاع الرؤية'));}
+}
+/* SW-05: انقطاع (رؤية أو تدوير) أثناء ركعة → تُغلق الآن بـ⚠ ولا تُدمج بما بعدها؛ بعد السجدتين لا يُعلَّم */
+function _swcGap(reason){
+  swEvid('⏸ '+reason);
+  _swcPoseInd('',false);
+  if(SW.chair){
+    if(SWC.leanN>=2){var nn=SW.count+1;swRakaa(true,_swF('{n} انحناءات ثم انقطاع',{n:_swN(SWC.leanN)}));swMiss(_swF('الركعة {n} — {w}',{n:_swN(nn),w:reason}));}
+    SWC.leanN=0;
+  }else if(SWC.cyc.length){
+    var suj=0,c=SWC.cyc;c.forEach(function(k){if(k==='sujud')suj++;});
+    if(suj>=2)_swcCloseCycle('');
+    else if(suj||c.indexOf('ruku')>=0)_swcCloseCycle(reason);
+    else SWC.cyc=[];
+  }
+  SWC.stable='';SWC.pose='';SWC.cand='';SWC.candN=0;SWC.afterGap=true;
+}
+/* SW-06: إطار مُدار — إيقاف مؤقّت ظاهر، وبعد ٣ث يُعامل كانقطاع داخل الركعة */
+function _swcRotTick(now){
+  if(!SWC.rotPause){
+    SWC.rotPause=true;SWC.rotT0=now;
+    var so=window.screen&&screen.orientation,ot=so&&so.type,por=ot?ot.indexOf('portrait')===0:(window.innerHeight>=window.innerWidth);
+    _swcPoseInd('⏸ '+_swT('العدّ متوقّف — الكادر مُدار'),true);
+    swInd(_swT('ثبّت الهاتف')+' '+_swT(por?'طولياً':'أفقياً')+' '+_swT('أو فعّل التدوير التلقائي'),false);
+    if(SW.stage==='check')_swCheckMsg(_swT('الكادر مُدار — ثبّت الهاتف باتجاه الشاشة ثم أعد التحقّق'));
+    SWC.checkT0=0;
+  }
+  if(SW.stage==='count'&&now-SWC.rotT0>=SWK.GAP_MS&&!SWC.gap){SWC.gap=true;_swcGap(_swT('تدوير الكادر'));}
+}
+/* SW-07: مرحلة التحقّق — يبدأ العدّ تلقائياً بعد ٢ث وقوف بجسم كامل (أو اعتدال على الكرسي) */
+function _swcCheckTick(p,o,now){
+  var ok=SW.chair?(p==='upright'):(p==='qiyam'&&o.hipY<=SWC_STAND_HIP);
+  if(!ok){
+    SWC.checkT0=0;
+    if(!SW.chair&&(p==='julus'||(p==='qiyam'&&o.hipY>SWC_STAND_HIP))){SW.satCheck=true;_swCheckMsg(_swT('أنت جالس — قِف أمام الكاميرا أولاً ليُثبَّت مرجع القيام (أو فعّل «الصلاة على كرسي»)'));}
+    else if(SW.chair)_swCheckMsg(_swT('اعتدل جالساً في مواجهة الكاميرا ليبدأ العدّ'));
+    else _swCheckMsg(_swT('تحقّق من الكادر — قف بحيث يظهر جسمك كاملاً (رأس وكتفان ووركان)'));
+    return;
+  }
+  if(!SWC.checkT0){SWC.checkT0=now;_swCheckMsg(_swT('✓ الجسم مرئي — اثبت لحظة…'));return;}
+  if(now-SWC.checkT0<SWK.CHECK_MS)return;
+  if(!SW.chair){SWC.ref={hipY:o.hipY,headY:o.headY};swEvid(_swT('مرجع القيام مثبّت'));}
+  SWC.stable=p;SWC.arkan.push({k:p,t0:now,dur:0});SWC.cyc=[p];SWC.checkT0=0;
+  swBeginCount();
+  _swcPoseInd(p,false);
+}
+function _swcAr(k){return k==='qiyam'?'قيام':k==='ruku'?'ركوع':k==='sujud'?'سجود':k==='julus'?'جلوس':k==='upright'?'اعتدال':k==='lean'?'انحناء':k;}
+/* SW-07: مؤشّر الوضعية الكبير (٣٢px، تباين عالٍ، aria-live) */
+function _swcPoseInd(k,big){
+  var el=_swEl('swPose');if(!el)return;
+  el.className='sw-pose'+(big?' pause':'');
+  el.textContent=big?k:(k?_swT(_swcAr(k)):'');
+}
+function _swcOnStable(p,now,o){
+  _swIdleArm();
+  if(SW.chair){ /* SW-09: ٣ انحناءات ثم اعتدال = ركعة */
+    SWC.arkan.push({k:p,t0:now,dur:0});
+    swEvid(_swT(_swcAr(p))+' '+_swT('مؤكّد'));
+    _swcPoseInd(p,false);swInd(_swT('الوضعية')+': '+_swT(_swcAr(p)),p==='lean');
+    if(p==='lean')SWC.leanN++;
+    else if(SWC.leanN>=3){swRakaa(false,_swF('{n} انحناءات مُشاهَدة',{n:_swN(SWC.leanN)}));SWC.leanN=0;}
+    return;
+  }
   if(p==='qiyam'&&!SWC.ref){
-    /* أول قيام مؤكّد = مرجع الجلسة (ارتفاع الورك وقوفاً لتمييز الجلوس) */
-    SWC.ref={hipY:SWC._lastHipY,headY:SWC._lastHeadY};
-    swEvid('مرجع القيام مثبّت');
+    /* SW-01: المرجع من قيام حقيقي فقط (الورك في الثلثين العلويين من الكادر) */
+    if(o.hipY<=SWC_STAND_HIP){SWC.ref={hipY:o.hipY,headY:o.headY};swEvid(_swT('مرجع القيام مثبّت'));}
+  }
+  if(p==='julus'&&!SWC.ref){
+    /* SW-01: جلوس بلا مرجع — لا يُعدّ شيء */
+    if(!SWC.sitWarned){SWC.sitWarned=true;swEvid(_swT('جلوس قبل تثبيت مرجع القيام — لا يُحتسب'));}
+    swInd(_swT('قِف أمام الكاميرا أولاً'),false);_swcPoseInd(p,false);
+    return;
   }
   SWC.arkan.push({k:p,t0:now,dur:0});
-  swEvid(_swcAr(p)+' مؤكّد (ثبات ٠٫٨ث)');
-  swInd('الوضعية: '+_swcAr(p),p==='sujud');
+  swEvid(_swT(_swcAr(p))+' '+_swT('مؤكّد'));
+  _swcPoseInd(p,false);
+  swInd(_swT('الوضعية')+': '+_swT(_swcAr(p)),p==='sujud');
   /* الاعتدال من الركوع يُصنَّف «قياماً» أيضاً — الدورة تُغلق فقط بقيامٍ بعد السجود */
-  if(p==='qiyam'&&SWC.cyc.indexOf('sujud')>=0)_swcCloseCycle();
+  if(p==='qiyam'&&SWC.cyc.indexOf('sujud')>=0)_swcCloseCycle('');
   SWC.cyc.push(p);
 }
-/* إغلاق دورة (عند قيام جديد أو نهاية الجلسة): تقييم حتمي لما شوهد فقط */
-function _swcCloseCycle(){
+/* إغلاق دورة (عند قيام جديد أو انقطاع أو نهاية الجلسة): تقييم حتمي لما شوهد فقط.
+   gapReason: سبب انقطاع يُذكر في «لم يُرصد» (أو '' = لا انقطاع) */
+function _swcCloseCycle(gapReason){
   var c=SWC.cyc;SWC.cyc=[];
-  var suj=0,ruk=0,qi=0;
-  c.forEach(function(k){if(k==='sujud')suj++;else if(k==='ruku')ruk++;else if(k==='qiyam')qi++;});
+  var suj=0,ruk=0;
+  c.forEach(function(k){if(k==='sujud')suj++;else if(k==='ruku')ruk++;});
   if(!suj&&!ruk)return; /* لا أركان مرصودة — لا شيء يُعدّ */
-  if(qi>=1&&ruk>=1&&suj>=2){
-    swRakaa(false,'قيام→ركوع→سجدتان مُشاهَدة');
-  }else{
-    swRakaa(true,'المُشاهَد: '+c.map(_swcAr).join('→'));
-    swRaqibAlert('تسلسل ناقص');
+  if(!ruk&&suj<2){ /* شظية: سجدة واحدة بلا ركوع — لا تُعدّ ركعة */
+    SWC.afterGap=false;
+    swMiss(_swT('سجدة مفردة بلا ركوع — لم تُعدّ ركعة')+(gapReason?' ('+gapReason+')':''));
+    return;
   }
+  if(!ruk&&SWC.afterGap&&suj<=2){ /* SW-05: بقية ركعة أُغلقت بـ⚠ عند الانقطاع — لا تُدمج ولا تُعدّ ركعة جديدة */
+    SWC.afterGap=false;
+    swMiss(_swF('بعد الانقطاع: {n} بلا ركوع مرصود — لم تُعدّ ركعة جديدة',{n:_swT(suj===1?'سجدة':'سجدتان')}));
+    return;
+  }
+  SWC.afterGap=false;
+  var why=[];
+  if(gapReason)why.push(gapReason);
+  if(!ruk)why.push(_swT('الركوع'));
+  if(suj===0)why.push(_swT('السجود'));else if(suj===1)why.push(_swT('السجدة الثانية'));
+  if(suj>=3)why.push(_swF('رُصدت {n} سجدات (أكثر من اثنتين)',{n:_swN(suj)}));
+  if(!why.length){swRakaa(false,_swT('ركوع→سجدتان مُشاهَدة'));return;}
+  var n=SW.count+1;
+  swRakaa(true,_swT('المُشاهَد')+': '+c.map(function(k){return _swT(_swcAr(k));}).join('→'));
+  why.forEach(function(w){swMiss(_swF('الركعة {n} — {w}',{n:_swN(n),w:w}));});
+}
+/* ركعة مكتملة الرصد لم تُغلق بعد (تنتظر القيام التالي): للسكون ولسؤال الإنهاء */
+function _swcPendingRakaa(){
+  if(SW.chair)return SWC.leanN>=3?1:0;
+  var suj=0;SWC.cyc.forEach(function(k){if(k==='sujud')suj++;});
+  return suj>=2?1:0;
 }
 function swcStop(){
   SWC.on=false;
   SWC.camGen=(SWC.camGen||0)+1; /* getUserMedia معلّق يُغلق فور وصوله */
   SWC.camMuted=false;
+  if(SWC.camTO){clearTimeout(SWC.camTO);SWC.camTO=null;}
   _swcRotWatch(false);
   if(SWC.af){cancelAnimationFrame(SWC.af);SWC.af=null;}
   if(SWC.stream){SWC.stream.getTracks().forEach(function(t){t.stop();});SWC.stream=null;}
   if(SWC.video)SWC.video.srcObject=null;
   /* أغلق الدورة الأخيرة: آخر ركعة تنتهي بجلوس التشهّد لا بقيام جديد */
-  if(SWC.cyc.length){try{_swcCloseCycle();}catch(e){}}
+  if(SW.chair){
+    if(SWC.leanN>=3){swRakaa(false,_swF('{n} انحناءات مُشاهَدة',{n:_swN(SWC.leanN)}));}
+    else if(SWC.leanN>=2){var nn=SW.count+1;swRakaa(true,_swF('{n} انحناءات',{n:_swN(SWC.leanN)}));swMiss(_swF('الركعة {n} — {w}',{n:_swN(nn),w:_swF('لم يُرصد سوى {n} انحناءات',{n:_swN(SWC.leanN)})}));}
+    SWC.leanN=0;
+  }else if(SWC.cyc.length){try{_swcCloseCycle('');}catch(e){}}
   var list=[];
   SWC.arkan.forEach(function(a){if(a.dur>0)list.push({dur:a.dur});});
   SW.sums={label:'أركان مرصودة (متوسط المدة)',list:list};
+  _swcArmRelease();
+}
+/* SW-19: تحرير محرّك الوضعيات من الذاكرة بعد ٥ دقائق من آخر جلسة (جلسة جديدة تلغي المؤقّت) */
+function _swcArmRelease(){
+  if(SWC.relT)clearTimeout(SWC.relT);
+  SWC.relT=setTimeout(function(){
+    SWC.relT=null;
+    if(SWC.on||SWC.loading)return;
+    try{if(SWC.lm)SWC.lm.close();}catch(e){}
+    SWC.lm=null;SWC.ready=false;
+  },SWK.RELEASE_MS);
 }
 /* الكادر مُدار: المصنّف يفترض محور y للصورة = الجاذبية. قفل التدوير + هاتف أفقي (أو العكس)
-   يقلب ذلك → نبّه بدل عدّ خاطئ صامت (accelerationIncludingGravity بلا إذن على أندرويد) */
+   يقلب ذلك → SW-06: لا تصنيف أثناءه (المؤشّر الكبير يُدار من _swcTick) */
 function _swcRotWatch(on){
   if(SWC._dm){window.removeEventListener('devicemotion',SWC._dm);SWC._dm=null;}
-  SWC.rotWarn=false;SWC._rotT0=0;SWC._rotInd=0;
+  SWC.rotWarn=false;SWC._rotT0=0;
   if(!on)return;
   SWC._dm=function(e){
     var g=e&&e.accelerationIncludingGravity;if(!SWC.on||!g||g.x==null||g.y==null)return;
     var ax=Math.abs(g.x),ay=Math.abs(g.y);
     if(Math.max(ax,ay)<3){SWC._rotT0=0;return;} /* مستلقٍ تقريباً — غير حاسم */
-    /* devicemotion بإطار الوضع الطبيعي للجهاز (لا يُعاد تدويره مع الشاشة) → قارن بزاوية الشاشة
-       لا بطولي/أفقي، وإلا انعكس الحكم على الأجهزة الأفقية بطبيعتها (أغلب اللوحيات) */
+    /* devicemotion بإطار الوضع الطبيعي للجهاز (لا يُعاد تدويره مع الشاشة) → قارن بزاوية الشاشة */
     var so=window.screen&&screen.orientation,ang=(so&&typeof so.angle==='number')?so.angle:window.orientation;
     if(typeof ang!=='number'){SWC._rotT0=0;return;} /* زاوية مجهولة — غير حاسم */
     var vertY=(Math.abs(ang)%180)===0; /* 0/180: عمودي الشاشة = محور y للجهاز؛ 90/270: محور x */
     var bad=vertY?(ax>ay*1.5):(ay>ax*1.5),now=Date.now();
-    if(!bad){SWC._rotT0=0;if(SWC.rotWarn){SWC.rotWarn=false;swEvid('اتجاه الكادر صحيح الآن');}return;}
+    if(!bad){SWC._rotT0=0;if(SWC.rotWarn){SWC.rotWarn=false;swEvid(_swT('اتجاه الكادر صحيح الآن'));}return;}
     if(!SWC._rotT0){SWC._rotT0=now;return;}
     if(now-SWC._rotT0<1000)return;
-    if(!SWC.rotWarn){SWC.rotWarn=true;swEvid('⚠ الكادر مُدار (اتجاه الهاتف يخالف اتجاه الشاشة) — التصنيف غير موثوق');}
-    if(now-SWC._rotInd>1500){
-      SWC._rotInd=now;
-      /* وجّه المستخدم لاتجاه الشاشة المعروض فعلاً (اللوحي المقفول أفقياً يُثبَّت أفقياً) */
-      var ot=so&&so.type,por=ot?ot.indexOf('portrait')===0:(window.innerHeight>=window.innerWidth);
-      swInd('⚠ الكادر مُدار — ثبّت الهاتف '+(por?'طولياً':'أفقياً')+' أو فعّل التدوير التلقائي',false);
-    }
+    if(!SWC.rotWarn){SWC.rotWarn=true;swEvid('⚠ '+_swT('الكادر مُدار (اتجاه الهاتف يخالف اتجاه الشاشة) — توقّف العدّ'));}
   };
   try{window.addEventListener('devicemotion',SWC._dm);}catch(e){}
 }
-
+/* SW5-END */
 /* عند إخفاء التطبيق: أندرويد ≥12 يقطع المايك عن الخلفية → أوقف تسجيل
    التسميع بوضوح بدل إنتاج صمت وأخطاء وهمية؛ وأوقف صوت القرآن/الرقية */
 document.addEventListener('visibilitychange',function(){
@@ -16485,9 +16838,9 @@ var BADGES=[
    ic:_achvIc('c2','<path d="M4 6a2 2 0 0 1 2-2h3.5A2.5 2.5 0 0 1 12 6.5V20a4 4 0 0 0-3.5-2H6a2 2 0 0 1-2-2V6z"/><path d="M20 6a2 2 0 0 0-2-2h-3.5A2.5 2.5 0 0 0 12 6.5V20a4 4 0 0 1 3.5-2H18a2 2 0 0 0 2-2V6z"/><polyline points="6.5,10 8.5,12 11,8.5" transform="translate(8,0)"/>')},
   {id:'tasmee_streak7',icon:'📆',name:'ورد التسميع',desc:'تسميع ٧ أيام متتالية',
    ic:_achvIc('c4','<rect x="3" y="5" width="18" height="16" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><path d="M12 12.5c0 2-2 3-2 4.5a2 2 0 0 0 4 0c0-1.5-2-2.5-2-4.5z"/>')},
-  {id:'salahw_10',icon:'🕌',name:'حاضر القلب',desc:'١٠ جلسات متابع صلاة مكتملة بلا خلل',
+  {id:'salahw_10',icon:'🕌',name:'منتظم المتابعة',desc:'١٠ جلسات متابعة رُصدت فيها كل الركعات المتوقعة',
    ic:_achvIc('c6','<circle cx="12" cy="4.6" r="2"/><path d="M12 6.8v5l4.2 3.2v4.6"/><path d="M12 11.8l-4.2 3.2v4.6"/><line x1="4" y1="21" x2="20" y2="21"/><polyline points="17,4 19,6 23,2"/>')},
-  {id:'salahw_fajr5',icon:'🌄',name:'خاشع الفجر',desc:'٥ جلسات متابع صلاة للفجر',
+  {id:'salahw_fajr5',icon:'🌄',name:'منتظم الفجر',desc:'٥ جلسات متابعة للفجر',
    ic:_achvIc('c1','<path d="M12 3v3M5.6 5.6l2.1 2.1M18.4 5.6l-2.1 2.1M3 12h3M18 12h3"/><path d="M7 16a5 5 0 0 1 10 0"/><line x1="3" y1="20" x2="21" y2="20"/>')},
   {id:'quiz_perfect',icon:'🌟',name:'عالِم اليوم',desc:'٥/٥ في المسابقة اليومية',
    ic:_achvIc('c2','<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/><circle cx="12" cy="12" r="2.2"/>')},
@@ -17376,7 +17729,7 @@ function _renderStorageSett(){
     {id:'qasr',name:'محرّك التسميع الصوتي',size:null,loaded:function(){return QA.ready;},off:!QP},
     {id:'gguf',name:'المحرّك البديل للتسميع',size:null,loaded:function(){return WN.ready;}},
     {id:'vosk',name:'المحرّك الفوري (Vosk)',size:null,loaded:function(){return VK.ready;},off:!VK_ENABLED},
-    {id:'pose',name:'نموذج وضعيات الصلاة (للكاميرا)',size:null,loaded:function(){return typeof SWC!=='undefined'&&SWC.ready;}}
+    {id:'pose',name:'محرّك الكاميرا (متابع الصلاة — تجريبي)',size:null,loaded:function(){return typeof SWC!=='undefined'&&SWC.ready;}}
   ];
   var left=4;
   function done(){
@@ -17402,7 +17755,8 @@ function _renderStorageSett(){
   if(QP&&QP.status)QP.status({}).then(function(r){if(!r||!r.lib){models[0].off=true;models[0].size=-1;return;}models[0].size=r.bytes>0?r.bytes:-1;}).catch(function(){models[0].off=true;models[0].size=-1;}).then(done,done);
   else{models[0].size=-1;done();}
   FS.stat({path:WN_GGUF_FILE,directory:'DATA'}).then(function(s){models[1].size=s.size;}).catch(function(){models[1].size=-1;}).then(done,done);
-  FS.stat({path:SWC_MODEL_FILE,directory:'DATA'}).then(function(s){models[3].size=s.size;}).catch(function(){models[3].size=-1;}).then(done,done);
+  /* sw5 SW-08: الموديل + ملفات المكتبة (mjs/wasm) معاً */
+  _swcDiskUsage(FS).then(function(n){models[3].size=n;}).catch(function(){models[3].size=-1;}).then(done,done);
   if(WNP&&WNP.voskDiskUsage)WNP.voskDiskUsage().then(function(r){models[2].size=(r&&r.exists)?(r.bytes||0):-1;}).catch(function(){models[2].size=-1;}).then(done,done);
   else{models[2].size=-1;done();}
 }
@@ -17456,9 +17810,9 @@ function _settDeleteModel(id){
     }).then(function(){toast('حُذف المحرّك الفوري ✓','success');_renderStorageSett();})
       .catch(function(e){console.warn('[storage] delete:',e&&e.message||e);toast(_tsT('تعذّر الحذف — أعد المحاولة'),'error');_renderStorageSett();});
   }else if(id==='pose'){
-    try{if(typeof SWC!=='undefined'&&SWC.lm){try{SWC.lm.close();}catch(e){}SWC.lm=null;SWC.ready=false;SWC.loading=false;}}catch(e){}
-    FS.deleteFile({path:SWC_MODEL_FILE,directory:'DATA'})
-      .then(function(){toast('حُذف نموذج الكاميرا ✓','success');_renderStorageSett();})
+    /* sw5 SW-08: الموديل والمكتبة المخبّأة تُحذف معاً */
+    _swcDeleteFiles(FS)
+      .then(function(){toast(_tsT('حُذف محرّك الكاميرا ✓'),'success');_renderStorageSett();})
       .catch(function(e){console.warn('[storage] delete:',e&&e.message||e);toast(_tsT('تعذّر الحذف — أعد المحاولة'),'error');_renderStorageSett();});
   }
 }
@@ -17474,13 +17828,23 @@ function _settRedownloadModel(id){
     var iv=setInterval(function(){if(!WN.loading){clearInterval(iv);_renderStorageSett();}},1500);
   }else if(id==='vosk'){toast('بدأ تنزيل المحرّك الفوري (~318MB)…');
     try{_vkEnsure(function(ok){_renderStorageSett();_settDlResult(id,ok);});}catch(e){}
-  }else if(id==='pose'){toast('بدأ تنزيل نموذج الكاميرا (~6MB)…');
+  }else if(id==='pose'){
+    /* sw5 SW-08: على بيانات الجوال يُسأل أولاً (مرة واحدة) */
+    if(_qaCellular()&&lsGet('swcConsent')!=='1'){_swcConsentAskSett();return;}
+    toast(_tsF('بدأ تنزيل محرّك الكاميرا (نحو {t} ميغابايت)…',{t:_tsN(SWC_DL_MB)}));
     try{_swcEnsure(function(ok){_renderStorageSett();_settDlResult(id,ok);});}catch(e){}
   }
 }
+/* sw5 SW-08: سؤال التنزيل من «التخزين» على بيانات الجوال (الحجم وسطر الاتصال) */
+function _swcConsentAskSett(){
+  var sz=_tsF('نحو {t} ميغابايت أول مرة',{t:_tsN(SWC_DL_MB)});
+  _tsAsk(_tsF('تنزيل محرّك الكاميرا ({s})',{s:sz}),'<div class="qa-consent"><p>'+_tsT('يُنزَّل مرة واحدة ويعمل بعدها على جهازك دون إنترنت؛ الصورة لا تغادر جهازك.')+'</p>'+_tsNetLine(sz)+'</div>',
+    _tsT('نزّل الآن'),_tsT('لاحقاً'),function(){lsSet('swcConsent','1');_settRedownloadModel('pose');},null);
+  try{_tsNetLineRefresh(sz);}catch(e){}
+}
 /* N73: نتيجة التنزيل من «التخزين» — نجاح أو سبب الفشل (لا بدون إنترنت / فشل التنزيل) */
 function _settDlResult(id,ok){
-  if(ok){toast(_tsT(id==='pose'?'✓ نُزِّل نموذج الكاميرا':'✓ نُزِّل المحرّك الفوري'),'success');return;}
+  if(ok){toast(_tsT(id==='pose'?'✓ نُزِّل محرّك الكاميرا':'✓ نُزِّل المحرّك الفوري'),'success');return;}
   _netProbe(function(on){
     var m=!on?'لا يوجد اتصال بالإنترنت — اتصل ثم اضغط «تنزيل» مرة أخرى'
       :(id==='pose'&&typeof SWC!=='undefined'&&SWC.errStage==='create')?'تعذّر تشغيل نموذج الكاميرا على هذا الجهاز — أعد المحاولة'
@@ -18160,14 +18524,17 @@ HELP_GUIDES.hifz={title:'لوحة الحفظ',sub:'هنا تتابع ما حفظ
     '«الخطة»: اختر كم تحفظ كل يوم، ويقترح التطبيق ورد الحفظ الجديد.',
     '«تسجيلاتي»: جلسات تسميعك المسجّلة على جهازك إن فعّلت التسجيل.'
   ],tips:['كل تسميع تنهيه يُضاف إلى المراجعة تلقائياً، فلا تحتاج أن تتذكّر مواعيدها.']};
-HELP_GUIDES.salahw={title:'متابع الصلاة',sub:'يعدّ الركعات التي يرصدها أثناء صلاتك ليعينك على عدم السهو. لا يحكم على صلاتك.',
+HELP_GUIDES.salahw={title:'متابع الصلاة',sub:'يعدّ الركعات التي يرصدها أثناء صلاتك ليعينك على عدم السهو. لا يحكم على صلاتك، ويذكر بالاسم ما لم يرصده.',
   steps:[
-    'اختر الوضع: «الحسّاس» (الهاتف عند موضع السجود) أو «الكاميرا» (الهاتف على جانبك).',
-    'اختر الصلاة ثم اضغط «ابدأ» وضع الهاتف في مكانه.',
-    'للإنهاء اضغط مطوّلاً على الشاشة، أو تنتهي الجلسة وحدها بعد السكون.'
+    'اختر الوضع: «الحسّاس» (المقترح — الهاتف عند موضع الجبهة) أو «الكاميرا» (تجريبي — الهاتف على جانبك).',
+    'اختر الصلاة (الجمعة والوتر والنافلة متاحة، وقصر الرباعية في السفر) ثم اضغط «ابدأ المتابعة».',
+    'مرحلة التحقّق أولاً: في الحسّاس جرّب يدك فوق أعلى الشاشة ثم اضغط «ابدأ العدّ» (٨ ثوانٍ لرفع يدك)؛ في الكاميرا يبدأ العدّ وحده بعد ثانيتين من الوقوف بجسم كامل في الكادر.',
+    'للإنهاء: في الحسّاس اضغط مطوّلاً ٢ث على الشاشة؛ في الكاميرا اضغط «إنهاء الجلسة». أو تنتهي وحدها بعد ٩٠ث من آخر حركة حين تكتمل الركعات، و١٠ دقائق قبل ذلك.'
   ],tips:[
     '«المرصود / المتوقع»: عدد الركعات التي رصدها التطبيق من عدد ركعات الصلاة.',
-    '«نسبة الركعات المرصودة»: ما رُصد من الركعات المتوقعة. نقصها يعني غالباً أن الهاتف لم يرَ الحركة، لا أن في صلاتك خطأ.',
+    '«لم يُرصد ⚠» في الملخّص يسرد ما لم يرَه الهاتف (ركوع، سجدة ثانية، انقطاع رؤية…) — وصف للرصد لا حكم على صلاتك.',
+    'وضع الكاميرا تجريبي حتى يُتحقّق منه على هواتف حقيقية: قد يفوته رصد بعض الحركات. من يصلّي جالساً يفعّل «الصلاة على كرسي».',
+    'وضع الحسّاس: الحسّاس عند الحافة العليا بجوار السماعة، وتُعتم الشاشة تلقائياً — لا تقلب الهاتف على وجهه.',
     'لا يُسجَّل صوت ولا صورة، وكل المعالجة على جهازك.'
   ]};
 HELP_GUIDES.quiz={title:'المسابقة',sub:'خمسة أسئلة كل يوم.',
@@ -18446,12 +18813,12 @@ function _swFailShow(){
   var h=document.getElementById('swFailBox');if(!h)return;
   var msg=SW.failMsg||_tsT('تعذّر بدء الجلسة');
   var alt=SW.mode==='camera'?'sensor':'camera';
-  h.innerHTML='<b>'+_esc(_tsT('لم تبدأ الجلسة'))+'</b><p>'+_esc(msg)+'</p><p class="sw-fail-n">'+_esc(_tsT('لم يُسجَّل شيء لهذه المحاولة.'))+'</p>'
+  h.innerHTML='<b>'+_esc(_tsT('لم تبدأ الجلسة'))+'</b>'+(SW.failHtml||('<p>'+_esc(msg)+'</p>'))+'<p class="sw-fail-n">'+_esc(_tsT('لم يُسجَّل شيء لهذه المحاولة.'))+'</p>'
     +'<div class="sw-fail-b"><button class="btn" onclick="_swFailRetry(\''+SW.mode+'\')">'+_esc(_tsT('أعد المحاولة'))+'</button>'
     +'<button class="btn sw-fail-alt" onclick="_swFailRetry(\''+alt+'\')">'+_esc(_tsT(alt==='sensor'?'جرّب وضع الحسّاس':'جرّب وضع الكاميرا'))+'</button></div>';
   h.style.display='block';
 }
-function _swFailHide(){var h=document.getElementById('swFailBox');if(h){h.style.display='none';h.innerHTML='';}SW.failMsg='';}
+function _swFailHide(){var h=document.getElementById('swFailBox');if(h){h.style.display='none';h.innerHTML='';}SW.failMsg='';SW.failHtml='';}
 function _swFailRetry(m){_swFailHide();try{swPickMode(m);}catch(e){}}
 
 var _AUTO_HELP={memorize:1}; /* دليل تلقائي مرة واحدة */
@@ -18723,6 +19090,7 @@ var DICT={"تسميع الحفظ":{"en":"Memorization Test","hi":"हिफ़�
 /* fix1-i18n-N30-dict-end */
 /* fix2 «quran2» (N41 N44 N98): نصوص الواجهة الجديدة — تُضاف ولا تُستبدل؛ أسماء القرّاء تُترجَم بمفاتيحها القائمة */
 (function(){var X={"لا تتوفّر تلاوة {w} آيةً آية — بصوت {v}":{"en":"{w} has no verse-by-verse recitation — playing {v}","fr":"{w} n’a pas de récitation verset par verset — voix de {v}","de":"Für {w} gibt es keine Vers-für-Vers-Rezitation — Stimme: {v}","hi":"{w} की आयत-दर-आयत तिलावत उपलब्ध नहीं — आवाज़: {v}","zh":"{w}没有逐节诵读 — 改用{v}的声音"},"▶ {s} {n} — بصوت {v}":{"en":"▶ {s} {n} — recited by {v}","fr":"▶ {s} {n} — récité par {v}","de":"▶ {s} {n} — rezitiert von {v}","hi":"▶ {s} {n} — क़ारी: {v}","zh":"▶ {s} {n} — 诵读者：{v}"},"آية {n}":{"en":"Verse {n}","fr":"Verset {n}","de":"Vers {n}","hi":"आयत {n}","zh":"第{n}节"},"استمع من هذه الآية":{"en":"Listen from this verse","fr":"Écouter à partir de ce verset","de":"Ab diesem Vers anhören","hi":"इस आयत से सुनें","zh":"从这一节开始听"},"{w}: تُشغَّل السورة كاملة من أولها — لا تتوفّر تلاوته آيةً آية":{"en":"{w}: the whole surah plays from the start — no verse-by-verse recitation","fr":"{w} : la sourate entière est lue depuis le début — pas de récitation verset par verset","de":"{w}: Die ganze Sure läuft von Anfang an — keine Vers-für-Vers-Rezitation","hi":"{w}: पूरी सूरह शुरू से चलेगी — आयत-दर-आयत तिलावत उपलब्ध नहीं","zh":"{w}：整章从头播放 — 无逐节诵读"},"تصغير الخط":{"en":"Smaller text","fr":"Texte plus petit","de":"Kleinere Schrift","hi":"छोटे अक्षर","zh":"缩小字体"},"تكبير الخط":{"en":"Larger text","fr":"Texte plus grand","de":"Größere Schrift","hi":"बड़े अक्षर","zh":"放大字体"},"أ−":{"en":"A−","fr":"A−","de":"A−","hi":"अ−","zh":"A−"},"أ+":{"en":"A+","fr":"A+","de":"A+","hi":"अ+","zh":"A+"},"أو قرّب إصبعين وباعِدهما على النص":{"en":"Or pinch the text with two fingers","fr":"Ou pincez le texte avec deux doigts","de":"Oder den Text mit zwei Fingern auf- und zuziehen","hi":"या टेक्स्ट पर दो उंगलियों से पिंच करें","zh":"或在文字上用两指缩放"},"حجم الخط {n}":{"en":"Text size {n}","fr":"Taille du texte {n}","de":"Schriftgröße {n}","hi":"अक्षर का आकार {n}","zh":"字号 {n}"}};for(var k in X)if(X.hasOwnProperty(k)){if(!DICT[k])DICT[k]=X[k];else for(var l in X[k])if(X[k].hasOwnProperty(l)&&DICT[k][l]==null)DICT[k][l]=X[k][l];}})();
+/* sw5 «salahw» — DICT: نصوص متابع الصلاة الجديدة (تُضاف ولا تُستبدل) */(function(){var X={"صلاة الجمعة":{"en":"Jumu‘ah","fr":"Joumou‘a","de":"Dschumu‘a","hi":"जुमा","zh":"主麻拜"},"الوتر":{"en":"Witr","fr":"Witr","de":"Witr","hi":"वित्र","zh":"维特尔拜"},"الحالية":{"en":"Current","fr":"Actuelle","de":"Aktuell","hi":"मौजूदा","zh":"当前"},"ركعات الوتر":{"en":"Witr rak‘ahs","fr":"Rak‘as du Witr","de":"Witr-Rak‘as","hi":"वित्र रकअत","zh":"维特尔拜数"},"وضع الكاميرا (تجريبي)":{"en":"Camera mode (experimental)","fr":"Mode caméra (expérimental)","de":"Kameramodus (experimentell)","hi":"कैमरा मोड (प्रयोगात्मक)","zh":"相机模式（实验性）"},"من {n} ركعات":{"en":"of {n} rak‘ahs","fr":"sur {n} rak‘as","de":"von {n} Rak‘as","hi":"{n} रकअत में से","zh":"共 {n} 拜"},"ضع الهاتف":{"en":"Place the phone","fr":"Posez le téléphone","de":"Telefon ablegen","hi":"फ़ोन रखें","zh":"放置手机"},"تحقّق من الكادر":{"en":"Check the frame","fr":"Vérifiez le cadre","de":"Bildausschnitt prüfen","hi":"फ़्रेम जाँचें","zh":"检查画面"},"بدأت الجلسة":{"en":"Session started","fr":"Séance commencée","de":"Sitzung gestartet","hi":"सत्र शुरू","zh":"追踪开始"},"{n} ركعات":{"en":"{n} rak‘ahs","fr":"{n} rak‘as","de":"{n} Rak‘as","hi":"{n} रकअत","zh":"{n} 拜"},"حسّاس القرب":{"en":"proximity sensor","fr":"capteur de proximité","de":"Näherungssensor","hi":"प्रॉक्सिमिटी सेंसर","zh":"距离传感器"},"الكاميرا (تجريبي)":{"en":"camera (experimental)","fr":"caméra (expérimental)","de":"Kamera (experimentell)","hi":"कैमरा (प्रयोगात्मक)","zh":"相机（实验性）"},"الصلاة على كرسي":{"en":"Praying on a chair","fr":"Prière sur une chaise","de":"Gebet auf einem Stuhl","hi":"कुर्सी पर नमाज़","zh":"坐椅礼拜"},"بدأ العدّ":{"en":"Counting started","fr":"Comptage commencé","de":"Zählung gestartet","hi":"गिनती शुरू","zh":"开始计数"},"ابدأ العدّ":{"en":"Start counting","fr":"Commencer le comptage","de":"Zählung starten","hi":"गिनती शुरू करें","zh":"开始计数"},"بدأ العدّ — ٨ ثوانٍ قبل رصد أول سجدة (ارفع يدك)":{"en":"Counting started — 8 seconds before the first prostration is detected (lift your hand)","fr":"Comptage commencé — 8 secondes avant la détection de la première prosternation (retirez la main)","de":"Zählung gestartet — 8 Sekunden bis zur ersten Niederwerfung (Hand wegnehmen)","hi":"गिनती शुरू — पहला सजदा पहचानने से पहले 8 सेकंड (हाथ हटाएँ)","zh":"开始计数——8 秒后才检测第一次叩头（请移开手）"},"سكون {t} — إنهاء تلقائي":{"en":"Idle for {t} — ended automatically","fr":"Inactivité {t} — fin automatique","de":"{t} Stillstand — automatisch beendet","hi":"{t} निष्क्रिय — स्वतः समाप्त","zh":"静止 {t}——自动结束"},"{n} د":{"en":"{n} min","fr":"{n} min","de":"{n} Min.","hi":"{n} मिनट","zh":"{n} 分"},"{n} ث":{"en":"{n} s","fr":"{n} s","de":"{n} s","hi":"{n} से.","zh":"{n} 秒"},"ركعة #{n}":{"en":"Rak‘ah #{n}","fr":"Rak‘a n° {n}","de":"Rak‘a Nr. {n}","hi":"रकअत #{n}","zh":"第 {n} 拜"},"لم يُرصد":{"en":"Not detected","fr":"Non détecté","de":"Nicht erkannt","hi":"पहचाना नहीं गया","zh":"未检测到"},"إنهاء الجلسة؟":{"en":"End the session?","fr":"Terminer la séance ?","de":"Sitzung beenden?","hi":"सत्र समाप्त करें?","zh":"结束追踪？"},"رُصد {c} من {x} ركعات حتى الآن — سيُحفظ ما رُصد.":{"en":"{c} of {x} rak‘ahs detected so far — what was detected will be saved.","fr":"{c} rak‘as sur {x} détectées jusqu’ici — ce qui a été détecté sera enregistré.","de":"Bisher {c} von {x} Rak‘as erkannt — das Erkannte wird gespeichert.","hi":"अब तक {x} में से {c} रकअत पहचानी गईं — जो पहचाना गया वह सहेजा जाएगा।","zh":"目前已检测到 {c}/{x} 拜——已检测到的内容将被保存。"},"أنهِ الجلسة":{"en":"End session","fr":"Terminer","de":"Beenden","hi":"समाप्त करें","zh":"结束"},"تابِع":{"en":"Continue","fr":"Continuer","de":"Weiter","hi":"जारी रखें","zh":"继续"},"انتهت الجلسة":{"en":"Session ended","fr":"Séance terminée","de":"Sitzung beendet","hi":"सत्र समाप्त","zh":"追踪结束"},"سكون":{"en":"idle","fr":"inactivité","de":"Stillstand","hi":"निष्क्रियता","zh":"静止"},"زر الإنهاء":{"en":"end button","fr":"bouton Terminer","de":"Beenden-Taste","hi":"समाप्त बटन","zh":"结束按钮"},"مغادرة التطبيق":{"en":"app left","fr":"application quittée","de":"App verlassen","hi":"ऐप छोड़ा","zh":"离开应用"},"مغادرة الشاشة":{"en":"screen left","fr":"écran quitté","de":"Bildschirm verlassen","hi":"स्क्रीन छोड़ी","zh":"离开页面"},"تعذّر تشغيل الحسّاس":{"en":"sensor could not start","fr":"capteur indisponible","de":"Sensor konnte nicht starten","hi":"सेंसर शुरू नहीं हो सका","zh":"传感器无法启动"},"تعذّر تشغيل الكاميرا":{"en":"camera could not start","fr":"caméra indisponible","de":"Kamera konnte nicht starten","hi":"कैमरा शुरू नहीं हो सका","zh":"相机无法启动"},"انقطاع الكاميرا":{"en":"camera lost","fr":"caméra interrompue","de":"Kamera unterbrochen","hi":"कैमरा बाधित","zh":"相机中断"},"أُنهيت قبل بدء العدّ — لم يُسجَّل شيء":{"en":"Ended before counting started — nothing was saved","fr":"Terminée avant le début du comptage — rien n’a été enregistré","de":"Vor Beginn der Zählung beendet — nichts gespeichert","hi":"गिनती शुरू होने से पहले समाप्त — कुछ सहेजा नहीं गया","zh":"在开始计数前结束——未保存任何内容"},"حسّاس":{"en":"sensor","fr":"capteur","de":"Sensor","hi":"सेंसर","zh":"传感器"},"كاميرا":{"en":"camera","fr":"caméra","de":"Kamera","hi":"कैमरा","zh":"相机"},"كاميرا — تجريبي":{"en":"camera — experimental","fr":"caméra — expérimental","de":"Kamera — experimentell","hi":"कैमरा — प्रयोगात्मक","zh":"相机——实验性"},"{c} / {x} ركعة":{"en":"{c} / {x} rak‘ahs","fr":"{c} / {x} rak‘as","de":"{c} / {x} Rak‘as","hi":"{c} / {x} रकअत","zh":"{c} / {x} 拜"},"ركعات لم يُرصد فيها جزء ⚠":{"en":"Rak‘ahs with an undetected part ⚠","fr":"Rak‘as avec une partie non détectée ⚠","de":"Rak‘as mit nicht erkanntem Teil ⚠","hi":"रकअत जिनका कोई हिस्सा पहचाना नहीं गया ⚠","zh":"有部分未检测到的拜 ⚠"},"{n} — متوسط {s} ث":{"en":"{n} — average {s} s","fr":"{n} — moyenne {s} s","de":"{n} — Ø {s} s","hi":"{n} — औसत {s} से.","zh":"{n}——平均 {s} 秒"},"منها ⚠":{"en":"some ⚠","fr":"dont ⚠","de":"davon ⚠","hi":"इनमें ⚠","zh":"含 ⚠"},"لم يُرصد ⚠":{"en":"Not detected ⚠","fr":"Non détecté ⚠","de":"Nicht erkannt ⚠","hi":"पहचाना नहीं गया ⚠","zh":"未检测到 ⚠"},"الهاتف لم يرَ كل الركعات — لا يعني أن صلاتك ناقصة":{"en":"The phone did not see every rak‘ah — this does not mean your prayer is incomplete","fr":"Le téléphone n’a pas vu toutes les rak‘as — cela ne signifie pas que votre prière est incomplète","de":"Das Telefon hat nicht jede Rak‘a gesehen — das heißt nicht, dass dein Gebet unvollständig ist","hi":"फ़ोन ने हर रकअत नहीं देखी — इसका मतलब यह नहीं कि आपकी नमाज़ अधूरी है","zh":"手机没有看到每一拜——这并不代表你的礼拜不完整"},"إن كنت تصلّي جالساً فعّل خيار «الصلاة على كرسي» قبل البدء.":{"en":"If you pray seated, turn on “Praying on a chair” before starting.","fr":"Si vous priez assis, activez « Prière sur une chaise » avant de commencer.","de":"Wenn du sitzend betest, aktiviere vor dem Start „Gebet auf einem Stuhl“.","hi":"अगर आप बैठकर नमाज़ पढ़ते हैं, तो शुरू करने से पहले «कुर्सी पर नमाज़» चालू करें।","zh":"如果你坐着礼拜，请在开始前开启“坐椅礼拜”。"},"سجدات مرصودة (متوسط المدة)":{"en":"Prostrations detected (average duration)","fr":"Prosternations détectées (durée moyenne)","de":"Erkannte Niederwerfungen (Ø Dauer)","hi":"पहचाने गए सजदे (औसत अवधि)","zh":"检测到的叩头（平均时长）"},"أركان مرصودة (متوسط المدة)":{"en":"Postures detected (average duration)","fr":"Postures détectées (durée moyenne)","de":"Erkannte Haltungen (Ø Dauer)","hi":"पहचानी गई मुद्राएँ (औसत अवधि)","zh":"检测到的姿势（平均时长）"},"{n} جلسة ({r} ركعة)":{"en":"{n} sessions ({r} rak‘ahs)","fr":"{n} séances ({r} rak‘as)","de":"{n} Sitzungen ({r} Rak‘as)","hi":"{n} सत्र ({r} रकअत)","zh":"{n} 次（{r} 拜）"},"هذا الأسبوع":{"en":"This week","fr":"Cette semaine","de":"Diese Woche","hi":"इस हफ़्ते","zh":"本周"},"لا حسّاس قرب (بيئة ويب؟)":{"en":"No proximity sensor (web environment?)","fr":"Pas de capteur de proximité (environnement web ?)","de":"Kein Näherungssensor (Web-Umgebung?)","hi":"प्रॉक्सिमिटी सेंसर नहीं (वेब?)","zh":"无距离传感器（网页环境？）"},"ضع الهاتف مستلقياً عند موضع الجبهة، الشاشة للأعلى وحافته العليا (السماعة وحسّاس القرب) نحو جبهتك. مرّر يدك فوق أعلى الشاشة: تضيء النقطة إن استجاب الحسّاس، ثم اضغط «ابدأ العدّ».":{"en":"Lay the phone flat where your forehead touches, screen up, top edge (earpiece and proximity sensor) toward your forehead. Pass your hand over the top of the screen: the dot lights up if the sensor responds, then tap “Start counting”.","fr":"Posez le téléphone à plat à l’endroit du front, écran vers le haut, bord supérieur (écouteur et capteur) vers votre front. Passez la main au-dessus du haut de l’écran : le point s’allume si le capteur répond, puis touchez « Commencer le comptage ».","de":"Lege das Telefon flach an die Stirnstelle, Bildschirm nach oben, obere Kante (Hörer und Sensor) zur Stirn. Führe die Hand über den oberen Bildschirmrand: Der Punkt leuchtet, wenn der Sensor reagiert, dann „Zählung starten“ antippen.","hi":"फ़ोन को माथे की जगह पर सीधा रखें, स्क्रीन ऊपर, ऊपरी किनारा (स्पीकर और सेंसर) माथे की ओर। स्क्रीन के ऊपर हाथ फेरें: सेंसर जवाब दे तो बिंदु जलेगा, फिर «गिनती शुरू करें» दबाएँ।","zh":"把手机平放在额头接触的位置，屏幕朝上，顶部边缘（听筒和传感器）朝向额头。把手从屏幕上方掠过：传感器有反应时圆点会亮起，然后点“开始计数”。"},"الحسّاس يعمل — جرّب يدك فوق أعلى الشاشة":{"en":"Sensor running — try your hand over the top of the screen","fr":"Capteur actif — passez la main au-dessus du haut de l’écran","de":"Sensor läuft — Hand über den oberen Bildschirmrand halten","hi":"सेंसर चल रहा है — स्क्रीन के ऊपर हाथ फेरें","zh":"传感器运行中——把手放到屏幕顶部上方试试"},"حسّاس القرب انطلق":{"en":"Proximity sensor started","fr":"Capteur de proximité démarré","de":"Näherungssensor gestartet","hi":"प्रॉक्सिमिटी सेंसर शुरू","zh":"距离传感器已启动"},"فشل تشغيل الحسّاس":{"en":"Sensor failed to start","fr":"Échec du démarrage du capteur","de":"Sensorstart fehlgeschlagen","hi":"सेंसर शुरू नहीं हुआ","zh":"传感器启动失败"},"✓ الحسّاس يستجيب":{"en":"✓ Sensor responds","fr":"✓ Le capteur répond","de":"✓ Sensor reagiert","hi":"✓ सेंसर जवाब दे रहा है","zh":"✓ 传感器有反应"},"الحسّاس يعمل — اضغط «ابدأ العدّ» حين تضع الهاتف":{"en":"Sensor running — tap “Start counting” once the phone is in place","fr":"Capteur actif — touchez « Commencer le comptage » une fois le téléphone en place","de":"Sensor läuft — „Zählung starten“ antippen, sobald das Telefon liegt","hi":"सेंसर चल रहा है — फ़ोन रखने के बाद «गिनती शुरू करें» दबाएँ","zh":"传感器运行中——放好手机后点“开始计数”"},"قرب مرصود…":{"en":"Proximity detected…","fr":"Proximité détectée…","de":"Nähe erkannt…","hi":"निकटता पहचानी गई…","zh":"检测到接近…"},"سجدة ١ مرصودة — بانتظار الثانية":{"en":"Prostration 1 detected — waiting for the second","fr":"Prosternation 1 détectée — en attente de la seconde","de":"Niederwerfung 1 erkannt — warte auf die zweite","hi":"सजदा 1 पहचाना गया — दूसरे की प्रतीक्षा","zh":"已检测到第 1 次叩头——等待第 2 次"},"بانتظار سجدة":{"en":"Waiting for a prostration","fr":"En attente d’une prosternation","de":"Warte auf Niederwerfung","hi":"सजदे की प्रतीक्षा","zh":"等待叩头"},"قرب في فترة السماح الأولى (٨ث) — يُهمل":{"en":"Proximity within the first 8-second grace period — ignored","fr":"Proximité pendant les 8 s de grâce — ignorée","de":"Nähe in den ersten 8 Sekunden — ignoriert","hi":"पहले 8 सेकंड में निकटता — अनदेखी","zh":"开始后 8 秒宽限期内的接近——忽略"},"تغطية طويلة للحسّاس ({s}ث) — ليست سجدة":{"en":"Sensor covered for a long time ({s} s) — not a prostration","fr":"Capteur couvert longtemps ({s} s) — pas une prosternation","de":"Sensor lange verdeckt ({s} s) — keine Niederwerfung","hi":"सेंसर लंबे समय तक ढका रहा ({s} से.) — सजदा नहीं","zh":"传感器被长时间遮挡（{s} 秒）——不是叩头"},"قرب قصير ({n}ms < 700ms) — يُهمل":{"en":"Short proximity ({n} ms < 700 ms) — ignored","fr":"Proximité brève ({n} ms < 700 ms) — ignorée","de":"Kurze Nähe ({n} ms < 700 ms) — ignoriert","hi":"छोटी निकटता ({n} ms < 700 ms) — अनदेखी","zh":"短暂接近（{n} ms < 700 ms）——忽略"},"ارتداد بعد السجدة (فاصل {s}ث) — امتداد لنفس السجدة":{"en":"Bounce after the prostration (gap {s} s) — same prostration","fr":"Rebond après la prosternation (écart {s} s) — même prosternation","de":"Nachschwingen nach der Niederwerfung (Abstand {s} s) — dieselbe Niederwerfung","hi":"सजदे के बाद उछाल (अंतर {s} से.) — वही सजदा","zh":"叩头后的抖动（间隔 {s} 秒）——视为同一次叩头"},"سجدة مرصودة — {s}ث":{"en":"Prostration detected — {s} s","fr":"Prosternation détectée — {s} s","de":"Niederwerfung erkannt — {s} s","hi":"सजदा पहचाना गया — {s} से.","zh":"检测到叩头——{s} 秒"},"سجدتان بفاصل {s}ث":{"en":"two prostrations {s} s apart","fr":"deux prosternations à {s} s d’écart","de":"zwei Niederwerfungen im Abstand von {s} s","hi":"दो सजदे {s} से. के अंतर से","zh":"两次叩头，间隔 {s} 秒"},"فاصل قصير جداً ({s}ث) — امتداد لنفس السجدة":{"en":"Very short gap ({s} s) — same prostration","fr":"Écart très court ({s} s) — même prosternation","de":"Sehr kurzer Abstand ({s} s) — dieselbe Niederwerfung","hi":"बहुत छोटा अंतर ({s} से.) — वही सजदा","zh":"间隔过短（{s} 秒）——视为同一次叩头"},"سجدة مفردة — لم تُرصد ثانيتها خلال ٢٠ث (الفاصل {s}ث)":{"en":"Single prostration — no second one detected within 20 s (gap {s} s)","fr":"Prosternation isolée — pas de seconde détectée en 20 s (écart {s} s)","de":"Einzelne Niederwerfung — keine zweite innerhalb von 20 s erkannt (Abstand {s} s)","hi":"अकेला सजदा — 20 से. में दूसरा नहीं पहचाना गया (अंतर {s} से.)","zh":"单次叩头——20 秒内未检测到第二次（间隔 {s} 秒）"},"لم تُرصد سجدة ثانية خلال ٣٠ث":{"en":"No second prostration detected within 30 s","fr":"Pas de seconde prosternation détectée en 30 s","de":"Keine zweite Niederwerfung innerhalb von 30 s erkannt","hi":"30 से. में दूसरा सजदा नहीं पहचाना गया","zh":"30 秒内未检测到第二次叩头"},"سجدة مفردة في الختام — لم تُرصد ثانيتها":{"en":"Single prostration at the end — its second was not detected","fr":"Prosternation isolée à la fin — la seconde n’a pas été détectée","de":"Einzelne Niederwerfung am Ende — die zweite wurde nicht erkannt","hi":"अंत में अकेला सजदा — दूसरा नहीं पहचाना गया","zh":"结尾处单次叩头——未检测到第二次"},"تنزيل محرّك الكاميرا (نحو {t} ميغابايت أول مرة)…":{"en":"Downloading the camera engine (about {t} MB the first time)…","fr":"Téléchargement du moteur caméra (environ {t} Mo la première fois)…","de":"Kamera-Engine wird geladen (etwa {t} MB beim ersten Mal)…","hi":"कैमरा इंजन डाउनलोड हो रहा है (पहली बार लगभग {t} MB)…","zh":"正在下载相机引擎（首次约 {t} MB）…"},"تحميل محرّك الوضعيات…":{"en":"Loading the pose engine…","fr":"Chargement du moteur de postures…","de":"Haltungs-Engine wird geladen…","hi":"मुद्रा इंजन लोड हो रहा है…","zh":"正在加载姿势引擎…"},"نحو {t} ميغابايت أول مرة":{"en":"about {t} MB the first time","fr":"environ {t} Mo la première fois","de":"etwa {t} MB beim ersten Mal","hi":"पहली बार लगभग {t} MB","zh":"首次约 {t} MB"},"تنزيل محرّك الكاميرا ({s})":{"en":"Download the camera engine ({s})","fr":"Télécharger le moteur caméra ({s})","de":"Kamera-Engine herunterladen ({s})","hi":"कैमरा इंजन डाउनलोड करें ({s})","zh":"下载相机引擎（{s}）"},"يُنزَّل مرة واحدة ويعمل بعدها على جهازك دون إنترنت؛ الصورة لا تغادر جهازك.":{"en":"Downloaded once, then runs on your device without internet; the image never leaves your device.","fr":"Téléchargé une fois, il fonctionne ensuite sur votre appareil sans internet ; l’image ne quitte jamais votre appareil.","de":"Wird einmal geladen und läuft dann ohne Internet auf deinem Gerät; das Bild verlässt dein Gerät nie.","hi":"एक बार डाउनलोड होता है, फिर बिना इंटरनेट आपके डिवाइस पर चलता है; तस्वीर आपके डिवाइस से बाहर नहीं जाती।","zh":"仅下载一次，之后无需联网即可在设备上运行；画面不会离开你的设备。"},"وضع الكاميرا تجريبي — قد يفوته رصد بعض الحركات؛ الملخّص يذكر ما لم يُرصد.":{"en":"Camera mode is experimental — it may miss some movements; the summary lists what was not detected.","fr":"Le mode caméra est expérimental — il peut manquer certains mouvements ; le résumé indique ce qui n’a pas été détecté.","de":"Der Kameramodus ist experimentell — er kann Bewegungen übersehen; die Zusammenfassung nennt, was nicht erkannt wurde.","hi":"कैमरा मोड प्रयोगात्मक है — कुछ हरकतें छूट सकती हैं; सारांश बताता है कि क्या नहीं पहचाना गया।","zh":"相机模式为实验性——可能漏检部分动作；总结会列出未检测到的内容。"},"لم يُنزَّل محرّك الكاميرا — ابدأ لاحقاً على Wi-Fi أو استخدم وضع الحسّاس":{"en":"The camera engine was not downloaded — start later on Wi-Fi or use sensor mode","fr":"Le moteur caméra n’a pas été téléchargé — réessayez en Wi-Fi ou utilisez le mode capteur","de":"Die Kamera-Engine wurde nicht geladen — später über WLAN starten oder den Sensormodus nutzen","hi":"कैमरा इंजन डाउनलोड नहीं हुआ — बाद में Wi-Fi पर शुरू करें या सेंसर मोड इस्तेमाल करें","zh":"未下载相机引擎——请稍后在 Wi-Fi 下开始，或使用传感器模式"},"تحقّق من الكادر — قف بحيث يظهر جسمك كاملاً (رأس وكتفان ووركان)":{"en":"Check the frame — stand so your whole body is visible (head, shoulders and hips)","fr":"Vérifiez le cadre — placez-vous de façon à voir tout le corps (tête, épaules et hanches)","de":"Bildausschnitt prüfen — so stehen, dass der ganze Körper sichtbar ist (Kopf, Schultern, Hüften)","hi":"फ़्रेम जाँचें — ऐसे खड़े हों कि पूरा शरीर दिखे (सिर, कंधे और कूल्हे)","zh":"检查画面——站到全身可见的位置（头、肩、髋）"},"قبل التنزيل: تأكيد على بيانات الجوال":{"en":"Before downloading: confirm on mobile data","fr":"Avant le téléchargement : confirmation en données mobiles","de":"Vor dem Download: Bestätigung bei mobilen Daten","hi":"डाउनलोड से पहले: मोबाइल डेटा पर पुष्टि","zh":"下载前：移动数据确认"},"وضع الكاميرا يحتاج اتصالاً بالإنترنت لتحميل المحرّك أول مرة — جرّب وضع الحسّاس أو اتصل ثم أعد المحاولة":{"en":"Camera mode needs an internet connection to load the engine the first time — try sensor mode, or connect and retry","fr":"Le mode caméra a besoin d’internet pour charger le moteur la première fois — essayez le mode capteur ou connectez-vous puis réessayez","de":"Der Kameramodus braucht beim ersten Mal Internet zum Laden der Engine — Sensormodus nutzen oder verbinden und erneut versuchen","hi":"कैमरा मोड को पहली बार इंजन लोड करने के लिए इंटरनेट चाहिए — सेंसर मोड आज़माएँ या कनेक्ट करके फिर कोशिश करें","zh":"相机模式首次需要联网加载引擎——请试试传感器模式，或联网后重试"},"تعذّر تهيئة محرّك الوضعيات على هذا الجهاز — أعد المحاولة أو استخدم وضع الحسّاس":{"en":"The pose engine could not start on this device — retry or use sensor mode","fr":"Le moteur de postures n’a pas pu démarrer sur cet appareil — réessayez ou utilisez le mode capteur","de":"Die Haltungs-Engine konnte auf diesem Gerät nicht starten — erneut versuchen oder Sensormodus nutzen","hi":"इस डिवाइस पर मुद्रा इंजन शुरू नहीं हो सका — फिर कोशिश करें या सेंसर मोड इस्तेमाल करें","zh":"姿势引擎无法在此设备上启动——请重试或使用传感器模式"},"لم يُسمح بالكاميرا — افتح إعدادات التطبيق ← الأذونات ← الكاميرا وفعّلها، ثم أعد المحاولة.":{"en":"Camera access was not allowed — open the app settings → Permissions → Camera, enable it, then retry.","fr":"Accès à la caméra refusé — ouvrez les réglages de l’app → Autorisations → Caméra, activez-la puis réessayez.","de":"Kamerazugriff nicht erlaubt — App-Einstellungen → Berechtigungen → Kamera öffnen, aktivieren und erneut versuchen.","hi":"कैमरा की अनुमति नहीं दी गई — ऐप सेटिंग्स → अनुमतियाँ → कैमरा खोलें, चालू करें, फिर कोशिश करें।","zh":"未允许使用相机——打开应用设置 → 权限 → 相机并开启，然后重试。"},"لم تُوجد كاميرا صالحة في هذا الجهاز — استخدم وضع الحسّاس.":{"en":"No usable camera was found on this device — use sensor mode.","fr":"Aucune caméra utilisable sur cet appareil — utilisez le mode capteur.","de":"Keine nutzbare Kamera auf diesem Gerät — Sensormodus verwenden.","hi":"इस डिवाइस पर कोई उपयोगी कैमरा नहीं मिला — सेंसर मोड इस्तेमाल करें।","zh":"此设备上未找到可用的相机——请使用传感器模式。"},"الكاميرا مشغولة بتطبيق آخر أو تعذّر تشغيلها — أغلق التطبيق الآخر ثم أعد المحاولة.":{"en":"The camera is in use by another app or could not start — close the other app and retry.","fr":"La caméra est utilisée par une autre application ou n’a pas pu démarrer — fermez l’autre application puis réessayez.","de":"Die Kamera wird von einer anderen App benutzt oder konnte nicht starten — andere App schließen und erneut versuchen.","hi":"कैमरा किसी और ऐप में व्यस्त है या शुरू नहीं हो सका — दूसरा ऐप बंद करके फिर कोशिश करें।","zh":"相机正被其他应用占用或无法启动——请关闭其他应用后重试。"},"هذه البيئة لا تتيح الكاميرا للتطبيق — استخدم وضع الحسّاس.":{"en":"This environment does not give the app camera access — use sensor mode.","fr":"Cet environnement n’offre pas l’accès caméra à l’application — utilisez le mode capteur.","de":"Diese Umgebung gibt der App keinen Kamerazugriff — Sensormodus verwenden.","hi":"यह परिवेश ऐप को कैमरा नहीं देता — सेंसर मोड इस्तेमाल करें।","zh":"当前环境不允许应用使用相机——请使用传感器模式。"},"فُتحت الكاميرا لكن لم تصل صورة خلال ١٥ ثانية — أعد المحاولة أو جرّب تبديل الكاميرا.":{"en":"The camera opened but no image arrived within 15 seconds — retry or try switching the camera.","fr":"La caméra s’est ouverte mais aucune image n’est arrivée en 15 secondes — réessayez ou changez de caméra.","de":"Die Kamera wurde geöffnet, aber in 15 Sekunden kam kein Bild — erneut versuchen oder Kamera wechseln.","hi":"कैमरा खुला लेकिन 15 सेकंड में तस्वीर नहीं आई — फिर कोशिश करें या कैमरा बदलें।","zh":"相机已打开但 15 秒内没有画面——请重试或切换相机。"},"انقطعت الكاميرا (استُخدمت من تطبيق آخر أو أُوقف إذنها)":{"en":"Camera lost (taken by another app or permission revoked)","fr":"Caméra interrompue (prise par une autre app ou autorisation retirée)","de":"Kamera unterbrochen (von anderer App übernommen oder Berechtigung entzogen)","hi":"कैमरा बाधित (किसी और ऐप ने ले लिया या अनुमति हटी)","zh":"相机中断（被其他应用占用或权限被撤销）"},"الكاميرا فُتحت":{"en":"Camera opened","fr":"Caméra ouverte","de":"Kamera geöffnet","hi":"कैमरा खुला","zh":"相机已打开"},"أمامية":{"en":"front","fr":"avant","de":"vorne","hi":"सामने","zh":"前置"},"خلفية":{"en":"rear","fr":"arrière","de":"hinten","hi":"पीछे","zh":"后置"},"تبديل الكاميرا — المرجع محفوظ":{"en":"Camera switched — standing reference kept","fr":"Caméra changée — référence debout conservée","de":"Kamera gewechselt — Stehreferenz behalten","hi":"कैमरा बदला — खड़े होने का संदर्भ सुरक्षित","zh":"已切换相机——保留站立参考"},"استؤنف العدّ":{"en":"Counting resumed","fr":"Comptage repris","de":"Zählung fortgesetzt","hi":"गिनती फिर शुरू","zh":"已恢复计数"},"عادت الرؤية":{"en":"Vision restored","fr":"Vision rétablie","de":"Sicht wiederhergestellt","hi":"दृश्य वापस आया","zh":"视野恢复"},"الوضعية":{"en":"Posture","fr":"Posture","de":"Haltung","hi":"मुद्रा","zh":"姿势"},"قيام":{"en":"Standing","fr":"Debout","de":"Stehen","hi":"क़ियाम","zh":"站立"},"اعتدال":{"en":"Upright","fr":"Redressé","de":"Aufrecht","hi":"सीधा","zh":"端坐"},"انحناء":{"en":"Lean","fr":"Inclinaison","de":"Neigung","hi":"झुकाव","zh":"前倾"},"مؤكّد":{"en":"confirmed","fr":"confirmé","de":"bestätigt","hi":"पुष्टि","zh":"已确认"},"آخر وضعية: {x} — الجذع غير مكتمل الرؤية":{"en":"Last posture: {x} — torso not fully visible","fr":"Dernière posture : {x} — torse pas entièrement visible","de":"Letzte Haltung: {x} — Rumpf nicht ganz sichtbar","hi":"पिछली मुद्रा: {x} — धड़ पूरा नहीं दिख रहा","zh":"上一个姿势：{x}——躯干未完全可见"},"انقطاع الرؤية":{"en":"vision gap","fr":"interruption de la vision","de":"Sichtunterbrechung","hi":"दृश्य बाधित","zh":"视野中断"},"الجذع غير مرئي — أبعد الهاتف قليلاً أو عدّل زاويته حتى يظهر الرأس والكتفان والوركان":{"en":"Torso not visible — move the phone a little farther or adjust its angle until head, shoulders and hips show","fr":"Torse non visible — éloignez un peu le téléphone ou ajustez l’angle jusqu’à voir tête, épaules et hanches","de":"Rumpf nicht sichtbar — Telefon etwas weiter weg stellen oder den Winkel anpassen, bis Kopf, Schultern und Hüften zu sehen sind","hi":"धड़ नहीं दिख रहा — फ़ोन थोड़ा दूर करें या कोण बदलें ताकि सिर, कंधे और कूल्हे दिखें","zh":"看不到躯干——把手机放远一点或调整角度，直到头、肩、髋都出现"},"{n} انحناءات ثم انقطاع":{"en":"{n} leans then a gap","fr":"{n} inclinaisons puis interruption","de":"{n} Neigungen, dann Unterbrechung","hi":"{n} झुकाव फिर बाधा","zh":"{n} 次前倾后中断"},"الركعة {n} — {w}":{"en":"Rak‘ah {n} — {w}","fr":"Rak‘a {n} — {w}","de":"Rak‘a {n} — {w}","hi":"रकअत {n} — {w}","zh":"第 {n} 拜——{w}"},"العدّ متوقّف — الكادر مُدار":{"en":"Counting paused — frame rotated","fr":"Comptage en pause — cadre tourné","de":"Zählung pausiert — Bild gedreht","hi":"गिनती रुकी — फ़्रेम घूमा हुआ","zh":"计数暂停——画面已旋转"},"ثبّت الهاتف":{"en":"Hold the phone","fr":"Tenez le téléphone","de":"Telefon halten","hi":"फ़ोन रखें","zh":"请将手机固定为"},"طولياً":{"en":"upright (portrait)","fr":"en portrait","de":"hochkant","hi":"सीधा (पोर्ट्रेट)","zh":"竖屏"},"أفقياً":{"en":"sideways (landscape)","fr":"en paysage","de":"quer","hi":"आड़ा (लैंडस्केप)","zh":"横屏"},"أو فعّل التدوير التلقائي":{"en":"or enable auto-rotate","fr":"ou activez la rotation automatique","de":"oder Autodrehung aktivieren","hi":"या ऑटो-रोटेट चालू करें","zh":"或开启自动旋转"},"الكادر مُدار — ثبّت الهاتف باتجاه الشاشة ثم أعد التحقّق":{"en":"Frame rotated — hold the phone the way the screen faces, then check again","fr":"Cadre tourné — tenez le téléphone dans le sens de l’écran puis revérifiez","de":"Bild gedreht — Telefon in Bildschirmrichtung halten und erneut prüfen","hi":"फ़्रेम घूमा हुआ — फ़ोन को स्क्रीन की दिशा में रखें और फिर जाँचें","zh":"画面已旋转——请按屏幕方向放置手机后再检查"},"تدوير الكادر":{"en":"frame rotation","fr":"rotation du cadre","de":"Bilddrehung","hi":"फ़्रेम घूमना","zh":"画面旋转"},"أنت جالس — قِف أمام الكاميرا أولاً ليُثبَّت مرجع القيام (أو فعّل «الصلاة على كرسي»)":{"en":"You are seated — stand in front of the camera first so the standing reference is set (or turn on “Praying on a chair”)","fr":"Vous êtes assis — placez-vous d’abord debout devant la caméra pour fixer la référence (ou activez « Prière sur une chaise »)","de":"Du sitzt — stelle dich zuerst vor die Kamera, damit die Stehreferenz gesetzt wird (oder aktiviere „Gebet auf einem Stuhl“)","hi":"आप बैठे हैं — पहले कैमरे के सामने खड़े हों ताकि खड़े होने का संदर्भ तय हो (या «कुर्सी पर नमाज़» चालू करें)","zh":"你正坐着——请先站到相机前以设定站立参考（或开启“坐椅礼拜”）"},"اعتدل جالساً في مواجهة الكاميرا ليبدأ العدّ":{"en":"Sit upright facing the camera to start counting","fr":"Asseyez-vous droit face à la caméra pour démarrer le comptage","de":"Setz dich aufrecht zur Kamera, um die Zählung zu starten","hi":"गिनती शुरू करने के लिए कैमरे की ओर सीधे बैठें","zh":"面向相机端坐以开始计数"},"✓ الجسم مرئي — اثبت لحظة…":{"en":"✓ Body visible — hold still a moment…","fr":"✓ Corps visible — restez immobile un instant…","de":"✓ Körper sichtbar — kurz still halten…","hi":"✓ शरीर दिख रहा है — एक पल स्थिर रहें…","zh":"✓ 身体可见——请静止片刻…"},"مرجع القيام مثبّت":{"en":"Standing reference set","fr":"Référence debout fixée","de":"Stehreferenz gesetzt","hi":"खड़े होने का संदर्भ तय","zh":"已设定站立参考"},"{n} انحناءات مُشاهَدة":{"en":"{n} leans seen","fr":"{n} inclinaisons vues","de":"{n} Neigungen gesehen","hi":"{n} झुकाव देखे गए","zh":"看到 {n} 次前倾"},"جلوس قبل تثبيت مرجع القيام — لا يُحتسب":{"en":"Sitting before the standing reference was set — not counted","fr":"Assis avant la référence debout — non compté","de":"Sitzen vor der Stehreferenz — nicht gezählt","hi":"खड़े होने का संदर्भ तय होने से पहले बैठना — गिना नहीं गया","zh":"在设定站立参考前坐下——不计数"},"قِف أمام الكاميرا أولاً":{"en":"Stand in front of the camera first","fr":"Placez-vous d’abord debout devant la caméra","de":"Stelle dich zuerst vor die Kamera","hi":"पहले कैमरे के सामने खड़े हों","zh":"请先站到相机前"},"سجدة مفردة بلا ركوع — لم تُعدّ ركعة":{"en":"Single prostration without bowing — not counted as a rak‘ah","fr":"Prosternation isolée sans inclinaison — non comptée comme rak‘a","de":"Einzelne Niederwerfung ohne Verbeugung — nicht als Rak‘a gezählt","hi":"बिना रुकू अकेला सजदा — रकअत नहीं गिनी गई","zh":"没有鞠躬的单次叩头——不计为一拜"},"الركوع":{"en":"bowing","fr":"l’inclinaison","de":"die Verbeugung","hi":"रुकू","zh":"鞠躬"},"السجود":{"en":"prostration","fr":"la prosternation","de":"die Niederwerfung","hi":"सजदा","zh":"叩头"},"السجدة الثانية":{"en":"the second prostration","fr":"la seconde prosternation","de":"die zweite Niederwerfung","hi":"दूसरा सजदा","zh":"第二次叩头"},"رُصدت {n} سجدات (أكثر من اثنتين)":{"en":"{n} prostrations detected (more than two)","fr":"{n} prosternations détectées (plus de deux)","de":"{n} Niederwerfungen erkannt (mehr als zwei)","hi":"{n} सजदे पहचाने गए (दो से अधिक)","zh":"检测到 {n} 次叩头（超过两次）"},"ركوع→سجدتان مُشاهَدة":{"en":"bowing→two prostrations seen","fr":"inclinaison→deux prosternations vues","de":"Verbeugung→zwei Niederwerfungen gesehen","hi":"रुकू→दो सजदे देखे गए","zh":"看到鞠躬→两次叩头"},"المُشاهَد":{"en":"Seen","fr":"Vu","de":"Gesehen","hi":"देखा गया","zh":"所见"},"{n} انحناءات":{"en":"{n} leans","fr":"{n} inclinaisons","de":"{n} Neigungen","hi":"{n} झुकाव","zh":"{n} 次前倾"},"لم يُرصد سوى {n} انحناءات":{"en":"only {n} leans detected","fr":"seulement {n} inclinaisons détectées","de":"nur {n} Neigungen erkannt","hi":"केवल {n} झुकाव पहचाने गए","zh":"仅检测到 {n} 次前倾"},"الكادر مُدار (اتجاه الهاتف يخالف اتجاه الشاشة) — توقّف العدّ":{"en":"Frame rotated (phone orientation differs from the screen) — counting paused","fr":"Cadre tourné (orientation du téléphone différente de l’écran) — comptage en pause","de":"Bild gedreht (Telefonlage weicht vom Bildschirm ab) — Zählung pausiert","hi":"फ़्रेम घूमा हुआ (फ़ोन की दिशा स्क्रीन से अलग) — गिनती रुकी","zh":"画面已旋转（手机方向与屏幕不一致）——计数暂停"},"المقترح":{"en":"Recommended","fr":"Recommandé","de":"Empfohlen","hi":"सुझाया गया","zh":"推荐"},"تجريبي":{"en":"Experimental","fr":"Expérimental","de":"Experimentell","hi":"प्रयोगात्मक","zh":"实验性"},"📡 ضع الهاتف مستلقياً على السجادة عند موضع الجبهة، والشاشة للأعلى، وحافته العليا (حيث السماعة وحسّاس القرب) نحو جبهتك. تُرصد السجدة عندما تقترب الجبهة من الهاتف ٠٫٧ ثانية فأكثر.":{"en":"📡 Lay the phone flat on the mat where your forehead touches, screen up, with its top edge (earpiece and proximity sensor) toward your forehead. A prostration is detected when the forehead comes close to the phone for 0.7 s or more.","fr":"📡 Posez le téléphone à plat sur le tapis à l’endroit du front, écran vers le haut, bord supérieur (écouteur et capteur de proximité) vers votre front. Une prosternation est détectée quand le front s’approche du téléphone 0,7 s ou plus.","de":"📡 Lege das Telefon flach auf den Teppich an die Stirnstelle, Bildschirm nach oben, obere Kante (Hörer und Näherungssensor) zur Stirn. Eine Niederwerfung wird erkannt, wenn die Stirn 0,7 s oder länger nah am Telefon ist.","hi":"📡 फ़ोन को चटाई पर माथे की जगह सीधा रखें, स्क्रीन ऊपर, ऊपरी किनारा (स्पीकर और प्रॉक्सिमिटी सेंसर) माथे की ओर। माथा 0.7 से. या अधिक फ़ोन के पास आए तो सजदा पहचाना जाता है।","zh":"📡 把手机平放在拜毯上额头接触的位置，屏幕朝上，顶部边缘（听筒和距离传感器）朝向额头。额头靠近手机 0.7 秒以上即检测为一次叩头。"},"✋ قبل العدّ: مرّر يدك فوق أعلى الشاشة — إن أضاءت النقطة فالحسّاس يستجيب، ثم اضغط «ابدأ العدّ». بعدها ٨ ثوانٍ لرفع يدك قبل رصد أول سجدة.":{"en":"✋ Before counting: pass your hand over the top of the screen — if the dot lights up the sensor responds; then tap “Start counting”. You then have 8 seconds to lift your hand before the first prostration is detected.","fr":"✋ Avant le comptage : passez la main au-dessus du haut de l’écran — si le point s’allume, le capteur répond ; touchez ensuite « Commencer le comptage ». Vous avez alors 8 secondes pour retirer la main avant la détection de la première prosternation.","de":"✋ Vor der Zählung: Hand über den oberen Bildschirmrand führen — leuchtet der Punkt, reagiert der Sensor; dann „Zählung starten“ antippen. Danach bleiben 8 Sekunden, die Hand wegzunehmen, bevor die erste Niederwerfung erkannt wird.","hi":"✋ गिनती से पहले: स्क्रीन के ऊपर हाथ फेरें — बिंदु जले तो सेंसर जवाब दे रहा है; फिर «गिनती शुरू करें» दबाएँ। इसके बाद पहला सजदा पहचानने से पहले हाथ हटाने के लिए 8 सेकंड हैं।","zh":"✋ 计数前：把手从屏幕顶部上方掠过——圆点亮起说明传感器有反应；然后点“开始计数”。之后有 8 秒时间移开手，再开始检测第一次叩头。"},"🌙 تُعتم الشاشة إلى السواد تلقائياً بعد بدء العدّ لتوفير البطارية. لا تقلب الهاتف على وجهه: الحسّاس في جهة الشاشة.":{"en":"🌙 The screen dims to black automatically once counting starts, to save battery. Do not turn the phone face down: the sensor is on the screen side.","fr":"🌙 L’écran s’assombrit automatiquement en noir dès le début du comptage pour économiser la batterie. Ne retournez pas le téléphone face vers le bas : le capteur est du côté de l’écran.","de":"🌙 Der Bildschirm wird nach Beginn der Zählung automatisch schwarz, um Akku zu sparen. Lege das Telefon nicht mit dem Display nach unten: Der Sensor sitzt auf der Bildschirmseite.","hi":"🌙 बैटरी बचाने के लिए गिनती शुरू होने पर स्क्रीन अपने आप काली हो जाती है। फ़ोन को उल्टा न रखें: सेंसर स्क्रीन की तरफ़ है।","zh":"🌙 开始计数后屏幕会自动变黑以省电。不要把手机正面朝下：传感器在屏幕一侧。"},"💡 أبقِ الشاشة مضاءة: إطفاؤها أو مغادرة التطبيق يُنهي الجلسة. اللمسات العابرة مُعطّلة أثناء الجلسة — للإنهاء اضغط مطوّلاً ٢ث، أو تنتهي وحدها بعد ٩٠ث من آخر سجدة حين تكتمل الركعات (١٠ دقائق قبل ذلك).":{"en":"💡 Keep the screen on: turning it off or leaving the app ends the session. Stray touches are disabled during the session — to end, long-press for 2 s, or it ends by itself 90 s after the last prostration once the rak‘ahs are complete (10 minutes before that).","fr":"💡 Gardez l’écran allumé : l’éteindre ou quitter l’application termine la séance. Les touches accidentelles sont désactivées pendant la séance — pour terminer, appuyez longuement 2 s, ou elle se termine seule 90 s après la dernière prosternation une fois les rak‘as complètes (10 minutes avant cela).","de":"💡 Bildschirm anlassen: Ausschalten oder Verlassen der App beendet die Sitzung. Versehentliche Berührungen sind während der Sitzung deaktiviert — zum Beenden 2 s lang drücken, oder sie endet von selbst 90 s nach der letzten Niederwerfung, sobald die Rak‘as vollständig sind (davor nach 10 Minuten).","hi":"💡 स्क्रीन चालू रखें: बंद करने या ऐप छोड़ने से सत्र समाप्त हो जाता है। सत्र के दौरान आकस्मिक स्पर्श बंद हैं — समाप्त करने के लिए 2 से. लंबा दबाएँ, या रकअत पूरी होने पर आख़िरी सजदे के 90 से. बाद यह अपने आप समाप्त हो जाता है (उससे पहले 10 मिनट में)।","zh":"💡 保持屏幕亮着：关闭屏幕或离开应用会结束追踪。追踪期间误触被禁用——长按 2 秒结束，或在拜数完成后最后一次叩头 90 秒后自动结束（未完成时为 10 分钟）。"},"📷 انصب الهاتف طولياً (عمودياً) على جانبك بزاوية ٤٥–٩٠ درجة بحيث يظهر جسمك كاملاً في الكادر (رأس + كتفان + وركان). يبدأ العدّ وحده بعد ثانيتين من الوقوف أمام الكاميرا.":{"en":"📷 Prop the phone upright (portrait) at your side at a 45–90° angle so your whole body shows in the frame (head + shoulders + hips). Counting starts by itself after two seconds of standing in front of the camera.","fr":"📷 Posez le téléphone à la verticale (portrait) sur le côté, à 45–90°, pour que tout le corps apparaisse dans le cadre (tête + épaules + hanches). Le comptage démarre seul après deux secondes debout devant la caméra.","de":"📷 Stelle das Telefon hochkant seitlich im Winkel von 45–90° auf, sodass der ganze Körper im Bild ist (Kopf + Schultern + Hüften). Die Zählung beginnt von selbst nach zwei Sekunden Stehen vor der Kamera.","hi":"📷 फ़ोन को बग़ल में सीधा (पोर्ट्रेट) 45–90° के कोण पर रखें ताकि पूरा शरीर फ़्रेम में दिखे (सिर + कंधे + कूल्हे)। कैमरे के सामने दो सेकंड खड़े रहने पर गिनती अपने आप शुरू हो जाती है।","zh":"📷 把手机竖放在身侧，角度 45–90°，使全身（头＋肩＋髋）出现在画面中。在相机前站立两秒后自动开始计数。"},"⏹ للإنهاء اضغط «إنهاء الجلسة»، أو تنتهي وحدها بعد ٩٠ث من آخر حركة حين تكتمل الركعات (١٠ دقائق قبل ذلك).":{"en":"⏹ To end, tap “End session”, or it ends by itself 90 s after the last movement once the rak‘ahs are complete (10 minutes before that).","fr":"⏹ Pour terminer, touchez « Terminer la séance », ou elle se termine seule 90 s après le dernier mouvement une fois les rak‘as complètes (10 minutes avant cela).","de":"⏹ Zum Beenden „Sitzung beenden“ antippen, oder sie endet von selbst 90 s nach der letzten Bewegung, sobald die Rak‘as vollständig sind (davor nach 10 Minuten).","hi":"⏹ समाप्त करने के लिए «सत्र ख़त्म करें» दबाएँ, या रकअत पूरी होने पर आख़िरी हरकत के 90 से. बाद यह अपने आप समाप्त हो जाता है (उससे पहले 10 मिनट में)।","zh":"⏹ 点“结束追踪”结束，或在拜数完成后最后一次动作 90 秒后自动结束（未完成时为 10 分钟）。"},"🧪 تجريبي: وضع الكاميرا ما زال قيد التحقّق على هواتف حقيقية — قد يفوته رصد بعض الحركات، والملخّص يذكر ما لم يُرصد. وضع الحسّاس هو المقترح.":{"en":"🧪 Experimental: camera mode is still being verified on real phones — it may miss some movements, and the summary lists what was not detected. Sensor mode is recommended.","fr":"🧪 Expérimental : le mode caméra est encore en cours de vérification sur de vrais téléphones — il peut manquer certains mouvements, et le résumé indique ce qui n’a pas été détecté. Le mode capteur est recommandé.","de":"🧪 Experimentell: Der Kameramodus wird noch auf echten Telefonen geprüft — er kann Bewegungen übersehen, und die Zusammenfassung nennt, was nicht erkannt wurde. Der Sensormodus wird empfohlen.","hi":"🧪 प्रयोगात्मक: कैमरा मोड अभी असली फ़ोन पर जाँचा जा रहा है — कुछ हरकतें छूट सकती हैं, और सारांश बताता है कि क्या नहीं पहचाना गया। सेंसर मोड सुझाया जाता है।","zh":"🧪 实验性：相机模式仍在真机上验证中——可能漏检部分动作，总结会列出未检测到的内容。推荐使用传感器模式。"},"🔒 المعالجة على الجهاز فقط — لا تسجيل ولا إرسال. تُطلب صلاحية الكاميرا عند البدء، ويُنزَّل المحرّك مرة واحدة (نحو ١٦ ميغابايت أول مرة).":{"en":"🔒 Processing happens on the device only — no recording, no upload. Camera permission is requested at start, and the engine is downloaded once (about 16 MB the first time).","fr":"🔒 Traitement sur l’appareil uniquement — ni enregistrement ni envoi. L’autorisation caméra est demandée au démarrage, et le moteur est téléchargé une seule fois (environ 16 Mo la première fois).","de":"🔒 Verarbeitung nur auf dem Gerät — keine Aufnahme, kein Upload. Die Kameraberechtigung wird beim Start abgefragt, die Engine einmal geladen (etwa 16 MB beim ersten Mal).","hi":"🔒 प्रोसेसिंग केवल डिवाइस पर — कोई रिकॉर्डिंग नहीं, कोई अपलोड नहीं। शुरू में कैमरा अनुमति माँगी जाती है, और इंजन एक बार डाउनलोड होता है (पहली बार लगभग 16 MB)।","zh":"🔒 仅在设备上处理——不录制、不上传。开始时请求相机权限，引擎只下载一次（首次约 16 MB）。"},"قصر الصلاة في السفر (ركعتان بدل أربع)":{"en":"Shortened travel prayer (two rak‘ahs instead of four)","fr":"Prière raccourcie en voyage (deux rak‘as au lieu de quatre)","de":"Verkürztes Reisegebet (zwei statt vier Rak‘as)","hi":"सफ़र में क़सर (चार की जगह दो रकअत)","zh":"旅行缩短礼拜（两拜代替四拜）"},"يُرصد الانحناء (ثلاث انحناءات لكل ركعة) بدل الركوع والسجود":{"en":"leaning is detected (three leans per rak‘ah) instead of bowing and prostration","fr":"l’inclinaison est détectée (trois inclinaisons par rak‘a) au lieu de l’inclinaison et de la prosternation","de":"Neigen wird erkannt (drei Neigungen pro Rak‘a) statt Verbeugung und Niederwerfung","hi":"रुकू और सजदे की जगह झुकाव पहचाना जाता है (हर रकअत में तीन झुकाव)","zh":"检测前倾动作（每拜三次前倾）代替鞠躬和叩头"},"تنبيه فوري: اهتزاز خفيف عندما لا يُرصد جزء من الركعة — تنبيه عن الرصد لا حكم على صلاتك":{"en":"Instant alert: a light vibration when part of a rak‘ah is not detected — an alert about detection, not a judgement of your prayer","fr":"Alerte immédiate : légère vibration quand une partie de la rak‘a n’est pas détectée — une alerte de détection, pas un jugement sur votre prière","de":"Sofort-Hinweis: leichte Vibration, wenn ein Teil einer Rak‘a nicht erkannt wird — ein Hinweis zur Erkennung, kein Urteil über dein Gebet","hi":"तुरंत सूचना: जब रकअत का कोई हिस्सा न पहचाना जाए तो हल्की कंपन — यह पहचान की सूचना है, आपकी नमाज़ पर फ़ैसला नहीं","zh":"即时提醒：某一拜的部分动作未检测到时轻微振动——这是检测提醒，不是对你礼拜的评判"},"يشمل ذلك إحصاءات متابع الصلاة (أعداد الركعات المرصودة فقط).":{"en":"This includes Salah Tracker statistics (detected rak‘ah counts only).","fr":"Cela inclut les statistiques du suivi de la prière (uniquement le nombre de rak‘as détectées).","de":"Das umfasst die Statistiken des Gebetsbegleiters (nur die Zahl erkannter Rak‘as).","hi":"इसमें नमाज़ ट्रैकर के आँकड़े शामिल हैं (केवल पहचानी गई रकअत की संख्या)।","zh":"这包括礼拜追踪的统计数据（仅已检测到的拜数）。"},"منتظم المتابعة":{"en":"Steady tracker","fr":"Suivi régulier","de":"Beständige Begleitung","hi":"नियमित ट्रैकिंग","zh":"坚持追踪"},"منتظم الفجر":{"en":"Steady at Fajr","fr":"Régulier au Fajr","de":"Beständig beim Fadschr","hi":"फ़ज्र में नियमित","zh":"坚持晨礼"},"١٠ جلسات متابعة رُصدت فيها كل الركعات المتوقعة":{"en":"10 tracking sessions in which every expected rak‘ah was detected","fr":"10 séances de suivi où toutes les rak‘as attendues ont été détectées","de":"10 Begleit-Sitzungen, in denen jede erwartete Rak‘a erkannt wurde","hi":"10 ट्रैकिंग सत्र जिनमें हर अपेक्षित रकअत पहचानी गई","zh":"10 次追踪中检测到全部预期拜数"},"٥ جلسات متابعة للفجر":{"en":"5 tracking sessions for Fajr","fr":"5 séances de suivi pour le Fajr","de":"5 Begleit-Sitzungen beim Fadschr","hi":"फ़ज्र के 5 ट्रैकिंग सत्र","zh":"5 次晨礼追踪"},"بدأ تنزيل محرّك الكاميرا (نحو {t} ميغابايت)…":{"en":"Downloading the camera engine (about {t} MB)…","fr":"Téléchargement du moteur caméra (environ {t} Mo)…","de":"Kamera-Engine wird geladen (etwa {t} MB)…","hi":"कैमरा इंजन डाउनलोड हो रहा है (लगभग {t} MB)…","zh":"正在下载相机引擎（约 {t} MB）…"},"✓ نُزِّل محرّك الكاميرا":{"en":"✓ Camera engine downloaded","fr":"✓ Moteur caméra téléchargé","de":"✓ Kamera-Engine geladen","hi":"✓ कैमरा इंजन डाउनलोड हुआ","zh":"✓ 相机引擎已下载"},"حُذف محرّك الكاميرا ✓":{"en":"Camera engine deleted ✓","fr":"Moteur caméra supprimé ✓","de":"Kamera-Engine gelöscht ✓","hi":"कैमरा इंजन हटाया गया ✓","zh":"相机引擎已删除 ✓"},"محرّك الكاميرا (متابع الصلاة — تجريبي)":{"en":"Camera engine (Salah Tracker — experimental)","fr":"Moteur caméra (suivi de la prière — expérimental)","de":"Kamera-Engine (Gebetsbegleiter — experimentell)","hi":"कैमरा इंजन (नमाज़ ट्रैकर — प्रयोगात्मक)","zh":"相机引擎（礼拜追踪——实验性）"},"يعدّ الركعات التي يرصدها أثناء صلاتك ليعينك على عدم السهو. لا يحكم على صلاتك، ويذكر بالاسم ما لم يرصده.":{"en":"Counts the rak‘ahs it detects during your prayer to help against forgetting. It does not judge your prayer, and names what it did not detect.","fr":"Compte les rak‘as détectées pendant votre prière pour vous aider contre l’oubli. Il ne juge pas votre prière et nomme ce qu’il n’a pas détecté.","de":"Zählt die während deines Gebets erkannten Rak‘as, um Vergessen vorzubeugen. Es beurteilt dein Gebet nicht und nennt, was es nicht erkannt hat.","hi":"नमाज़ के दौरान पहचानी गई रकअत गिनता है ताकि भूल न हो। यह आपकी नमाज़ पर फ़ैसला नहीं देता, और जो नहीं पहचाना उसे नाम से बताता है।","zh":"统计礼拜中检测到的拜数以帮助防止遗忘。它不评判你的礼拜，并会指出未检测到的内容。"},"اختر الوضع: «الحسّاس» (المقترح — الهاتف عند موضع الجبهة) أو «الكاميرا» (تجريبي — الهاتف على جانبك).":{"en":"Choose a mode: “Sensor” (recommended — phone at the forehead spot) or “Camera” (experimental — phone at your side).","fr":"Choisissez le mode : « Capteur » (recommandé — téléphone à l’endroit du front) ou « Caméra » (expérimental — téléphone sur le côté).","de":"Modus wählen: „Sensor“ (empfohlen — Telefon an der Stirnstelle) oder „Kamera“ (experimentell — Telefon seitlich).","hi":"मोड चुनें: «सेंसर» (सुझाया गया — फ़ोन माथे की जगह) या «कैमरा» (प्रयोगात्मक — फ़ोन बग़ल में)।","zh":"选择模式：“传感器”（推荐——手机放在额头位置）或“相机”（实验性——手机放在身侧）。"},"اختر الصلاة (الجمعة والوتر والنافلة متاحة، وقصر الرباعية في السفر) ثم اضغط «ابدأ المتابعة».":{"en":"Choose the prayer (Jumu‘ah, Witr and voluntary prayers are available, plus shortening four-rak‘ah prayers when travelling), then tap “Start tracking”.","fr":"Choisissez la prière (Joumou‘a, Witr et prières surérogatoires disponibles, plus le raccourcissement des prières à quatre rak‘as en voyage), puis touchez « Commencer le suivi ».","de":"Wähle das Gebet (Dschumu‘a, Witr und freiwillige Gebete sind verfügbar, dazu das Verkürzen vierteiliger Gebete auf Reisen) und tippe auf „Begleitung starten“.","hi":"नमाज़ चुनें (जुमा, वित्र और नफ़्ल उपलब्ध, और सफ़र में चार रकअत वाली नमाज़ का क़सर), फिर «ट्रैकिंग शुरू करें» दबाएँ।","zh":"选择礼拜（可选主麻、维特尔和副功拜，并可在旅行时缩短四拜礼拜），然后点“开始追踪”。"},"مرحلة التحقّق أولاً: في الحسّاس جرّب يدك فوق أعلى الشاشة ثم اضغط «ابدأ العدّ» (٨ ثوانٍ لرفع يدك)؛ في الكاميرا يبدأ العدّ وحده بعد ثانيتين من الوقوف بجسم كامل في الكادر.":{"en":"A check stage comes first: in sensor mode, test your hand over the top of the screen then tap “Start counting” (8 seconds to lift your hand); in camera mode, counting starts by itself after two seconds of standing with your whole body in the frame.","fr":"Une étape de vérification d’abord : en mode capteur, testez la main au-dessus du haut de l’écran puis touchez « Commencer le comptage » (8 secondes pour retirer la main) ; en mode caméra, le comptage démarre seul après deux secondes debout, corps entier dans le cadre.","de":"Zuerst eine Prüfphase: Im Sensormodus die Hand über dem oberen Bildschirmrand testen und dann „Zählung starten“ antippen (8 Sekunden zum Wegnehmen der Hand); im Kameramodus beginnt die Zählung von selbst nach zwei Sekunden Stehen mit ganzem Körper im Bild.","hi":"पहले जाँच का चरण: सेंसर मोड में स्क्रीन के ऊपर हाथ आज़माएँ फिर «गिनती शुरू करें» दबाएँ (हाथ हटाने के 8 सेकंड); कैमरा मोड में पूरा शरीर फ़्रेम में रखकर दो सेकंड खड़े रहने पर गिनती अपने आप शुरू हो जाती है।","zh":"先进行检查阶段：传感器模式下把手放到屏幕顶部上方测试，再点“开始计数”（有 8 秒移开手）；相机模式下全身入镜站立两秒后自动开始计数。"},"للإنهاء: في الحسّاس اضغط مطوّلاً ٢ث على الشاشة؛ في الكاميرا اضغط «إنهاء الجلسة». أو تنتهي وحدها بعد ٩٠ث من آخر حركة حين تكتمل الركعات، و١٠ دقائق قبل ذلك.":{"en":"To end: in sensor mode long-press the screen for 2 s; in camera mode tap “End session”. Or it ends by itself 90 s after the last movement once the rak‘ahs are complete, and after 10 minutes before that.","fr":"Pour terminer : en mode capteur, appuyez longuement 2 s sur l’écran ; en mode caméra, touchez « Terminer la séance ». Ou elle se termine seule 90 s après le dernier mouvement une fois les rak‘as complètes, et après 10 minutes avant cela.","de":"Zum Beenden: im Sensormodus 2 s lang auf den Bildschirm drücken; im Kameramodus „Sitzung beenden“ antippen. Oder sie endet von selbst 90 s nach der letzten Bewegung, sobald die Rak‘as vollständig sind, davor nach 10 Minuten.","hi":"समाप्त करने के लिए: सेंसर मोड में स्क्रीन पर 2 से. लंबा दबाएँ; कैमरा मोड में «सत्र ख़त्म करें» दबाएँ। या रकअत पूरी होने पर आख़िरी हरकत के 90 से. बाद यह अपने आप समाप्त हो जाता है, उससे पहले 10 मिनट में।","zh":"结束方式：传感器模式下长按屏幕 2 秒；相机模式下点“结束追踪”。或在拜数完成后最后一次动作 90 秒后自动结束，未完成时为 10 分钟。"},"«لم يُرصد ⚠» في الملخّص يسرد ما لم يرَه الهاتف (ركوع، سجدة ثانية، انقطاع رؤية…) — وصف للرصد لا حكم على صلاتك.":{"en":"“Not detected ⚠” in the summary lists what the phone did not see (bowing, a second prostration, a vision gap…) — a description of detection, not a judgement of your prayer.","fr":"« Non détecté ⚠ » dans le résumé liste ce que le téléphone n’a pas vu (inclinaison, seconde prosternation, interruption de vision…) — une description de la détection, pas un jugement sur votre prière.","de":"„Nicht erkannt ⚠“ in der Zusammenfassung listet, was das Telefon nicht gesehen hat (Verbeugung, zweite Niederwerfung, Sichtunterbrechung…) — eine Beschreibung der Erkennung, kein Urteil über dein Gebet.","hi":"सारांश में «पहचाना नहीं गया ⚠» बताता है कि फ़ोन ने क्या नहीं देखा (रुकू, दूसरा सजदा, दृश्य बाधा…) — यह पहचान का विवरण है, आपकी नमाज़ पर फ़ैसला नहीं।","zh":"总结中的“未检测到 ⚠”列出手机没有看到的内容（鞠躬、第二次叩头、视野中断等）——这是对检测的描述，不是对你礼拜的评判。"},"وضع الكاميرا تجريبي حتى يُتحقّق منه على هواتف حقيقية: قد يفوته رصد بعض الحركات. من يصلّي جالساً يفعّل «الصلاة على كرسي».":{"en":"Camera mode is experimental until verified on real phones: it may miss some movements. If you pray seated, turn on “Praying on a chair”.","fr":"Le mode caméra est expérimental jusqu’à sa vérification sur de vrais téléphones : il peut manquer certains mouvements. Si vous priez assis, activez « Prière sur une chaise ».","de":"Der Kameramodus ist experimentell, bis er auf echten Telefonen geprüft ist: Er kann Bewegungen übersehen. Wer sitzend betet, aktiviert „Gebet auf einem Stuhl“.","hi":"कैमरा मोड असली फ़ोन पर जाँच होने तक प्रयोगात्मक है: कुछ हरकतें छूट सकती हैं। बैठकर नमाज़ पढ़ने वाले «कुर्सी पर नमाज़» चालू करें।","zh":"相机模式在真机验证前为实验性：可能漏检部分动作。坐着礼拜的人请开启“坐椅礼拜”。"},"وضع الحسّاس: الحسّاس عند الحافة العليا بجوار السماعة، وتُعتم الشاشة تلقائياً — لا تقلب الهاتف على وجهه.":{"en":"Sensor mode: the sensor is at the top edge next to the earpiece, and the screen dims automatically — do not turn the phone face down.","fr":"Mode capteur : le capteur est au bord supérieur, près de l’écouteur, et l’écran s’assombrit automatiquement — ne retournez pas le téléphone face vers le bas.","de":"Sensormodus: Der Sensor sitzt an der oberen Kante neben dem Hörer, und der Bildschirm wird automatisch dunkel — Telefon nicht mit dem Display nach unten legen.","hi":"सेंसर मोड: सेंसर ऊपरी किनारे पर स्पीकर के पास है, और स्क्रीन अपने आप धुँधली हो जाती है — फ़ोन को उल्टा न रखें।","zh":"传感器模式：传感器位于顶部边缘听筒旁，屏幕会自动变暗——不要把手机正面朝下。"},"بعد الانقطاع: {n} بلا ركوع مرصود — لم تُعدّ ركعة جديدة":{"en":"After the gap: {n} without a detected bowing — not counted as a new rak‘ah","fr":"Après l’interruption : {n} sans inclinaison détectée — non comptée comme nouvelle rak‘a","de":"Nach der Unterbrechung: {n} ohne erkannte Verbeugung — nicht als neue Rak‘a gezählt","hi":"बाधा के बाद: बिना पहचाने गए रुकू के {n} — नई रकअत नहीं गिनी गई","zh":"中断之后：{n}，未检测到鞠躬——不计为新的一拜"},"سجدة":{"en":"one prostration","fr":"une prosternation","de":"eine Niederwerfung","hi":"एक सजदा","zh":"一次叩头"},"سجدتان":{"en":"two prostrations","fr":"deux prosternations","de":"zwei Niederwerfungen","hi":"दो सजदे","zh":"两次叩头"}};for(var k in X)if(X.hasOwnProperty(k)&&!DICT[k])DICT[k]=X[k];})();
 var LANGS=[["ar", "العربية"], ["en", "English"], ["hi", "हिन्दी"], ["fr", "Français"], ["zh", "中文"], ["de", "Deutsch"]];
 
 var LANG=window.noorLang||'ar';try{LANG=localStorage.getItem('noor_lang')||LANG;}catch(e){}
@@ -19037,7 +19405,7 @@ function dismissPWA(){
       if(_cid==='hifz'&&typeof _hzCur==='function'&&_hzCur()!=='today'){try{_hzTab('today');}catch(e){}return;}
       /* متابع الصلاة: جلسة نشطة → أنهِ بملخّص؛ جزء داخلي → ارجع لاختيار الوضع */
       if(_cid==='salahw'&&typeof SW!=='undefined'){
-        if(SW.active){try{swEndSession('back');}catch(e){}return;}
+        if(SW.active){try{swEndAsk('back');}catch(e){}return;}
         if(SW.pane&&SW.pane!=='pick'){try{swRenderStats();swShowPane('pick');}catch(e){}return;}
       }
       /* قائمة أذكار/فضائل/أدعية مفتوحة → ارجع للتصنيفات كسهم الشاشة */
@@ -20092,7 +20460,7 @@ function _fbMerge(r){
       var la=JSON.parse(localStorage.getItem('sw_stats_v1')||'[]'),ra=JSON.parse(m.sw_stats_v1);
       if(!(la instanceof Array))la=[];
       if(ra instanceof Array){var seen={},out=[];
-        la.concat(ra).forEach(function(x){if(!x||typeof x!=='object')return;var s=JSON.stringify(x);if(!seen[s]){seen[s]=1;out.push(x);}});
+        la.concat(ra).forEach(function(x){if(!x||typeof x!=='object')return;var s=x.id?('#'+x.id):JSON.stringify(x);if(!seen[s]){seen[s]=1;out.push(x);}}); /* sw5 SW-15: بالمعرّف إن وُجد، وإلا بالمحتوى (صفوف قديمة) */
         var dk=function(x){var p=String(x.d||'').split('-');return p.length===3?(+p[0])*10000+(+p[1])*100+(+p[2]):0;};
         out=out.map(function(x,i){return [x,i];}).sort(function(a,b){return (dk(a[0])-dk(b[0]))||(a[1]-b[1]);}).map(function(a){return a[0];});
         if(out.length>400)out=out.slice(-400);
