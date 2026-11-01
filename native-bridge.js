@@ -159,7 +159,9 @@
               chRenew: 'تجديد مواقيت الأذان', chRenewD: 'تذكير بفتح التطبيق قبل انتهاء جدولة الأذان',
               renewT: '🔄 المجدّد', renewB: 'افتح التطبيق لتجديد مواقيت الأذان — تنتهي الجدولة الحالية بعد أيام قليلة',
               tzB: 'تغيّرت المنطقة الزمنية — افتح التطبيق لتحديث مواقيت الأذان لموقعك الجديد',
-              dhikrT: 'المجدّد · ذِكر' },
+              dhikrT: 'المجدّد · ذِكر',
+              playT: 'الأذان — {p}', stop: 'إيقاف', muteDay: 'كتم اليوم',
+              chFull: 'الأذان الكامل', chFullD: 'تشغيل الأذان كاملاً عند دخول وقت الصلاة والتطبيق مغلق' },
         en: { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha',
               title: '🕌 {p}', body: 'It’s time for {p} prayer',
               chAdhan: 'Prayer adhan', chAdhanD: 'Alert when each prayer time begins',
@@ -167,7 +169,9 @@
               chRenew: 'Adhan schedule renewal', chRenewD: 'Reminds you to open the app before the adhan schedule runs out',
               renewT: '🔄 Al-Mujaddid', renewB: 'Open the app to renew your adhan times — the current schedule ends in a few days',
               tzB: 'Your time zone changed — open the app to update the adhan times for your new location',
-              dhikrT: 'Al-Mujaddid · Dhikr' },
+              dhikrT: 'Al-Mujaddid · Dhikr',
+              playT: 'Adhan — {p}', stop: 'Stop', muteDay: 'Mute today',
+              chFull: 'Full adhan', chFullD: 'Plays the full adhan when a prayer time begins, even with the app closed' },
         fr: { fajr: 'Fajr', dhuhr: 'Dhohr', asr: 'Asr', maghrib: 'Maghreb', isha: 'Icha',
               title: '🕌 {p}', body: 'C’est l’heure de la prière {p}',
               body_fajr: 'C’est l’heure de la prière du Fajr', body_dhuhr: 'C’est l’heure de la prière du Dhohr',
@@ -178,7 +182,9 @@
               chRenew: 'Renouvellement des horaires d’adhan', chRenewD: 'Vous rappelle d’ouvrir l’application avant la fin de la programmation de l’adhan',
               renewT: '🔄 Al-Mujaddid', renewB: 'Ouvrez l’application pour renouveler les horaires d’adhan : la programmation actuelle se termine dans quelques jours',
               tzB: 'Votre fuseau horaire a changé : ouvrez l’application pour mettre à jour les horaires d’adhan de votre nouvel emplacement',
-              dhikrT: 'Al-Mujaddid · Dhikr' },
+              dhikrT: 'Al-Mujaddid · Dhikr',
+              playT: 'Adhan — {p}', stop: 'Arrêter', muteDay: 'Couper pour aujourd’hui',
+              chFull: 'Adhan complet', chFullD: 'Joue l’adhan complet au début de chaque prière, même application fermée' },
         de: { fajr: 'Fadschr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Ischa',
               title: '🕌 {p}', body: 'Es ist Zeit für das {p}-Gebet',
               chAdhan: 'Gebetsruf (Adhan)', chAdhanD: 'Hinweis, wenn eine Gebetszeit beginnt',
@@ -186,7 +192,9 @@
               chRenew: 'Adhan-Zeiten erneuern', chRenewD: 'Erinnert Sie daran, die App zu öffnen, bevor die Adhan-Planung endet',
               renewT: '🔄 Al-Mujaddid', renewB: 'Öffnen Sie die App, um die Adhan-Zeiten zu erneuern – die aktuelle Planung endet in wenigen Tagen',
               tzB: 'Ihre Zeitzone hat sich geändert – öffnen Sie die App, um die Adhan-Zeiten für Ihren neuen Ort zu aktualisieren',
-              dhikrT: 'Al-Mujaddid · Dhikr' },
+              dhikrT: 'Al-Mujaddid · Dhikr',
+              playT: 'Adhan – {p}', stop: 'Stopp', muteDay: 'Heute stumm',
+              chFull: 'Vollständiger Adhan', chFullD: 'Spielt den vollständigen Adhan zu Beginn jeder Gebetszeit, auch bei geschlossener App' },
         hi: { fajr: 'फ़ज्र', dhuhr: 'ज़ुहर', asr: 'अस्र', maghrib: 'मग़रिब', isha: 'इशा',
               title: '🕌 {p}', body: '{p} की नमाज़ का समय हो गया है',
               chAdhan: 'नमाज़ की अज़ान', chAdhanD: 'हर नमाज़ का समय शुरू होने पर सूचना',
@@ -194,7 +202,9 @@
               chRenew: 'अज़ान के समय का नवीनीकरण', chRenewD: 'अज़ान का शेड्यूल खत्म होने से पहले ऐप खोलने की याद दिलाता है',
               renewT: '🔄 अल-मुजद्दिद', renewB: 'अज़ान के समय नवीनीकृत करने के लिए ऐप खोलें — मौजूदा शेड्यूल कुछ दिनों में खत्म हो जाएगा',
               tzB: 'आपका समय क्षेत्र बदल गया है — अपने नए स्थान के अज़ान समय अपडेट करने के लिए ऐप खोलें',
-              dhikrT: 'अल-मुजद्दिद · ज़िक्र' },
+              dhikrT: 'अल-मुजद्दिद · ज़िक्र',
+              playT: 'अज़ान — {p}', stop: 'रोकें', muteDay: 'आज म्यूट करें',
+              chFull: 'पूरी अज़ान', chFullD: 'नमाज़ का समय शुरू होने पर पूरी अज़ान बजाता है, ऐप बंद होने पर भी' },
         zh: { fajr: '晨礼', dhuhr: '晌礼', asr: '晡礼', maghrib: '昏礼', isha: '宵礼',
               title: '🕌 {p}', body: '{p}时间到了',
               chAdhan: '礼拜宣礼', chAdhanD: '每次礼拜时间开始时提醒',
@@ -202,7 +212,9 @@
               chRenew: '宣礼时间续期', chRenewD: '在宣礼计划到期前提醒您打开应用',
               renewT: '🔄 穆贾迪德', renewB: '请打开应用以更新宣礼时间——当前计划将在几天后结束',
               tzB: '您的时区已更改——请打开应用，更新新位置的宣礼时间',
-              dhikrT: '穆贾迪德 · 记主' }
+              dhikrT: '穆贾迪德 · 记主',
+              playT: '宣礼 — {p}', stop: '停止', muteDay: '今天静音',
+              chFull: '完整宣礼', chFullD: '礼拜时间开始时播放完整宣礼，即使应用已关闭' }
       };
       function _nbLang() { var l = 'ar'; try { l = window.noorLang || localStorage.getItem('noor_lang') || 'ar'; } catch (e) {} return _NB_TX[l] ? l : 'ar'; }
       function _nbTx(k, p) { var T = _NB_TX[_nbLang()], s = T[k]; if (s == null) s = _NB_TX.ar[k]; return p != null ? String(s).replace('{p}', p) : s; }
@@ -235,6 +247,45 @@
       _nbChannels();
       /* تغيير لغة الواجهة (applyLang في index.html): أسماء القنوات بالجديدة، ثم يعيد التطبيق جدولة الأذان بنصوصها */
       window._noorNotifLang = function () { _nbChannels(); };
+
+      /* ════ الأذان الكامل والتطبيق مغلق (إضافة NoorAdhan — AdhanPlugin.java) ════
+         _nativeAdhanPlugin: الإضافة موجودة (المعاينة من الإعدادات تعمل بها حتى قبل مقترح البيان).
+         _nativeAdhanFull : الخدمة الأمامية معلَنة في البيان → تُجدوَل الأذانات منبّهاتَ الإضافة (AlarmManager دقيق موقظ)
+                            وتُشغَّل كاملةً من res/raw؛ وإلا يبقى إشعار LocalNotifications بالنغمة القصيرة كما اليوم.
+         الإعدادات (localStorage، تكتبها index.html): adhan_native_mode 'full'|'short'، adhan_native_sound، adhan_native_fajr،
+         adhan_native_stream 'alarm'|'notification'. */
+      var NoorAdhan = Plugins.NoorAdhan;
+      var _NB_SOUNDS = ['adhan_alafasy', 'adhan_madinah', 'adhan_fajr_doha'];
+      window._nativeAdhanSounds = _NB_SOUNDS;
+      window._nativeAdhanPlugin = !!NoorAdhan;
+      window._nativeAdhanFull = false;
+      function _nbLs(k, d) { var v = null; try { v = localStorage.getItem(k); } catch (e) {} return v == null || v === '' ? d : v; }
+      function _nbSoundFor(k) {
+        var s = k === 'fajr' ? _nbLs('adhan_native_fajr', 'adhan_fajr_doha') : _nbLs('adhan_native_sound', 'adhan_alafasy');
+        return _NB_SOUNDS.indexOf(s) >= 0 ? s : (k === 'fajr' ? 'adhan_fajr_doha' : 'adhan_alafasy');
+      }
+      function _nbStream() { return _nbLs('adhan_native_stream', 'alarm') === 'notification' ? 'notification' : 'alarm'; }
+      /* الوضع الكامل فعّال: الخدمة متاحة والمستخدم لم يختر «تنبيه قصير فقط» */
+      function _nbFullMode() { return !!(window._nativeAdhanFull && _nbLs('adhan_native_mode', 'full') !== 'short'); }
+      window._nbFullMode = _nbFullMode;
+      if (NoorAdhan) {
+        window._nbAdhanPreview = function (sound) {
+          if (_NB_SOUNDS.indexOf(sound) < 0) return Promise.reject(new Error('unknown sound'));
+          return NoorAdhan.preview({ sound: sound, stream: _nbStream() });
+        };
+        window._nbAdhanStopPreview = function () { try { NoorAdhan.stopPreview().catch(function () {}); } catch (e) {} };
+        window._nbAdhanStop = function () { try { NoorAdhan.stop().catch(function () {}); } catch (e) {} };
+        window._nbAdhanState = function () { return NoorAdhan.getState(); };
+        if (NoorAdhan.isAvailable) {
+          NoorAdhan.isAvailable().then(function (r) {
+            window._nativeAdhanFull = !!(r && r.service);
+            window._nativeAdhanExact = !(r && r.exact === false);
+            /* الحالة عُرفت بعد الجدولة الأولى → أعِد الجدولة بالمسار الصحيح (الإشارة تُصفَّر كي لا تُتخطّى) */
+            if (typeof window.scheduleNoorPrayerAlerts === 'function') { window._adhanSchedSig = ''; try { window.scheduleNoorPrayerAlerts(); } catch (e) {} }
+            try { if (typeof window._renderAdhanSett === 'function') window._renderAdhanSett(); } catch (e) {}
+          }).catch(function () {});
+        }
+      }
 
       /* لا نطلب الإذن عند الإقلاع (حوار مبكر بلا سياق = رفض ثم حظر).
          نكتفي بمعرفة الحالة الحالية؛ الطلب الفعلي عند تفعيل الأذان من
@@ -292,6 +343,7 @@
         var ids = [];
         for (var i = _ADHAN_ID0; i <= _RENEW_ID; i++) ids.push({ id: i });
         LocalNotif.cancel({ notifications: ids }).catch(function () {});
+        if (NoorAdhan) { try { NoorAdhan.cancelAll().catch(function () {}); } catch (e) {} }
       };
 
       /* scheduleAdhanAlerts — مصفوفة خرائط يومية (اليوم الأول = الأمس/اليوم…؛ ما مضى يُهمَل).
@@ -308,7 +360,7 @@
           if (dayIdx >= _ADHAN_MAXD) return;
           _ADHAN_KEYS.forEach(function (k, ki) {
             if (dayMap && dayMap[k] && new Date(dayMap[k]) > now)
-              notifs.push({ id: _ADHAN_ID0 + dayIdx * 5 + ki, title: _nbTx('title', _nbTx(k)), body: (_NB_TX[_nbLang()]['body_' + k] || _nbTx('body', _nbTx(k))), date: dayMap[k] });
+              notifs.push({ id: _ADHAN_ID0 + dayIdx * 5 + ki, k: k, title: _nbTx('title', _nbTx(k)), body: (_NB_TX[_nbLang()]['body_' + k] || _nbTx('body', _nbTx(k))), date: dayMap[k] });
           });
         });
         notifs.sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
@@ -335,7 +387,33 @@
         if (notifs.length && window._nativeNotifGranted) {
           try { localStorage.setItem('_adhan_sched_ts', String(Date.now())); } catch (e) {}
           try { localStorage.setItem('_adhan_sched_until', String(_until)); } catch (e) {}
-          window.scheduleNoorNotifications(notifs);
+          if (NoorAdhan && _nbFullMode()) {
+            /* الأذان الكامل: منبّهات الإضافة الأصلية بالصوت المختار لكل صلاة (الفجر → أذان الفجر)؛ إشعارات الإضافة تبقى
+               لتذكير التجديد فقط، وأذانات الإضافة (2000–2189) تُلغى كي لا يصل تنبيهان. فشل الجدولة الأصلية → المسار القديم */
+            var items = [];
+            notifs.forEach(function (n) {
+              if (!n.k) return;
+              items.push({ id: n.id, at: new Date(n.date).getTime(), prayer: n.k, sound: _nbSoundFor(n.k), title: _nbTx('playT', _nbTx(n.k)), body: n.body });
+            });
+            var renew = notifs.filter(function (n) { return !n.k; });
+            NoorAdhan.schedule({
+              items: items, stream: _nbStream(),
+              labels: { stop: _nbTx('stop'), mute: _nbTx('muteDay'), chName: _nbTx('chFull'), chDesc: _nbTx('chFullD') },
+              tz: _tzX
+            }).then(function (r) {
+              if (!r || !r.service) { window.scheduleNoorNotifications(notifs); return; }
+              var ids = [];
+              for (var ci = _ADHAN_ID0; ci < _ADHAN_ID0 + _ADHAN_MAXD * 5; ci++) ids.push({ id: ci });
+              LocalNotif.cancel({ notifications: ids }).catch(function () {});
+              if (renew.length) window.scheduleNoorNotifications(renew);
+            }).catch(function (e) {
+              console.warn('[NoorAdhan] schedule failed — short notification fallback:', e && (e.message || String(e)));
+              window.scheduleNoorNotifications(notifs);
+            });
+          } else {
+            if (NoorAdhan) { try { NoorAdhan.cancelAll().catch(function () {}); } catch (e) {} }
+            window.scheduleNoorNotifications(notifs);
+          }
         }
       };
       window.scheduleTodayPrayers = function (prayerMap) { window.scheduleAdhanAlerts([prayerMap]); };

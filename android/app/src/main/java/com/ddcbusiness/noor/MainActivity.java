@@ -41,6 +41,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SystemBarsPlugin.class);
         registerPlugin(AppSettingsPlugin.class);
         registerPlugin(WidgetPlugin.class);
+        registerPlugin(AdhanPlugin.class); /* NoorAdhan: الأذان الكامل والتطبيق مغلق */
         super.onCreate(savedInstanceState);
         /* اختصار/أداة عند الإطلاق البارد: تُحفظ الشاشة حتى تطلبها الواجهة بعد الإقلاع */
         try {

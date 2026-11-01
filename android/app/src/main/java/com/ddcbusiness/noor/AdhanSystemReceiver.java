@@ -40,6 +40,11 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
     public void onReceive(Context ctx, Intent intent) {
         String a = intent != null ? intent.getAction() : null;
         if (a == null) return;
+        /* الأذان الكامل: منبّه AdhanScheduler الدقيق (explicit intent؛ لا يحتاج intent-filter ولا تغييراً في البيان) */
+        if (AdhanScheduler.ACTION_ALARM.equals(a)) {
+            try { AdhanScheduler.onAlarm(ctx, intent); } catch (Exception ignored) {}
+            return;
+        }
         if (Intent.ACTION_TIMEZONE_CHANGED.equals(a)) {
             if (unlocked(ctx)) tzNotice(ctx);
             return;
@@ -48,6 +53,9 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
         if (unlocked(ctx)) {
             try { pruneStaleAdhan(ctx); } catch (Exception ignored) {}
         }
+        /* الأذان الكامل: منبّهات AlarmManager لا تصمد لإعادة التشغيل — تُعاد من مخزن AdhanScheduler (محميّ بالجهاز، يُقرأ قبل فتح القفل)
+           بعد حذف الفائت منها */
+        try { AdhanScheduler.rearm(ctx); } catch (Exception ignored) {}
         try { new LocalNotificationRestoreReceiver().onReceive(ctx, intent); } catch (Exception ignored) {}
     }
 
@@ -95,10 +103,12 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
     private static void tzNotice(Context ctx) {
         boolean[] any = { false };
         JSONObject ex = storedAdhanExtra(ctx, any);
-        if (!any[0]) return; /* الأذان غير مفعّل (لا إشعارات أذان مخزّنة) */
-        String t = ex != null ? ex.optString("nbTzT", AR_T) : AR_T;
-        String b = ex != null ? ex.optString("nbTzB", AR_B) : AR_B;
-        String c = ex != null ? ex.optString("nbTzC", AR_C) : AR_C;
+        /* الأذان الكامل: الأذانات في مخزن AdhanScheduler لا في مخزن الإضافة — والنصوص بلغة الواجهة هناك أيضاً */
+        boolean full = AdhanScheduler.hasItems(ctx);
+        if (!any[0] && !full) return; /* الأذان غير مفعّل (لا إشعارات أذان مخزّنة) */
+        String t = ex != null ? ex.optString("nbTzT", AR_T) : AdhanScheduler.prefs(ctx).getString(AdhanScheduler.K_TZT, AR_T);
+        String b = ex != null ? ex.optString("nbTzB", AR_B) : AdhanScheduler.prefs(ctx).getString(AdhanScheduler.K_TZB, AR_B);
+        String c = ex != null ? ex.optString("nbTzC", AR_C) : AdhanScheduler.prefs(ctx).getString(AdhanScheduler.K_TZC, AR_C);
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
         /* القناة ينشئها الجسر عند كل فتح باسم لغة الواجهة؛ هنا احتياط فقط إن لم توجد */
