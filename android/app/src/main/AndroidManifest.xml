@@ -63,6 +63,15 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/noor_widget_info" />
         </receiver>
+
+        <!-- الأذان الكامل والتطبيق مغلق (AdhanPlayerService): خدمة أمامية من نوع mediaPlayback تشغّل ملف الأذان المضمّن (res/raw)
+             عند رنين منبّه AdhanScheduler الدقيق (يصل إلى AdhanSystemReceiver المعلَن أعلاه — لا مستقبِل جديد). exported=false:
+             لا يبدأها إلا التطبيق نفسه. بدون هذا الإعلان يبقى الجسر على إشعار الإضافة بالنغمة القصيرة -->
+        <service
+            android:name=".AdhanPlayerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="false" />
     </application>
 
     <!-- Permissions -->
@@ -96,6 +105,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- N37: أُزيل REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — سياسة Play تمنع طلب الاستثناء المباشر إلا إن تعطّلت الوظيفة
          الأساسية؛ صار التطبيق يشرح السبب ثم يفتح قائمة «تحسين البطارية» في الإعدادات (لا تحتاج إذناً) -->
+
+    <!-- الأذان الكامل والتطبيق مغلق: خدمة أمامية من نوع تشغيل الوسائط (أندرويد ١٤+ يشترط إذن النوع)؛ إذنان عاديان بلا حوار،
+         وFOREGROUND_SERVICE_MEDIA_PLAYBACK يتطلّب إقرار نوع الخدمة في Play Console -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Vibration for haptics -->
     <uses-permission android:name="android.permission.VIBRATE" />
