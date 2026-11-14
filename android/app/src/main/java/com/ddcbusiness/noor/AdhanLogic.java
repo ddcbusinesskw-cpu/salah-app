@@ -18,7 +18,7 @@ import java.util.TimeZone;
 public final class AdhanLogic {
     private AdhanLogic() {}
 
-    /** الملفات المضمّنة (res/raw، OGG/Opus أحادي ~٦٠ ك.ب/ث، −16 LUFS) — الأسماء كما في native-bridge.js وindex.html */
+    /** الملفات المضمّنة (res/raw، Ogg Vorbis أحادي ~٥٢–٦٧ ك.ب/ث، يُفكّ على كل إصدارات أندرويد ≥ 5.1، −16 LUFS) — الأسماء كما في native-bridge.js وindex.html */
     public static final String SOUND_ALAFASY = "adhan_alafasy";
     public static final String SOUND_MADINAH = "adhan_madinah";
     public static final String SOUND_FAJR_DOHA = "adhan_fajr_doha";

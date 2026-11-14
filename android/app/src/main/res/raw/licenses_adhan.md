@@ -3,7 +3,7 @@
 The «المجدّد» (Al-Mujaddid) Android app ships three adhan recordings inside the APK
 (`android/app/src/main/res/raw/`) so the full call to prayer can play while the phone is locked or the
 app is closed, without any network access. All three were re-encoded from the originals
-(mono, OGG/Opus ≈ 60 kbps constrained VBR, 48 kHz, leading/trailing silence trimmed, loudness
+(mono, Ogg Vorbis ≈ 52–67 kbps VBR, 48 kHz — Vorbis rather than Opus so it decodes on every Android version from 5.1 (API 22); leading/trailing silence trimmed, loudness
 normalised to −16 LUFS integrated / −1.5 dBTP). Every licence below permits modification and
 redistribution; the required attribution lines are reproduced verbatim. The app is free, has no
 ads and no in-app purchases. Copyright in each recording remains with its respective rights holder.
@@ -14,9 +14,9 @@ resource names only allow `[a-z0-9_.]`), and the same attribution is shown in th
 
 | File | Source | Licence | Original → bundled |
 |---|---|---|---|
-| `adhan_alafasy.ogg` | AlAdhan.com / Islamic Network, "Yet Another Adhan by Mishary Rashid Alafasy" (`a9.mp3`) | Written permission from the distributor (see 1) | 4:17 MP3 128 kbps stereo → 4:13 Opus mono, 1,928,398 B |
-| `adhan_madinah.ogg` | Wikimedia Commons, "Call to prayer from the Prophet's Mosque" by ejaz215 | CC BY 3.0 (attribution required) | 3:07 Ogg Vorbis 128 kbps stereo → 3:06 Opus mono, 1,415,568 B |
-| `adhan_fajr_doha.ogg` | Internet Archive, "Adhan Recordings from Doha, Qatar" — `Adhan_Doha_Qatar_01_Fajr_Adhan.mp3` | Public Domain Mark 1.0 | 3:37 MP3 ~107 kbps mono → 3:38 Opus mono, 1,659,190 B |
+| `adhan_alafasy.ogg` | AlAdhan.com / Islamic Network, "Yet Another Adhan by Mishary Rashid Alafasy" (`a9.mp3`) | Written permission from the distributor (see 1) | 4:17 MP3 128 kbps stereo → 4:13 Ogg Vorbis mono, 1,632,622 B |
+| `adhan_madinah.ogg` | Wikimedia Commons, "Call to prayer from the Prophet's Mosque" by ejaz215 | CC BY 3.0 (attribution required) | 3:07 Ogg Vorbis 128 kbps stereo → 3:06 Ogg Vorbis mono, 1,465,651 B |
+| `adhan_fajr_doha.ogg` | Internet Archive, "Adhan Recordings from Doha, Qatar" — `Adhan_Doha_Qatar_01_Fajr_Adhan.mp3` | Public Domain Mark 1.0 | 3:37 MP3 ~107 kbps mono → 3:38 Ogg Vorbis mono, 1,830,305 B |
 
 SHA-256 of the bundled files is in `android/app/src/main/res/raw/sha256sums.txt`.
 
@@ -48,7 +48,7 @@ SHA-256 of the bundled files is in `android/app/src/main/res/raw/sha256sums.txt`
 - Licence: Creative Commons Attribution 3.0 Unported — https://creativecommons.org/licenses/by/3.0/
 - Required attribution (used verbatim in the app):
   **"Call to prayer from the Prophet's Mosque" by ejaz215, via Freesound/Wikimedia Commons, licensed CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).**
-- Changes made (CC BY §4(b) requires noting modifications): converted to mono Opus, trimmed silence,
+- Changes made (CC BY §4(b) requires noting modifications): converted to mono Ogg Vorbis, trimmed silence,
   loudness-normalised to −16 LUFS. The modified file is distributed under the same CC BY 3.0 terms.
 
 ## 3. `adhan_fajr_doha.ogg` — Fajr adhan, "Adhan Recordings from Doha, Qatar" (Public Domain Mark 1.0)

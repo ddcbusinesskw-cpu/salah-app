@@ -276,6 +276,14 @@
         window._nbAdhanStopPreview = function () { try { NoorAdhan.stopPreview().catch(function () {}); } catch (e) {} };
         window._nbAdhanStop = function () { try { NoorAdhan.stop().catch(function () {}); } catch (e) {} };
         window._nbAdhanState = function () { return NoorAdhan.getState(); };
+        /* زرّ «تجربة» في الوضع الكامل: الخدمة الأصلية نفسها الآن (الصوت المختار لغير الفجر، المجرى، إشعار الإيقاف؛ بلا «كتم اليوم» في التجربة) */
+        window._nbAdhanTestPlay = function (title, body) {
+          if (!NoorAdhan.testPlay) return Promise.reject(new Error('no testPlay'));
+          return NoorAdhan.testPlay({
+            sound: _nbSoundFor('dhuhr'), stream: _nbStream(), prayer: 'test', title: title || '🕌', body: body || '',
+            labels: { stop: _nbTx('stop'), chName: _nbTx('chFull'), chDesc: _nbTx('chFullD') }
+          });
+        };
         if (NoorAdhan.isAvailable) {
           NoorAdhan.isAvailable().then(function (r) {
             window._nativeAdhanFull = !!(r && r.service);
@@ -283,6 +291,8 @@
             /* الحالة عُرفت بعد الجدولة الأولى → أعِد الجدولة بالمسار الصحيح (الإشارة تُصفَّر كي لا تُتخطّى) */
             if (typeof window.scheduleNoorPrayerAlerts === 'function') { window._adhanSchedSig = ''; try { window.scheduleNoorPrayerAlerts(); } catch (e) {} }
             try { if (typeof window._renderAdhanSett === 'function') window._renderAdhanSett(); } catch (e) {}
+            /* شاشة المواقيت مفتوحة: منتقي صوت «داخل التطبيق» يُخفى/يظهر بحسب الوضع الكامل */
+            try { if (typeof window.renderTimesScreen === 'function' && document.querySelector('#timesBody .nextbox')) window.renderTimesScreen(); } catch (e) {}
           }).catch(function () {});
         }
       }

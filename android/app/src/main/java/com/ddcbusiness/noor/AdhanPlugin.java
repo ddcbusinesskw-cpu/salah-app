@@ -1,9 +1,11 @@
 package com.ddcbusiness.noor;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.os.Build;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -23,6 +25,8 @@ import org.json.JSONObject;
  * schedule({items:[{id,at,prayer,sound,title,body}], stream, labels:{stop,mute,chName,chDesc}, tz:{nbTzT,nbTzB,nbTzC}})
  *   → {scheduled}: القائمة الكاملة للأفق (الجسر يحسبها كما يحسب إشعارات الإضافة) — ما غاب عنها يُلغى.
  * cancelAll() · stop() (يوقف الخدمة والمعاينة) · preview({sound, stream}) · stopPreview() · getState() · muteToday() · unmute()
+ * testPlay({sound, stream, prayer, title, body, labels}) → {started}: زرّ «تجربة» — يشغّل AdhanPlayerService الآن كما يشغّلها
+ *   منبّه الصلاة (الملف المضمّن، المجرى، الإشعار بزرَّي الإيقاف، عدم الإزعاج، والاحتياط المسموع) دون انتظار الوقت.
  */
 @CapacitorPlugin(name = "NoorAdhan")
 public class AdhanPlugin extends Plugin {
@@ -104,6 +108,39 @@ public class AdhanPlugin extends Plugin {
     public void unmute(PluginCall call) {
         AdhanScheduler.unmute(getContext());
         call.resolve(state(getContext()));
+    }
+
+    /** «تجربة» الأذان الكامل الآن: نفس نيّة AdhanScheduler.startPlayer، من فعل المستخدم والتطبيق ظاهر (مسموح ببدء خدمة أمامية) */
+    @PluginMethod
+    public void testPlay(PluginCall call) {
+        Context ctx = getContext();
+        if (!AdhanScheduler.serviceDeclared(ctx)) { call.reject("no-service"); return; }
+        String sound = call.getString("sound", AdhanLogic.DEFAULT_SOUND);
+        if (!AdhanLogic.isBundled(sound)) sound = AdhanLogic.DEFAULT_SOUND;
+        String stream = AdhanLogic.normStream(call.getString("stream", AdhanLogic.STREAM_ALARM));
+        JSObject lb = call.getObject("labels", new JSObject());
+        stopPreviewPlayer();
+        try {
+            Intent s = new Intent(ctx, AdhanPlayerService.class);
+            s.setAction(AdhanPlayerService.ACTION_PLAY);
+            s.putExtra(AdhanPlayerService.X_ID, -1);
+            s.putExtra(AdhanPlayerService.X_SOUND, sound);
+            s.putExtra(AdhanPlayerService.X_PRAYER, AdhanLogic.clean(call.getString("prayer", "")));
+            s.putExtra(AdhanPlayerService.X_TITLE, AdhanLogic.clean(call.getString("title", "🕌")));
+            s.putExtra(AdhanPlayerService.X_BODY, AdhanLogic.clean(call.getString("body", "")));
+            s.putExtra(AdhanPlayerService.X_STREAM, stream);
+            if (lb.getString("stop") != null) s.putExtra(AdhanPlayerService.X_STOP, AdhanLogic.clean(lb.getString("stop")));
+            if (lb.getString("chName") != null) s.putExtra(AdhanPlayerService.X_CH, AdhanLogic.clean(lb.getString("chName")));
+            if (lb.getString("chDesc") != null) s.putExtra(AdhanPlayerService.X_CHD, AdhanLogic.clean(lb.getString("chDesc")));
+            if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(s); else ctx.startService(s);
+            JSObject r = new JSObject();
+            r.put("started", true);
+            r.put("sound", sound);
+            r.put("stream", stream);
+            call.resolve(r);
+        } catch (Throwable t) {
+            call.reject("adhan-test: " + t.getMessage());
+        }
     }
 
     /** معاينة داخل التطبيق (بلا خدمة — تعمل قبل تطبيق مقترح البيان): الملف المضمّن على المجرى المختار */

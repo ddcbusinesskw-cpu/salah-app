@@ -13,11 +13,15 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 
@@ -33,6 +37,9 @@ import androidx.core.app.ServiceCompat;
  *  - تركيز صوتي مؤقّت (GAIN_TRANSIENT): تلاوة/موسيقى أخرى تُخفَض/تتوقّف وتعود بعد الأذان؛ فقدان دائم للتركيز → توقّف.
  *  - إشعار دائم بزرَّين «إيقاف» و«كتم اليوم» (النصوص بلغة الواجهة من الجسر)، وبعد الانتهاء يبقى إشعاراً عادياً بلا أزرار.
  *  - قفل استيقاظ جزئي ومهلة قصوى ٦ دقائق؛ ينتهي تلقائياً مع نهاية الملف.
+ *  - احتياط مسموع: إن تعذّر تشغيل الملف (مورد مفقود، فشل التحضير، خطأ MediaPlayer أثناء التشغيل) تُشغَّل نغمة المنبّه
+ *    الافتراضية للنظام (أو نغمة الإشعار مع مجرى الإشعار) عبر RingtoneManager على المجرى المختار مدّةً أقصاها ٣٠ ث
+ *    أو حتى «إيقاف»/«كتم اليوم» — فلا يمرّ وقت الصلاة صامتاً.
  */
 public class AdhanPlayerService extends Service {
     static final String ACTION_PLAY = "com.ddcbusiness.noor.ADHAN_PLAY";
@@ -44,16 +51,33 @@ public class AdhanPlayerService extends Service {
     /** خارج مدى الجسر (2000–2199 أذان/تجديد، 3000+ ذِكر، 4000+ تذكيرات) فلا يُلغيه cancelAdhanNotifications */
     static final int NOTIF_ID = 2500;
     static final long MAX_MS = 6L * 60L * 1000L;
+    /** مدّة نغمة الاحتياط القصوى */
+    static final long FALLBACK_MS = 30L * 1000L;
 
     private static volatile boolean playing = false;
     private static volatile String playingPrayer = "";
 
     private MediaPlayer mp;
+    private Ringtone fallbackRt;
+    private boolean fallbackTried = false;
+    /** تشغيل «تجربة» من الواجهة (المعرّف -1 أو الصلاة "test"): لا زرّ «كتم اليوم» كي لا تُكتم أذانات اليوم الحقيقية بالخطأ */
+    private boolean testRun = false;
+    private long startedAt = 0L;
+    private String curStream = AdhanLogic.STREAM_ALARM;
     private AudioFocusRequest focusReq;
     private AudioManager.OnAudioFocusChangeListener focusL;
     private PowerManager.WakeLock wl;
     private final Handler h = new Handler(Looper.getMainLooper());
     private final Runnable timeout = new Runnable() { public void run() { finish(true); } };
+    /** قبل أندرويد ٩ لا تكرار للنغمة: تُعاد كلّما انتهت حتى المهلة */
+    private final Runnable fallbackLoop = new Runnable() {
+        public void run() {
+            Ringtone r = fallbackRt;
+            if (r == null) return;
+            try { if (!r.isPlaying()) r.play(); } catch (Exception ignored) {}
+            h.postDelayed(this, 1000L);
+        }
+    };
     private String title = "", body = "", stopL = "إيقاف", muteL = "كتم اليوم", chName = "الأذان الكامل", chDesc = "";
 
     static boolean isPlaying() { return playing; }
@@ -83,6 +107,10 @@ public class AdhanPlayerService extends Service {
         String sound = s(intent, X_SOUND, AdhanLogic.DEFAULT_SOUND);
         String stream = AdhanLogic.normStream(s(intent, X_STREAM, AdhanLogic.STREAM_ALARM));
         playingPrayer = s(intent, X_PRAYER, "");
+        testRun = intent.getIntExtra(X_ID, 0) == -1 || "test".equals(playingPrayer);
+        curStream = stream;
+        fallbackTried = false;
+        startedAt = 0L;
 
         ensureChannel();
         Notification n = build(true);
@@ -103,7 +131,7 @@ public class AdhanPlayerService extends Service {
         acquireWake();
         h.removeCallbacks(timeout);
         h.postDelayed(timeout, MAX_MS);
-        if (!startPlayer(sound, stream)) finish(true);
+        if (!startPlayer(sound, stream)) fallback();
         return START_NOT_STICKY;
     }
 
@@ -152,10 +180,13 @@ public class AdhanPlayerService extends Service {
             mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
             fd.close();
             mp.setLooping(false);
-            mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() { public void onCompletion(MediaPlayer m) { finish(true); } });
-            mp.setOnErrorListener(new MediaPlayer.OnErrorListener() { public boolean onError(MediaPlayer m, int w, int e) { finish(true); return true; } });
+            mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                /* «انتهى» في أقلّ من ٥ ث لملفّ مدّته دقائق = لم يُفكّ فعلاً (بعض الأجهزة لا تُبلغ خطأً) → الاحتياط */
+                public void onCompletion(MediaPlayer m) { if (startedAt == 0L || SystemClock.elapsedRealtime() - startedAt < 5000L) fallback(); else finish(true); }
+            });
+            mp.setOnErrorListener(new MediaPlayer.OnErrorListener() { public boolean onError(MediaPlayer m, int w, int e) { fallback(); return true; } });
             mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                public void onPrepared(MediaPlayer m) { try { m.start(); playing = true; } catch (Exception e) { finish(true); } }
+                public void onPrepared(MediaPlayer m) { try { m.start(); startedAt = SystemClock.elapsedRealtime(); playing = true; } catch (Exception e) { fallback(); } }
             });
             mp.prepareAsync();
             playing = true;
@@ -163,6 +194,45 @@ public class AdhanPlayerService extends Service {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /** تعذّر الملف المضمّن (مثلاً ترميز لا يدعمه الجهاز): نغمة النظام الافتراضية بدل الصمت، ثم انتهاء نظيف */
+    private void fallback() {
+        if (fallbackTried) { finish(true); return; }
+        fallbackTried = true;
+        if (mp != null) { try { mp.release(); } catch (Exception ignored) {} mp = null; }
+        if (!playFallback(curStream)) { finish(true); return; }
+        h.removeCallbacks(timeout);
+        h.postDelayed(timeout, FALLBACK_MS);
+    }
+
+    private boolean playFallback(String stream) {
+        boolean alarm = AdhanLogic.STREAM_ALARM.equals(stream);
+        AudioAttributes attrs = new AudioAttributes.Builder()
+            .setUsage(alarm ? AudioAttributes.USAGE_ALARM : AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
+        if (focusL == null) requestFocus(attrs, alarm);
+        int[] types = alarm
+            ? new int[] { RingtoneManager.TYPE_ALARM, RingtoneManager.TYPE_NOTIFICATION, RingtoneManager.TYPE_RINGTONE }
+            : new int[] { RingtoneManager.TYPE_NOTIFICATION, RingtoneManager.TYPE_ALARM, RingtoneManager.TYPE_RINGTONE };
+        for (int t : types) {
+            try {
+                Uri u = RingtoneManager.getActualDefaultRingtoneUri(this, t);
+                /* null = المستخدم اختار «بلا نغمة»: الاسم المستعار getDefaultUri يُحلّ إلى لا شيء ويفشل بصمت → جرّب النوع التالي */
+                if (u == null) continue;
+                Ringtone r = RingtoneManager.getRingtone(this, u);
+                if (r == null) continue;
+                r.setAudioAttributes(attrs);
+                if (Build.VERSION.SDK_INT >= 28) { try { r.setLooping(true); } catch (Exception ignored) {} }
+                r.play();
+                fallbackRt = r;
+                playing = true;
+                if (Build.VERSION.SDK_INT < 28) h.postDelayed(fallbackLoop, 1000L);
+                return true;
+            } catch (Exception ignored) { /* مثلاً SecurityException لنغمة على ذاكرة خارجية — جرّب التالية */ }
+        }
+        return false;
     }
 
     private void requestFocus(AudioAttributes attrs, boolean alarm) {
@@ -206,6 +276,8 @@ public class AdhanPlayerService extends Service {
 
     private void releasePlayer() {
         if (mp != null) { try { if (mp.isPlaying()) mp.stop(); } catch (Exception ignored) {} try { mp.release(); } catch (Exception ignored) {} mp = null; }
+        h.removeCallbacks(fallbackLoop);
+        if (fallbackRt != null) { try { fallbackRt.stop(); } catch (Exception ignored) {} fallbackRt = null; }
         playing = false;
     }
 
@@ -267,7 +339,7 @@ public class AdhanPlayerService extends Service {
         if (open != null) nb.setContentIntent(PendingIntent.getActivity(this, NOTIF_ID, open, piFlags()));
         if (ongoing) {
             nb.addAction(0, stopL, actionPI(ACTION_STOP, NOTIF_ID + 1));
-            nb.addAction(0, muteL, actionPI(ACTION_MUTE_TODAY, NOTIF_ID + 2));
+            if (!testRun) nb.addAction(0, muteL, actionPI(ACTION_MUTE_TODAY, NOTIF_ID + 2));
         }
         return nb.build();
     }
