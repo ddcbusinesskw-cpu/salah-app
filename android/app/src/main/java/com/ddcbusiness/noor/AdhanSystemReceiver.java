@@ -31,6 +31,8 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
     static final int ADHAN_ID0 = 2000, ADHAN_ID_END = 2190; /* [2000, 2190) */
     /** fix2 lead: تذكيرات worship2 (أذكار الصباح/المساء، قبل الأذان، النوم، المراجعة، الورد، الكهف) — فائتها بعد إطفاء الهاتف لا يُطلق دفعة واحدة */
     static final int REM_ID0 = 4000, REM_ID_END = 4300; /* [4000, 4300) */
+    /** AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED (API 31) — نصّاً كي لا يتعلّق بثوابت SDK */
+    static final String ACTION_EXACT_PERM_CHANGED = "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED";
     static final long STALE_MS = 10L * 60L * 1000L;
     static final String AR_T = "🔄 المجدّد";
     static final String AR_B = "تغيّرت المنطقة الزمنية — افتح التطبيق لتحديث مواقيت الأذان لموقعك الجديد";
@@ -43,6 +45,14 @@ public class AdhanSystemReceiver extends BroadcastReceiver {
         /* الأذان الكامل: منبّه AdhanScheduler الدقيق (explicit intent؛ لا يحتاج intent-filter ولا تغييراً في البيان) */
         if (AdhanScheduler.ACTION_ALARM.equals(a)) {
             try { AdhanScheduler.onAlarm(ctx, intent); } catch (Exception ignored) {}
+            return;
+        }
+        /* N37 الخطة ب (SCHEDULE_EXACT_ALARM بدل USE_EXACT_ALARM): منح المستخدم «المنبّهات والتذكيرات» من الإعدادات →
+           أعِد ضبط منبّهات الأذان المخزّنة دقيقةً (كانت ضُبطت بـ setAndAllowWhileIdle غير الدقيق). يصل فقط إن أُضيف الفعل
+           إلى intent-filter هذا المستقبِل (فرق البيان في الخطة ب). في الخطة أ لا يصل أبداً (لا intent-filter له)، حتى على
+           أندرويد 12/12L حيث قد يُرسَل البثّ عند المنح — هناك تعتمد إعادة الضبط الدقيق على مسار العودة في native-bridge.js */
+        if (ACTION_EXACT_PERM_CHANGED.equals(a)) {
+            try { AdhanScheduler.rearm(ctx); } catch (Exception ignored) {}
             return;
         }
         if (Intent.ACTION_TIMEZONE_CHANGED.equals(a)) {

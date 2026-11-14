@@ -433,6 +433,26 @@
       if (App) {
         App.addListener('appStateChange', function (state) {
           if (!state || !state.isActive) return;
+          /* N37 الخطة ب: عاد المستخدم من «المنبّهات والتذكيرات» — حدّث حالة المنبّه الدقيق وأعِد رسم تنبيه الإعدادات وشاشة
+             المواقيت إن تغيّرت. مع USE_EXACT_ALARM الحالي exact=true دائماً على أندرويد 13+ وما دونه 12؛ أما 12/12L (API 31–32)
+             فـSCHEDULE_EXACT_ALARM (maxSdkVersion=32) قابل للسحب، فهذا المسار يعمل هناك في الخطة أ أيضاً — وهو وحده يعيد
+             الجدولة الدقيقة بعد المنح (AdhanSystemReceiver لا يستقبل الفعل في الخطة أ: لا intent-filter له) */
+          try {
+            var _NA = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NoorAdhan;
+            if (_NA && _NA.isAvailable && window._nativeAdhanFull) {
+              _NA.isAvailable().then(function (r) {
+                var ex = !(r && r.exact === false);
+                if (ex !== window._nativeAdhanExact) {
+                  window._nativeAdhanExact = ex;
+                  /* المنبّهات المضبوطة غير دقيقة (setAndAllowWhileIdle) → أعِد الجدولة كي تُضبط دقيقةً */
+                  if (ex && typeof window.scheduleNoorPrayerAlerts === 'function') { window._adhanSchedSig = ''; try { window.scheduleNoorPrayerAlerts(); } catch (e) {} }
+                  try { if (typeof window._renderAdhanSett === 'function') window._renderAdhanSett(); } catch (e) {}
+                  /* شاشة المواقيت تعرض _adhanPermWarn() أيضاً */
+                  try { if (typeof window.renderTimesScreen === 'function' && document.querySelector('#timesBody .nextbox')) window.renderTimesScreen(); } catch (e) {}
+                }
+              }).catch(function () {});
+            }
+          } catch (e) {}
           /* إحداثيات قديمة (سفر) → تحديث خلفي صامت؛ نجاحه يعيد الحساب والجدولة */
           try {
             if (typeof window._refreshCoordsIfStale === 'function') window._refreshCoordsIfStale();
