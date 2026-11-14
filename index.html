@@ -1227,6 +1227,7 @@ button,input,select,textarea{font-family:inherit;}
 .hero .brand,.splashName,.splashTag,.votd-h,.sect-head,.sett-sec-title,.qr-sec-label,.achv-legacy-head,.nm-en,.bnav-tab,.igrid-expand-btn,.next-wrap .lbl,.next-wrap .nm,.fad-title{letter-spacing:0!important;}
 /* sacred text keeps its original typeface (never re-fonted) */
 .ayat,.bism,.votd-text,.dhcard .txt,.tafbox{font-family:var(--f-sacred);}
+.dhcard .txt.t-quran{font-family:"Uthmani","Noto Naskh Arabic",serif;line-height:2.25;}
 /* supplications (hadith du'a, never Quran) are set in Nur Naskh 400 (Mirza) — a book Naskh, not a UI sans */
 #duaCard .dua-text,#ramadanPad>div[style*="background:var(--card)"]>div:last-child{font-family:var(--f-naskh);font-weight:400;}
 
@@ -14697,6 +14698,9 @@ function _dhReviewMark(d){
   if(/^القرآن الكريم/.test(d.src||'')||/^(أعوذ بالله من الشيطان الرجيم — آية الكرسي|آية الكرسي|قل هو الله أحد|خواتيم سورة)/.test(d.t||''))return ''; /* آيات القرآن: لا علامة أبداً */
   return '⚠ بحاجة مراجعة · ';
 }
+/* نصّ قرآني بالرسم العثماني (ٱ وعلامات الضبط الصغيرة U+06D6–06ED): يُرسم بخط المصحف «Uthmani» لا بخط النظام —
+   خطوط النظام لا تدعم هذه العلامات فتتقطّع الحروف (آية الكرسي وخواتيم البقرة والمعوّذات في الأذكار) */
+function _dhIsQuranTxt(t){return /[\u0671\u06D6-\u06ED]/.test(t||'');}
 function renderAdhkar(cat){
   var base=ADHKAR[cat]||[];
   var custom=_getAdhkarCustom(cat);
@@ -14717,7 +14721,7 @@ function renderAdhkar(cat){
     var cntStyle=done?'background:rgba(63,185,164,.2);color:var(--green)':'';
     html+='<div class="dhcard'+(done?' dhcard-done':'')+'">' +
       '<div class="dh-head">'+chipHtml+(typeof _dhTools==='function'?_dhTools(cat,ri,d):'')+'</div>' +
-      '<div class="txt">'+_esc(d.t)+'</div>' +
+      '<div class="txt'+(_dhIsQuranTxt(d.t)?' t-quran':'')+'">'+_esc(d.t)+'</div>' +
       srcHtml +
       '<div class="foot">'+ordBtns+'<button class="cnt" data-left="'+left+'" style="'+cntStyle+'" onclick="dhCount(this,'+d.r+',\''+cat+'\','+ri+')">'+(done?'✓':ar(left))+'</button></div>' +
     '</div>';
