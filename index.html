@@ -5373,8 +5373,9 @@ var DEF={R_OK:0.35,R_TENT:0.45,R_WRONG:0.55,R_LEXW:0.25,COV_OK:0.6,J_BACK:2.0,BA
   PROV:1,PROV_R:0.15,PROV_WL:1.2,PROV_AHEAD:2,START_SKIP:1,UNBLOCK:1,REP_WIN:60,EARLY:0,EARLY_COV:0.5,EARLY_R:0.15,TRACE:0,resume:false,
   /* fix3: التصحيح بإعادة الآية (AY_CORR) — انظر corrLo · وضع الشيخ (SHEIKH): خطأٌ يوقف الالتزام بما بعده حتى تُعاد الكلمة صحيحة */
   AY_CORR:1,AY_BACK_MAX:40,AY_JMP:8,SHEIKH:0,
-  /* P1-18: «مبدئي» قبل البدء — 0 لا شيء (افتراضي)، 1 كالسابق */
-  PRE_TENT:0};
+  /* P1-18: «مبدئي» قبل البدء — 0 لا شيء، 1 بعد سلسلة رسوّ (افتراضي): ≥PRE_RUN كلمات متتالية مكتملة r≤PRE_R
+     بمجموع ≥PRE_CHARS حرفاً (أول علامة ~٥ث بدل ~٧ث، وميض offpage ~٣٪ بدل ٢٢٪)، 2 كالسابق (كل مبدئي) */
+  PRE_TENT:1,PRE_RUN:2,PRE_CHARS:8,PRE_R:0.35};
 /* فواتح السور (مقطّعة): لا تُحكم بخطأ ولا تخطٍّ — تُعرف بهيكلها (بلا تشكيل ولا علامات) */
 var MUQ={'الم':1,'المص':1,'الر':1,'المر':1,'كهيعص':1,'طه':1,'طسم':1,'طس':1,'يس':1,'ص':1,'حم':1,'عسق':1,'ق':1,'ن':1};
 function skel(w){return (w||'').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g,'');}
@@ -5737,8 +5738,12 @@ function createAsrAligner(pageWords,phonData,opts){
     }
     /* المبدئي: ما بعد آخر التزام على المسار الأفضل الحالي */
     /* P1-18: قبل البدء (قبل رسوّ المحاذاة على الصفحة المعروضة) لا «مبدئي» ولا تمرير للصفحة — كلام خارج الصفحة كان يومض على ~٢٢٪
-       من كلماتها (offpage: 3538/15704 → 0)؛ الحكم النهائي لا يتغيّر. PRE_TENT=1 يعيد السلوك السابق */
-    var onPath={},preOk=started||!!O.PRE_TENT;
+       من كلماتها (offpage: 3538/15704)؛ الحكم النهائي لا يتغيّر. PRE_TENT=1: يُعرض المبدئي قبل البدء فقط إن وُجدت على المسار
+       سلسلة ≥PRE_RUN كلمات متتالية مكتملة جيدة (offpage 433/15704). PRE_TENT=2 يعيد السلوك السابق، 0 يمنعه */
+    var onPath={},preOk=started||O.PRE_TENT===2;
+    if(!preOk&&O.PRE_TENT===1){for(ri=committedUpTo+1;ri<rv.length&&!preOk;ri++){var rn=0,rc=0;
+      for(var k4=ri;k4<rv.length;k4++){var V4=rv[k4];if(!(V4.complete&&V4.r<=O.PRE_R)||(k4>ri&&V4.wi!==rv[k4-1].wi+1))break;rn++;rc+=U[wUnit[V4.wi]].forms[V4.f].length;}
+      if(rn>=O.PRE_RUN&&rc>=O.PRE_CHARS)preOk=true;}}
     for(ri=committedUpTo+1;preOk&&ri<rv.length;ri++){
       V=rv[ri];var rr=V.complete?V.r:(V.rPartial!=null?V.rPartial:V.r);
       if(V.wi>=cur&&rr<=O.R_TENT&&V.cov>=0.5&&!(holdI>=0&&V.wi>holdI)){onPath[V.wi]=1;if(words[V.wi].st==='pending')setSt(V.wi,'tentative');}
