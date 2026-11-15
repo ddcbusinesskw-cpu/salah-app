@@ -82,6 +82,10 @@
     <!-- Geolocation: prayer times + Qibla direction -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- AB-06: الموقع اختياري (يمكن إدخال المدينة يدوياً) — بلا هذا يستنتج المتجر android.hardware.location إلزامياً -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
 
     <!-- Camera: متابع الصلاة — وضع الكاميرا (getUserMedia، معالجة على الجهاز فقط) -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -89,6 +93,8 @@
 
     <!-- Microphone: tasmee (memorization test) speech recognition -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- AB-06: التسميع ميزة واحدة من التطبيق — لا نستبعد الأجهزة بلا ميكروفون (يستنتجه المتجر من RECORD_AUDIO) -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <!-- Proximity sensor: rakaat counter prox mode -->
     <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
@@ -98,7 +104,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- N37: الأذان منبّه يضبطه المستخدم لكل صلاة ويجب أن يرنّ في دقيقته — الوظيفة الأساسية للتطبيق.
          USE_EXACT_ALARM (أندرويد 13+) يتطلّب إقرار «Exact alarm» في Play Console (الفئة: Alarm). تذكير الذكر الساعي
-         لم يعد يوقظ الهاتف (native-bridge.js: بلا allowWhileIdle). إن رفضت Play الإقرار: البديل في N37.md (SCHEDULE_EXACT_ALARM) -->
+         لم يعد يوقظ الهاتف (native-bridge.js: بلا allowWhileIdle). إن رفضت Play الإقرار: الخطة ب في docs/N37_EXACT_ALARM_PLAN_B.md (SCHEDULE_EXACT_ALARM) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- دقة الأذان على أندرويد 12/12L (USE_EXACT_ALARM يبدأ من API 33) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />

@@ -51,9 +51,26 @@ android {
             }
         }
     }
+    // AB-missed: بلا CM_KEYSTORE_* كان signReleaseBundle يفشل بـ NullPointerException بلا رسالة.
+    // الآن: على خادم CI (CI=true) نفشل فوراً برسالة واضحة؛ محلياً نبني release غير موقّع مع تحذير
+    // (يُوقَّع يدوياً بـ zipalign ثم apksigner كما في BUILD_GUIDE.md، أو تُضبط المتغيرات الأربعة).
+    def _ksVars = ["CM_KEYSTORE_PATH", "CM_KEYSTORE_PASSWORD", "CM_KEY_ALIAS", "CM_KEY_PASSWORD"]
+    def _ksMissing = _ksVars.findAll { !System.getenv(it) }
+    def _ksPath = System.getenv("CM_KEYSTORE_PATH")
+    if (_ksPath && !file(_ksPath).exists()) _ksMissing += ["CM_KEYSTORE_PATH (file not found)"]
+    def _ksOk = _ksMissing.isEmpty()
+    if (!_ksOk) {
+        def _ksMsg = "Release signing disabled: missing " + _ksMissing.join(", ") + " — see BUILD_GUIDE.md («توقيع نسخة release محلياً»)."
+        gradle.taskGraph.whenReady { g ->
+            if (g.allTasks.any { it.name.toLowerCase().contains("release") }) {
+                if (System.getenv("CI")) throw new GradleException(_ksMsg)
+                logger.warn("WARNING: " + _ksMsg + " Building an UNSIGNED release.")
+            }
+        }
+    }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            signingConfig _ksOk ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
