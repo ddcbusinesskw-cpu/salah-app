@@ -63,7 +63,8 @@ final class AdhanScheduler {
     }
 
     private static boolean hasPerm(Context ctx, String p) {
-        try { return ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED; } catch (Exception e) { return false; }
+        /* AB-04: checkSelfPermission من API 23؛ قبلها الأذونات تُمنح عند التثبيت — checkPermission متاحة منذ API 1 */
+        try { return ctx.checkPermission(p, android.os.Process.myPid(), android.os.Process.myUid()) == PackageManager.PERMISSION_GRANTED; } catch (Exception e) { return false; }
     }
 
     static boolean canExact(Context ctx) {
@@ -161,7 +162,12 @@ final class AdhanScheduler {
             }
             return true;
         } catch (SecurityException e) {
-            try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it.at, pi); return true; } catch (Exception ignored) {}
+            /* AB-04: setAndAllowWhileIdle من API 23؛ على أندرويد ٥٫١ (لا Doze) يكفي set الموقظ */
+            try {
+                if (Build.VERSION.SDK_INT >= 23) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it.at, pi);
+                else am.set(AlarmManager.RTC_WAKEUP, it.at, pi);
+                return true;
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
         return false;
     }

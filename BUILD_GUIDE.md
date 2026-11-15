@@ -22,6 +22,26 @@ git checkout feat/capacitor-native   # أو main بعد الدمج
 npm install
 ```
 
+### ملف محرّك التسميع (sherpa-onnx AAR) — خطوة إلزامية قبل أي بناء محلي
+
+ملف `sherpa-onnx-1.13.8.aar` **غير محفوظ في المستودع** (`.gitignore` يستثني `*.aar`)، وخادم Codemagic
+يُنزّله في خطوة «Fetch sherpa-onnx AAR» قبل البناء. على جهازك يجب تنزيله يدوياً **مرة واحدة**،
+وإلا يفشل تجميع `QuranAsrPlugin.java` (لا يجد حزمة `com.k2fsa.sherpa.onnx`):
+
+```bash
+# من جذر المستودع — نفس الرابط والبصمة المثبَّتين في codemagic.yaml
+mkdir -p android/app/libs
+curl -fL --retry 3 -o android/app/libs/sherpa-onnx-1.13.8.aar.tmp \
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar
+# تحقّق من البصمة (على لينكس: sha256sum بدل shasum -a 256)
+shasum -a 256 android/app/libs/sherpa-onnx-1.13.8.aar.tmp
+# يجب أن تساوي: 633c24321e06b1fe79feafa03ea16cbc0f8a286641e2da3559bac91bdb13bd96
+mv android/app/libs/sherpa-onnx-1.13.8.aar.tmp android/app/libs/sherpa-onnx-1.13.8.aar
+```
+
+> إن غيّرت إصدار sherpa-onnx فغيّر الرابط والبصمة في `codemagic.yaml` وهنا معاً.
+> يلزم أيضاً NDK `26.1.10909125` و CMake `3.22.1` (لمكتبة whisper.cpp) — ثبّتهما من SDK Manager في Android Studio.
+
 ---
 
 ## ثانياً — بناء Android
@@ -47,6 +67,30 @@ npm run cap:android
 5. **Build Type: release** → Finish
 6. الملف الناتج: `android/app/release/app-release.aab`
 
+### توقيع نسخة release محلياً (متغيرات `CM_KEYSTORE_*`)
+
+`android/app/build.gradle` يقرأ مفتاح التوقيع **من متغيرات البيئة فقط** (التي يضبطها Codemagic تلقائياً):
+`CM_KEYSTORE_PATH` و `CM_KEYSTORE_PASSWORD` و `CM_KEY_ALIAS` و `CM_KEY_PASSWORD`.
+إن شغّلت بناء release محلياً **دون** ضبطها يفشل البناء برسالة غامضة — السبب ليس خللاً في الكود بل غياب المفتاح:
+- `./gradlew bundleRelease` يفشل في مهمة `:app:signReleaseBundle` برسالة `java.lang.NullPointerException (no error message)`.
+- `./gradlew assembleRelease` يفشل أيضاً في مهمة `:app:packageRelease` برسالة
+  `SigningConfig "release" is missing required property "storeFile"`، **ولا يُنتَج** أي ملف `app-release-unsigned.apk`
+  (لذلك خطوات التوقيع اليدوي في «الطريقة 2» أدناه لا تعمل حالياً دون ضبط المتغيرات).
+
+الحلول (اختر واحداً):
+- **للتجربة على الهاتف:** ابنِ نسخة debug بدل release: `./gradlew assembleDebug` (لا تحتاج مفتاحاً).
+- **لنسخة release موقّعة محلياً:** اضبط المتغيرات الأربعة في الطرفية نفسها قبل البناء (لا تحفظ كلمات المرور في ملفات المستودع):
+  ```bash
+  export CM_KEYSTORE_PATH=~/noor-release.jks
+  export CM_KEY_ALIAS=noor
+  read -rs -p "Keystore password: " CM_KEYSTORE_PASSWORD; echo; export CM_KEYSTORE_PASSWORD
+  read -rs -p "Key password: " CM_KEY_PASSWORD; echo; export CM_KEY_PASSWORD
+  ./gradlew bundleRelease
+  ```
+- **أو** استعمل معالج Android Studio (الطريقة 1) فهو يوقّع بنفسه.
+
+> يوجد مقترح (لم يُطبَّق بعد) بحارس في `build.gradle` لا يربط إعداد التوقيع إلا عند وجود هذه المتغيرات؛ بعد تطبيقه يُنتج `assembleRelease` ملف `app-release-unsigned.apk` يمكن توقيعه يدوياً بـ `zipalign` ثم `apksigner` كما في «الطريقة 2» (لا بـ `jarsigner`: انظر التنبيه هناك).
+
 ### الطريقة 2: سطر الأوامر
 
 ```bash
@@ -61,15 +105,29 @@ cd android
 ./gradlew assembleRelease
 ```
 
-**توقيع الـ APK يدوياً:**
-```bash
-jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-  -keystore ~/noor-release.jks \
-  app/build/outputs/apk/release/app-release-unsigned.apk noor
+> **تنبيه:** الأمران أعلاه يتطلبان ضبط متغيرات `CM_KEYSTORE_*` الأربعة أولاً (انظر القسم السابق «توقيع نسخة release محلياً»)،
+> وإلا يفشلان. وعند ضبطها يكون الناتج موقَّعاً مباشرة (`app-release.apk` / `app-release.aab`) فلا حاجة للخطوات التالية.
 
-zipalign -v 4 \
+**توقيع الـ APK يدوياً** (لا يصلح إلا بعد تطبيق مقترح الحارس `AB-missed` في `build.gradle`؛ بدونه لا يُنتَج `app-release-unsigned.apk`):
+
+> **مهم:** لا تستعمل `jarsigner`. التطبيق يستهدف `targetSdkVersion 36` (`android/variables.gradle`)، و`jarsigner` يكتب توقيع v1 (JAR) فقط؛
+> وAndroid 11 فما فوق يرفض تثبيت APK يستهدف SDK 30+ بتوقيع v1 وحده (`Targeting R+ (version 30 and above) requires the resulting APK to be signed with APK Signature Scheme v2 or higher` /
+> `INSTALL_PARSE_FAILED_NO_CERTIFICATES`). كما أن `zipalign` يجب أن يسبق التوقيع بـ `apksigner` (تشغيله بعد التوقيع يُبطل توقيع v2).
+> الأداتان `zipalign` و`apksigner` موجودتان في `$ANDROID_HOME/build-tools/<الإصدار>/`.
+
+```bash
+# 1) المحاذاة أولاً (‎-p تحاذي مكتبات .so غير المضغوطة على حدود الصفحة)
+zipalign -p -f 4 \
   app/build/outputs/apk/release/app-release-unsigned.apk \
-  app/build/outputs/apk/release/noor-release.apk
+  app/build/outputs/apk/release/aligned.apk
+
+# 2) ثم التوقيع بـ apksigner (يكتب توقيعات v1+v2+v3 تلقائياً؛ يسأل عن كلمة المرور تفاعلياً)
+apksigner sign --ks ~/noor-release.jks --ks-key-alias noor \
+  --out app/build/outputs/apk/release/noor-release.apk \
+  app/build/outputs/apk/release/aligned.apk
+
+# 3) تحقّق: يجب أن يظهر "Verified using v2 scheme (APK Signature Scheme v2): true"
+apksigner verify --verbose app/build/outputs/apk/release/noor-release.apk
 ```
 
 ### رفع على Google Play Store

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AB-07: أصوات الأذان تُحمَّل بالاسم (getIdentifier في AdhanPlayerService/AdhanPlugin، بقائمة AdhanLogic.isBundled)،
+     فلا يراها مقلِّص الموارد (shrinkResources) إن فُعِّل مستقبلاً فيحذفها ويصمت الأذان. يُحذف هذا الملف من الحزمة فقط عند تفعيل تقليص الموارد؛
+     ومع الإعداد الحالي (shrinkResources معطّل) يُحزَم كمورد raw عادي صغير (بضع مئات من البايتات) بلا أثر وظيفي. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/adhan_*,@raw/licenses_adhan" />

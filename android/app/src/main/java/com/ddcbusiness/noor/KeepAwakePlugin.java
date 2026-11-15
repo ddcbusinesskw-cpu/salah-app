@@ -3,6 +3,7 @@ package com.ddcbusiness.noor;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.WindowManager;
@@ -52,7 +53,8 @@ public class KeepAwakePlugin extends Plugin {
             String pkg = getContext().getPackageName();
             PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
             JSObject r = new JSObject();
-            if (pm != null && pm.isIgnoringBatteryOptimizations(pkg)) {
+            /* AB-04: تحسين البطارية (Doze) وقائمته في الإعدادات من API 23؛ قبلها لا قيود → مستثنى فعلياً */
+            if (Build.VERSION.SDK_INT < 23 || (pm != null && pm.isIgnoringBatteryOptimizations(pkg))) {
                 r.put("granted", true);
                 call.resolve(r);
                 return;
