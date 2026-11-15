@@ -89,7 +89,7 @@ npm run cap:android
   ```
 - **أو** استعمل معالج Android Studio (الطريقة 1) فهو يوقّع بنفسه.
 
-> يوجد مقترح (لم يُطبَّق بعد) بحارس في `build.gradle` لا يربط إعداد التوقيع إلا عند وجود هذه المتغيرات؛ بعد تطبيقه يُنتج `assembleRelease` ملف `app-release-unsigned.apk` يمكن توقيعه يدوياً بـ `zipalign` ثم `apksigner` كما في «الطريقة 2» (لا بـ `jarsigner`: انظر التنبيه هناك).
+> يوجد مقترح (لم يُطبَّق بعد، انظر `docs/BUILD_PROPOSALS_ar.md` بند AB-missed) بحارس في `build.gradle` لا يربط إعداد التوقيع إلا عند وجود هذه المتغيرات؛ بعد تطبيقه يُنتج `assembleRelease` ملف `app-release-unsigned.apk` يمكن توقيعه يدوياً بـ `zipalign` ثم `apksigner` كما في «الطريقة 2» (لا بـ `jarsigner`: انظر التنبيه هناك).
 
 ### الطريقة 2: سطر الأوامر
 
@@ -108,7 +108,7 @@ cd android
 > **تنبيه:** الأمران أعلاه يتطلبان ضبط متغيرات `CM_KEYSTORE_*` الأربعة أولاً (انظر القسم السابق «توقيع نسخة release محلياً»)،
 > وإلا يفشلان. وعند ضبطها يكون الناتج موقَّعاً مباشرة (`app-release.apk` / `app-release.aab`) فلا حاجة للخطوات التالية.
 
-**توقيع الـ APK يدوياً** (لا يصلح إلا بعد تطبيق مقترح الحارس `AB-missed` في `build.gradle`؛ بدونه لا يُنتَج `app-release-unsigned.apk`):
+**توقيع الـ APK يدوياً** (لا يصلح إلا بعد تطبيق مقترح الحارس `AB-missed` في `build.gradle` (`docs/BUILD_PROPOSALS_ar.md`)؛ بدونه لا يُنتَج `app-release-unsigned.apk`):
 
 > **مهم:** لا تستعمل `jarsigner`. التطبيق يستهدف `targetSdkVersion 36` (`android/variables.gradle`)، و`jarsigner` يكتب توقيع v1 (JAR) فقط؛
 > وAndroid 11 فما فوق يرفض تثبيت APK يستهدف SDK 30+ بتوقيع v1 وحده (`Targeting R+ (version 30 and above) requires the resulting APK to be signed with APK Signature Scheme v2 or higher` /
